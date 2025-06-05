@@ -8,7 +8,6 @@
 #include <float.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
 
 #include "SBScript.h"
 #include "hb.h"
@@ -70,7 +69,7 @@ static void skb__append_tags_from_table(hb_face_t* face, hb_tag_t table_tag, skb
 				continue;
 			skb__add_unique(scripts, sb_script);
 		}
-		
+
 		offset += tags_count;
 	}
 }
@@ -121,13 +120,13 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	skb_font_t* font = NULL;
 
 	skb__sb_tag_array_t scripts = {0};
-	
+
 //	skb_debug_log("Loading font: %s\n", path);
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);
 	if (!blob) goto error;
-		
+
 	face = hb_face_create(blob, 0);
 	hb_blob_destroy(blob);
 	if (!face) goto error;
@@ -145,7 +144,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	// If the tables did not define the scripts, fallback to checking the supported glyph ranges.
 	if (scripts.tags_count == 0)
 		skb__append_tags_from_unicodes(face, &scripts);
-	
+
 	hb_font_t* hb_font = hb_font_create(face);
 	hb_face_destroy(face);
 
@@ -153,7 +152,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	const float slant = hb_style_get_value(hb_font, HB_STYLE_TAG_SLANT_RATIO);
 	const float weight = hb_style_get_value(hb_font, HB_STYLE_TAG_WEIGHT);
 	const float width = hb_style_get_value(hb_font, HB_STYLE_TAG_WIDTH);
-	
+
 	if (!hb_font) goto error;
 
 	font = (skb_font_t*)skb_malloc(sizeof(skb_font_t));
@@ -173,7 +172,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	font->weight = (uint16_t)weight;
 
 	font->stretch = width / 100.f;
-	
+
 	// Save HB font
 	font->hb_font = hb_font;
 
@@ -189,7 +188,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	font->font_family = font_family;
 
-	// Leaving this debug log here, as it has been often needed. 
+	// Leaving this debug log here, as it has been often needed.
 //	for (uint32_t i = 0; i < font->scripts_count; i++)
 //		skb_debug_log(" - script: %c%c%c%c\n", HB_UNTAG(SBScriptGetOpenTypeTag(font->scripts[i])));
 
@@ -210,7 +209,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 error:
 	hb_face_destroy(face);
 	skb_free(scripts.tags);
-	
+
 	return NULL;
 }
 
@@ -226,12 +225,12 @@ static void skb__font_destroy(skb_font_t* font)
 skb_font_collection_t* skb_font_collection_create(void)
 {
 	static uint32_t id = 0;
-	
+
 	skb_font_collection_t* result = skb_malloc(sizeof(skb_font_collection_t));
 	memset(result, 0, sizeof(skb_font_collection_t));
 
 	result->id = ++id;
-	
+
 	return result;
 }
 
@@ -248,7 +247,7 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection)
 skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
 {
 	SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
-	
+
 	skb_font_t* font = skb__font_create(file_name, font_family);
 	if (font) {
 		assert(font_collection->fonts_count <= 255);
@@ -276,7 +275,7 @@ static bool skb__supports_script(const skb_font_t* font, uint8_t script)
 		if (font->scripts[script_idx] == script)
 			return true;
 	}
-	return false;	
+	return false;
 }
 
 int32_t skb_font_collection_match_fonts(
@@ -372,7 +371,7 @@ int32_t skb_font_collection_match_fonts(
 		if (candidates_count <= 1)
 			return candidates_count;
 	}
-	
+
 	// Style
 	if (multiple_styles) {
 		int32_t normal_count = 0;
@@ -411,7 +410,7 @@ int32_t skb_font_collection_match_fonts(
 			else if (italic_count > 0)
 				selected_style = SKB_FONT_STYLE_ITALIC;
 		}
-		
+
 		// Prune out everything but the selected style.
 		current_candidates_count = candidates_count;
 		candidates_count = 0;
@@ -497,7 +496,9 @@ int32_t skb_font_collection_match_fonts(
 skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family)
 {
 	skb_font_t* results[64];
-	int32_t results_count = skb_font_collection_match_fonts(font_collection, SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL, 400, results, SKB_COUNTOF(results));
+	int32_t results_count = skb_font_collection_match_fonts(
+		font_collection, SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL,
+		400, (const skb_font_t**)&results, SKB_COUNTOF( results ) );
 	return results_count > 0 ? results[0] : NULL;
 }
 
@@ -511,7 +512,7 @@ skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_colle
 uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection)
 {
 	assert(font_collection);
-	return font_collection->id;	
+	return font_collection->id;
 }
 
 skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id, float font_size)
@@ -525,7 +526,7 @@ skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id,
 		const float y = -(float)extents.y_bearing * scale;
 		const float width = (float)extents.width * scale;
 		const float height = -(float)extents.height * scale;
-		
+
 		return (skb_rect2_t) {
 			.x = x,
 			.y = y,
@@ -565,7 +566,7 @@ float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, boo
 
 	const float alphabetic_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, is_rtl, hb_script);
 	float baseline_value = 0.f;
-	
+
 	switch (baseline) {
 	case SKB_BASELINE_ALPHABETIC:
 		baseline_value = alphabetic_value;

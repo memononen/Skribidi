@@ -23,5 +23,8 @@ Thumbs.db
 ## Build dir
 build/*
 
+## Cache dir
+/.cache/*
+
 ## xcode specific
 *xcuserdata*

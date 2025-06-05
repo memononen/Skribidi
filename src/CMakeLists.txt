@@ -21,7 +21,6 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/Tehreer/SheenBidi.git
 #	GIT_TAG c44eb1163c0aac67544862b4fef8d1d3c747f1f0 # v2.8
 	GIT_TAG a876ac5491ed052d1da5ee841e265a4f1f4ae5a5 # develop
-	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(sheenbidi)
@@ -146,7 +145,7 @@ set_target_properties(skribidi PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
-#target_link_libraries(skribidi PUBLIC harfbuzz sheenbidi libunibreak budouxc)
+target_link_libraries(skribidi PUBLIC m)
 target_link_libraries(skribidi PRIVATE harfbuzz sheenbidi libunibreak budouxc)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${SKRIBIDI_SOURCE_FILES})
