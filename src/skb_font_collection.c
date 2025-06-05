@@ -156,7 +156,8 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	font->upem = (int)upem;
 	font->upem_scale = 1.f / (float)upem;
-	font->is_color = has_paint || has_layers;
+	if (has_paint || has_layers)
+		font->flags |= SKB_FONT_IS_COLOR;
 
 	if (italic > 0.1f)
 		font->style = SKB_FONT_STYLE_ITALIC;

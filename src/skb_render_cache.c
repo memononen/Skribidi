@@ -1088,8 +1088,16 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * scale;
 	quad.scale = scale * pixel_scale;
 	quad.image_idx = cached_glyph->texture_idx;
-	quad.is_color = cached_glyph->is_color;
-	quad.is_sdf = cached_glyph->is_sdf;
+	if (cached_glyph->is_color) {
+		quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
+	} else {
+		quad.flags &= ~SKB_RENDER_QUAD_IS_COLOR;
+	}
+	if (cached_glyph->is_sdf) {
+		quad.flags |= SKB_RENDER_QUAD_IS_SDF;
+	} else {
+		quad.flags &= ~SKB_RENDER_QUAD_IS_SDF;
+	}
 
 	return quad;
 }
@@ -1212,8 +1220,12 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	quad.geom_bounds.height = (float)(cached_icon->height - inset*2) * render_scale_y;
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.image_idx = cached_icon->texture_idx;
-	quad.is_color = 1;
-	quad.is_sdf = cached_icon->is_sdf;
+	quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
+	if (cached_icon->is_sdf) {
+		quad.flags |= SKB_RENDER_QUAD_IS_SDF;
+	} else {
+		quad.flags &= ~SKB_RENDER_QUAD_IS_SDF;
+	}
 
 	return quad;
 }
@@ -1258,7 +1270,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 			// Remove from LRU
 			skb_list_remove(&cache->glyphs_lru, glyph_idx, skb__get_glyph, cache);
 
-			if (cache->config.debug_clear_removed) {
+			if ((cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED)) {
 				const skb_rect2i_t dirty = {
 					.x = cached_glyph->atlas_offset_x,
 					.y = cached_glyph->atlas_offset_y,
@@ -1305,7 +1317,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 			// Remove from LRU
 			skb_list_remove(&cache->icons_lru, icon_idx, skb__get_icon, cache);
 
-			if (cache->config.debug_clear_removed) {
+			if ((cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED)) {
 				const skb_rect2i_t dirty = {
 					.x = cached_icon->atlas_offset_x,
 					.y = cached_icon->atlas_offset_y,
