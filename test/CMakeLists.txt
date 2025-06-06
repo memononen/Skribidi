@@ -30,3 +30,5 @@ target_include_directories(skribidi_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(skribidi_test PRIVATE skribidi)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "" FILES ${SKRIBIDI_TEST_FILES})
+
+add_dependencies(skribidi_test data_target)
