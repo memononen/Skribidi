@@ -28,3 +28,6 @@ build/*
 
 ## xcode specific
 *xcuserdata*
+
+## Project generated files #
+compile_commands.json

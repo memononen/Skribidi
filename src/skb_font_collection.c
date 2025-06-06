@@ -12,9 +12,17 @@
 #include "hb.h"
 #include "hb-ot.h"
 
+#if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+#endif
+
 static SBScript skb__ot_tag_to_sb_script(uint32_t ot_tag)
 {
-	// Note: Ideally we would use hb_ot_tag_to_script() and SBScriptGetUnicodeTag() but htey disagree on Hiragana.
+	// Note: Ideally we would use hb_ot_tag_to_script() and SBScriptGetUnicodeTag() but they disagree on Hiragana.
 
 	// Reverse lookup is a bit limited, so we brute force.
 	static const uint8_t sb_last_script_index = 0xab;
