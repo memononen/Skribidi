@@ -9,7 +9,6 @@
 #include "skb_font_collection_internal.h"
 
 #include "hb.h"
-#include "hb-ot.h"
 #include "SheenBidi/SheenBidi.h"
 #include "graphemebreak.h"
 #include "linebreak.h"
@@ -819,7 +818,7 @@ static void skb__create_shaping_spans(skb__layout_build_context_t* build_context
 
 
 typedef struct skb__script_run_iter {
-	const skb_text_property_t* text_attribs;
+	const skb_text_property_t* text_props;
 	int32_t pos;
 	int32_t end;
 } skb__script_run_iter;
@@ -827,7 +826,7 @@ typedef struct skb__script_run_iter {
 static skb__script_run_iter skb__script_run_iter_make(skb_range_t range, const skb_text_property_t* text_attribs)
 {
 	skb__script_run_iter iter = {
-		.text_attribs = text_attribs,
+		.text_props = text_attribs,
 		.pos = range.start,
 		.end = range.end,
 	};
@@ -842,10 +841,10 @@ static bool skb__script_run_iter_next(skb__script_run_iter* iter, skb_range_t* r
 	run_range->start = iter->pos;
 
 	// Find continuous script range.
-	uint8_t prev_script = iter->text_attribs[iter->pos].script;
+	uint8_t prev_script = iter->text_props[iter->pos].script;
 	while (iter->pos < iter->end) {
 		iter->pos++;
-		const uint8_t script = iter->pos < iter->end ? iter->text_attribs[iter->pos].script : 0;
+		const uint8_t script = iter->pos < iter->end ? iter->text_props[iter->pos].script : 0;
 		if (prev_script != script)
 			break;
 		prev_script = script;
@@ -947,14 +946,13 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	else if (layout->params.base_direction == SKB_DIR_LTR)
 		base_level = 0;
 
-	SBCodepointSequence codepoint_seq = { SBStringEncodingUTF32, layout->text, layout->text_count };
-	SBAlgorithmRef bidi_algorithm = SBAlgorithmCreate(&codepoint_seq);
-	SBScriptLocatorRef script_locator = SBScriptLocatorCreate();
-
 	// Create array of style spans that affect the text shaping.
 	skb__create_shaping_spans(build_context, layout);
 
+	SBCodepointSequence codepoint_seq = { SBStringEncodingUTF32, layout->text, layout->text_count };
+
 	// Resolve scripts for codepoints.
+	SBScriptLocatorRef script_locator = SBScriptLocatorCreate();
 	SBScriptLocatorLoadCodepoints(script_locator, &codepoint_seq);
 	while (SBScriptLocatorMoveNext(script_locator)) {
 		const SBScriptAgent* agent = SBScriptLocatorGetAgent(script_locator);
@@ -963,6 +961,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		for (int32_t i = run_start; i < run_end; i++)
 			layout->text_props[i].script = agent->script;
 	}
+	SBScriptLocatorRelease(script_locator);
 
 	// Special case, the text starts with common script, look forward to find the first non-implicit script.
 	if (layout->text_count && layout->text_props[0].script == SB_SCRIPT_COMMON) {
@@ -988,6 +987,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	build_context->emoji_types_buffer = SKB_TEMP_ALLOC(build_context->temp_alloc, uint8_t, layout->text_count);
 
 	// Iterate over the text until we have processed all paragraphs.
+	SBAlgorithmRef bidi_algorithm = SBAlgorithmCreate(&codepoint_seq);
 	int32_t paragraph_start = 0;
 	while (paragraph_start < layout->text_count) {
 		const SBParagraphRef bidi_paragraph = SBAlgorithmCreateParagraph(bidi_algorithm, paragraph_start, INT32_MAX, base_level);
@@ -1063,7 +1063,6 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	}
 
 	SBAlgorithmRelease(bidi_algorithm);
-	SBScriptLocatorReset(script_locator);
 
 #if 0
 	// The unicode bidi algorithm assigns the space after opposite direction run to the outer level.

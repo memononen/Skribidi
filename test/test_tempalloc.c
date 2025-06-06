@@ -127,6 +127,8 @@ static int test_alloc_reuse(void)
 	ENSURE(num_used_blocks(a) == 1);
 	ENSURE(num_free_blocks(a) == 2);
 
+	skb_temp_alloc_destroy(a);
+
 	return 0;
 }
 
@@ -149,6 +151,8 @@ static int test_alloc_reset(void)
 
 	ENSURE(num_used_blocks(a) == 3);
 	ENSURE(num_free_blocks(a) == 0);
+
+	skb_temp_alloc_destroy(a);
 
 	return 0;
 }
@@ -173,6 +177,8 @@ static int test_alloc_mark(void)
 
 	uint8_t* ptr5 = skb_temp_alloc_alloc(a, 20); // block 2
 	ENSURE(num_free_blocks(a) == 0);
+
+	skb_temp_alloc_destroy(a);
 
 	return 0;
 }

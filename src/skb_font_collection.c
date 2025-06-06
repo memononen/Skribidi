@@ -12,40 +12,9 @@
 #include "hb.h"
 #include "hb-ot.h"
 
-#if defined(__GNUC__) || defined(__clang__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-    #pragma warning(push)
-    #pragma warning(disable: 4996)
-#endif
-
-static SBScript skb__ot_tag_to_sb_script(uint32_t ot_tag)
-{
-	// Note: Ideally we would use hb_ot_tag_to_script() and SBScriptGetUnicodeTag() but they disagree on Hiragana.
-
-	// Reverse lookup is a bit limited, so we brute force.
-	static const uint8_t sb_last_script_index = 0xab;
-	for (uint8_t sb_script = SBScriptZZZZ; sb_script < sb_last_script_index; sb_script++) {
-		const uint32_t script_tag = SBScriptGetOpenTypeTag(sb_script);
-		if (script_tag == ot_tag)
-			return sb_script;
-	}
-	return SBScriptZZZZ; // unknown
-}
-
 //
 // Fonts
 //
-
-static bool skb__contains_tag(uint8_t* tags, int32_t count, uint8_t tag)
-{
-	for (int32_t i = count-1; i >= 0; i--) {
-		if (tags[i] == tag)
-			return true;
-	}
-	return false;
-}
 
 typedef struct skb__sb_tag_array_t {
 	uint8_t* tags;
@@ -53,14 +22,40 @@ typedef struct skb__sb_tag_array_t {
 	int32_t tags_cap;
 } skb__sb_tag_array_t;
 
-static void skb__add_unique(skb__sb_tag_array_t* script_tags, uint8_t tag)
+
+static void skb__add_unique(skb__sb_tag_array_t* script_tags, uint8_t sb_script)
 {
 	for (int32_t i = 0; i < script_tags->tags_count; i++) {
-		if (script_tags->tags[i] == tag)
-			return;
+		if (script_tags->tags[i] == sb_script)
+			continue;
 	}
 	SKB_ARRAY_RESERVE(script_tags->tags, script_tags->tags_count+1);
-	script_tags->tags[script_tags->tags_count++] = tag;
+	script_tags->tags[script_tags->tags_count++] = sb_script;
+}
+
+static void skb__add_unique_script_from_ot_tag(skb__sb_tag_array_t* script_tags, uint32_t ot_script_tag)
+{
+	// TODO: we could make a lookup table and binary search based on ot_script_tag, instead of going through the hoops each time.
+
+	// Brute force over all SBScripts
+	static const uint8_t sb_last_script_index = 0xab; // This is highest SBScript value.
+	for (uint8_t sb_script = 0; sb_script < sb_last_script_index; sb_script++) {
+		// SBScript -> ISO-15924
+		uint32_t unicode_tag = SBScriptGetUnicodeTag(sb_script);
+		// ISO-15924 -> hb_script_t
+		hb_script_t hb_script = hb_script_from_iso15924_tag(unicode_tag);
+		// hb_script_t -> all possible Opentype scripts
+		hb_tag_t ot_script_tags[2];
+		unsigned int ot_script_tags_count = 2;
+		hb_ot_tags_from_script_and_language(hb_script, NULL, &ot_script_tags_count, ot_script_tags, NULL, NULL);
+		for (unsigned int i = 0; i < ot_script_tags_count; i++) {
+			if (ot_script_tags[i] == ot_script_tag) {
+				// Found match, store the matching SBScript.
+				skb__add_unique(script_tags, sb_script);
+				break;
+			}
+		}
+	}
 }
 
 static void skb__append_tags_from_table(hb_face_t* face, hb_tag_t table_tag, skb__sb_tag_array_t* scripts)
@@ -72,12 +67,8 @@ static void skb__append_tags_from_table(hb_face_t* face, hb_tag_t table_tag, skb
 		tags_count = 32;
 		tags_count = hb_ot_layout_table_get_script_tags(face, table_tag, offset, &tags_count, tags);
 
-		for (uint32_t i = 0; i < tags_count; i++) {
-			uint8_t sb_script = skb__ot_tag_to_sb_script(tags[i]);
-			if (sb_script == SBScriptZZZZ)
-				continue;
-			skb__add_unique(scripts, sb_script);
-		}
+		for (uint32_t i = 0; i < tags_count; i++)
+			skb__add_unique_script_from_ot_tag(scripts, tags[i]);
 
 		offset += tags_count;
 	}
@@ -109,12 +100,8 @@ static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t*
 			uint32_t ot_scripts_count = 4;
 			hb_ot_tags_from_script_and_language (unicode_scripts[j], HB_LANGUAGE_INVALID, &ot_scripts_count, ot_scripts, NULL, NULL);
 
-			for (uint32_t i = 0; i < ot_scripts_count; i++) {
-				uint8_t sb_script = skb__ot_tag_to_sb_script(ot_scripts[i]);
-				if (sb_script == SBScriptZZZZ)
-					continue;
-				skb__add_unique(scripts, sb_script);
-			}
+			for (uint32_t i = 0; i < ot_scripts_count; i++)
+				skb__add_unique_script_from_ot_tag(scripts, ot_scripts[i]);
 		}
 	}
 
@@ -565,6 +552,16 @@ hb_font_t* skb_font_get_hb_font(const skb_font_t* font)
 	assert(font);
 	return font->hb_font;
 }
+
+// SBScriptGetOpenTypeTag is being marked as deprecated and project is being compiled with -Werror
+// We will disable the warning for the moment
+#if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+#endif
 
 float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, bool is_rtl, uint8_t script, float font_size)
 {
