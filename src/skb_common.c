@@ -198,7 +198,7 @@ skb_temp_alloc_stats_t skb_temp_alloc_stats(skb_temp_alloc_t* alloc)
 
 void skb_temp_alloc_reset(skb_temp_alloc_t* alloc)
 {
-	if (!alloc) return;
+	assert(alloc);
 
 	// Move used blocks to freelist
 	skb_temp_alloc_block_t* block = alloc->block_list;
