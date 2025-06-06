@@ -19,12 +19,12 @@ typedef struct hb_font_t hb_font_t;
  *
  * Fonts are arranged in families using an identifier. There are some common identifiers in skb_font_family_t.
  * They are merely suggestions, except SKB_FONT_FAMILY_EMOJI which is automatically assigned to runs of emoji glyphs.
- * 
+ *
  * SKB_FONT_FAMILY_DEFAULT is zero, so it will match if text attributes is zero initialized without specifying font family.
  *
  * Fonts can be added using skb_font_collection_add_font(). Under the hood it uses Harfbuzz's memory mapped
  * file API, so even if fonts are loaded, they should not take much space until used.
- * 
+ *
  * @{
  */
 
@@ -159,27 +159,27 @@ int32_t skb_font_collection_match_fonts(
  * @param font_family font family to query.
  * @return pointer to the default font.
  */
-skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family);
+const skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family);
 
 /**
  * Returns font at specified index from the collection.
  * @param font_collection font collection to use.
  * @param font_idx index of the font in the collection.
- * @return 
+ * @return
  */
 skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, uint8_t font_idx);
 
 /**
  * Returns the id of the fonc collection, each font collection has unique index.
  * @param font_collection font collection to use.
- * @return 
+ * @return
  */
 uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection);
 
 /**
  * Returns the bounding rect of the specified glyph.
  * @param font font to use.
- * @param glyph_id id of the glyph to query. 
+ * @param glyph_id id of the glyph to query.
  * @param font_size size of the font.
  * @return rectangle descriging the bounding rect of the glyph.
  */
