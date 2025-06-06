@@ -553,16 +553,6 @@ hb_font_t* skb_font_get_hb_font(const skb_font_t* font)
 	return font->hb_font;
 }
 
-// SBScriptGetOpenTypeTag is being marked as deprecated and project is being compiled with -Werror
-// We will disable the warning for the moment
-#if defined(__GNUC__) || defined(__clang__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-    #pragma warning(push)
-    #pragma warning(disable: 4996)
-#endif
-
 float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, bool is_rtl, uint8_t script, float font_size)
 {
 	hb_ot_layout_baseline_tag_t baseline_tag = {0};
