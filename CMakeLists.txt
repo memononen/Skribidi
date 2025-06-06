@@ -95,7 +95,7 @@ if(PROJECT_IS_TOP_LEVEL)
 		endif()
 
 		if(APPLE)
-			set_target_properties(samples PROPERTIES
+			set_target_properties(skribidi_example PROPERTIES
 				XCODE_GENERATE_SCHEME TRUE
 				XCODE_SCHEME_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 		endif()
