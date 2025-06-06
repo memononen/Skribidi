@@ -9,6 +9,29 @@ project(skribidi
 	LANGUAGES C
 )
 
+option(ENABLE_ASAN "Enable Address Sanitizer flags" OFF)
+
+if(ENABLE_ASAN)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      message(STATUS "Enabling Address Sanitizer (-fsanitize=address) for Debug/Clang build")
+
+      set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+      set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
+
+      set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+      set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address")
+
+    else()
+      message(STATUS "ENABLE_ASAN is ON, but compiler is not Clang (${CMAKE_C_COMPILER_ID}/${CMAKE_CXX_COMPILER_ID}). ASan not enabled.")
+    endif()
+  else()
+    message(STATUS "ENABLE_ASAN is ON, but build type is not Debug (${CMAKE_BUILD_TYPE}). ASan not enabled.")
+  endif()
+else()
+  message(STATUS "ENABLE_ASAN is OFF. ASan not enabled.")
+endif()
+
 # stuff to help debug cmake
 # message(STATUS "cmake tool chain: ${CMAKE_TOOLCHAIN_FILE}")
 # message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
@@ -77,7 +100,7 @@ if(PROJECT_IS_TOP_LEVEL)
 				XCODE_SCHEME_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 		endif()
 	endif()
-	
+
 	if(SKRIBIDI_UNIT_TESTS)
 		add_subdirectory(test)
 		set_property(TARGET skribidi_test PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test")
