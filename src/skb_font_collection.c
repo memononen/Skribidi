@@ -109,22 +109,11 @@ static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t*
 }
 
 
-static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
+static skb_font_t* skb__font_create_from_face(hb_face_t* face, const char* name, uint8_t font_family)
 {
-	hb_blob_t* blob = NULL;
-	hb_face_t* face = NULL;
 	skb_font_t* font = NULL;
-
 	skb__sb_tag_array_t scripts = {0};
 
-	skb_debug_log("Loading font: %s\n", path);
-
-	// Use Harfbuzz to load the font data, it uses mmap when possible.
-	blob = hb_blob_create_from_file(path);
-	if (blob == hb_blob_get_empty()) goto error;
-
-	face = hb_face_create(blob, 0);
-	hb_blob_destroy(blob);
 	if (!face) goto error;
 
 	// Get how many points per EM, used to scale font size.
@@ -142,7 +131,6 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 		skb__append_tags_from_unicodes(face, &scripts);
 
 	hb_font_t* hb_font = hb_font_create(face);
-	hb_face_destroy(face);
 
 	const float italic = hb_style_get_value(hb_font, HB_STYLE_TAG_ITALIC);
 	const float slant = hb_style_get_value(hb_font, HB_STYLE_TAG_SLANT_RATIO);
@@ -173,9 +161,9 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	font->hb_font = hb_font;
 
 	// Store name
-	size_t path_len = strlen(path);
-	font->name = skb_malloc(path_len+1);
-	memcpy(font->name, path, path_len+1); // copy null term.
+	size_t name_len = strlen(name);
+	font->name = skb_malloc(name_len+1);
+	memcpy(font->name, name, name_len+1); // copy null term.
 	font->name_hash = skb_hash64_append_str(skb_hash64_empty(), font->name);
 
 	// Store supported scripts
@@ -203,9 +191,60 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	return font;
 
 error:
-	hb_face_destroy(face);
 	skb_free(scripts.tags);
 
+	return NULL;
+}
+
+static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
+{
+	hb_blob_t* blob = NULL;
+	hb_face_t* face = NULL;
+	skb_font_t* font = NULL;
+	
+	skb_debug_log("Loading font: %s\n", path);
+
+	// Use Harfbuzz to load the font data, it uses mmap when possible.
+	blob = hb_blob_create_from_file(path);
+	if (!blob) goto error;
+		
+	face = hb_face_create(blob, 0);
+	hb_blob_destroy(blob);
+	if (!face) goto error;
+	
+	font = skb__font_create_from_face(face, path, font_family);
+	hb_face_destroy(face);
+	return font;
+
+error:
+	hb_blob_destroy(blob);
+	hb_face_destroy(face);
+	return NULL;
+}
+
+static skb_font_t* skb__font_create_from_data(const void* font_data, size_t data_length, const char* name, uint8_t font_family)
+{
+	hb_blob_t* blob = NULL;
+	hb_face_t* face = NULL;
+	skb_font_t* font = NULL;
+
+	skb_debug_log("Loading font from data: %s\n", name);
+
+	// Use Harfbuzz to create blob from memory data with read-only mode
+	blob = hb_blob_create((const char*)font_data, (unsigned int)data_length, HB_MEMORY_MODE_READONLY, NULL, NULL);
+	if (!blob) goto error;
+		
+	face = hb_face_create(blob, 0);
+	hb_blob_destroy(blob);
+	if (!face) goto error;
+	
+	font = skb__font_create_from_face(face, name, font_family);
+	hb_face_destroy(face);
+	return font;
+
+error:
+	hb_blob_destroy(blob);
+	hb_face_destroy(face);
 	return NULL;
 }
 
@@ -245,6 +284,19 @@ skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection,
 	SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
 
 	skb_font_t* font = skb__font_create(file_name, font_family);
+	if (font) {
+		assert(font_collection->fonts_count <= 255);
+		font->idx = (uint8_t)font_collection->fonts_count;
+		font_collection->fonts[font_collection->fonts_count++] = font;
+	}
+	return font;
+}
+
+skb_font_t* skb_font_collection_add_font_from_data(skb_font_collection_t* font_collection, const void* font_data, size_t data_length, const char* name, uint8_t font_family)
+{
+	SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
+	
+	skb_font_t* font = skb__font_create_from_data(font_data, data_length, name, font_family);
 	if (font) {
 		assert(font_collection->fonts_count <= 255);
 		font->idx = (uint8_t)font_collection->fonts_count;
