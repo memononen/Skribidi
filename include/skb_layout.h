@@ -29,14 +29,14 @@ typedef const struct hb_language_impl_t *hb_language_t;
  * Layout represents the text internally as utf-32 (codepoints) to avoid extra layer of offset translations.
  * Functions and structs that describe text position have the offset as utf-32. If it is needed to
  * convert back to utf-8, use skb_utf8_codepoint_offset().
- * 
+ *
  * @{
  */
 
 /** Enum describing horizontal alignment of a line of the text. */
 typedef enum {
 	/** Align to the language specific start. Left for LTR and right for RTL. */
-	SKB_ALIGN_START = 0, 
+	SKB_ALIGN_START = 0,
 	/** Align to the language specific end. Right for LTR and left for RTL. */
 	SKB_ALIGN_END,
 	/** Center align the lines. */
@@ -456,7 +456,7 @@ int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position
  * Returns true if the text position is within right-to-left text run.
  * @param layout layout to use
  * @param pos position within the text.
- * @return true of the text position is whitin right-to-left text. 
+ * @return true of the text position is whitin right-to-left text.
  */
 bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_position_t pos);
 
@@ -482,7 +482,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 
 /**
  * Returns text position under the hit location.
- * First or last line is tested if the hit location is outside the vertical bounds. 
+ * First or last line is tested if the hit location is outside the vertical bounds.
  * Start or end of the line is returned if the hit location is outside the horizontal bounds.
  * @param layout layout to use.
  * @param type type of interaction
@@ -579,10 +579,10 @@ typedef struct skb_caret_iterator_t {
 
 	int32_t grapheme_pos;
 	int32_t grapheme_end;
-	
+
 	uint8_t end_of_glyph;
 	uint8_t end_of_line;
-	
+
 	int32_t line_first_grapheme_offset;
 	int32_t line_last_grapheme_offset;
 	uint8_t line_is_rtl;
@@ -613,11 +613,11 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_text_position_t* left, bool* left_is_rtl, skb_text_position_t* right, bool* right_is_rtl);
 
 /**
- * Returns four letter OpenType tag of the specified script.
+ * Returns four letter ISO 15924 script tag of the specified script.
  * @param script scrip to covert.
  * @return four letter tag.
  */
-uint32_t skb_script_to_ot_tag(uint8_t script);
+uint32_t skb_script_to_iso15924_tag(uint8_t script);
 
 /** @} */
 

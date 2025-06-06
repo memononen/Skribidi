@@ -6,16 +6,17 @@
 
 #include <assert.h>
 #include <float.h>
-#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
-#include "SBScript.h"
+#include "SheenBidi/SBScript.h"
 #include "hb.h"
 #include "hb-ot.h"
 
 static SBScript skb__ot_tag_to_sb_script(uint32_t ot_tag)
 {
+	// Note: Ideally we would use hb_ot_tag_to_script() and SBScriptGetUnicodeTag() but htey disagree on Hiragana.
+
 	// Reverse lookup is a bit limited, so we brute force.
 	static const uint8_t sb_last_script_index = 0xab;
 	for (uint8_t sb_script = SBScriptZZZZ; sb_script < sb_last_script_index; sb_script++) {
@@ -122,7 +123,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	skb__sb_tag_array_t scripts = {0};
 
-//	skb_debug_log("Loading font: %s\n", path);
+	skb_debug_log("Loading font: %s\n", path);
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);

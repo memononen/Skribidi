@@ -10,7 +10,7 @@
 
 #include "hb.h"
 #include "hb-ot.h"
-#include "SheenBidi.h"
+#include "SheenBidi/SheenBidi.h"
 #include "graphemebreak.h"
 #include "linebreak.h"
 #include "wordbreak.h"
@@ -90,28 +90,13 @@ uint64_t skb_layout_attribs_hash_append(uint64_t hash, const skb_text_attribs_t*
 
 static hb_script_t skb__sb_script_to_hb(SBScript script)
 {
-	// TODO: this is not 100% correct, there's 3 types, all almost the same: Unicode script property, ISO-15924, OpenType script tag.
-	// HB uses ISO-15924, SB uses Unicode script property.
-	if (script ==  SB_SCRIPT_COMMON)
-		return HB_SCRIPT_COMMON;
-	if (script == SB_SCRIPT_INHERITED)
-		return HB_SCRIPT_INHERITED;
-	if (script == SB_SCRIPT_UNKNOWN)
-		return HB_SCRIPT_UNKNOWN;
-	const SBUInt32 script_tag = SBScriptGetOpenTypeTag(script);
-	return hb_ot_tag_to_script(script_tag);
+	const SBUInt32 script_tag = SBScriptGetUnicodeTag(script);
+	return hb_script_from_iso15924_tag(script_tag);
 }
 
-uint32_t skb_script_to_ot_tag(uint8_t script)
+uint32_t skb_script_to_iso15924_tag(uint8_t script)
 {
-	if (script ==  SB_SCRIPT_COMMON)
-		return HB_TAG('z','y','y','y');
-	if (script == SB_SCRIPT_INHERITED)
-		return HB_TAG('z','i','n','h');
-	if (script == SB_SCRIPT_UNKNOWN)
-		return HB_TAG('z','z','z','z');
-	const SBUInt32 script_tag = SBScriptGetOpenTypeTag(script);
-	return script_tag;
+	return SBScriptGetUnicodeTag(script);
 }
 
 static bool skb__is_japanese_script(uint8_t script)
