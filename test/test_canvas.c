@@ -23,8 +23,8 @@ static int test_init(void)
 	ENSURE(canvas != NULL);
 
 	skb_canvas_destroy(canvas);
-
 	skb_free(image.buffer);
+	skb_temp_alloc_destroy(temp_alloc);
 
 	return 0;
 }

@@ -87,6 +87,8 @@ static int test_remove(void)
 		ENSURE(!h1_exists);
 	}
 
+	skb_hash_table_destroy(ht);
+
 	return 0;
 }
 

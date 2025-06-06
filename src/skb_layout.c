@@ -947,14 +947,13 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	else if (layout->params.base_direction == SKB_DIR_LTR)
 		base_level = 0;
 
-	SBCodepointSequence codepoint_seq = { SBStringEncodingUTF32, layout->text, layout->text_count };
-	SBAlgorithmRef bidi_algorithm = SBAlgorithmCreate(&codepoint_seq);
-	SBScriptLocatorRef script_locator = SBScriptLocatorCreate();
-
 	// Create array of style spans that affect the text shaping.
 	skb__create_shaping_spans(build_context, layout);
 
+	SBCodepointSequence codepoint_seq = { SBStringEncodingUTF32, layout->text, layout->text_count };
+
 	// Resolve scripts for codepoints.
+	SBScriptLocatorRef script_locator = SBScriptLocatorCreate();
 	SBScriptLocatorLoadCodepoints(script_locator, &codepoint_seq);
 	while (SBScriptLocatorMoveNext(script_locator)) {
 		const SBScriptAgent* agent = SBScriptLocatorGetAgent(script_locator);
@@ -963,6 +962,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		for (int32_t i = run_start; i < run_end; i++)
 			layout->text_props[i].script = agent->script;
 	}
+	SBScriptLocatorRelease(script_locator);
 
 	// Special case, the text starts with common script, look forward to find the first non-implicit script.
 	if (layout->text_count && layout->text_props[0].script == SB_SCRIPT_COMMON) {
@@ -988,6 +988,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	build_context->emoji_types_buffer = SKB_TEMP_ALLOC(build_context->temp_alloc, uint8_t, layout->text_count);
 
 	// Iterate over the text until we have processed all paragraphs.
+	SBAlgorithmRef bidi_algorithm = SBAlgorithmCreate(&codepoint_seq);
 	int32_t paragraph_start = 0;
 	while (paragraph_start < layout->text_count) {
 		const SBParagraphRef bidi_paragraph = SBAlgorithmCreateParagraph(bidi_algorithm, paragraph_start, INT32_MAX, base_level);
@@ -1063,7 +1064,6 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 	}
 
 	SBAlgorithmRelease(bidi_algorithm);
-	SBScriptLocatorReset(script_locator);
 
 #if 0
 	// The unicode bidi algorithm assigns the space after opposite direction run to the outer level.
