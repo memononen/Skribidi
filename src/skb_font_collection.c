@@ -556,8 +556,8 @@ float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, boo
 {
 	hb_ot_layout_baseline_tag_t baseline_tag = {0};
 
-	uint32_t ot_tag = SBScriptGetOpenTypeTag(script);
-	hb_script_t hb_script = hb_ot_tag_to_script(ot_tag);
+	uint32_t unicode_tag = SBScriptGetUnicodeTag(script);
+	hb_script_t hb_script = hb_script_from_iso15924_tag(unicode_tag);
 
 	const float alphabetic_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, is_rtl, hb_script);
 	float baseline_value = 0.f;
