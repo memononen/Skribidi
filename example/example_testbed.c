@@ -650,7 +650,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		bool prev_is_emoji = false;
 		uint8_t prev_script = 0;
-		skb_font_t* font = NULL;
+		const skb_font_t* font = NULL;
 
 		int32_t caret_insert_idx = skb_input_get_text_offset_at(ctx->input, edit_selection.end_pos);
 
@@ -723,7 +723,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					const uint8_t script = text_props[cp_idx].script;
 					const bool is_emoji = text_props[cp_idx].is_emoji;
 					if (!font || script != prev_script || is_emoji != prev_is_emoji) {
-						if (skb_font_collection_match_fonts(ctx->font_collection, script, is_emoji, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, (const skb_font_t**)&font, 1) == 0)
+						if (skb_font_collection_match_fonts(ctx->font_collection, script, is_emoji, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font, 1) == 0)
 							font = NULL;
 						prev_script = script;
 						prev_is_emoji = is_emoji;
