@@ -188,9 +188,11 @@ static void skb__shape_run(
 	const skb__shaping_attribute_span_t* shaping_span,
 	hb_buffer_t* buffer,
 	const skb_font_t** fonts,
-	int32_t fonts_cap,
+	int32_t fonts_count,
 	int32_t font_idx)
 {
+	assert(fonts_count > 0);
+
 	const skb_font_t* font = fonts[font_idx];
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
@@ -261,7 +263,7 @@ static void skb__shape_run(
 			}
 
 			// Try next matching font if available.
-			if (font_idx+1 < fonts_cap) {
+			if (font_idx+1 < fonts_count) {
 				hb_buffer_t* fallback_buffer = hb_buffer_create();
 
 				skb__shaping_run_t fallback_run = {
@@ -271,7 +273,7 @@ static void skb__shape_run(
 					.is_emoji = run->is_emoji,
 					.script = run->script,
 				};
-				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_cap, font_idx+1);
+				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_count, font_idx+1);
 
 				hb_buffer_destroy(fallback_buffer);
 				i = glyph_end + 1;
@@ -1248,6 +1250,15 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 			layout->params.font_collection, run->script, font_family,
 			shaping_span->style, shaping_span->font_stretch, shaping_span->font_weight,
 			fonts, SKB_COUNTOF(fonts));
+
+		if (fonts_count == 0) {
+			// If not fonts found, try the font family's default font.
+			fonts[0] = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
+			// If still not found, there's nothing we can do, so continue to next run.
+			if (!fonts[0])
+				continue;
+			fonts_count++;
+		}
 
 		hb_buffer_clear_contents(buffer);
 		skb__shape_run(&build_context, layout, run, shaping_span, buffer, fonts, fonts_count, 0);
