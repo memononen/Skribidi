@@ -41,7 +41,7 @@ and [budouxc](https://github.com/memononen/budouxc) for East Asian word boundary
 All permissively licensed and quite lean dependencies.
 
 ## Status
-Skribidi just got started. There are bugs and the API is very likely to change. 
+Skribidi just got started. There are bugs and the API is very likely to change.
 
 ## Building
 - Install [CMake](https://cmake.org/)
@@ -49,11 +49,13 @@ Skribidi just got started. There are bugs and the API is very likely to change.
 - `mkdir build`
 - `cd build`
 - `cmake ..`
-- Open and build `build/skribidi.sln`
+- On Windows: Open and build `build/skribidi.sln`
+  On Linux: use `cmake --build . -j$(nproc)`
+  On macOS: use `cmake --build . -j$(sysctl -n hw.ncpu)`
 
 The project uses CMake, but you dont need to. If you handle dependecies yourself you can just add the
 `include` and `src` to your project and you're good to go. The CMake is used to fetch the right deps
-and to build the examples and tests, making development simpler. 
+and to build the examples and tests, making development simpler.
 
 ## License
 Skribidi is developed by Mikko Mononen and uses the [MIT license](https://en.wikipedia.org/wiki/MIT_License).
