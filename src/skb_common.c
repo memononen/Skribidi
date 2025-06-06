@@ -5,8 +5,11 @@
 #include "skb_common_internal.h"
 
 #include <assert.h>
-#include <stdio.h>
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "emoji_data.h"
 
@@ -37,6 +40,30 @@ int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end)
 	if (g_freq.QuadPart == 0)
 		QueryPerformanceFrequency(&g_freq);
 	return (end - start) * 1000000 / g_freq.QuadPart; // us
+}
+
+#elif defined(SKB_PLATFORM_POSIX)
+
+#include <time.h> // For clock_gettime
+
+void skb_debug_log(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, format, args);
+	va_end(args);
+}
+
+int64_t skg_perf_timer_get(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
+int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end)
+{
+	return (end - start) / 1000;
 }
 
 #else
@@ -139,6 +166,8 @@ skb_temp_alloc_t* skb_temp_alloc_create(int32_t default_block_size)
 
 void skb_temp_alloc_destroy(skb_temp_alloc_t* alloc)
 {
+	if (!alloc) return;
+
 	skb_temp_alloc_reset(alloc);
 	skb_temp_alloc_block_t* block = alloc->free_list;
 	while (block) {
@@ -169,6 +198,8 @@ skb_temp_alloc_stats_t skb_temp_alloc_stats(skb_temp_alloc_t* alloc)
 
 void skb_temp_alloc_reset(skb_temp_alloc_t* alloc)
 {
+	assert(alloc);
+
 	// Move used blocks to freelist
 	skb_temp_alloc_block_t* block = alloc->block_list;
 	while (block) {

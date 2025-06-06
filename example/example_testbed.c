@@ -650,7 +650,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		bool prev_is_emoji = false;
 		uint8_t prev_script = 0;
-		skb_font_t* font = NULL;
+		const skb_font_t* font = NULL;
 
 		int32_t caret_insert_idx = skb_input_get_text_offset_at(ctx->input, edit_selection.end_pos);
 

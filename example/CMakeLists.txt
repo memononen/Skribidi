@@ -43,3 +43,30 @@ target_include_directories(skribidi_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} 
 target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
+
+# Create a symbolic link to the data folder at build time, with copy fallback for Windows
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    add_custom_command(
+        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/data
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
+        COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
+    )
+else()
+    add_custom_command(
+        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+                ${CMAKE_CURRENT_SOURCE_DIR}/data
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
+        COMMENT "Creating symlink to data folder in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
+    )
+endif()
+
+add_custom_target(data_target ALL
+    DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+)
+
+add_dependencies(skribidi_example data_target)

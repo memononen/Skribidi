@@ -145,6 +145,7 @@ set_target_properties(skribidi PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
+target_link_libraries(skribidi PUBLIC m)
 target_link_libraries(skribidi PRIVATE harfbuzz SheenBidi libunibreak budouxc)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${SKRIBIDI_SOURCE_FILES})

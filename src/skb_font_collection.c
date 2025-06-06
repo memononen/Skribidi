@@ -7,7 +7,6 @@
 #include <assert.h>
 #include <float.h>
 #include <string.h>
-#include <windows.h>
 
 #include "SheenBidi/SBScript.h"
 #include "hb.h"
@@ -122,7 +121,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);
-	if (!blob) goto error;
+	if (blob == hb_blob_get_empty()) goto error;
 
 	face = hb_face_create(blob, 0);
 	hb_blob_destroy(blob);
@@ -490,10 +489,12 @@ int32_t skb_font_collection_match_fonts(
 	return candidates_count;
 }
 
-skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family)
+const skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family)
 {
-	skb_font_t* results[64];
-	int32_t results_count = skb_font_collection_match_fonts(font_collection, SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL, 400, results, SKB_COUNTOF(results));
+	const skb_font_t* results[64];
+	int32_t results_count = skb_font_collection_match_fonts(
+		font_collection, SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL,
+		400, results, SKB_COUNTOF( results ) );
 	return results_count > 0 ? results[0] : NULL;
 }
 

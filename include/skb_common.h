@@ -5,6 +5,7 @@
 #define SKB_COMMON_H
 
 #include <assert.h>
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
@@ -29,7 +30,7 @@ void skb_debug_log(const char* format, ...);
 #define SKB_UNUSED(x) (void)(x)
 
 /** Max 32bit floating point number */
-#define SKB_FLT_MAX (3.402823466e+38f) 
+#define SKB_FLT_MAX (3.402823466e+38f)
 
 /** Math constant PI */
 #define SKB_PI (3.14159265f)
@@ -263,9 +264,9 @@ static inline skb_color_t skb_color_average(skb_color_t a, skb_color_t b)
 	au = (au >> 1) & 0x7f7f7f7f;
 	bu = (bu >> 1) & 0x7f7f7f7f;
 	acc = (acc >> 1) & 0x7f7f7f7f;
-	
+
 	const uint32_t r = au + bu + acc;
-	
+
 	return *(const skb_color_t*)&r;
 }
 
@@ -447,7 +448,7 @@ static inline skb_mat2_t skb_mat2_make_rotation(float a)
 
 static inline skb_mat2_t skb_mat2_multiply(skb_mat2_t t, skb_mat2_t s)
 {
-	return (skb_mat2_t) { 
+	return (skb_mat2_t) {
 		.xx = t.xx * s.xx + t.yx * s.xy,
 		.yx = t.xx * s.yx + t.yx * s.yy,
 		.xy = t.xy * s.xx + t.yy * s.xy,
@@ -597,7 +598,7 @@ static inline bool skb_rect2i_is_empty(const skb_rect2i_t r)
  * @{
  */
 
-/** @returns hash for empty content, can be used to initialize a hash value which will be conditionally appended to. */ 
+/** @returns hash for empty content, can be used to initialize a hash value which will be conditionally appended to. */
 static inline uint64_t skb_hash64_empty(void)
 {
 	return 0xcbf29ce484222325;
@@ -727,7 +728,7 @@ skb_temp_alloc_mark_t skb_temp_alloc_save(skb_temp_alloc_t* alloc);
 void skb_temp_alloc_restore(skb_temp_alloc_t* alloc, skb_temp_alloc_mark_t mark);
 
 /**
- * Allocates a requested size of memory. The returned memory is aligned to SKB_TEMPALLOC_ALIGN. 
+ * Allocates a requested size of memory. The returned memory is aligned to SKB_TEMPALLOC_ALIGN.
  * @param alloc allocator to allocate from.
  * @param size size of the allocation in bytes.
  * @return pointer to the allocated memory.
@@ -776,7 +777,7 @@ void skb_temp_alloc_free(skb_temp_alloc_t* alloc, void* ptr);
 	(type*)skb_temp_alloc_realloc(temp_alloc, ptr, (int32_t)sizeof(type)*(count))
 /**
  * Helper macro to free array of items allocated with temp allocator.
- * @param temp_alloc pointer to the temp allocator to use. 
+ * @param temp_alloc pointer to the temp allocator to use.
  * @param ptr pointer to the array to free.
  */
 #define SKB_TEMP_FREE(temp_alloc, ptr) \
@@ -828,7 +829,7 @@ void skb_hash_table_destroy(skb_hash_table_t* ht);
  * Adds 'value' with key 'hash' into the hash table.
  * If item with same hash exists, the value is updated and function returns true.
  * @param ht hash table where to add the item.
- * @param hash unique hash representing the data. 
+ * @param hash unique hash representing the data.
  * @param value data to place in the cache.
  * @return true if 'hash' already exists in the table.
  */
@@ -847,7 +848,7 @@ bool skb_hash_table_find(skb_hash_table_t* ht, uint64_t hash, int32_t* value);
  * Removes item from the hash table associated with 'hash'.
  * @param ht cache where the data is removed from.
  * @param hash hash associated with the data to remove.
- * @return true if data was removed. 
+ * @return true if data was removed.
  */
 bool skb_hash_table_remove(skb_hash_table_t* ht, uint64_t hash);
 
@@ -859,13 +860,13 @@ bool skb_hash_table_remove(skb_hash_table_t* ht, uint64_t hash);
  * Doubly linked non-intrusive list. Uses indices as pointers to the backing store.
  * The list is meant to be used with an array, which stores all the items.
  * Can be used for example for LRU cache's latest list, where the list items are sotred in an array, whose address might change due to reallocation.
- * 
+ *
  * ```
  *	struct foo_t {
  *		const char* filename;
  *		skb_list_item_t link;
  *	}
- *	
+ *
  *  struct foo_array_t {
  *		foo_t* foos;
  *		int32_t foos_count;
@@ -927,12 +928,12 @@ static inline skb_list_item_t skb_list_item_make(void)
 static inline void skb_list_remove(skb_list_t* list, int32_t item_idx, skb_list_get_item_t* get_item, void* context)
 {
 	skb_list_item_t* item = get_item(item_idx, context);
-	
+
 	if (item->prev != SKB_INVALID_INDEX)
 		get_item(item->prev, context)->next = item->next;
 	else if (list->head == item_idx)
 		list->head = item->next;
-				
+
 	if (item->next != SKB_INVALID_INDEX)
 		get_item(item->next, context)->prev = item->prev;
 	else if (list->tail == item_idx)
@@ -957,7 +958,7 @@ static inline void skb_list_move_to_front(skb_list_t* list, int32_t item_idx, sk
 
 	item->next = list->head;
 	list->head = item_idx;
-	
+
 	if (item->next != SKB_INVALID_INDEX)
 		get_item(item->next, context)->prev = item_idx;
 	else
@@ -1042,8 +1043,8 @@ skb_emoji_run_iterator_t skb_emoji_run_iterator_make(skb_range_t range, const ui
  *	}
  * ```
  * @param iter pointer to the iterator to advance.
- * @param range (out) range of the text analyzed 
- * @param range_has_emojis (out) true of the output range has emojis  
+ * @param range (out) range of the text analyzed
+ * @param range_has_emojis (out) true of the output range has emojis
  * @return true if there are more ranges to come.
  */
 bool skb_emoji_run_iterator_next(skb_emoji_run_iterator_t* iter, skb_range_t* range, bool* range_has_emojis);
@@ -1053,7 +1054,7 @@ bool skb_emoji_run_iterator_next(skb_emoji_run_iterator_t* iter, skb_range_t* ra
  * Does not zero terminate.
  * You can use this function (with null result buffer) or skb_utf8_to_utf32_count() to calculate the size of the result buffer.
  * @param utf8 pointer to a utf-8 to convert.
- * @param utf8_len length of the utf-8 string. 
+ * @param utf8_len length of the utf-8 string.
  * @param utf32 pointer to the result utf-32 string (can be null).
  * @param utf32_cap capacity of the result utf-32 string.
  * @return total number of codeunits in the utf-32 string.
@@ -1063,7 +1064,7 @@ int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, uint32_t* utf32, i
 /**
  * Counts number of utf-32 codeunits in an utf-8 string.
  * @param utf8 pointer to a string in utf-8 encoding.
- * @param utf8_len length of the utf-8 string. 
+ * @param utf8_len length of the utf-8 string.
  * @return total number of codepoints (equals to utf-32 code units) in the inputs string.
  */
 int32_t skb_utf8_to_utf32_count(const char* utf8, int32_t utf8_len);
@@ -1082,7 +1083,7 @@ int32_t skb_utf8_num_units(uint32_t cp);
 
 /**
  * Encodes a codepoint to utf-8 string (max 4 utf-8 code units).
- * @param cp codepoint to encode 
+ * @param cp codepoint to encode
  * @param utf8 pointer to the result string
  * @param utf8_cap capacity of the utf-8 string.
  * @return number of code units in the result string.
@@ -1134,5 +1135,13 @@ int64_t skg_perf_timer_get(void);
 int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end);
 
 /** @} */
+
+#if defined( linux ) || defined( __linux__ ) || defined( __FreeBSD__ ) ||                       \
+	defined( __OpenBSD__ ) || defined( __NetBSD__ ) || defined( __DragonFly__ ) ||              \
+	defined( __SVR4 ) || defined( __sun ) || defined( __APPLE_CC__ ) || defined( __APPLE__ ) || \
+	defined( __HAIKU__ ) || defined( __BEOS__ ) || defined( __emscripten__ ) ||                 \
+	defined( EMSCRIPTEN )
+#define SKB_PLATFORM_POSIX
+#endif
 
 #endif // SKB_COMMON_H
