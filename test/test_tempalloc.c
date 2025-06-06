@@ -14,7 +14,7 @@ static int test_alloc(void)
 	ENSURE(ptr);
 	ENSURE(a->block_list != NULL);
 	ENSURE(a->block_list->offset > 0);
-	
+
 	skb_temp_alloc_free(a, ptr);
 
 	// Expect block to be returned to free blocks.
@@ -22,7 +22,7 @@ static int test_alloc(void)
 	ENSURE(a->free_list != NULL);
 
 	skb_temp_alloc_destroy(a);
-	
+
 	return 0;
 }
 
@@ -35,7 +35,7 @@ static int test_alloc_large_block(void)
 	ENSURE(ptr);
 	ENSURE(a->block_list != NULL);
 	ENSURE(a->block_list->cap >= 256);
-	
+
 	skb_temp_alloc_free(a, ptr);
 
 	// This should not fit into the existing free block.
@@ -43,9 +43,9 @@ static int test_alloc_large_block(void)
 	ENSURE(a->block_list != NULL);
 	ENSURE(a->block_list->cap >= 512);
 	ENSURE(a->free_list != NULL);
-	
+
 	skb_temp_alloc_destroy(a);
-	
+
 	return 0;
 }
 
@@ -62,7 +62,7 @@ static int test_alloc_free_order(void)
 		skb_temp_alloc_free(a, ptr2);
 		skb_temp_alloc_free(a, ptr1);
 		skb_temp_alloc_free(a, ptr0);
-		
+
 		ENSURE(a->block_list == NULL);
 		ENSURE(a->free_list != NULL);
 	}
@@ -75,16 +75,16 @@ static int test_alloc_free_order(void)
 
 		// Should have reused all the blocks
 		ENSURE(a->free_list == NULL);
-		
+
 		skb_temp_alloc_free(a, ptr2);
 		skb_temp_alloc_free(a, ptr0);	// This is out of order and cannot be rolled back.
 		skb_temp_alloc_free(a, ptr1);
-		
+
 		ENSURE(a->block_list != NULL);
 	}
 
 	skb_temp_alloc_destroy(a);
-	
+
 	return 0;
 }
 
@@ -126,7 +126,7 @@ static int test_alloc_reuse(void)
 
 	ENSURE(num_used_blocks(a) == 1);
 	ENSURE(num_free_blocks(a) == 2);
-	
+
 	return 0;
 }
 
@@ -149,7 +149,7 @@ static int test_alloc_reset(void)
 
 	ENSURE(num_used_blocks(a) == 3);
 	ENSURE(num_free_blocks(a) == 0);
-	
+
 	return 0;
 }
 
@@ -161,7 +161,7 @@ static int test_alloc_mark(void)
 	uint8_t* ptr1 = skb_temp_alloc_alloc(a, 4); // block 1
 
 	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(a);
-	
+
 	uint8_t* ptr2 = skb_temp_alloc_alloc(a, 4); // block 1
 	uint8_t* ptr3 = skb_temp_alloc_alloc(a, 20); // block 2
 
@@ -173,7 +173,7 @@ static int test_alloc_mark(void)
 
 	uint8_t* ptr5 = skb_temp_alloc_alloc(a, 20); // block 2
 	ENSURE(num_free_blocks(a) == 0);
-	
+
 	return 0;
 }
 
@@ -185,6 +185,6 @@ int tempalloc_tests(void)
 	RUN_SUBTEST(test_alloc_reuse);
 	RUN_SUBTEST(test_alloc_reset);
 	RUN_SUBTEST(test_alloc_mark);
-	
-	return 0;	
+
+	return 0;
 }

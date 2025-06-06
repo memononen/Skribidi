@@ -92,10 +92,10 @@ skb_mat2_t skb_mat2_inverse(skb_mat2_t t)
 	const double det = (double)t.xx * t.yy - (double)t.xy * t.yx;
 	if (det > -1e-6 && det < 1e-6)
 		return skb_mat2_make_identity();
-	
+
 	const double inv_det = 1. / det;
 	skb_mat2_t r;
-	
+
 	r.xx = (float)(t.yy * inv_det);
 	r.xy = (float)(-t.xy * inv_det);
 	r.dx = (float)(((double)t.xy * t.dy - (double)t.yy * t.dx) * inv_det);
@@ -117,7 +117,7 @@ static skb_temp_alloc_block_t* skb_temp_alloc_create_page_(int32_t req_size)
 {
 	int32_t alloc_size = skb_align((int32_t)sizeof(skb_temp_alloc_block_t), SKB_TEMPALLOC_ALIGN) + skb_align(req_size, SKB_TEMPALLOC_ALIGN);
 	uint8_t* memory = skb_malloc(alloc_size); // TODO: align?
-	
+
 	skb_temp_alloc_block_t* block = (skb_temp_alloc_block_t*)memory;
 	block->memory = memory + skb_align(sizeof(skb_temp_alloc_block_t), SKB_TEMPALLOC_ALIGN);
 	block->cap = req_size;
@@ -148,7 +148,7 @@ void skb_temp_alloc_destroy(skb_temp_alloc_t* alloc)
 	}
 
 	memset(alloc, 0, sizeof(*alloc));
-	
+
 	skb_free(alloc);
 }
 
@@ -181,7 +181,7 @@ void skb_temp_alloc_reset(skb_temp_alloc_t* alloc)
 		// Advance to next block
 		block = next_block;
 	}
-	alloc->block_list = NULL;	
+	alloc->block_list = NULL;
 }
 
 skb_temp_alloc_mark_t skb_temp_alloc_save(skb_temp_alloc_t* alloc)
@@ -224,7 +224,7 @@ void* skb_temp_alloc_alloc(skb_temp_alloc_t* alloc, int32_t size)
 {
 	skb_temp_alloc_block_t* cur_block = alloc->block_list;
 	int32_t offset = cur_block ? skb_align(cur_block->offset + SKB_TEMPALLOC_HEADER_SIZE, SKB_TEMPALLOC_ALIGN) : 0;
-	
+
 	if (!cur_block || (offset + size) > cur_block->cap) {
 		// Not enough space for the allocation, try to find a fitting block from freelist, or allocate new.
 		const int32_t req_size = skb_align(SKB_TEMPALLOC_HEADER_SIZE, SKB_TEMPALLOC_ALIGN) + size;
@@ -256,15 +256,15 @@ void* skb_temp_alloc_alloc(skb_temp_alloc_t* alloc, int32_t size)
 
 		// Increment block number.
 		cur_block->num = alloc->block_list ? alloc->block_list->num + 1 : 0;
-		
+
 		// Insert the block to active block list
 		cur_block->next = alloc->block_list;
 		alloc->block_list = cur_block;
-		
+
 		offset = skb_align(cur_block->offset + SKB_TEMPALLOC_HEADER_SIZE, SKB_TEMPALLOC_ALIGN);
 		assert((offset + size) <= cur_block->cap);
 	}
-	
+
 	skb_temp_alloc_header_t* header = (skb_temp_alloc_header_t*)&cur_block->memory[offset - SKB_TEMPALLOC_HEADER_SIZE];
 	header->restore_offset = cur_block->offset;
 	header->top_offset = offset + size;
@@ -302,7 +302,7 @@ static bool skb_allocator_owns_ptr_(skb_temp_alloc_t* alloc, void* ptr)
 void* skb_temp_alloc_realloc(skb_temp_alloc_t* alloc, void* ptr, int32_t new_size)
 {
 	assert(new_size > 0);
-	
+
 	if (!ptr || !alloc->block_list)
 		return skb_temp_alloc_alloc(alloc, new_size);
 
@@ -324,7 +324,7 @@ void* skb_temp_alloc_realloc(skb_temp_alloc_t* alloc, void* ptr, int32_t new_siz
 		// Check that the allocation is the last one (offset at the time is same as current offset).
 		if (header->top_offset == cur_block->offset) {
 			const int32_t change = new_size - old_size;
-			// Check that the new size fits into the block. 
+			// Check that the new size fits into the block.
 			if ((header->top_offset + change) < cur_block->cap) {
 				header->top_offset += change;
 				cur_block->offset = header->top_offset;
@@ -342,7 +342,7 @@ void* skb_temp_alloc_realloc(skb_temp_alloc_t* alloc, void* ptr, int32_t new_siz
 
 	// Rollback the old alloc if it was the last block in the current active block.
 	skb_try_rollback_last_alloc_(old_block, ptr);
-	
+
 	return mem;
 }
 
@@ -357,7 +357,7 @@ void skb_temp_alloc_free(skb_temp_alloc_t* alloc, void* ptr)
 	skb_temp_alloc_block_t* cur_block = alloc->block_list;
 	skb_try_rollback_last_alloc_(cur_block, ptr);
 
-	// If the rollback was successful and the block got empty, return it to the freelist. 
+	// If the rollback was successful and the block got empty, return it to the freelist.
 	if (cur_block->offset == 0) {
 		// Set the next block as head.
 		alloc->block_list = cur_block->next;
@@ -393,7 +393,7 @@ bool skb_hash_table_find(skb_hash_table_t* ht, uint64_t hash, int32_t* value)
 {
 	if (!ht->buckets)
 		return false;
-	
+
 	const int32_t hash_index = (int32_t)(hash & (uint64_t)(ht->bucket_count - 1));
 	int32_t index = ht->buckets[hash_index];
 	while (index != SKB_INVALID_INDEX) {
@@ -405,7 +405,7 @@ bool skb_hash_table_find(skb_hash_table_t* ht, uint64_t hash, int32_t* value)
 		}
 		index = item->next;
 	}
-	
+
 	return false;
 }
 
@@ -459,7 +459,7 @@ bool skb_hash_table_add(skb_hash_table_t* ht, uint64_t hash, int32_t value)
 				}
 			}
 		}
-		
+
 		item_index = ht->items_count;
 		ht->items_count++;
 	}
@@ -492,7 +492,7 @@ bool skb_hash_table_remove(skb_hash_table_t* ht, uint64_t hash)
 	}
 	if (index == SKB_INVALID_INDEX)
 		return false;
-	
+
 	// Found, remove from the linked list.
 	skb_hashtable_item_t* item = &ht->items[index];
 	if (prev_index == SKB_INVALID_INDEX)
@@ -626,7 +626,7 @@ static uint8_t skb__emoji_segmentation_category(uint32_t codepoint)
 		default:
 			break;
 	}
-	
+
 	if ((codepoint >= 0xE0030 && codepoint <= 0xE0039) ||
 		(codepoint >= 0xE0061 && codepoint <= 0xE007A))
 		return TAG_SEQUENCE;
@@ -657,7 +657,7 @@ typedef const uint8_t* emoji_text_iter_t;
 skb_emoji_run_iterator_t skb_emoji_run_iterator_make(skb_range_t range, const uint32_t* text, uint8_t* emoji_category_buffer)
 {
 	const int32_t range_count = range.end - range.start;
-	
+
 	skb_emoji_run_iterator_t iter = {
 		.offset = range.start,
 		.count = range_count,
@@ -667,7 +667,7 @@ skb_emoji_run_iterator_t skb_emoji_run_iterator_make(skb_range_t range, const ui
 	// Parse categories
 	for (int32_t i = 0; i < range_count; i++)
 		iter.emoji_category[i] = skb__emoji_segmentation_category(text[range.start + i]);
-	
+
 	// Parse first item
 	iter.pos = 0;
 	iter.start = 0;
@@ -676,7 +676,7 @@ skb_emoji_run_iterator_t skb_emoji_run_iterator_make(skb_range_t range, const ui
 	const uint8_t* next = scan_emoji_presentation(iter.emoji_category + iter.pos, iter.emoji_category + iter.count, &is_emoji, &has_vs);
 	iter.pos = (int32_t)(next - iter.emoji_category);
 	iter.has_emoji = is_emoji;
-	
+
 	return iter;
 }
 
@@ -851,7 +851,7 @@ int32_t skb_utf32_to_utf8(const uint32_t* utf32, int32_t utf32_len, char* utf8, 
 			count += skb_utf8_num_units(utf32[idx]);
 		idx++;
 	}
-	
+
 	return count;
 }
 
@@ -864,7 +864,7 @@ int32_t skb_utf32_to_utf8_count(const uint32_t* utf32, int32_t utf32_len)
 		count += skb_utf8_num_units(utf32[idx]);
 		idx++;
 	}
-	
+
 	return count;
 }
 

@@ -24,7 +24,7 @@
 
 typedef struct testbed_context_t {
 	example_t base;
-	
+
 	skb_font_collection_t* font_collection;
 	skb_temp_alloc_t* temp_alloc;
 	skb_render_cache_t* render_cache;
@@ -40,7 +40,7 @@ typedef struct testbed_context_t {
 	float atlas_scale;
 	bool show_glyph_details;
 	bool show_caret_details;
-	
+
 } testbed_context_t;
 
 
@@ -82,7 +82,7 @@ void* testbed_create(void)
 	ctx->atlas_scale = 0.0f;
 	ctx->show_glyph_details = false;
 	ctx->show_caret_details = true;
-	
+
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
 
@@ -108,13 +108,13 @@ void* testbed_create(void)
 //	const char* bidiText = "\uE0B0\u2588Öy";
 //	const char* bidiText = "एक गांव -- में मोहन नाम का लड़का रहता था। उसके पिताजी एक मामूली मजदूर थे";
 //	const char* bidiText = "ᬓ ᬓᬸ ᬓᭀ ᬓᬿ";
-	
+
 //	const char* bidiText = "ᬓᭀ ᬓᬿ ہے۔ kofi یہ ایک";
-	
+
 //	const char* bidiText = "ᬓᭀ ᬓᬿ ہے۔ [kofi] یہ ایک";
 
 //	const char* bidiText = "ᬓᭀ ᬓᬿ (ہے۔) [kofi] (یہ ایک)";
-	
+
 //	const char* bidiText = "ہے۔ kofi یہ ایک"; // rlt line
 //	const char* bidiText = "asd ہے۔ kofi یہ ایک";
 //	const char* bidiText = "سلام در حال تست";
@@ -122,18 +122,18 @@ void* testbed_create(void)
 //	const char* bidiText = "123سلام در حال تست";
 
 //	const char* bidiText = "123.456";
-	
+
 //	const char* bidiText = "١١رس"; // arabic numerals
 
 //	const char* bidiText = "såppa";
-	
+
 //	const char* bidiText = "لا"; // ligature
 //	const char* bidiText = "این یک تست است"; // this is a test
 
 //	const char* bidiText = "ltr این یک تست است"; // this is a test
 
 //	const char* bidiText = "aa این یک تست\nاست"; // this is a test
-	
+
 //	const char* bidiText = "ہے۔ kofi یہ ایک";
 //	const char* bidiText = "私はその人を常に先生と 呼んでいた。";
 //	const char* bidiText = "วันนี้อากาศดี";
@@ -145,9 +145,9 @@ void* testbed_create(void)
 //	const char* bidiText = "این یک 😬👀🚨 تست است"; // this is a test
 
 //	const char* bidiText = "い😍";
-	
+
 //	const char* bidiText = "🤦🏼‍♂️ Ä था ᬓᬿ";
-	
+
 //	const char* bidiText = "A, B, C, kissa kävelee, tikapuita pitkin taivaaseen.";
 
 //	const char* bidiText = "\nsorsa juo \r\n\r\nkaf  fia\n";
@@ -162,7 +162,7 @@ void* testbed_create(void)
 
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
-	
+
 	skb_input_params_t edit_params = {
 		.layout_params = {
 			.lang = "zh-hans",
@@ -189,7 +189,7 @@ void* testbed_create(void)
 	assert(ctx->renderer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f };
-	
+
 	return ctx;
 
 error:
@@ -201,7 +201,7 @@ void testbed_destroy(void* ctx_ptr)
 {
 	testbed_context_t* ctx = ctx_ptr;
 	assert(ctx);
-	
+
 	skb_input_destroy(ctx->input);
 	skb_font_collection_destroy(ctx->font_collection);
 
@@ -210,7 +210,7 @@ void testbed_destroy(void* ctx_ptr)
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(testbed_context_t));
-	
+
 	skb_free(ctx);
 }
 
@@ -288,7 +288,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		if (key == GLFW_KEY_ENTER)
 			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
 
-		
+
 		if (key == GLFW_KEY_F8) {
 			ctx->show_caret_details = !ctx->show_caret_details;
 		}
@@ -379,7 +379,7 @@ typedef struct draw_selection_context_t {
 static void draw_selection_rect(skb_rect2_t rect, void* context)
 {
 	draw_selection_context_t* ctx = (draw_selection_context_t*)context;
-	draw_filled_rect(ctx->x + rect.x, ctx->y + rect.y, rect.width, rect.height, ctx->color);					
+	draw_filled_rect(ctx->x + rect.x, ctx->y + rect.y, rect.width, rect.height, ctx->color);
 }
 
 void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
@@ -429,12 +429,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	{
 		float ox = ctx->view.cx;
 		float oy = ctx->view.cy;
-		
+
 		// line break boundaries
 		const float line_break_width = skb_input_get_params(ctx->input)->layout_params.line_break_width;
 		draw_dashed_line(ox, oy-50, ox, oy+layout_height+50, 6, ink_color_trans);
 		draw_dashed_line(ox+line_break_width, oy+50, ox+line_break_width, oy+layout_height+50, 6, ink_color_trans);
-		
+
 		if (skb_input_get_selection_count(ctx->input, edit_selection) > 0) {
 			draw_selection_context_t sel_ctx = { .x = ox, .y = oy, .color = sel_color };
 			skb_input_get_selection_bounds(ctx->input, edit_selection, draw_selection_rect, &sel_ctx);
@@ -448,21 +448,21 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
 			const skb_text_attribs_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
 			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
-			
+
 			for (int li = 0; li < lines_count; li++) {
 				const skb_layout_line_t* line = &lines[li];
 
 				float rox = ox + line->bounds.x;
 				float roy = oy + edit_layout_y + line->bounds.y;
-			
+
 				float top_y = roy;
 				float bot_y = roy - line->ascender + line->descender;
 				float baseline_y = roy - line->ascender;
-	
+
 				// Line info
 				draw_line(rox - 25, baseline_y,rox,baseline_y, ink_color);
 				draw_text(rox - 12, baseline_y - 4,12,0.5, ink_color, "L%d", li);
-				
+
 				if (line->is_rtl)
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "< RTL");
 				else
@@ -498,7 +498,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							run_bounds = skb_rect2_union(run_bounds, skb_rect2_translate(bounds, skb_vec2_make(gx,gy)));
 					}
 
-					// Glyph image 
+					// Glyph image
 					skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
 						skb_roundf(gx), skb_roundf(gy), 1.f, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, quad.is_color ? skb_rgba(255,255,255,255) : ink_color,
@@ -512,7 +512,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							// Glyph run bounds
 							if ((next_gi - run_start_glyph_idx) > 1 && !skb_rect2_is_empty(run_bounds))
 								draw_rect(run_bounds.x - 4.f, run_bounds.y - 4.f, run_bounds.width + 8.f, run_bounds.height + 8.f, ink_color_trans);
-											
+
 							// Logical id
 							float run_end_x = pen_x;
 							draw_rect(run_start_x + 2.f + 0.5f, bot_y + 0.5f - 18, (run_end_x - run_start_x) - 4.f,  18.f, log_color);
@@ -541,12 +541,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					skb_text_position_t right = {0};
 					bool right_is_rtl = false;
 
-					
+
 					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
-						
+
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
-		
+
 						if (left_is_rtl != right_is_rtl) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
@@ -566,7 +566,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						}
 					}
 				}
-				
+
 			}
 		}
 
@@ -589,7 +589,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			cx = draw_text(cx,oy + layout_height + 30,12,0,log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
-			
+
 			// Selection count
 			const int32_t selection_count = skb_input_get_selection_count(ctx->input, edit_selection);
 			if (selection_count > 0) {
@@ -600,7 +600,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			cx = draw_text(cx,oy + layout_height + 30,12,0,ink_color, "text_offset %d", edit_selection.end_pos.offset);
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
 		}
-		
+
 		{
 			// Visual caret
 			if (skb_input_get_selection_count(ctx->input, edit_selection)) {
@@ -675,7 +675,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
 			const uint32_t* text = skb_layout_get_text(edit_layout);
 			const skb_text_property_t* text_props = skb_layout_get_text_properties(edit_layout);
-			
+
 			for (int line_idx = 0; line_idx < lines_count; line_idx++) {
 				const skb_layout_line_t* line = &lines[line_idx];
 				const bool is_last_layout_line = line_idx == lines_count - 1;
@@ -731,10 +731,10 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					// Logical index
 					draw_text(ox+0.5f, oy-8+0.5f,12,0, log_color, "L%d", edit_text_offset + cp_idx);
-					
+
 					// Codepoint
 					draw_text(ox+4+0.5f, oy+14+0.5f,12,0, ink_color, "0x%X", cp);
-					
+
 					if (font) {
 						uint32_t gid = 0;
 						hb_font_get_nominal_glyph(skb_font_get_hb_font(font), cp, &gid);
@@ -762,7 +762,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					float ly = oy + sz + 15;
 					float rx = ox + sz-4;
 					float ry = oy + sz + 15;
-					
+
 					if (text_props[cp_idx].is_grapheme_break) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, caret_color, "GB");
 						ry += 15.f;
@@ -798,13 +798,13 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						draw_filled_rect(ox+1.5f,oy+1.5f,sz-2,sz-2,caret_color_trans);
 					}
 				}
-				
+
 				// next line
 				oy += sz * 2.f;
 			}
 		}
 	}
-	
+
 	// Update atlas and texture
 	if (skb_render_cache_rasterize_missing_items(ctx->render_cache, ctx->temp_alloc, ctx->renderer)) {
 		for (int32_t i = 0; i < skb_render_cache_get_image_count(ctx->render_cache); i++) {
@@ -818,7 +818,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					assert(tex_id);
 					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
 				} else {
-					draw_update_texture(tex_id, 
+					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
 							image->width, image->height, image->stride_bytes, image->buffer);
 				}

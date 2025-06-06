@@ -10,12 +10,12 @@ static int test_init(void)
 	ENSURE(layout_cache != NULL);
 
 	skb_layout_cache_destroy(layout_cache);
-	
+
 	return 0;
 }
 
 int layout_cache_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

@@ -110,7 +110,7 @@ typedef struct draw__texture_t {
 typedef struct draw__context_t {
 	GLuint program;
 	GLuint vbo;
-	
+
 	draw__vertex_t* verts;
 	int verts_count;
 	int verts_cap;
@@ -133,7 +133,7 @@ typedef struct draw__context_t {
 
 	uint32_t image_id;
 	uint32_t sdf_id;
-	
+
 } draw__context_t;
 
 static draw__context_t g_context = { 0 };
@@ -199,7 +199,7 @@ int draw_init(void)
 		"			float a = 1.f - clamp((d + 0.5*w - 0.1) / w, 0., 1.);\n"
 		"			color = vec4(tcol.rgb*a,a) * color;\n"
 		"		} else if (tex_bpp == 1) {\n"
-		"			float d = (texture(tex, fuv).x - (128./255.)) / (32./255.);\n" 
+		"			float d = (texture(tex, fuv).x - (128./255.)) / (32./255.);\n"
 		"			float w = fscale * 0.8;\n"
 		"			float a = 1.f - clamp((d + 0.5*w - 0.1) / w, 0., 1.);\n"
 		"			color = color * a;\n"
@@ -308,7 +308,7 @@ static void draw__resize_texture(draw__texture_t* tex, int32_t width, int32_t he
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
 	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-	
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -351,7 +351,7 @@ static void draw__update_texture(draw__texture_t* tex, int32_t offset_x, int32_t
 		glTexSubImage2D(GL_TEXTURE_2D, 0, offset_x, offset_y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image);
 	else if (tex->bpp == 1)
 		glTexSubImage2D(GL_TEXTURE_2D, 0, offset_x, offset_y, width, height, GL_RED, GL_UNSIGNED_BYTE, image);
-		
+
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
@@ -365,7 +365,7 @@ static void draw__update_texture(draw__texture_t* tex, int32_t offset_x, int32_t
 static void draw__add_command(int32_t prim)
 {
 	if (g_context.batches_count > 0) {
-		draw__batch_t* prevBatch = &g_context.batches[g_context.batches_count-1]; 
+		draw__batch_t* prevBatch = &g_context.batches[g_context.batches_count-1];
 		if (prevBatch->prim == prim && prevBatch->line_width == g_context.line_width && prevBatch->stencil == g_context.stencil
 			&& prevBatch->image_id == g_context.image_id && prevBatch->sdf_id == g_context.sdf_id)
 			return;
@@ -381,7 +381,7 @@ static void draw__add_command(int32_t prim)
 	batch->stencil = g_context.stencil;
 	batch->image_id = g_context.image_id;
 	batch->sdf_id = g_context.sdf_id;
-	
+
 	g_context.batches_count++;
 }
 
@@ -413,7 +413,7 @@ void draw_tick(float x, float y, float s, skb_color_t col)
 	draw__add_command(GL_LINES);
 
 	float hs = s * 0.5f + g_context.line_width * 0.5f;
-	
+
 	draw__add_vertex((skb_vec2_t){ x-hs, y }, col);
 	draw__add_vertex((skb_vec2_t){ x+hs, y }, col);
 	draw__add_vertex((skb_vec2_t){ x, y-hs }, col);
@@ -457,7 +457,7 @@ void draw_dashed_line(float x0, float y0, float x1, float y1, float dash, skb_co
 	int tick_count = (int)floorf(len / dash) | 1;
 	if (tick_count < 1) tick_count = 1;
 	if (tick_count > 1000) tick_count = 1000;
-	
+
 	float d = len / (float)tick_count;
 
 	x0 -= g_context.line_width * 0.5f;
@@ -480,7 +480,7 @@ void draw_arrow(float x0, float y0, float x1, float y1, float as, skb_color_t co
 	draw__get_dir(x0, y0, x1, y1, &dx, &dy);
 	float nx = -dy;
 	float ny = dx;
-	
+
 	draw_line(x0, y0, x1, y1, col);
 	draw_line(x1, y1, x1 - dx*as - nx*as*.5f, y1 - dy*as - ny*as*.5f, col);
 	draw_line(x1, y1, x1 - dx*as + nx*as*.5f, y1 - dy*as + ny*as*.5f, col);
@@ -515,7 +515,7 @@ void draw_quad_bez(float x0, float y0, float x1, float y1, float x2, float y2, s
 		draw__add_vertex((skb_vec2_t){ x0 - dx * g_context.line_width * 0.5f, y0 - dy * g_context.line_width * 0.5f }, col);
 		draw__add_vertex((skb_vec2_t){ x0, y0 }, col);
 	}
-	
+
 	float px = x0;
 	float py = y0;
 	for (int i = 0; i <= STEPS; i++) {
@@ -527,7 +527,7 @@ void draw_quad_bez(float x0, float y0, float x1, float y1, float x2, float y2, s
 		px = x;
 		py = y;
 	}
-	
+
 	if (g_context.line_width > 0.f) {
 		float dx, dy;
 		draw__get_dir(x1, y1, x2, y2, &dx, &dy);
@@ -556,13 +556,13 @@ void draw_rect(float x, float y, float w, float h, skb_color_t col)
 {
 	draw__add_command(GL_LINES);
 	float lw = g_context.line_width * 0.5f;
-	
+
 	draw__add_vertex((skb_vec2_t){ x-lw, y }, col);
 	draw__add_vertex((skb_vec2_t){ x+w+lw, y }, col);
 
 	draw__add_vertex((skb_vec2_t){ x+w, y-lw }, col);
 	draw__add_vertex((skb_vec2_t){ x+w, y+h+lw }, col);
-	
+
 	draw__add_vertex((skb_vec2_t){ x+w+lw, y+h }, col);
 	draw__add_vertex((skb_vec2_t){ x-lw, y+h }, col);
 
@@ -573,7 +573,7 @@ void draw_rect(float x, float y, float w, float h, skb_color_t col)
 void draw_filled_rect(float x, float y, float w, float h, skb_color_t col)
 {
 	draw__add_command(GL_TRIANGLES);
-	
+
 	draw__add_vertex((skb_vec2_t){ x, y }, col);
 	draw__add_vertex((skb_vec2_t){ x+w, y }, col);
 	draw__add_vertex((skb_vec2_t){ x+w, y+h }, col);
@@ -807,9 +807,9 @@ float draw_char(float x, float y, float size, skb_color_t col, char chr)
 {
 	// Ascender 24
 	// Descender -8
-	
+
 	float scale = size / 30.f;
-	
+
 	int idx = chr - 32;
 	if (idx >= 0 && idx < 95) {
 		draw__line_glyph_t* g = &g_simplex[idx];
@@ -909,7 +909,7 @@ void draw_image_quad(skb_rect2_t geom, skb_rect2_t image, skb_color_t tint, uint
 	const float v1 = image.y + image.height;
 
 	draw__add_command(GL_TRIANGLES);
-	
+
 	draw__add_vertex_uv((skb_vec2_t){ x0, y0 }, tint, (skb_vec2_t){u0,v0});
 	draw__add_vertex_uv((skb_vec2_t){ x1, y0 }, tint, (skb_vec2_t){u1,v0});
 	draw__add_vertex_uv((skb_vec2_t){ x1, y1 }, tint, (skb_vec2_t){u1,v1});
@@ -917,7 +917,7 @@ void draw_image_quad(skb_rect2_t geom, skb_rect2_t image, skb_color_t tint, uint
 	draw__add_vertex_uv((skb_vec2_t){ x0, y0 }, tint, (skb_vec2_t){u0,v0});
 	draw__add_vertex_uv((skb_vec2_t){ x1, y1 }, tint, (skb_vec2_t){u1,v1});
 	draw__add_vertex_uv((skb_vec2_t){ x0, y1 }, tint, (skb_vec2_t){u0,v1});
-	
+
 	g_context.image_id = 0;
 }
 
@@ -934,9 +934,9 @@ void draw_image_quad_sdf(skb_rect2_t geom, skb_rect2_t image, float scale, skb_c
 	const float v0 = image.y;
 	const float u1 = image.x + image.width;
 	const float v1 = image.y + image.height;
-	
+
 	draw__add_command(GL_TRIANGLES);
-	
+
 	draw__add_vertex_uv_scale((skb_vec2_t){ x0, y0 }, tint, (skb_vec2_t){u0,v0}, scale);
 	draw__add_vertex_uv_scale((skb_vec2_t){ x1, y0 }, tint, (skb_vec2_t){u1,v0}, scale);
 	draw__add_vertex_uv_scale((skb_vec2_t){ x1, y1 }, tint, (skb_vec2_t){u1,v1}, scale);
@@ -944,7 +944,7 @@ void draw_image_quad_sdf(skb_rect2_t geom, skb_rect2_t image, float scale, skb_c
 	draw__add_vertex_uv_scale((skb_vec2_t){ x0, y0 }, tint, (skb_vec2_t){u0,v0}, scale);
 	draw__add_vertex_uv_scale((skb_vec2_t){ x1, y1 }, tint, (skb_vec2_t){u1,v1}, scale);
 	draw__add_vertex_uv_scale((skb_vec2_t){ x0, y1 }, tint, (skb_vec2_t){u0,v1}, scale);
-	
+
 	g_context.sdf_id = 0;
 }
 
@@ -976,9 +976,9 @@ void draw_path_move_to(float x, float y)
 void draw_path_line_to(float x1, float y1)
 {
 	if (!g_context.in_polygon) return;
-	
+
 	draw_tri(g_context.start.x, g_context.start.y, g_context.pen.x, g_context.pen.y, x1,y1, skb_rgba(255,0,0,255));
-	
+
 	g_context.pen.x = x1;
 	g_context.pen.y = y1;
 	draw__poly_bounds_pt(x1, y1);
@@ -1013,9 +1013,9 @@ void draw_path_quad_to(float x1, float y1, float x2, float y2)
 	if (!g_context.in_polygon) return;
 
 	const float dist_tol_sqr = 0.75f * 0.75f;
-	
+
 	draw__quad_bezier_fill(g_context.start.x, g_context.start.y, g_context.pen.x, g_context.pen.y, x1,y1, x2,y2, 0, dist_tol_sqr);
-	
+
 	g_context.pen.x = x2;
 	g_context.pen.y = y2;
 	draw__poly_bounds_pt(x1, y1);
@@ -1058,9 +1058,9 @@ void draw_path_cubic_to(float x1, float y1, float x2, float y2, float x3, float 
 	if (!g_context.in_polygon) return;
 
 	const float dist_tol_sqr = 0.75f * 0.75f;
-	
+
 	draw__cubic_bezier_fill(g_context.start.x, g_context.start.y, g_context.pen.x, g_context.pen.y, x1,y1, x2,y2, x3,y3, 0, dist_tol_sqr);
-	
+
 	g_context.pen.x = x3;
 	g_context.pen.y = y3;
 	draw__poly_bounds_pt(x1, y1);
@@ -1085,7 +1085,7 @@ void draw_path_end(skb_color_t col)
 		draw_tri(min_x,min_y, max_x,min_y,max_x,max_y, col);
 		draw_tri(min_x,min_y, max_x,max_y,min_x,max_y, col);
 	}
-	
+
 	g_context.stencil = STENCIL_DISABLED;
 }
 
@@ -1102,7 +1102,7 @@ void draw_flush(int w, int h)
 
 	glEnable(GL_LINE_SMOOTH);
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	
+
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // premult alpha
@@ -1171,7 +1171,7 @@ void draw_flush(int w, int h)
 
 		const draw__texture_t* image_tex = draw__find_texture(b->image_id);
 		const draw__texture_t* sdf_tex = draw__find_texture(b->sdf_id);
-		
+
 		if (image_tex && image_tex->tex_id) {
 			glUniform1i(glGetUniformLocation(g_context.program, "tex_bpp"), image_tex->bpp);
 			glUniform1i(glGetUniformLocation(g_context.program, "tex"), 0);
@@ -1197,7 +1197,7 @@ void draw_flush(int w, int h)
 		}
 
 		glLineWidth(b->line_width);
-		
+
 		glDrawArrays(b->prim, b->offset, b->count);
 	}
 

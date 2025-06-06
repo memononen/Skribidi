@@ -11,12 +11,12 @@ static int test_init(void)
 	ENSURE(icon_collection != NULL);
 
 	skb_icon_collection_destroy(icon_collection);
-	
+
 	return 0;
 }
 
 int icon_collection_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

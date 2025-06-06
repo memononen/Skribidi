@@ -45,14 +45,14 @@ skb_renderer_t* skb_renderer_create(skb_renderer_config_t* config)
 {
 	skb_renderer_t* renderer = skb_malloc(sizeof(skb_renderer_t));
 	memset(renderer, 0, sizeof(skb_renderer_t));
-	
+
 	renderer->draw_funcs = hb_draw_funcs_create ();
 	hb_draw_funcs_set_move_to_func (renderer->draw_funcs, skb__hb_move_to, renderer, NULL);
 	hb_draw_funcs_set_line_to_func (renderer->draw_funcs, skb__hb_line_to, renderer, NULL);
 	hb_draw_funcs_set_cubic_to_func (renderer->draw_funcs, skb__hb_cubic_to, renderer, NULL);
 	hb_draw_funcs_set_close_path_func (renderer->draw_funcs, skb__hb_close_path, renderer, NULL);
 	hb_draw_funcs_make_immutable (renderer->draw_funcs);
-	
+
 	renderer->paint_funcs = hb_paint_funcs_create ();
 	hb_paint_funcs_set_push_transform_func(renderer->paint_funcs, skb__hb_push_transform, renderer, NULL);
 	hb_paint_funcs_set_pop_transform_func(renderer->paint_funcs, skb__hb_pop_transform, renderer, NULL);
@@ -69,7 +69,7 @@ skb_renderer_t* skb_renderer_create(skb_renderer_config_t* config)
 	hb_paint_funcs_make_immutable(renderer->paint_funcs);
 
 	renderer->config = config ? *config : skb_renderer_get_default_config();
-	
+
 	return renderer;
 }
 
@@ -83,7 +83,7 @@ skb_renderer_config_t skb_renderer_get_default_config(void)
 
 skb_renderer_config_t skb_renderer_get_config(const skb_renderer_t* renderer)
 {
-	return renderer->config;	
+	return renderer->config;
 }
 
 void skb_renderer_destroy(skb_renderer_t* renderer)
@@ -142,7 +142,7 @@ static void dump_svg(skb_image_t* mask, float* dist, skb_vec2_t* contour_pts, fl
 	static int num = 1;
 	char filename[32];
 	snprintf(filename, 32, "sdf_%03d.svg", num++);
-	
+
 	FILE* fp = fopen(filename, "w");
 
 	uint8_t* mask_buffer = mask->buffer;
@@ -185,7 +185,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 {
 	assert(temp_alloc);
 	assert(mask);
-	
+
 	float* dist = SKB_TEMP_ALLOC(temp_alloc, float, mask->width * mask->height);
 	skb_vec2_t* contour_pts = SKB_TEMP_ALLOC(temp_alloc, skb_vec2_t, mask->width * mask->height);
 
@@ -198,19 +198,19 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 	const int32_t stride = mask->width;
 
 	memset(contour_pts, 0, width * height * sizeof(skb_vec2_t));
-	
+
 	const float max_dist = skb_squaref((float)skb_maxi(width, height) * 2.f);
 	for (int32_t i = 0; i < width * height; i++)
 		dist[i] = max_dist;
 
 	static const float half = 0.5f;
-	
+
 	// Calculate position of the anti-aliased pixels and distance to the boundary of the shape.
 	skb_vec2_t c;
 	for (int32_t y = 1; y < height-1; y++) {
 		c.x = 1.f + half;
 		c.y = (float)y + half;
-		
+
 		const uint8_t* x_mask = &mask_buffer[y * mask_stride + 1];
 		float* x_dist = &dist[y * stride + 1];
 		skb_vec2_t* x_contour_pts = &contour_pts[y * stride + 1];
@@ -240,7 +240,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 					int32_t igy = 0;
 					if (img1 == 0) igy--;
 					if (img7 == 0) igy++;
-					
+
 					if (igx != 0 || igy != 0) {
 						static const float d = 0.5f;
 						skb_vec2_t cpt = (skb_vec2_t) { c.x + (float)igx*d, c.y + (float)igy*d };
@@ -252,7 +252,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 					const int32_t img2 = x_mask[-mask_stride + 1];
 					const int32_t img6 = x_mask[mask_stride - 1];
 					const int32_t img8 = x_mask[mask_stride + 1];
-					
+
 					const int32_t igx = (img2 + img8 - img0 - img6) * 32 + (img5 - img3) * 45; // 45/32 ~ sqrt(2), gotta be careful with the bits, since we're squaring below.
 					const int32_t igy = (img6 + img8 - img0 - img2) * 32 + (img7 - img1) * 45;
 					const int32_t ig_len = igx*igx + igy*igy;
@@ -265,7 +265,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 						// Find nearest point on contour.
 						const float d = skb__edgedf(gx, gy, (float)img4 / 255.0f);
 						skb_vec2_t cpt = (skb_vec2_t) { c.x + gx*d, c.y + gy*d };
-						
+
 						*x_contour_pts = cpt;
 						*x_dist = skb_vec2_dist_sqr(c, cpt);
 					}
@@ -275,7 +275,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 				/*			float gx = -(float)img0 - SKB_SQRT2*(float)img3 - (float)img6 + (float)img2 + SKB_SQRT2*(float)img5 + (float)img8;
 							float gy = -(float)img0 - SKB_SQRT2*(float)img1 - (float)img2 + (float)img6 + SKB_SQRT2*(float)img7 + (float)img8;
 							float glen = gx*gx + gy*gy;
-							
+
 							// Skip if the gradient is very weak.
 							if (glen < 0.00001f)
 								continue;
@@ -294,17 +294,17 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 
 #ifdef DUMP_CONTOUR_SVG
 	dump_svg(mask, dist, contour_pts, max_dist);
-#endif	
+#endif
 	// Calculate dead-reckoning distance transform.
-	
+
 	// Top-left to bottom-right.
 	for (int32_t y = 1; y < height-1; y++) {
 		c.y = (float)y + half;
 		c.x = 1.f + half;
-		
+
 		float* x_dist = &dist[y * stride + 1];
 		skb_vec2_t* x_contour_pts = &contour_pts[y * stride + 1];
-		
+
 		for (int32_t x = 1; x < width-1; x++) {
 			// (-1,-1)
 			const int32_t kn_1_1 = -1 - stride;
@@ -350,7 +350,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 					*x_dist = d;
 				}
 			}
-			
+
 			x_dist++;
 			x_contour_pts++;
 			c.x += 1.f;
@@ -364,7 +364,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 
 		float* x_dist = &dist[y * stride + width-2];
 		skb_vec2_t* x_contour_pts = &contour_pts[y * stride + width-2];
-		
+
 		for (int32_t x = width-2; x > 0; x--) {
 			// (1,0)
 			const int32_t kn10 = 1;
@@ -421,7 +421,7 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 	const int32_t k_top = 0;
 	for (int32_t x = 1; x < width-1; x++)
 		dist[k_top + x] = skb_squaref(sqrtf(dist[k_top + x + stride]) + 1.f);
-	
+
 	const int32_t k_bot = (height-1) * stride;
 	for (int32_t x = 1; x < width-1; x++)
 		dist[k_bot+x] = skb_squaref(sqrtf(dist[k_bot + x - stride]) + 1.f);
@@ -433,18 +433,18 @@ void skb__mask_to_sdf(skb_temp_alloc_t* temp_alloc, skb_image_t* mask, uint8_t o
 	const int32_t k_right = width-1;
 	for (int32_t y = 1; y < height-1; y++)
 		dist[k_right + y*width] = skb_squaref(sqrtf(dist[k_right + y*stride - 1]) + 1.f);
-	
+
 	dist[k_top + k_left] = skb_squaref(sqrtf(dist[k_top + k_left + 1 + stride]) + SKB_SQRT2);
 	dist[k_top + k_right] = skb_squaref(sqrtf(dist[k_top + k_right - 1 + stride]) + SKB_SQRT2);
 	dist[k_bot + k_left] = skb_squaref(sqrtf(dist[k_bot + k_left + 1 - stride]) + SKB_SQRT2);
 	dist[k_bot + k_right] = skb_squaref(sqrtf(dist[k_bot + k_right - 1 - stride]) + SKB_SQRT2);
-	
+
 	// Adjust distance sign and map to requested output range.
 	for (int32_t y = 0; y < height; y++) {
 
 		const float* x_dist = &dist[y * stride];
 		uint8_t* x_mask = &mask_buffer[y * mask_stride];
-		
+
 		for (int32_t x = width-1; x >= 0; x--) {
 			float d = sqrtf(*x_dist);
 			if (*x_mask > 127) d = -d;
@@ -464,7 +464,7 @@ static void skb__unpremultiply_and_dilate(skb_temp_alloc_t* temp_alloc, skb_imag
 	assert(temp_alloc);
 	assert(image);
 	assert(image->bpp == 4);
-	
+
 	uint16_t* dist = SKB_TEMP_ALLOC(temp_alloc, uint16_t, image->width * image->height);
 	int32_t dist_stride = image->width;
 
@@ -518,7 +518,7 @@ static void skb__unpremultiply_and_dilate(skb_temp_alloc_t* temp_alloc, skb_imag
 					*x_dist = (uint16_t)d3;
 				}
 			}
-			
+
 			x_image++;
 			x_dist++;
 		}
@@ -557,24 +557,24 @@ static void skb__unpremultiply_and_dilate(skb_temp_alloc_t* temp_alloc, skb_imag
 	const int32_t k_top = 0;
 	for (int32_t x = 1; x < image->width-1; x++)
 		image_buffer[k_top + x] = image_buffer[k_top + x + image_stride];
-		
+
 	const int32_t k_bot = (image->height-1) * image_stride;
 	for (int32_t x = 1; x < image->width-1; x++)
 		image_buffer[k_bot+x] = image_buffer[k_bot + x - image_stride];
-	
+
 	const int32_t k_left = 0;
 	for (int32_t y = 1; y < image->height-1; y++)
 		image_buffer[k_left + y*image_stride] = image_buffer[k_left + y*image_stride + 1];
-	
+
 	const int32_t k_right = image->width-1;
 	for (int32_t y = 1; y < image->height-1; y++)
 		image_buffer[k_right + y*image_stride] = image_buffer[k_right + y*image_stride - 1];
-		
+
 	image_buffer[k_top + k_left] = image_buffer[k_top + k_left + 1 + image_stride];
 	image_buffer[k_top + k_right] = image_buffer[k_top + k_right - 1 + image_stride];
 	image_buffer[k_bot + k_left] = image_buffer[k_bot + k_left + 1 - image_stride];
 	image_buffer[k_bot + k_right] = image_buffer[k_bot + k_right - 1 - image_stride];
-	
+
 	SKB_TEMP_FREE(temp_alloc, dist);
 }
 
@@ -612,7 +612,7 @@ static void skb__hb_line_to (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)draw_data;
-	
+
 	skb_canvas_line_to(c, skb_vec2_make(to_x, to_y));
 }
 
@@ -630,7 +630,7 @@ static void skb__hb_cubic_to (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)draw_data;
-	
+
 	skb_canvas_cubic_to(c, skb_vec2_make(control1_x, control1_y), skb_vec2_make(control2_x, control2_y), skb_vec2_make(to_x, to_y));
 }
 
@@ -645,7 +645,7 @@ static void skb__hb_close_path (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)draw_data;
-	
+
 	skb_canvas_close(c);
 }
 
@@ -661,7 +661,7 @@ static void skb__hb_push_transform (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_mat2_t t = {
 		.xx = xx, .yx = yx,
 		.xy = xy, .yy = yy,
@@ -679,7 +679,7 @@ static void skb__hb_pop_transform (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_canvas_pop_transform(c);
 }
 
@@ -712,7 +712,7 @@ static void skb__hb_push_clip_rectangle (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_canvas_push_mask(c);
 
 	skb_canvas_move_to(c, skb_vec2_make(xmin, ymin));
@@ -720,7 +720,7 @@ static void skb__hb_push_clip_rectangle (
 	skb_canvas_line_to(c, skb_vec2_make(xmax, ymax));
 	skb_canvas_line_to(c, skb_vec2_make(xmin, ymax));
 	skb_canvas_close(c);
-	
+
 	skb_canvas_fill_mask(c);
 }
 
@@ -733,7 +733,7 @@ static void skb__hb_pop_clip (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_canvas_pop_mask(c);
 }
 
@@ -746,7 +746,7 @@ static void skb__hb_push_group (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_canvas_push_layer(c);
 }
 
@@ -758,13 +758,13 @@ static void skb__hb_pop_group (
 {
 	SKB_UNUSED(pfuncs);
 	SKB_UNUSED(user_data);
-	
+
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	if (mode != HB_PAINT_COMPOSITE_MODE_SRC_OVER) {
 		skb_debug_log("Unsupported blend mode: %d\n", mode);
 	}
-	
+
 	skb_canvas_pop_layer(c);
 }
 
@@ -791,7 +791,7 @@ static void skb__hb_prepare_color_stops(hb_color_line_t* color_line, skb_color_s
 		*stops_count = 0;
 		return;
 	}
-	
+
 	qsort(hb_stops, hb_stops_count, sizeof(hb_color_stop_t), skb__hb_cmp_color_stop);
 
 	float omin = hb_stops[0].offset;
@@ -802,7 +802,7 @@ static void skb__hb_prepare_color_stops(hb_color_line_t* color_line, skb_color_s
 	}
 	float orange = omax - omin;
 	float oscale = orange > 0.f ? 1.f / orange : 0.f;
-	
+
 	*offset_min = omin;
 	*offset_max = omax;
 
@@ -879,7 +879,7 @@ static void skb__hb_paint_linear_gradient(
 {
 	SKB_UNUSED(pfuncs);
 	SKB_UNUSED(user_data);
-	
+
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
 
 	skb_color_stop_t stops[GRAST_MAX_COLOR_STOPS] = {0};
@@ -908,7 +908,7 @@ static void skb__hb_paint_linear_gradient(
 	skb_vec2_t delta = skb_vec2_sub(target, orig);
 	skb_vec2_t p0 = skb_vec2_mad(orig, delta, offset_min);
 	skb_vec2_t p1 = skb_vec2_mad(orig, delta, offset_max);
-	
+
 	skb_canvas_fill_linear_gradient(c, p0, p1, SKB_SPREAD_PAD, stops, stops_count);
 }
 
@@ -924,7 +924,7 @@ static void skb__hb_paint_radial_gradient(
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	
+
 	skb_color_stop_t stops[GRAST_MAX_COLOR_STOPS] = {0};
 	int32_t stops_count = 0;
 	float offset_min = 0.f;
@@ -937,7 +937,7 @@ static void skb__hb_paint_radial_gradient(
 	const skb_vec2_t orig = { x0, y0 };
 	const skb_vec2_t target = { x1, y1 };
 	const skb_vec2_t delta = skb_vec2_sub(target, orig);
-	
+
 	const float orig_r = r0;
 	const float delta_r = r1 - r0;
 
@@ -979,7 +979,7 @@ skb_rect2i_t skb_render_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t
 	hb_font_get_glyph_extents(font->hb_font, glyph_id, &extents);
 
 	const float scale = font_size * font->upem_scale;
-		
+
 	const int32_t x = (int32_t)floorf((float)extents.x_bearing * scale);
 	const int32_t y = (int32_t)floorf(-(float)extents.y_bearing * scale);
 	const int32_t width = (int32_t)ceilf((float)(extents.x_bearing + extents.width) * scale) - x;
@@ -988,7 +988,7 @@ skb_rect2i_t skb_render_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t
 	// Do not pad empty or degenerate rectangles.
 	if (width == 0 || height == 0)
 		return (skb_rect2i_t) { .x = x, .y = y, .width = width, .height = height };
-	
+
 	return (skb_rect2i_t) {
 		.x = x - padding,
 		.y = y - padding,
@@ -1082,21 +1082,21 @@ bool skb_render_rasterize_color_glyph(
 		// Copy alpha mask.
 		for (int32_t y = 0; y < target->height; y++) {
 			uint8_t* x_alpha = target->buffer + y * target->stride_bytes + 3; // Alpha is 3rd component
-			uint8_t* x_mask = mask_buffer + y * mask_stride; 
+			uint8_t* x_mask = mask_buffer + y * mask_stride;
 			for (int32_t x = 0; x < target->width; x++) {
 				*x_mask = *x_alpha;
 				x_mask++;
 				x_alpha += 4;
 			}
 		}
-		
+
 		skb__mask_to_sdf(temp_alloc, &mask, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
 		skb__unpremultiply_and_dilate(temp_alloc, target);
 
 		// Copy SDF to alpha channel
 		for (int32_t y = 0; y < target->height; y++) {
 			uint8_t* x_alpha = target->buffer + y * target->stride_bytes + 3; // Alpha is 3rd component
-			uint8_t* x_mask = mask_buffer + y * mask_stride; 
+			uint8_t* x_mask = mask_buffer + y * mask_stride;
 			for (int32_t x = 0; x < target->width; x++) {
 				*x_alpha = *x_mask;
 				x_mask++;
@@ -1106,7 +1106,7 @@ bool skb_render_rasterize_color_glyph(
 
 		SKB_TEMP_FREE(temp_alloc, mask_buffer);
 	}
-	
+
 	skb_canvas_destroy(canvas);
 
 	int64_t t_end = skg_perf_timer_get();
@@ -1125,7 +1125,7 @@ bool skb_render_rasterize_color_glyph(
 static void skb_icon_draw_shape_(skb_canvas_t* c, const skb_icon_t* icon, const skb_icon_shape_t* shape, float opacity)
 {
 	opacity *= shape->opacity;
-	
+
 	if (shape->path_count > 0) {
 		skb_canvas_push_layer(c);
 		for (int32_t i = 0; i < shape->path_count; i++) {
@@ -1146,7 +1146,7 @@ static void skb_icon_draw_shape_(skb_canvas_t* c, const skb_icon_t* icon, const 
 			const skb_icon_gradient_t* gradient = &icon->gradients[shape->gradient_idx];
 
 			skb_canvas_push_transform(c, gradient->xform);
-			
+
 			if (gradient->type == SKB_GRADIENT_LINEAR) {
 				skb_canvas_fill_linear_gradient(c, gradient->p0, gradient->p1, gradient->spread, gradient->stops, gradient->stops_count);
 			} else if (gradient->type == SKB_GRADIENT_RADIAL) {
@@ -1158,10 +1158,10 @@ static void skb_icon_draw_shape_(skb_canvas_t* c, const skb_icon_t* icon, const 
 			const skb_color_t color = skb_color_mul_alpha(shape->color, (uint8_t)skb_clampf(opacity * 255.f, 0.f, 255.f));
 			skb_canvas_fill_solid_color(c, color);
 		}
-	
+
 		skb_canvas_pop_layer(c);
 	}
-	
+
 	for (int32_t i = 0; i < shape->children_count; i++)
 		skb_icon_draw_shape_(c, icon, &shape->children[i], opacity);
 }
@@ -1175,11 +1175,11 @@ skb_vec2_t skb_render_calc_proportional_icon_scale(const skb_icon_t* icon, float
 {
 	if (!icon)
 		return (skb_vec2_t) {0};
-	
+
 	if (width <= 0 && height <= 0) {
 		// Auto width and height, use the icon size.
 		return (skb_vec2_t) { 1.f, 1.f };
-	} 
+	}
 	if (width <= 0) {
 		// Auto width
 		const float scale = icon->view.height > 0.f ? height / icon->view.height : 0.f;
@@ -1247,21 +1247,21 @@ bool skb_render_rasterize_icon(
 		// Copy alpha mask.
 		for (int32_t y = 0; y < target->height; y++) {
 			uint8_t* x_alpha = target->buffer + y * target->stride_bytes + 3; // Alpha is 3rd component
-			uint8_t* x_mask = mask_buffer + y * mask_stride; 
+			uint8_t* x_mask = mask_buffer + y * mask_stride;
 			for (int32_t x = 0; x < target->width; x++) {
 				*x_mask = *x_alpha;
 				x_mask++;
 				x_alpha += 4;
 			}
 		}
-		
+
 		skb__mask_to_sdf(temp_alloc, &mask, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
 		skb__unpremultiply_and_dilate(temp_alloc, target);
 
 		// Copy SDF to alpha channel
 		for (int32_t y = 0; y < target->height; y++) {
 			uint8_t* x_alpha = target->buffer + y * target->stride_bytes + 3; // Alpha is 3rd component
-			uint8_t* x_mask = mask_buffer + y * mask_stride; 
+			uint8_t* x_mask = mask_buffer + y * mask_stride;
 			for (int32_t x = 0; x < target->width; x++) {
 				*x_alpha = *x_mask;
 				x_mask++;

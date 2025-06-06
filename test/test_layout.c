@@ -14,12 +14,12 @@ static int test_init(void)
 	ENSURE(layout != NULL);
 
 	skb_layout_destroy(layout);
-	
+
 	return 0;
 }
 
 int layout_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

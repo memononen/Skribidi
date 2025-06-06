@@ -11,7 +11,7 @@ static int test_add_get(void)
 
 	uint64_t h0 = 123;
 	uint64_t h1 = 456;
-	
+
 	{
 		int32_t d0 = 0xf00;
 		int32_t d1 = 0xabba;
@@ -40,9 +40,9 @@ static int test_add_get(void)
 		skb_hash_table_find(ht, h0, &find_d2);
 		ENSURE(find_d2 == d2);
 	}
-	
+
 	skb_hash_table_destroy(ht);
-	
+
 	return 0;
 }
 
@@ -94,6 +94,6 @@ int hashtable_tests(void)
 {
 	RUN_SUBTEST(test_add_get);
 	RUN_SUBTEST(test_remove);
-	
-	return 0;	
+
+	return 0;
 }

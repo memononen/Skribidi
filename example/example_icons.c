@@ -21,7 +21,7 @@
 
 typedef struct icons_context_t {
 	example_t base;
-	
+
 	skb_icon_collection_t* icon_collection;
 	skb_temp_alloc_t* temp_alloc;
 	skb_render_cache_t* render_cache;
@@ -31,9 +31,9 @@ typedef struct icons_context_t {
 	bool drag_view;
 
 	bool use_view_scale;
-	bool show_icon_bounds;	
+	bool show_icon_bounds;
 	float atlas_scale;
-	
+
 } icons_context_t;
 
 
@@ -74,7 +74,7 @@ void* icons_create(void)
 
 	ctx->icon_collection = skb_icon_collection_create();
 	assert(ctx->icon_collection);
- 
+
 	skb_icon_t* icon1 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "icon", "data/grad_pico.svg");
 	if (!icon1) {
 		skb_debug_log("Failed to load icon1\n");
@@ -107,7 +107,7 @@ void* icons_create(void)
 		int32_t grad_idx = skb_icon_create_linear_gradient(icon3, (skb_vec2_t){8,4}, (skb_vec2_t){12,16}, skb_mat2_make_identity(), SKB_SPREAD_PAD, stops, SKB_COUNTOF(stops));
 		skb_icon_shape_set_gradient(shape, grad_idx);
 	}
-	
+
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
 
@@ -127,7 +127,7 @@ void* icons_create(void)
 	assert(ctx->renderer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
-	
+
 	return ctx;
 
 error:
@@ -139,7 +139,7 @@ void icons_destroy(void* ctx_ptr)
 {
 	icons_context_t* ctx = ctx_ptr;
 	assert(ctx);
-	
+
 	skb_icon_collection_destroy(ctx->icon_collection);
 
 	skb_render_cache_destroy(ctx->render_cache);
@@ -147,7 +147,7 @@ void icons_destroy(void* ctx_ptr)
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(icons_context_t));
-	
+
 	skb_free(ctx);
 }
 
@@ -225,7 +225,7 @@ void icons_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float de
 static float draw_icon(icons_context_t* ctx, skb_icon_t* icon, float ox, float oy, float icon_size, int32_t alpha_mode, bool use_view_scale)
 {
 	if (!icon) return 0.f;
-	
+
 	skb_vec2_t icon_scale = skb_render_calc_proportional_icon_scale(icon, -1, (float)icon_size);
 	skb_vec2_t icon_base_size = skb_icon_get_size(icon);
 
@@ -233,17 +233,17 @@ static float draw_icon(icons_context_t* ctx, skb_icon_t* icon, float ox, float o
 		ox, oy, icon_base_size.x * icon_scale.x, icon_base_size.x * icon_scale.y,
 	};
 	icon_rect = view_transform_rect(&ctx->view, icon_rect);
-		
+
 	if (ctx->show_icon_bounds)
 		draw_rect(icon_rect.x, icon_rect.y, icon_rect.width, icon_rect.height, skb_rgba(0,0,0,64));
 
 	float view_scale = use_view_scale ? ctx->view.scale : 1.f;
-	
+
 	skb_render_quad_t quad = skb_render_cache_get_icon_quad(ctx->render_cache,
 		ox, oy, view_scale, icon, icon_scale, alpha_mode);
 
 	float render_scale = use_view_scale ? quad.scale : quad.scale * ctx->view.scale;
-	
+
 	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
 		draw_image_quad_sdf(
 			view_transform_rect(&ctx->view, quad.geom_bounds),
@@ -307,7 +307,7 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					assert(tex_id);
 					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
 				} else {
-					draw_update_texture(tex_id, 
+					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
 							image->width, image->height, image->stride_bytes, image->buffer);
 				}

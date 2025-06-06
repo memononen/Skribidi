@@ -83,7 +83,7 @@ void skb__add_path_command(skb_icon_shape_t* shape, skb_icon_path_command_t cmd)
 	SKB_ARRAY_RESERVE(shape->path, shape->path_count+1);
 	shape->path[shape->path_count++] = cmd;
 }
-						
+
 void skb_icon_shape_move_to(skb_icon_shape_t* shape, skb_vec2_t pt)
 {
 	assert(shape);
@@ -100,7 +100,7 @@ void skb_icon_shape_line_to(skb_icon_shape_t* shape, skb_vec2_t pt)
 		.type = SKB_SVG_LINE_TO,
 		.pt = pt,
 	});
-	
+
 }
 
 void skb_icon_shape_quad_to(skb_icon_shape_t* shape, skb_vec2_t cp, skb_vec2_t pt)
@@ -122,7 +122,7 @@ void skb_icon_shape_cubic_to(skb_icon_shape_t* shape, skb_vec2_t cp0, skb_vec2_t
 		.cp1 = cp1,
 		.pt = pt,
 	});
-	
+
 }
 
 void skb_icon_shape_close_path(skb_icon_shape_t* shape)
@@ -136,7 +136,7 @@ void skb_icon_shape_close_path(skb_icon_shape_t* shape)
 void skb_icon_shape_set_opacity(skb_icon_shape_t* shape, float opacity)
 {
 	assert(shape);
-	shape->opacity = opacity;	
+	shape->opacity = opacity;
 }
 
 void skb_icon_shape_set_color(skb_icon_shape_t* shape, skb_color_t color)
@@ -356,20 +356,20 @@ static void skb__xml_parse_element(skb__xml_str_t input, skb__xml_start_elemnent
 			found_end = true;
 			break;
 		}
-		
+
 		// Store name and find end of it.
 		skb__xml_str_t attr_name = {0};
 		attr_name.begin = input.begin;
 		while (input.begin != input.end && !skb__is_space(*input.begin) && *input.begin != '=') input.begin++;
 		attr_name.end = input.begin;
-		
+
 		// Skip until the beginning of the value.
 		while (input.begin != input.end && *input.begin != '\"' && *input.begin != '\'') input.begin++;
 		if (input.begin == input.end) break;
-		
+
 		// Step over quote
 		const char quote = *input.begin++;
-		
+
 		// Store value and find the end of it.
 		skb__xml_str_t attr_value = {0};
 		attr_value.begin = input.begin;
@@ -404,7 +404,7 @@ static bool skb__xml_parse(skb__xml_str_t input, skb__xml_start_elemnent_callbac
 		} else if (*input.begin == '>' && state == SKB_XML_TAG) {
 			// Start of a content or new tag.
 			span.end = input.begin;
-			if (span.begin != span.end) span.begin++; // skip < 
+			if (span.begin != span.end) span.begin++; // skip <
 			skb__xml_parse_element(span, start_elem, end_elem, user_data);
 			span.begin = input.begin;
 			state = SKB_XML_CONTENT;
@@ -583,7 +583,7 @@ static skb_color_t skb__picosvg_parse_color_hex(skb__xml_str_t value)
 static skb_color_t skb__picosvg_parse_color_rgb(skb__xml_str_t value)
 {
 	value.begin += 4; // skip "rgb("
-	
+
 	const char delimiter[3] = {',', ',', ')'};
 	char buf[32];
 	float rgb[3] = { 0.f, 0.f, 0.f };
@@ -796,7 +796,7 @@ static skb_color_t skb__picosvg_parse_color_name(skb__xml_str_t value)
 static skb_color_t skb__picosvg_parse_color(skb__xml_str_t value)
 {
 	value = skb__xml_str_skip_space(value);
-	const int32_t len = (int32_t)(value.end - value.begin); 
+	const int32_t len = (int32_t)(value.end - value.begin);
 	if (skb__xml_str_starts_with(value, "#"))
 		return skb__picosvg_parse_color_hex(value);
 	if (skb__xml_str_starts_with(value, "rgb("))
@@ -899,7 +899,7 @@ static void skb_picosvg_path_add_arc(skb_icon_shape_t* shape, float* args)
 	if (shape->path_count == 0)
 		return;
 	skb_icon_path_command_t* prev_command = &shape->path[shape->path_count - 1];
-	
+
 	// Ported from canvg (https://code.google.com/p/canvg/)
 	float rx = skb_absf(args[0]); // y radius
 	float ry = skb_absf(args[1]); // x radius
@@ -999,7 +999,7 @@ static void skb_picosvg_path_add_arc(skb_icon_shape_t* shape, float* args)
 		const float ltany = dx*ry * kappa;
 		const float tanx = ltanx*cosrx + ltany*-sinrx;
 		const float tany = ltanx*sinrx + ltany*cosrx;
-			
+
 		if (i > 0) {
 			skb__add_path_command(shape, (skb_icon_path_command_t) {
 				.type = SKB_SVG_CUBIC_TO,
@@ -1008,7 +1008,7 @@ static void skb_picosvg_path_add_arc(skb_icon_shape_t* shape, float* args)
 				.pt = { x, y },
 			});
 		}
-		
+
 		prev_x = x;
 		prev_y = y;
 		prev_tanx = tanx;
@@ -1032,7 +1032,7 @@ static void skb__picosvg_parse_path(skb_icon_shape_t* shape, skb__xml_str_t path
 				path_data = skb__picosvg_path_parse_next_item_arc_flags(path_data, item, sizeof(item));
 			else
 				path_data = skb__picosvg_path_parse_next_item(path_data, item, sizeof(item));
-		
+
 			if (!item[0]) break;
 			if (cmd != '\0') {
 				if (arg_count < 10 && skb__picosvg_path_is_coordinate(item))
@@ -1124,7 +1124,7 @@ static void skb__picosvg_parse_gradient_stop(skb__picosvg_parser_t* svg, const s
 	skb_color_t color = skb_rgba(0,0,0,255);
 	float opacity = 1.0f;
 	float offset = 0.0f;
-	
+
 	for (int32_t i = 0; i < attribs_count; i++) {
 		skb__xml_attr_t attrib = attribs[i];
 		if (skb__xml_str_equals(attrib.name, "stop-color"))
@@ -1150,7 +1150,7 @@ static int32_t skb__picosvg_parse_transform_args(skb__xml_str_t str, float* args
 		str.begin++;
 	if (str.begin != str.end) // Skip over (
 		str.begin++;
-	
+
 	while (str.begin != str.end && *str.end != ')')
 		str.end--;
 
@@ -1193,7 +1193,7 @@ static void skb__picosvg_parse_gradient(skb__picosvg_parser_t* svg, uint8_t type
 	SKB_ARRAY_RESERVE(svg->gradient_names, svg->gradient_names_count+1);
 	skb__picosvg_gradient_name_t* grad_name = &svg->gradient_names[svg->gradient_names_count++];
 	grad_name->index = svg->icon->gradients_count - 1;
-	
+
 	for (int32_t i = 0; i < attribs_count; i++) {
 		skb__xml_attr_t attrib = attribs[i];
 		if (skb__xml_str_equals(attrib.name, "id")) {
@@ -1238,7 +1238,7 @@ static void skb__picosvg_parse_gradient(skb__picosvg_parser_t* svg, uint8_t type
 static void skb__picosvg_start_element(skb__xml_str_t element, skb__xml_attr_t* attribs, int32_t attribs_count, void* user_data)
 {
 	skb__picosvg_parser_t* svg = (skb__picosvg_parser_t*)user_data;
-	
+
 	if (svg->inside_def) {
 		// Skip everything but gradients in defs
 		if (skb__xml_str_equals(element, "linearGradient")) {
@@ -1280,14 +1280,14 @@ static void skb__picosvg_end_element(skb__xml_str_t element, void* user_data)
 skb_icon_collection_t* skb_icon_collection_create(void)
 {
 	static uint32_t id = 0;
-	
+
 	skb_icon_collection_t* result = skb_malloc(sizeof(skb_icon_collection_t));
 	memset(result, 0, sizeof(skb_icon_collection_t));
 
 	result->icons_lookup = skb_hash_table_create();
-	
+
 	result->id = ++id;
-	
+
 	return result;
 }
 
@@ -1309,7 +1309,7 @@ skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_col
 
 	int32_t name_len = strlen(name);
 	if (name_len <= 0) goto error;
-	
+
 	file = fopen(file_path, "rb");
 	if (!file) goto error;
 
@@ -1317,7 +1317,7 @@ skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_col
 	fseek(file, 0, SEEK_END);
 	size_t buffer_size = ftell(file);
 	fseek(file, 0, SEEK_SET);
-	
+
 	// Allocate and read
 	buffer = skb_malloc(buffer_size);
 	if (fread(buffer, 1, buffer_size, file) != buffer_size)
@@ -1334,11 +1334,11 @@ skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_col
 		if (skb__xml_parse((skb__xml_str_t){ (char*)buffer, (char*)buffer + buffer_size }, &skb__picosvg_start_element, &skb__picosvg_end_element, NULL, &svg)) {
 			result = svg.icon;
 			svg.icon = NULL;
-			
+
 			result->hash = skb_hash64_append_str(skb_hash64_empty(), name);
 			result->name = skb_malloc(name_len+1);
 			memcpy(result->name, name, name_len+1);
-			
+
 			SKB_ARRAY_RESERVE(icon_collection->icons, icon_collection->icons_count+1);
 			int32_t icon_index = icon_collection->icons_count++;
 			icon_collection->icons[icon_index] = result;

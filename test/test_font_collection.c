@@ -10,12 +10,12 @@ static int test_init(void)
 	ENSURE(font_collection != NULL);
 
 	skb_font_collection_destroy(font_collection);
-	
+
 	return 0;
 }
 
 int font_collection_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

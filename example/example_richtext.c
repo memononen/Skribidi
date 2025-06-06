@@ -22,7 +22,7 @@
 
 typedef struct richtext_context_t {
 	example_t base;
-	
+
 	skb_font_collection_t* font_collection;
 	skb_temp_alloc_t* temp_alloc;
 	skb_render_cache_t* render_cache;
@@ -34,9 +34,9 @@ typedef struct richtext_context_t {
 	bool drag_view;
 	bool drag_text;
 
-	bool show_glyph_bounds;	
+	bool show_glyph_bounds;
 	float atlas_scale;
-	
+
 } richtext_context_t;
 
 
@@ -78,7 +78,7 @@ void* richtext_create(void)
 	ctx->base.on_update = richtext_on_update;
 
 	ctx->atlas_scale = 0.25f;
-	
+
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
 
@@ -117,7 +117,7 @@ void* richtext_create(void)
 		.line_spacing_multiplier = 1.f, //1.3f,
 		.color = ink_color,
 	};
-	
+
 	skb_text_attribs_t attribs_italic = {
 		.font_size = 64.f,
 		.font_weight = 400,
@@ -146,7 +146,7 @@ void* richtext_create(void)
 		.font_features = frac_features,
 		.font_features_count = SKB_COUNTOF(frac_features),
 	};
-	
+
 	const char* ipsum =
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam eget blandit purus, sit amet faucibus quam. Morbi vulputate tellus in nulla fermentum feugiat id eu diam. Sed id orci sapien. "
 		"Donec sodales vitae odio dapibus pulvinar. Maecenas molestie lorem vulputate, gravida ex sed, dignissim erat. Suspendisse vel magna sed libero fringilla tincidunt id eget nisl. "
@@ -169,7 +169,7 @@ void* richtext_create(void)
 		{ "शकति शक्ति ", -1, &attribs_italic },
 		{ "今天天气晴朗。 ", -1, &attribs_small },
 	};
-	
+
 	ctx->layout = skb_layout_create_from_runs_utf8(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 	assert(ctx->layout);
 
@@ -182,7 +182,7 @@ void* richtext_create(void)
 	assert(ctx->renderer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
-	
+
 	return ctx;
 
 error:
@@ -194,7 +194,7 @@ void richtext_destroy(void* ctx_ptr)
 {
 	richtext_context_t* ctx = ctx_ptr;
 	assert(ctx);
-	
+
 	skb_layout_destroy(ctx->layout);
 	skb_font_collection_destroy(ctx->font_collection);
 
@@ -203,7 +203,7 @@ void richtext_destroy(void* ctx_ptr)
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(richtext_context_t));
-	
+
 	skb_free(ctx);
 }
 
@@ -309,7 +309,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_glyph_t* glyph = &glyphs[gi];
 			const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
 			const skb_font_t* font = skb_font_collection_get_font(layout_params->font_collection, glyph->font_idx);
-			
+
 			const float gx = glyph->offset_x;
 			const float gy = glyph->offset_y;
 
@@ -322,10 +322,10 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				bounds = view_transform_rect(&ctx->view, bounds);
 				draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(255,128,64,128));
 			}
-			
-			// Glyph image 
+
+			// Glyph image
 			skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,gx, gy, ctx->view.scale, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
-			
+
 			draw_image_quad_sdf(
 				view_transform_rect(&ctx->view, quad.geom_bounds),
 				quad.image_bounds, 1.f / quad.scale, quad.is_color ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
@@ -346,7 +346,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					assert(tex_id);
 					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
 				} else {
-					draw_update_texture(tex_id, 
+					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
 							image->width, image->height, image->stride_bytes, image->buffer);
 				}

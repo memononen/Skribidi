@@ -57,7 +57,7 @@ typedef struct skb_canvas_t {
 	skb_edge_t* edges;
 	int32_t edges_count;
 	int32_t edges_cap;
-	
+
 	skb_active_edge_t* active_edges;
 	int32_t active_edges_count;
 	int32_t active_edges_cap;
@@ -70,13 +70,13 @@ typedef struct skb_canvas_t {
 	skb_mask_t* masks;
 	int32_t masks_count;
 	int32_t masks_cap;
-	
+
 	skb_mat2_t* transform_stack;
 	int32_t transform_stack_count;
 	int32_t transform_stack_cap;
 
 	skb_image_t* target;
-	
+
 	skb_temp_alloc_t* alloc;
 	skb_temp_alloc_mark_t mark;
 } skb_canvas_t;
@@ -85,7 +85,7 @@ typedef struct skb_canvas_t {
 static void skb_path_add_point_(skb_canvas_t* c, skb_vec2_t pt)
 {
 	static const float dist_tol = 0.1f;
-	
+
 	if (c->points_count > 0) {
 		skb_vec2_t* last_pt = &c->points[c->points_count-1];
 		if (skb_vec2_equals(*last_pt, pt, dist_tol))
@@ -154,7 +154,7 @@ static void skb_path_tess_cubic_bezier_(skb_canvas_t* c, const skb_vec2_t p0, co
 	const skb_vec2_t p012 = skb_vec2_lerp(p01, p12, 0.5f);
 	const skb_vec2_t p123 = skb_vec2_lerp(p12, p23, 0.5f);
 	const skb_vec2_t p0123 = skb_vec2_lerp(p012, p123, 0.5f);
-	
+
 	skb_path_tess_cubic_bezier_(c, p0, p01, p012, p0123, level+1, dist_tol_sqr);
 	skb_path_tess_cubic_bezier_(c, p0123, p123, p23, p3, level+1, dist_tol_sqr);
 }
@@ -167,7 +167,7 @@ static void skb__dump_path_svg(skb_canvas_t* c)
 	static int num = 1;
 	char filename[32];
 	snprintf(filename, 32, "path_%03d.svg", num++);
-	
+
 	FILE* fp = fopen(filename, "w");
 
 	const int32_t width = c->width;
@@ -183,7 +183,7 @@ static void skb__dump_path_svg(skb_canvas_t* c)
 
 	for (int32_t i = 0; i < c->points_count; i++)
 		fprintf(fp, "<circle cx=\"%f\" cy=\"%f\" r=\"1\" fill=\"%s\" />\n", c->points[i].x, c->points[i].y, i == 0 ? "red" : "blue");
-	
+
 	fprintf(fp, "</svg>\n");
 
 	fclose(fp);
@@ -198,7 +198,7 @@ static void skb_path_commit_(skb_canvas_t* c)
 #ifdef SKB_CANVAS_DUMP_SVG
 		skb__dump_path_svg(c);
 #endif
-		
+
 		for (int32_t i = 0, j = c->points_count-1; i < c->points_count; j = i++) {
 			c->points_bounds = skb_rect2_union_point(c->points_bounds, c->points[j]);
 			skb_add_edge_(c, c->points[j].x, c->points[j].y, c->points[i].x, c->points[i].y);
@@ -214,7 +214,7 @@ void skb_canvas_move_to(skb_canvas_t* c, skb_vec2_t pt)
 {
 	// Commit any paths in progress
 	skb_path_commit_(c);
-	
+
 	// Restart
 	pt = skb_mat2_point(c->transform_stack[c->transform_stack_count-1], pt);
 	skb_path_add_point_(c, pt);
@@ -282,7 +282,7 @@ static skb_active_edge_t* skb_add_active_edge_(skb_canvas_t* c, const skb_edge_t
 		z->dx = -skb_round_to_int(SKB_FIX * -dxdy);
 	else
 		z->dx = skb_round_to_int(SKB_FIX * dxdy);
-	
+
 	z->x = skb_round_to_int(SKB_FIX * (e->x0 + dxdy * (start_y - e->y0)));
 
 	z->ey = e->y1;
@@ -302,10 +302,10 @@ static void skb_fill_scaline_(uint8_t* scanline, int32_t scanline_width, int32_t
 {
 	int32_t start = x0 >> SKB_FIXSHIFT;
 	int32_t end = x1 >> SKB_FIXSHIFT;
-	
+
 	if (start < *xmin) *xmin = start;
 	if (end > *xmax) *xmax = end;
-	
+
 	if (start < scanline_width && end >= 0) {
 		if (start == end) {
 			// x0,x1 are the same pixel, so compute combined coverage
@@ -451,10 +451,10 @@ static void skb_rasterize_sorted_edges_(skb_canvas_t* c, skb_mask_t* mask)
 			for (int32_t x = xmax+1; x < (mask->region.x + mask->region.width); x++)
 				mask_buffer[x] = 0;
 		} else {
-			// Nothing got rendered, 
+			// Nothing got rendered,
 			memset(mask_buffer + mask->region.x, 0, mask->region.width);
 		}
-		
+
 		mask_buffer += mask->stride;
 	}
 }
@@ -493,7 +493,7 @@ void skb_canvas_fill_mask(skb_canvas_t* c)
 
 		if (!skb_rect2i_is_empty(mask->region))
 			skb_rasterize_sorted_edges_(c, mask);
-		
+
 	} else if (c->degenerate_path_count > 0) {
 		// We tried to rasterize a degenerate path, nothing got drawn, so nothing should be visible.
 		mask->region = (skb_rect2i_t){0};
@@ -519,7 +519,7 @@ void skb_canvas_fill_mask(skb_canvas_t* c)
 				memset(mask_buffer + y * mask_stride, 0, c->width);
 		}
 	}
-	
+
 	// Reset bounding box collection.
 	c->points_bounds = skb_rect2_make_undefined();
 
@@ -535,7 +535,7 @@ void skb_canvas_push_transform(skb_canvas_t* c, skb_mat2_t t)
 		assert(new_stack);
 		c->transform_stack = new_stack;
 	}
-		
+
 	if (c->transform_stack_count > 0)
 		c->transform_stack[c->transform_stack_count] = skb_mat2_multiply(t, c->transform_stack[c->transform_stack_count-1]);
 	else
@@ -560,7 +560,7 @@ void skb_canvas_push_mask(skb_canvas_t* c)
 		mask->buffer = SKB_TEMP_ALLOC(c->alloc, uint8_t, c->width * c->height);
 		mask->stride = c->width;
 	}
-	
+
 	if (cur_mask) {
 		// Inherit mask
 		const uint8_t* src = cur_mask->buffer + cur_mask->region.x + (cur_mask->region.y * cur_mask->stride);
@@ -616,7 +616,7 @@ static void skb__blend_over(const skb_image_layer_t* src, skb_image_layer_t* dst
 	const int32_t src_stride = src->stride;
 	const int32_t dst_stride = dst->stride;
 	const int32_t blend_w = width;
-	
+
 	for (int32_t y = offset_y; y < (offset_y + height); y++) {
 		const skb_color_t* x_src = src->buffer + offset_x + (y * src_stride);
 		skb_color_t* x_dst = dst->buffer + offset_x + (y * dst_stride);
@@ -663,7 +663,7 @@ static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_colo
 			cache->colors[i] = stops[0].color;
 	} else {
 		// Scale offsets, so that first stop is at 0, and last at 1.
-		
+
 		// Colors before the first stop.
 		int32_t idx = skb_clampi((int32_t)(stops[0].offset * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
 		skb_color_t color = stops[0].color;
@@ -675,10 +675,10 @@ static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_colo
 
 			int32_t prev_idx = idx;
 			skb_color_t prev_color = color;
-			
+
 			idx = skb_clampi((int32_t)(stops[stop_idx].offset * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
 			color = stops[stop_idx].color;
-			
+
 			const int32_t count = idx - prev_idx;
 			if (count > 0) {
 				float t = 0.f;
@@ -689,7 +689,7 @@ static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_colo
 				}
 			}
 		}
-		
+
 		// Colors after the first stop.
 		for (int32_t i = idx; i < SKB_GRADIENT_CACHE_SIZE; i++)
 			cache->colors[i] = color;
@@ -729,7 +729,7 @@ void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t 
 	skb_canvas_fill_mask(c);
 
 	const skb_mat2_t inv = skb_mat2_inverse(c->transform_stack[c->transform_stack_count-1]);
-	
+
 	skb_gradient_cache_t cache;
 	skb_gradient_cache_init_(&cache, stops, stops_count);
 
@@ -783,10 +783,10 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 	SKB_UNUSED(p0);
 
 	static const float eps = 0.25f;
-	
+
 	if (!stops_count)
 		return;
-	
+
 	if (r1 < eps) {
 		skb_canvas_fill_solid_color(c, stops[stops_count-1].color);
 		return;
@@ -796,9 +796,9 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 	skb_canvas_fill_mask(c);
 
 	// This implementation only supports the simple radial case of the radial gradient.
-	
+
 	const skb_mat2_t inv = skb_mat2_inverse(c->transform_stack[c->transform_stack_count-1]);
-	
+
 	// @TODO: handle the clamping better.
 	// Clamp r0 to be inside the r1.
 	r0 = skb_clampf(r0, 0.f, r1 - eps);
@@ -806,7 +806,7 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 
 	skb_gradient_cache_t cache;
 	skb_gradient_cache_init_(&cache, stops, stops_count);
-		
+
 	assert(c->layers_count > 0);
 	assert(c->masks_count > 0);
 	skb_image_layer_t* layer = &c->layers[c->layers_count - 1];
@@ -814,7 +814,7 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 	const int32_t layer_stride = layer->stride;
 	const int32_t mask_stride = mask->stride;
 	const int32_t fill_w = mask->region.width;
-	
+
 	for (int32_t y = mask->region.y; y < (mask->region.y + mask->region.height); y++) {
 		// Calculate gradient space location at the beginning of the line.
 		const float px = (float)mask->region.x + 0.5f;
@@ -824,7 +824,7 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 		// Offset to gradient center.
 		fx -= p0.x;
 		fy -= p0.y;
-		
+
 		const uint8_t* x_mask = mask->buffer + mask->region.x + (y * mask_stride);
 		skb_color_t* x_layer = layer->buffer + mask->region.x + (y * layer_stride);
 
@@ -860,16 +860,16 @@ skb_canvas_t* skb_canvas_create(skb_temp_alloc_t* alloc, skb_image_t* target)
 
 	c->alloc = alloc;
 	c->mark = mark;
-	
+
 	c->width = target->width;
 	c->height = target->height;
 	c->bpp = target->bpp;
 	c->target = target;
-	
+
 	c->scanline = SKB_TEMP_ALLOC(c->alloc, uint8_t, c->width);
-	
+
 	c->points_bounds = skb_rect2_make_undefined();
-	
+
 	skb_canvas_push_transform(c, skb_mat2_make_identity());
 
 	// Push target layer or mask
@@ -895,7 +895,7 @@ skb_canvas_t* skb_canvas_create(skb_temp_alloc_t* alloc, skb_image_t* target)
 		skb_mask_t* mask = &c->masks[c->masks_count++];
 		mask->buffer = target->buffer;
 		mask->stride = target->stride_bytes;
-	
+
 		// Init mask to full canvas size.
 		for (int32_t y = 0; y < c->height; y++)
 			memset(mask->buffer + y * mask->stride, 255, c->width * sizeof(uint8_t));
@@ -904,7 +904,7 @@ skb_canvas_t* skb_canvas_create(skb_temp_alloc_t* alloc, skb_image_t* target)
 		mask->region.width = c->width;
 		mask->region.height = c->height;
 	}
-	
+
 	return c;
 }
 

@@ -23,7 +23,7 @@
 
 typedef struct cached_context_t {
 	example_t base;
-	
+
 	skb_font_collection_t* font_collection;
 	skb_temp_alloc_t* temp_alloc;
 	skb_render_cache_t* render_cache;
@@ -35,9 +35,9 @@ typedef struct cached_context_t {
 	bool drag_view;
 	bool drag_text;
 
-	bool show_glyph_bounds;	
+	bool show_glyph_bounds;
 	float atlas_scale;
-	
+
 } cached_context_t;
 
 
@@ -79,7 +79,7 @@ void* cached_create(void)
 	ctx->base.on_update = cached_on_update;
 
 	ctx->atlas_scale = 0.0f;
-	
+
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
 
@@ -109,9 +109,9 @@ void* cached_create(void)
 
 	ctx->layout_cache = skb_layout_cache_create();
 	assert(ctx->layout_cache);
-	
+
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
-	
+
 	return ctx;
 
 error:
@@ -123,7 +123,7 @@ void cached_destroy(void* ctx_ptr)
 {
 	cached_context_t* ctx = ctx_ptr;
 	assert(ctx);
-	
+
 	skb_layout_cache_destroy(ctx->layout_cache);
 	skb_render_cache_destroy(ctx->render_cache);
 	skb_renderer_destroy(ctx->renderer);
@@ -131,7 +131,7 @@ void cached_destroy(void* ctx_ptr)
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(cached_context_t));
-	
+
 	skb_free(ctx);
 }
 
@@ -232,13 +232,13 @@ void render_text(cached_context_t* ctx, float x, float y, float font_size, int32
 		const skb_glyph_t* glyph = &glyphs[gi];
 		const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
 		const skb_font_t* font = skb_font_collection_get_font(layout_params->font_collection, glyph->font_idx);
-		
+
 		const float gx = x + glyph->offset_x;
 		const float gy = y + glyph->offset_y;
 
-		// Glyph image 
+		// Glyph image
 		skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,gx, gy, ctx->view.scale, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
-		
+
 		draw_image_quad_sdf(
 			view_transform_rect(&ctx->view, quad.geom_bounds),
 			quad.image_bounds, 1.f / quad.scale, quad.is_color ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
@@ -282,7 +282,7 @@ void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					assert(tex_id);
 					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
 				} else {
-					draw_update_texture(tex_id, 
+					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
 							image->width, image->height, image->stride_bytes, image->buffer);
 				}
