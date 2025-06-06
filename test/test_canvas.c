@@ -18,19 +18,19 @@ static int test_init(void)
 	};
 	image.buffer = skb_malloc(image.width * image.height * image.bpp);
 	image.stride_bytes = image.width * image.bpp;
-	
+
 	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, &image);
 	ENSURE(canvas != NULL);
 
 	skb_canvas_destroy(canvas);
-	
+
 	skb_free(image.buffer);
-	
+
 	return 0;
 }
 
 int canvas_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

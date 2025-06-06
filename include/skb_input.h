@@ -23,7 +23,7 @@
  *
  * An user interface with a lot of text fields can usually have just one text input. Each text field is rendered
  * using a layout until the user focuses on the field, in which case the text input is filled with the text, and takes over.
- * 
+ *
  * @{
  */
 
@@ -33,7 +33,7 @@ typedef struct skb_input_t skb_input_t;
 /**
  * Signature of text input change function.
  * @param input input that changed.
- * @param context context pointer that was passed to skb_input_set_on_change_callback(). 
+ * @param context context pointer that was passed to skb_input_set_on_change_callback().
  */
 typedef void skb_input_on_change_t(skb_input_t* input, void* context);
 
@@ -43,7 +43,7 @@ typedef enum {
 	 * changes to make it easier to place the caret at the start and end of the words. */
 	SKB_CARET_MODE_SKRIBIDI = 0,
 	/** Simple mode, similar to Windows, the caret moves in logical order, always one grapheme at a time. */
-	SKB_CARET_MODE_SIMPLE,	
+	SKB_CARET_MODE_SIMPLE,
 } skb_input_caret_mode_t;
 
 /** Struct describing paramters for the text input. */
@@ -83,7 +83,7 @@ typedef enum {
 
 /** Key modifiers. */
 typedef enum {
-	SKB_MOD_NONE = 0,	
+	SKB_MOD_NONE = 0,
 	SKB_MOD_SHIFT = 0x01,
 	SKB_MOD_CONTROL = 0x02,
 } skb_input_key_mod_t;
@@ -196,7 +196,7 @@ skb_text_position_t skb_input_hit_test(const skb_input_t* input, skb_movement_ty
 void skb_input_select_all(skb_input_t* input);
 
 /**
- * Clears the current selection of the input. 
+ * Clears the current selection of the input.
  * @param input input to set.
  */
 void skb_input_select_none(skb_input_t* input);
@@ -270,7 +270,7 @@ int32_t skb_input_get_selection_text_utf32(const skb_input_t* input, skb_text_se
  * @param x mouse x location.
  * @param y mouse y location.
  * @param mods key modifiers.
- * @param time time stamp in seconds (used to detect double and triple clicks). 
+ * @param time time stamp in seconds (used to detect double and triple clicks).
  */
 void skb_input_mouse_click(skb_input_t* input, float x, float y, uint32_t mods, double time);
 
@@ -319,7 +319,7 @@ void skb_input_paste_utf32(skb_input_t* input, skb_temp_alloc_t* temp_alloc, con
 
 /**
  * Deletes current selection.
- * @param input input to update. 
+ * @param input input to update.
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  */
 void skb_input_cut(skb_input_t* input, skb_temp_alloc_t* temp_alloc);

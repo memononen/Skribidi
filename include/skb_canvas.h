@@ -8,7 +8,7 @@
 
 /**
  * @defgroup canvas Canvas
- * 
+ *
  * Canvas is lightweight disposable vector drawing context.
  * The user is expected to create a canvas when they want to render something to an image, and then free the canvas.
  *
@@ -37,7 +37,7 @@
  * The canvas supports rendering to an RGBA or Alpha images. In case of Alpha image, just the mask is rendered.
  *
  * The rendering is done in sRGB color space, and the output colors are premultiplied.
- * 
+ *
  * @{
  */
 
@@ -83,7 +83,7 @@ void skb_canvas_destroy(skb_canvas_t* c);
 /**
  * Starts a new shape and move the pen position to 'pt'.
  * @param c canvas to render to
- * @param pt 
+ * @param pt
  */
 void skb_canvas_move_to(skb_canvas_t* c, skb_vec2_t pt);
 
@@ -91,7 +91,7 @@ void skb_canvas_move_to(skb_canvas_t* c, skb_vec2_t pt);
  * Draws line from the pen position to 'pt'.
  * Sets the new pen position to 'pt'.
  * @param c canvas to render to
- * @param pt 
+ * @param pt
  */
 void skb_canvas_line_to(skb_canvas_t* c, skb_vec2_t pt);
 
@@ -121,7 +121,7 @@ void skb_canvas_cubic_to(skb_canvas_t* c, skb_vec2_t cp0, skb_vec2_t cp1, skb_ve
 void skb_canvas_close(skb_canvas_t* c);
 
 /**
- * Multiplies the top of the transform stack with 't' and pushes it to the top of the transform stack. 
+ * Multiplies the top of the transform stack with 't' and pushes it to the top of the transform stack.
  * @param c canvas to render to
  * @param t transform to apply.
  */
@@ -195,7 +195,7 @@ void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t 
  * Note: does not yet support the full spec.
  * @param c canvas to render to
  * @param p0 center of the gradient
- * @param r0 radius around the center where the gradient starts 
+ * @param r0 radius around the center where the gradient starts
  * @param p1 offset end point of the gradient (not implemented yet)
  * @param r1 radius relative to the offset end point where the gradient ends
  * @param spread defines how the gradient behaves outside the start and end point (not implemented yet)

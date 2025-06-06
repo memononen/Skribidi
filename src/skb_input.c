@@ -50,7 +50,7 @@ typedef struct skb_input_t {
 	skb_input_params_t params;
 	skb_input_on_change_t* on_change_callback;
 	void* on_change_context;
-	
+
 	skb__input_paragraph_t* paragraphs;
 	int32_t paragraphs_count;
 	int32_t paragraphs_cap;
@@ -85,13 +85,13 @@ static void skb__update_layout(skb_input_t* input, skb_temp_alloc_t* temp_alloc)
 	for (int32_t i = 0; i < input->paragraphs_count; i++) {
 		skb__input_paragraph_t* paragraph = &input->paragraphs[i];
 
-		// Layout is removed from the lines where we 
+		// Layout is removed from the lines where we
 		if (!paragraph->layout)
 			paragraph->layout = skb_layout_create_utf32(temp_alloc, &layout_params, paragraph->text, paragraph->text_count, &input->params.text_attribs);
 		assert(paragraph->layout);
-		
+
 		paragraph->y = y;
-		
+
 		skb_rect2_t layout_bounds = skb_layout_get_bounds(paragraph->layout);
 		y += layout_bounds.height;
 	}
@@ -106,7 +106,7 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 	int32_t paragraphs_count = 0;
 	int32_t paragraphs_cap = 8;
 	skb_range_t* paragraphs = SKB_TEMP_ALLOC(temp_alloc, skb_range_t, paragraphs_cap);
-	
+
 	while (offset < utf32_len) {
 		if (skb_is_paragraph_separator(utf32[offset])) {
 			// Handle CRLF
@@ -152,14 +152,14 @@ static void skb__emit_on_change(skb_input_t* input)
 skb_input_t* skb_input_create(const skb_input_params_t* params)
 {
 	assert(params);
-	
+
 	skb_input_t* input = skb_malloc(sizeof(skb_input_t));
 	memset(input, 0, sizeof(skb_input_t));
 
 	input->params = *params;
 
 	input->preferred_x = -1.f;
-	
+
 	return input;
 }
 
@@ -183,7 +183,7 @@ void skb_input_destroy(skb_input_t* input)
 	skb_free(input->paragraphs);
 
 	memset(input, 0, sizeof(skb_input_t));
-	
+
 	skb_free(input);
 }
 
@@ -208,9 +208,9 @@ void skb_input_reset(skb_input_t* input, const skb_input_params_t* params)
 void skb_input_set_text_utf8(skb_input_t* input, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
 {
 	assert(input);
-	
+
 	skb_input_reset(input, NULL);
-	
+
 	if (utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
 
 	const int32_t utf32_len = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
@@ -234,10 +234,10 @@ void skb_input_set_text_utf8(skb_input_t* input, skb_temp_alloc_t* temp_alloc, c
 			memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(uint32_t));
 		}
 	}
-	
+
 	SKB_TEMP_FREE(temp_alloc, input_paragraph_ranges);
 	SKB_TEMP_FREE(temp_alloc, utf32);
-	
+
 	skb__update_layout(input, temp_alloc);
 	skb__emit_on_change(input);
 }
@@ -245,9 +245,9 @@ void skb_input_set_text_utf8(skb_input_t* input, skb_temp_alloc_t* temp_alloc, c
 void skb_input_set_text_utf32(skb_input_t* input, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(input);
-	
+
 	skb_input_reset(input, NULL);
-	
+
 	if (utf32_len < 0) utf32_len = skb_utf32_strlen(utf32);
 
 	int32_t input_paragraph_count = 0;
@@ -342,7 +342,7 @@ int32_t skb_input_get_text_utf32_count(const skb_input_t* input)
 		const skb__input_paragraph_t* paragraph = &input->paragraphs[i];
 		count += paragraph->text_count;
 	}
-	
+
 	return count;
 }
 
@@ -359,7 +359,7 @@ int32_t skb_input_get_text_utf32(const skb_input_t* input, uint32_t* buf, int32_
 			memcpy(buf + count, paragraph->text, copy_count * sizeof(uint32_t));
 		count += paragraph->text_count;
 	}
-	
+
 	return count;
 }
 
@@ -369,7 +369,7 @@ static skb__input_position_t skb__get_sanitized_position(const skb_input_t* inpu
 	assert(input->paragraphs_count > 0);
 
 	skb__input_position_t edit_pos = {0};
-	
+
 	// Find edit line.
 	const skb__input_paragraph_t* last_paragraph = &input->paragraphs[input->paragraphs_count - 1];
 	const int32_t total_text_count = last_paragraph->text_start_offset + last_paragraph->text_count;
@@ -389,12 +389,12 @@ static skb__input_position_t skb__get_sanitized_position(const skb_input_t* inpu
 
 	// Find line
 	const skb__input_paragraph_t* cur_paragraph = &input->paragraphs[edit_pos.paragraph_idx];
-	
+
 	edit_pos.paragraph_offset = pos.offset - cur_paragraph->text_start_offset;
 
 	const skb_layout_line_t* lines = skb_layout_get_lines(cur_paragraph->layout);
 	const int32_t lines_count = skb_layout_get_lines_count(cur_paragraph->layout);
-	
+
 	if (edit_pos.paragraph_offset < 0) {
 		// We should hit this only when the pos.offset is before the first line.
 		edit_pos.line_idx = 0;
@@ -457,7 +457,7 @@ static skb__input_position_t skb__get_next_grapheme_pos(const skb_input_t* input
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
 
 	edit_pos.paragraph_offset = skb_layout_next_grapheme_offset(paragraph->layout, edit_pos.paragraph_offset);
-	
+
 	// Affinity adjustment may push the offset to next edit line
 	if (edit_pos.paragraph_offset >= paragraph->text_count) {
 		if ((edit_pos.paragraph_idx + 1) < input->paragraphs_count) {
@@ -479,7 +479,7 @@ static skb__input_position_t skb__get_next_grapheme_pos(const skb_input_t* input
 			break;
 		}
 	}
-	
+
 	return edit_pos;
 }
 
@@ -494,9 +494,9 @@ static skb__input_position_t skb__get_prev_grapheme_pos(const skb_input_t* input
 			edit_pos.paragraph_offset = skb_layout_get_text_count(paragraph->layout);
 		}
 	}
-	
+
 	edit_pos.paragraph_offset = skb_layout_prev_grapheme_offset(paragraph->layout, edit_pos.paragraph_offset);
-	
+
 	// Update layout line index
 	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
 	const int32_t lines_count = skb_layout_get_lines_count(paragraph->layout);
@@ -540,7 +540,7 @@ skb_text_position_t skb_input_get_line_end_at(const skb_input_t* input, skb_text
 		.affinity = SKB_AFFINITY_EOL,
 	};
 	return skb__caret_prune_control_eol(paragraph->layout, line, result);
-} 
+}
 
 skb_text_position_t skb_input_get_word_start_at(const skb_input_t* input, skb_text_position_t pos)
 {
@@ -564,7 +564,7 @@ skb_text_position_t skb_input_get_word_start_at(const skb_input_t* input, skb_te
 
 	if (offset < 0)
 		offset = 0;
-	
+
 	return (skb_text_position_t) {
 		.offset = paragraph->text_start_offset + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
@@ -594,7 +594,7 @@ skb_text_position_t skb_input_get_word_end_at(const skb_input_t* input, skb_text
 
 	if (offset >= text_count)
 		offset = skb_layout_align_grapheme_offset(paragraph->layout, text_count-1);
-	
+
 	return (skb_text_position_t) {
 		.offset = paragraph->text_start_offset + offset,
 		.affinity = SKB_AFFINITY_LEADING,
@@ -612,7 +612,7 @@ skb_text_position_t skb_input_get_selection_ordered_start(const skb_input_t* inp
 
 	if (line_is_rtl)
 		return start.text_offset > end.text_offset ? selection.start_pos : selection.end_pos;
-	
+
 	return start.text_offset <= end.text_offset ? selection.start_pos : selection.end_pos;
 }
 
@@ -627,7 +627,7 @@ skb_text_position_t skb_input_get_selection_ordered_end(const skb_input_t* input
 
 	if (line_is_rtl)
 		return start.text_offset <= end.text_offset ? selection.start_pos : selection.end_pos;
-	
+
 	return start.text_offset > end.text_offset ? selection.start_pos : selection.end_pos;
 }
 
@@ -838,7 +838,7 @@ static skb_text_position_t skb__advance_word_forward(const skb_input_t* input, s
 		}
 		offset++;
 	}
-	
+
 	if (offset == text_count) {
 		if (cur_edit_pos.paragraph_idx + 1 < input->paragraphs_count) {
 			cur_edit_pos.paragraph_idx++;
@@ -873,7 +873,7 @@ static skb_text_position_t skb__advance_word_backward(const skb_input_t* input, 
 			// Goto previous paragraph
 			cur_edit_pos.paragraph_idx--;
 			paragraph = &input->paragraphs[cur_edit_pos.paragraph_idx];
-			offset = skb_layout_align_grapheme_offset(paragraph->layout, text_count-1); // Last grapheme of the paragraph. 
+			offset = skb_layout_align_grapheme_offset(paragraph->layout, text_count-1); // Last grapheme of the paragraph.
 			return (skb_text_position_t) {
 				.offset = paragraph->text_start_offset + offset,
 				.affinity = SKB_AFFINITY_TRAILING,
@@ -898,7 +898,7 @@ static skb_text_position_t skb__advance_word_backward(const skb_input_t* input, 
 		}
 		offset--;
 	}
-	
+
 	return (skb_text_position_t) {
 		.offset = paragraph->text_start_offset + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
@@ -1115,7 +1115,7 @@ int32_t skb_input_get_selection_text_utf32(const skb_input_t* input, skb_text_se
 skb_text_selection_t skb_input_get_current_selection(skb_input_t* input)
 {
 	assert(input);
-	return input->selection;	
+	return input->selection;
 }
 
 void skb_input_select_all(skb_input_t* input)
@@ -1123,13 +1123,13 @@ void skb_input_select_all(skb_input_t* input)
 	assert(input);
 
 	if (input->paragraphs_count > 0) {
-		input->selection.start_pos = (skb_text_position_t) { .offset = 0, .affinity = SKB_AFFINITY_SOL };	
+		input->selection.start_pos = (skb_text_position_t) { .offset = 0, .affinity = SKB_AFFINITY_SOL };
 		const skb__input_paragraph_t* last_paragraph = &input->paragraphs[input->paragraphs_count - 1];
 		const int32_t last_text_count = skb_layout_get_text_count(last_paragraph->layout);
 		const int32_t last_grapheme_offset = skb_layout_align_grapheme_offset(last_paragraph->layout, last_text_count-1);
 		input->selection.end_pos = (skb_text_position_t) { .offset = last_paragraph->text_start_offset + last_grapheme_offset, .affinity = SKB_AFFINITY_EOL };
 	} else {
-		input->selection.start_pos = (skb_text_position_t) { 0 };	
+		input->selection.start_pos = (skb_text_position_t) { 0 };
 		input->selection.end_pos = (skb_text_position_t) { 0 };
 	}
 }
@@ -1149,7 +1149,7 @@ skb_text_position_t skb_input_hit_test(const skb_input_t* input, skb_movement_ty
 {
 	assert(input);
 	assert(input->paragraphs_count > 0);
-	
+
 	const skb__input_paragraph_t* hit_paragraph = NULL;
 	int32_t hit_line_idx = SKB_INVALID_INDEX;
 
@@ -1158,9 +1158,9 @@ skb_text_position_t skb_input_hit_test(const skb_input_t* input, skb_movement_ty
 
 	const skb_rect2_t first_paragraph_bounds = skb_layout_get_bounds(first_paragraph->layout);
 	const skb_rect2_t last_paragraph_bounds = skb_layout_get_bounds(last_paragraph->layout);
-	
+
 	const float first_top_y = first_paragraph->y + first_paragraph_bounds.y;
-	
+
 	const float last_top_y = last_paragraph->y + last_paragraph_bounds.y;
 	const float last_bot_y = last_paragraph->y + last_paragraph_bounds.y + last_paragraph_bounds.height;
 
@@ -1210,7 +1210,7 @@ enum {
 void skb_input_mouse_click(skb_input_t* input, float x, float y, uint32_t mods, double time)
 {
 	static const double double_click_duration = 0.4;
-	
+
 	if (input->paragraphs_count <= 0)
 		return;
 
@@ -1220,10 +1220,10 @@ void skb_input_mouse_click(skb_input_t* input, float x, float y, uint32_t mods, 
 		input->click_count++;
 	else
 		input->click_count = 1;
-			
+
 	if (input->click_count > 3)
 		input->click_count = 1;
-			
+
 	input->last_click_time = time;
 
 	skb_text_position_t hit_caret = skb_input_hit_test(input, SKB_MOVEMENT_CARET, x, y);
@@ -1258,7 +1258,7 @@ void skb_input_mouse_click(skb_input_t* input, float x, float y, uint32_t mods, 
 void skb_input_mouse_drag(skb_input_t* input, float x, float y)
 {
 	static const float move_threshold = 5.f;
-	
+
 	if (!input->drag_moved) {
 		float dx = input->drag_start_x - x;
 		float dy = input->drag_start_y - y;
@@ -1266,14 +1266,14 @@ void skb_input_mouse_drag(skb_input_t* input, float x, float y)
 		if (len_sqr > move_threshold*move_threshold)
 			input->drag_moved = true;
 	}
-	
+
 	if (input->drag_moved) {
 
 		skb_text_position_t hit_pos = skb_input_hit_test(input, SKB_MOVEMENT_SELECTION, x, y);
 
 		skb_text_position_t sel_start_pos = hit_pos;
 		skb_text_position_t sel_end_pos = hit_pos;
-				
+
 		if (input->drag_mode == SKB_DRAG_CHAR) {
 			sel_start_pos = hit_pos;
 			sel_end_pos = hit_pos;
@@ -1326,12 +1326,12 @@ static void skb__replace_range(skb_input_t* input, skb_temp_alloc_t* temp_alloc,
 	int32_t input_paragraph_count = 0;
 	skb_range_t* input_paragraph_ranges = skb__split_text_into_paragraphs(temp_alloc, utf32, utf32_len, &input_paragraph_count);
 	assert(input_paragraph_count > 0); // we assume that even for empty input there's one item.
-	
+
 	// Save start and end edit lines from being freed (these may be the same).
 	uint32_t* start_paragraph_text = input->paragraphs[start.paragraph_idx].text;
 	uint32_t* end_paragraph_text = input->paragraphs[end.paragraph_idx].text;
 	const int32_t end_paragraph_text_count = input->paragraphs[end.paragraph_idx].text_count;
-	
+
 	input->paragraphs[start.paragraph_idx].text = NULL;
 	input->paragraphs[start.paragraph_idx].text_count = 0;
 	input->paragraphs[end.paragraph_idx].text = NULL;
@@ -1410,7 +1410,7 @@ static void skb__replace_range(skb_input_t* input, skb_temp_alloc_t* temp_alloc,
 			utf32 + end_paragraph_range.start, end_paragraph_range.end - end_paragraph_range.start,
 			end_paragraph_text + end_paragraph_copy_offset, end_paragraph_copy_count,
 			NULL, 0);
-		
+
 		// Keep track of last paragraph and last codepoint inserted for caret positioning.
 		last_paragraph = new_end_paragraph;
 		last_paragraph_offset = end_paragraph_range.end - end_paragraph_range.start - 1;
@@ -1435,14 +1435,14 @@ static void skb__replace_range(skb_input_t* input, skb_temp_alloc_t* temp_alloc,
 	if (last_paragraph->text_count > 0) {
 		char* grapheme_breaks = SKB_TEMP_ALLOC(temp_alloc, char, last_paragraph->text_count);
 		set_graphemebreaks_utf32(last_paragraph->text, last_paragraph->text_count, input->params.layout_params.lang, grapheme_breaks);
-		
+
 		// Find beginning of the last grapheme.
 		while ((last_paragraph_offset - 1) >= 0 && grapheme_breaks[last_paragraph_offset - 1] != GRAPHEMEBREAK_BREAK)
 			last_paragraph_offset--;
-		
+
 		SKB_TEMP_FREE(temp_alloc, grapheme_breaks);
 	}
-	
+
 	// Set selection to the end of the inserted text.
 	if (last_paragraph_offset < 0) {
 		// This can happen when we delete the first character.
@@ -1456,7 +1456,7 @@ static void skb__replace_range(skb_input_t* input, skb_temp_alloc_t* temp_alloc,
 			.affinity = SKB_AFFINITY_LEADING
 		};
 	}
-	
+
 	input->selection.end_pos = input->selection.start_pos;
 	input->preferred_x = -1.f; // reset preferred.
 
@@ -1645,7 +1645,7 @@ static skb__input_position_t skb__get_backspace_start_offset(const skb_input_t* 
 			break;
 		}
 	} while (cur_offset > 0 && state != BACKSPACE_STATE_FINISHED);
-	
+
 	pos.paragraph_offset -= delete_char_count;
 	pos.text_offset = paragraph->text_start_offset + pos.paragraph_offset;
 
@@ -1675,7 +1675,7 @@ void skb_input_key_pressed(skb_input_t* input, skb_temp_alloc_t* temp_alloc, skb
 		}
 		input->preferred_x = -1.f; // reset preferred.
 	}
-	
+
 	if (key == SKB_KEY_LEFT) {
 		if (mods & SKB_MOD_SHIFT) {
 			if (mods & SKB_MOD_CONTROL)
@@ -1721,7 +1721,7 @@ void skb_input_key_pressed(skb_input_t* input, skb_temp_alloc_t* temp_alloc, skb
 		}
 
 		input->selection.end_pos = skb_input_move_to_prev_line(input, input->selection.end_pos, input->preferred_x);
-		
+
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			input->selection.start_pos = input->selection.end_pos;
 		}
@@ -1731,14 +1731,14 @@ void skb_input_key_pressed(skb_input_t* input, skb_temp_alloc_t* temp_alloc, skb
 			skb_visual_caret_t vis = skb_input_get_visual_caret(input, input->selection.end_pos);
 			input->preferred_x = vis.x;
 		}
-		
+
 		input->selection.end_pos = skb_input_move_to_next_line(input, input->selection.end_pos, input->preferred_x);
-		
+
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			input->selection.start_pos = input->selection.end_pos;
 		}
 	}
-	
+
 	if (key == SKB_KEY_BACKSPACE) {
 		if (skb_input_get_selection_count(input, input->selection) > 0) {
 			skb__replace_selection(input, temp_alloc, NULL, 0);
@@ -1752,7 +1752,7 @@ void skb_input_key_pressed(skb_input_t* input, skb_temp_alloc_t* temp_alloc, skb
 			skb__emit_on_change(input);
 		}
 	}
-	
+
 	if (key == SKB_KEY_DELETE) {
 		if (skb_input_get_selection_count(input, input->selection) > 0) {
 			skb__replace_selection(input, temp_alloc, NULL, 0);
@@ -1766,7 +1766,7 @@ void skb_input_key_pressed(skb_input_t* input, skb_temp_alloc_t* temp_alloc, skb
 			skb__emit_on_change(input);
 		}
 	}
-	
+
 	if (key == SKB_KEY_ENTER) {
 		const uint32_t cp = SKB_CHAR_LINE_FEED;
 		skb__replace_selection(input, temp_alloc, &cp, 1);
@@ -1796,9 +1796,9 @@ void skb_input_paste_utf8(skb_input_t* input, skb_temp_alloc_t* temp_alloc, cons
 	const int32_t utf32_len = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
 
 	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_len);
-	
+
 	skb_utf8_to_utf32(utf8, utf8_len, utf32, utf32_len);
-	
+
 	skb__replace_selection(input, temp_alloc, utf32, utf32_len);
 
 	SKB_TEMP_FREE(temp_alloc, utf32);
@@ -1917,7 +1917,7 @@ void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection
 			};
 			skb_layout_get_selection_bounds_with_offset(paragraph->layout, paragraph->y, line_sel, callback, context);
 		}
-		
+
 		// Last line
 		const skb__input_paragraph_t* last_paragraph = &input->paragraphs[range.end.paragraph_idx];
 		skb_text_selection_t last_line_sel = {

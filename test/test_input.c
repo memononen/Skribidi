@@ -22,12 +22,12 @@ static int test0(void)
 	ENSURE(input != NULL);
 
 	skb_input_destroy(input);
-	
+
 	return 0;
 }
 
 int input_tests(void)
 {
 	RUN_SUBTEST(test0);
-	return 0;	
+	return 0;
 }

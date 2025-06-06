@@ -17,13 +17,13 @@ FetchContent_MakeAvailable(harfbuzz)
 
 # sheenbidi
 FetchContent_Declare(
-	sheenbidi
+	SheenBidi
 	GIT_REPOSITORY https://github.com/Tehreer/SheenBidi.git
-#	GIT_TAG c44eb1163c0aac67544862b4fef8d1d3c747f1f0 # v2.8
-	GIT_TAG a876ac5491ed052d1da5ee841e265a4f1f4ae5a5 # develop
+	GIT_TAG 83f77108a2873600283f6da4b326a2dca7a3a7a6 # Jun 6, 2025
+	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
-FetchContent_MakeAvailable(sheenbidi)
+FetchContent_MakeAvailable(SheenBidi)
 
 # libunibreak
 FetchContent_Declare(
@@ -146,7 +146,7 @@ set_target_properties(skribidi PROPERTIES
 )
 
 target_link_libraries(skribidi PUBLIC m)
-target_link_libraries(skribidi PRIVATE harfbuzz sheenbidi libunibreak budouxc)
+target_link_libraries(skribidi PRIVATE harfbuzz SheenBidi libunibreak budouxc)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${SKRIBIDI_SOURCE_FILES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${SKRIBIDI_API_FILES})

@@ -10,7 +10,7 @@
 
 #include "hb.h"
 #include "hb-ot.h"
-#include "SheenBidi.h"
+#include "SheenBidi/SheenBidi.h"
 #include "graphemebreak.h"
 #include "linebreak.h"
 #include "wordbreak.h"
@@ -89,28 +89,13 @@ uint64_t skb_layout_attribs_hash_append(uint64_t hash, const skb_text_attribs_t*
 
 static hb_script_t skb__sb_script_to_hb(SBScript script)
 {
-	// TODO: this is not 100% correct, there's 3 types, all almost the same: Unicode script property, ISO-15924, OpenType script tag.
-	// HB uses ISO-15924, SB uses Unicode script property.
-	if (script ==  SB_SCRIPT_COMMON)
-		return HB_SCRIPT_COMMON;
-	if (script == SB_SCRIPT_INHERITED)
-		return HB_SCRIPT_INHERITED;
-	if (script == SB_SCRIPT_UNKNOWN)
-		return HB_SCRIPT_UNKNOWN;
-	const SBUInt32 script_tag = SBScriptGetOpenTypeTag(script);
-	return hb_ot_tag_to_script(script_tag);
+	const SBUInt32 script_tag = SBScriptGetUnicodeTag(script);
+	return hb_script_from_iso15924_tag(script_tag);
 }
 
-uint32_t skb_script_to_ot_tag(uint8_t script)
+uint32_t skb_script_to_iso15924_tag(uint8_t script)
 {
-	if (script ==  SB_SCRIPT_COMMON)
-		return HB_TAG('z','y','y','y');
-	if (script == SB_SCRIPT_INHERITED)
-		return HB_TAG('z','i','n','h');
-	if (script == SB_SCRIPT_UNKNOWN)
-		return HB_TAG('z','z','z','z');
-	const SBUInt32 script_tag = SBScriptGetOpenTypeTag(script);
-	return script_tag;
+	return SBScriptGetUnicodeTag(script);
 }
 
 static bool skb__is_japanese_script(uint8_t script)
@@ -187,9 +172,11 @@ static void skb__shape_run(
 	const skb__shaping_attribute_span_t* shaping_span,
 	hb_buffer_t* buffer,
 	const skb_font_t** fonts,
-	int32_t fonts_cap,
+	int32_t fonts_count,
 	int32_t font_idx)
 {
+	assert(fonts_count > 0);
+
 	const skb_font_t* font = fonts[font_idx];
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
@@ -260,7 +247,7 @@ static void skb__shape_run(
 			}
 
 			// Try next matching font if available.
-			if (font_idx+1 < fonts_cap) {
+			if (font_idx+1 < fonts_count) {
 				hb_buffer_t* fallback_buffer = hb_buffer_create();
 
 				skb__shaping_run_t fallback_run = {
@@ -270,7 +257,7 @@ static void skb__shape_run(
 					.is_emoji = run->is_emoji,
 					.script = run->script,
 				};
-				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_cap, font_idx+1);
+				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_count, font_idx+1);
 
 				hb_buffer_destroy(fallback_buffer);
 				i = glyph_end + 1;
@@ -1247,6 +1234,15 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 			layout->params.font_collection, run->script, font_family,
 			shaping_span->style, shaping_span->font_stretch, shaping_span->font_weight,
 			fonts, SKB_COUNTOF(fonts));
+
+		if (fonts_count == 0) {
+			// If not fonts found, try the font family's default font.
+			fonts[0] = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
+			// If still not found, there's nothing we can do, so continue to next run.
+			if (!fonts[0])
+				continue;
+			fonts_count++;
+		}
 
 		hb_buffer_clear_contents(buffer);
 		skb__shape_run(&build_context, layout, run, shaping_span, buffer, fonts, fonts_count, 0);

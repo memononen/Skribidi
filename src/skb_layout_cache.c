@@ -27,22 +27,22 @@ skb_layout_cache_t* skb_layout_cache_create(void)
 {
 	skb_layout_cache_t* cache = skb_malloc(sizeof(skb_layout_cache_t));
 	memset(cache, 0, sizeof(skb_layout_cache_t));
-	
+
 	cache->layouts_lookup = skb_hash_table_create();
 	cache->lru = skb_list_make();
 	cache->layouts_freelist = SKB_INVALID_INDEX;
 
-	return cache;	
+	return cache;
 }
 
 void skb_layout_cache_destroy(skb_layout_cache_t* cache)
 {
 	if (!cache) return;
-	
+
 	for (int32_t i = 0; i < cache->layouts_count; i++)
 		skb_layout_destroy(cache->layouts[i].layout);
 	skb_free(cache->layouts);
-	
+
 	skb_hash_table_destroy(cache->layouts_lookup);
 
 	memset(cache, 0, sizeof(skb_layout_cache_t));
@@ -73,7 +73,7 @@ skb__cached_layout_t* skb__layout_cache_get_or_insert(skb_layout_cache_t* cache,
 			SKB_ARRAY_RESERVE(cache->layouts, cache->layouts_count + 1);
 			layout_index = cache->layouts_count++;
 		}
-		
+
 		// Register to hash table
 		skb_hash_table_add(cache->layouts_lookup, hash, layout_index);
 
@@ -90,7 +90,7 @@ skb__cached_layout_t* skb__layout_cache_get_or_insert(skb_layout_cache_t* cache,
 	// Mark last used time, and add to the front of the LRU list.
 	cached_layout->last_access_stamp = cache->now_stamp;
 	skb_list_move_to_front(&cache->lru, layout_index, skb__get_lru_item, cache);
-	
+
 	return cached_layout;
 }
 
@@ -112,7 +112,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(skb_layout_cache_t* cache, skb_tem
 	}
 	assert(cached_layout);
 	assert(cached_layout->layout);
-	
+
 	return cached_layout->layout;
 }
 
@@ -134,7 +134,7 @@ const skb_layout_t* skb_layout_cache_get_utf32(skb_layout_cache_t* cache, skb_te
 	}
 	assert(cached_layout);
 	assert(cached_layout->layout);
-	
+
 	return cached_layout->layout;
 }
 
@@ -143,7 +143,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs_utf8(skb_layout_cache_t* cach
 	assert(cache);
 
 	uint64_t hash = skb_hash64_empty();
-	
+
 	skb_text_run_utf8_t* fixed_runs = SKB_TEMP_ALLOC(temp_alloc, skb_text_run_utf8_t, runs_count);
 	for (int32_t i = 0; i < runs_count; i++) {
 		fixed_runs[i] = runs[i];
@@ -172,7 +172,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs_utf32(skb_layout_cache_t* cac
 	assert(cache);
 
 	uint64_t hash = skb_hash64_empty();
-	
+
 	skb_text_run_utf32_t* fixed_runs = SKB_TEMP_ALLOC(temp_alloc, skb_text_run_utf32_t, runs_count);
 	for (int32_t i = 0; i < runs_count; i++) {
 		fixed_runs[i] = runs[i];
@@ -205,7 +205,7 @@ bool skb_layout_cache_compact(skb_layout_cache_t* cache)
 	static int32_t evict_after_duration = 100;
 
 	bool compacted = false;
-	
+
 	int32_t layout_idx = cache->lru.tail; // Tail has least used items.
 	while (layout_idx != SKB_INVALID_INDEX) {
 		skb__cached_layout_t* cached_layout = &cache->layouts[layout_idx];
@@ -226,7 +226,7 @@ bool skb_layout_cache_compact(skb_layout_cache_t* cache)
 		cache->layouts_freelist = layout_idx;
 
 		compacted = true;
-		
+
 		layout_idx = prev_layout_idx;
 	}
 

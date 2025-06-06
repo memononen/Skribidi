@@ -52,7 +52,7 @@ typedef struct skb__atlas_t {
 	int32_t height;
 
 	int32_t occupancy;
-	
+
 	skb__atlas_row_t* rows;
 	int32_t rows_count;
 	int32_t rows_cap;
@@ -60,11 +60,11 @@ typedef struct skb__atlas_t {
 	skb__atlas_item_t* items;
 	int32_t items_count;
 	int32_t items_cap;
-	
+
 	uint16_t first_row;
 	uint16_t row_freelist;
 	uint16_t item_freelist;
-	
+
 } skb__atlas_t;
 
 static void skb__atlas_init(skb__atlas_t* atlas, int32_t width, int32_t height);
@@ -116,7 +116,7 @@ typedef struct skb__cached_icon_t {
 	uint8_t texture_idx;
 } skb__cached_icon_t;
 
-// Note: atlas size is always up to date, image gets resized during rasterization. 
+// Note: atlas size is always up to date, image gets resized during rasterization.
 typedef struct skb_atlas_image_t {
 	skb_image_t image;
 	skb__atlas_t atlas;
@@ -152,11 +152,11 @@ typedef struct skb_render_cache_t {
 
 	int32_t now_stamp;
 	int32_t last_evicted_stamp;
-	
+
 	skb_render_cache_config_t config;
 	skb_create_texture_callback_t* create_texture_callback;
 	void* create_texture_callback_context;
-	
+
 } skb_render_cache_t;
 
 static skb_list_item_t* skb__get_glyph(int32_t item_idx, void* context)
@@ -204,7 +204,7 @@ static void skb__atlas_image_init(skb_atlas_image_t* atlas_image, uint8_t index,
 {
 	memset(atlas_image, 0, sizeof(*atlas_image));
 	atlas_image->index = index;
-	
+
 	skb__image_resize(&atlas_image->image, width, height, bpp);
 	skb__atlas_init(&atlas_image->atlas, width, height);
 
@@ -218,7 +218,7 @@ static void skb__atlas_image_destroy(skb_atlas_image_t* atlas_image)
 	skb__image_destroy(&atlas_image->image);
 
 	skb__atlas_destroy(&atlas_image->atlas);
-	
+
 	memset(atlas_image, 0, sizeof(*atlas_image));
 }
 
@@ -230,7 +230,7 @@ skb_render_cache_t* skb_render_cache_create(const skb_render_cache_config_t* con
 
 	cache->glyphs_lookup = skb_hash_table_create();
 	cache->icons_lookup = skb_hash_table_create();
-	
+
 	cache->glyphs_freelist = SKB_INVALID_INDEX;
 	cache->glyphs_lru = skb_list_make();
 
@@ -241,14 +241,14 @@ skb_render_cache_t* skb_render_cache_create(const skb_render_cache_config_t* con
 		cache->config = *config;
 	else
 		cache->config = skb_render_cache_get_default_config();
-	
+
 	return cache;
 }
 
 void skb_render_cache_destroy(skb_render_cache_t* cache)
 {
 	if (!cache) return;
-	
+
 	for (int32_t i = 0; i < cache->images_count; i++)
 		skb__atlas_image_destroy(&cache->images[i]);
 	skb_free(cache->images);
@@ -259,7 +259,7 @@ void skb_render_cache_destroy(skb_render_cache_t* cache)
 	skb_free(cache->icons);
 
 	memset(cache, 0, sizeof(skb_render_cache_t));
-	
+
 	skb_free(cache);
 }
 
@@ -278,13 +278,13 @@ static skb_atlas_image_t* skb__render_cache_add_atlas_image(skb_render_cache_t* 
 
 	desired_width = skb_mini(skb_maxi(skb__round_up(desired_width, cache->config.atlas_expand_size), cache->config.atlas_init_width), cache->config.atlas_max_width);
 	desired_height = skb_mini(skb_maxi(skb__round_up(desired_height, cache->config.atlas_expand_size), cache->config.atlas_init_height), cache->config.atlas_max_height);
-	
+
 	skb_atlas_image_t* atlas_image = &cache->images[image_idx];
 	skb__atlas_image_init(atlas_image, (uint8_t)image_idx, desired_width, desired_height, bpp);
-	
+
 	if (cache->create_texture_callback)
 		cache->create_texture_callback(cache, (uint8_t)image_idx, cache->create_texture_callback_context);
-	
+
 	return atlas_image;
 }
 
@@ -329,7 +329,7 @@ skb_render_cache_config_t skb_render_cache_get_default_config(void)
 skb_render_cache_config_t skb_render_cache_get_config(skb_render_cache_t* cache)
 {
 	assert(cache);
-	return cache->config;	
+	return cache->config;
 }
 
 void skb_render_cache_set_create_texture_callback(skb_render_cache_t* cache, skb_create_texture_callback_t* create_texture_callback, void* context)
@@ -349,7 +349,7 @@ const skb_image_t* skb_render_cache_get_image(skb_render_cache_t* cache, int32_t
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	return &cache->images[index].image;
 }
 
@@ -357,7 +357,7 @@ skb_rect2i_t skb_render_cache_get_image_dirty_bounds(skb_render_cache_t* cache, 
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	return cache->images[index].dirty_bounds;
 }
 
@@ -365,14 +365,14 @@ skb_rect2i_t skb_render_cache_get_and_reset_image_dirty_bounds(skb_render_cache_
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	const skb_rect2i_t bounds = cache->images[index].dirty_bounds;
 
 	if (!skb_rect2i_is_empty(bounds))
 		cache->images[index].prev_dirty_bounds = bounds;
 
 	cache->images[index].dirty_bounds = skb_rect2i_make_undefined();
-	
+
 	return bounds;
 }
 
@@ -380,7 +380,7 @@ uintptr_t skb_render_cache_get_image_user_data(skb_render_cache_t* cache, int32_
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	return cache->images[index].user_data;
 }
 
@@ -388,7 +388,7 @@ void skb_render_cache_set_image_user_data(skb_render_cache_t* cache, int32_t ind
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	cache->images[index].user_data = user_data;
 }
 
@@ -396,7 +396,7 @@ void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	const skb_atlas_image_t* atlas_image = &cache->images[index];
 
 	const skb__atlas_t* atlas = &atlas_image->atlas;
@@ -416,7 +416,7 @@ void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
-	
+
 	for (int32_t i = 0; i < cache->glyphs_count; i++) {
 		skb__cached_glyph_t* cached_glyph = &cache->glyphs[i];
 		if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
@@ -458,10 +458,10 @@ static uint16_t skb__atlas_alloc_row(skb__atlas_t* atlas)
 		SKB_ARRAY_RESERVE(atlas->rows, atlas->rows_count+1);
 		row_idx = (uint16_t)(atlas->rows_count++);
 	}
-	
+
 	skb__atlas_row_t* row = &atlas->rows[row_idx];
 	memset(row, 0, sizeof(skb__atlas_row_t));
-	
+
 	return row_idx;
 }
 
@@ -470,7 +470,7 @@ static void skb__atlas_free_item(skb__atlas_t* atlas, uint16_t item_idx); // fwd
 static void skb__atlas_free_row(skb__atlas_t* atlas, uint16_t row_idx)
 {
 	assert(row_idx != SKB_ATLAS_NULL);
-	
+
 	// Free items
 	uint16_t item_it = atlas->rows[row_idx].first_item;
 	while (item_it != SKB_ATLAS_NULL) {
@@ -478,7 +478,7 @@ static void skb__atlas_free_row(skb__atlas_t* atlas, uint16_t row_idx)
 		skb__atlas_free_item(atlas, item_it);
 		item_it = next_it;
 	}
-	
+
 	atlas->rows[row_idx].next = atlas->row_freelist;
 	atlas->rows[row_idx].is_freed = 1;
 	atlas->row_freelist = row_idx;
@@ -499,7 +499,7 @@ static uint16_t skb__atlas_alloc_item(skb__atlas_t* atlas)
 	skb__atlas_item_t* item = &atlas->items[item_idx];
 	memset(item, 0, sizeof(skb__atlas_item_t));
 	item->generation = generation;
-	
+
 	return item_idx;
 }
 
@@ -541,7 +541,7 @@ static void skb__atlas_init(skb__atlas_t* atlas, int32_t width, int32_t height)
 	memset(atlas, 0, sizeof(skb__atlas_t));
 	atlas->width = width;
 	atlas->height = height;
-	atlas->row_freelist = SKB_ATLAS_NULL;	
+	atlas->row_freelist = SKB_ATLAS_NULL;
 	atlas->item_freelist = SKB_ATLAS_NULL;
 
 	// Init atlas with empty rown and empty item covering the whole area.
@@ -593,16 +593,16 @@ static skb__atlas_handle_t skb__atlas_row_alloc_item(skb__atlas_t* atlas, uint16
 
 	row->is_empty = 0;
 	row->max_empty_item_width = -1;
-	
+
 	// Split
 	uint16_t remainder_item_idx = skb__atlas_alloc_item(atlas);
-	
+
 	skb__atlas_item_t* item = &atlas->items[item_idx];
 	skb__atlas_item_t* remainter_item = &atlas->items[remainder_item_idx];
 
 	uint16_t available_space = item->width;
 	uint16_t next_item_idx = item->next;
-	
+
 	item->width = requested_width;
 	item->is_empty = 0;
 	item->next = remainder_item_idx;
@@ -653,10 +653,10 @@ static bool skb__atlas_alloc_rect(
 		if (row->is_empty) {
 			if (requested_height > (int32_t)row->height)
 				continue;
-			
+
 			if (!skb__atlas_row_has_space(atlas, row, (uint16_t)requested_width))
 				continue;
-			
+
 			const int32_t error = requested_height;
 			if (error < best_row_error) {
 				best_row_error = requested_height;
@@ -704,7 +704,7 @@ static bool skb__atlas_alloc_rect(
 	// If no row was found, there's no space in the atlas.
 	if (best_row_idx == SKB_ATLAS_NULL)
 		return false;
-		
+
 	if (atlas->rows[best_row_idx].is_empty) {
 		// The best row is empty, split it to requested size.
 		uint16_t row_y = atlas->rows[best_row_idx].y;
@@ -712,7 +712,7 @@ static bool skb__atlas_alloc_rect(
 		uint16_t next_row_idx = atlas->rows[best_row_idx].next;
 
 		assert((int32_t)row_height >= requested_height);
-		
+
 		uint16_t remainder_row_idx = skb__atlas_alloc_empty_row(atlas, row_y + (uint16_t)requested_height, row_height - (uint16_t)requested_height);
 
 		atlas->rows[best_row_idx].height = (uint16_t)requested_height;
@@ -727,13 +727,13 @@ static bool skb__atlas_alloc_rect(
 		uint16_t next_row_idx = atlas->rows[best_row_idx].next;
 		assert(next_row_idx != SKB_ATLAS_NULL && atlas->rows[next_row_idx].is_empty);
 		assert(!atlas->rows[next_row_idx].is_freed);
-		
+
 		uint16_t combined_height = atlas->rows[best_row_idx].height + atlas->rows[next_row_idx].height;
 		assert((int32_t)combined_height >= requested_height);
 		uint16_t diff = (uint16_t)requested_height - atlas->rows[best_row_idx].height;
 
 		atlas->rows[best_row_idx].height += diff;
-		
+
 		atlas->rows[next_row_idx].y += diff;
 		atlas->rows[next_row_idx].height -= diff;
 	}
@@ -771,11 +771,11 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 			break;
 		prev_item_idx = item_it;
 	}
-	
+
 	// Mark the item empty
 	item->is_empty = 1;
 	item->generation++; // bump generation to recognize stale access
-	
+
 	// Merge with previous empty
 	if (prev_item_idx != SKB_ATLAS_NULL && atlas->items[prev_item_idx].is_empty) {
 		skb__atlas_item_t* prev_item = &atlas->items[prev_item_idx];
@@ -804,7 +804,7 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 
 		row->max_diff = 0;
 		row->base_height = 0;
-		
+
 		// Find prev row index as we don't store it explicitly.
 		uint16_t prev_row_idx = SKB_ATLAS_NULL;
 		for (uint16_t row_it = atlas->first_row; row_it != SKB_ATLAS_NULL; row_it = atlas->rows[row_it].next) {
@@ -846,7 +846,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 	if (new_width > atlas->width) {
 		const uint16_t expansion_x = (uint16_t)atlas->width;
 		const uint16_t expansion_width = (uint16_t)(new_width - atlas->width);
-		
+
 		atlas->width = new_width;
 
 		for (uint16_t row_it = atlas->first_row; row_it != SKB_ATLAS_NULL; row_it = atlas->rows[row_it].next) {
@@ -856,7 +856,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 			for (uint16_t item_it = row->first_item; item_it != SKB_ATLAS_NULL; item_it = atlas->items[item_it].next)
 				last_item_idx = item_it;
 			assert(last_item_idx != SKB_ATLAS_NULL);
-			
+
 			if (atlas->items[last_item_idx].is_empty) {
 				// Expand existing empty item.
 				atlas->items[last_item_idx].width += expansion_width;
@@ -878,7 +878,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 	if (new_height > atlas->height) {
 		const uint16_t expansion_y = (uint16_t)atlas->height;
 		const uint16_t expansion_height = (uint16_t)(new_height - atlas->height);
-		
+
 		atlas->height = new_height;
 
 		uint16_t last_row_idx = SKB_ATLAS_NULL;
@@ -919,13 +919,13 @@ static int32_t skb__add_rect(skb_render_cache_t* cache, int32_t requested_width,
 static int32_t skb__add_rect_or_grow_atlas(skb_render_cache_t* cache, int32_t requested_width, int32_t requested_height, const uint8_t requested_bpp, int32_t* offset_x, int32_t* offset_y, skb__atlas_handle_t* handle)
 {
 	assert(cache);
-	
+
 	// If there's no change to fit the rectangle at all, do not even try.
 	if (requested_width > cache->config.atlas_max_width || requested_height > cache->config.atlas_max_height)
 		return SKB_INVALID_INDEX;
 
 	int32_t image_idx = SKB_INVALID_INDEX;
-	
+
 	// Try to add to existing images first.
 	image_idx = skb__add_rect(cache, requested_width, requested_height, requested_bpp, offset_x, offset_y, handle);
 	if (image_idx != SKB_INVALID_INDEX)
@@ -956,7 +956,7 @@ static int32_t skb__add_rect_or_grow_atlas(skb_render_cache_t* cache, int32_t re
 		for (int32_t retry = 0; retry < 8; retry++) {
 			int32_t new_width = last_atlas_image->atlas.width;
 			int32_t new_height = last_atlas_image->atlas.height;
-			
+
 			if (last_atlas_image->atlas.width <= last_atlas_image->atlas.height && expanded_width != last_atlas_image->atlas.width)
 				new_width = expanded_width;
 			else
@@ -1002,7 +1002,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	assert(font);
 
 	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.glyph_sdf : &cache->config.glyph_alpha;
-	
+
 	const float rounded_font_size = skb_ceilf(font_size * pixel_scale / img_config->rounding) * img_config->rounding;
 	const float clamped_font_size = skb_clampf(rounded_font_size, img_config->min_size, img_config->max_size);
 
@@ -1010,7 +1010,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 	skb__cached_glyph_t* cached_glyph = NULL;
 	int32_t glyph_idx = SKB_INVALID_INDEX;
-	
+
 	if (skb_hash_table_find(cache->glyphs_lookup, hash_id, &glyph_idx)) {
 		// Use existing.
 		cached_glyph = &cache->glyphs[glyph_idx];
@@ -1068,7 +1068,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 	assert(cached_glyph);
 	assert(glyph_idx != SKB_INVALID_INDEX);
-	
+
 	// Move glyph to front of the LRU list.
 	skb_list_move_to_front(&cache->glyphs_lru, glyph_idx, skb__get_glyph, cache);
 	cached_glyph->last_access_stamp = cache->now_stamp;
@@ -1076,7 +1076,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	const float scale = (font_size / cached_glyph->clamped_font_size);
 
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
-	
+
 	skb_render_quad_t quad = {0};
 	quad.image_bounds.x = (float)(cached_glyph->atlas_offset_x + inset);
 	quad.image_bounds.y = (float)(cached_glyph->atlas_offset_y + inset);
@@ -1117,13 +1117,13 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	const float requested_width = icon->view.width * icon_scale.x;
 	const float requested_height = icon->view.height * icon_scale.y;
-	
+
 	// Scale proportionally when image is clamped or rounded
 	const float max_dim = skb_maxf(requested_width, requested_height);
 	const float rounded_max_dim = skb_ceilf(max_dim * pixel_scale / img_config->rounding) * img_config->rounding;
 	const float clamped_max_dim = skb_clampf(rounded_max_dim, img_config->min_size, img_config->max_size);
 	const float clamp_scale = clamped_max_dim / max_dim;
-	
+
 	const float clamped_width = requested_width * clamp_scale;
 	const float clamped_height = requested_height * clamp_scale;
 	const skb_vec2_t scale = {
@@ -1135,7 +1135,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	skb__cached_icon_t* cached_icon = NULL;
 	int32_t icon_idx = SKB_INVALID_INDEX;
-	
+
 	if (skb_hash_table_find(cache->icons_lookup, hash_id, &icon_idx)) {
 		// Use existing.
 		cached_icon = &cache->icons[icon_idx];
@@ -1190,7 +1190,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	assert(cached_icon);
 	assert(icon_idx != SKB_INVALID_INDEX);
-	
+
 	// Move glyph to front of the LRU list.
 	skb_list_move_to_front(&cache->icons_lru, icon_idx, skb__get_icon, cache);
 
@@ -1200,7 +1200,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	const float render_scale_y = requested_height / clamped_height;
 
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
-	
+
 	skb_render_quad_t quad = {0};
 	quad.image_bounds.x = (float)(cached_icon->atlas_offset_x + inset);
 	quad.image_bounds.y = (float)(cached_icon->atlas_offset_y + inset);
@@ -1231,13 +1231,13 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 	assert(cache);
 
 	int32_t evicted_count = 0;
-	
+
 	// Try to evict unused glyphs.
 
 	int32_t glyph_idx = cache->glyphs_lru.tail; // Tail has least used items.
 	while (glyph_idx != SKB_INVALID_INDEX) {
 		skb__cached_glyph_t* cached_glyph = &cache->glyphs[glyph_idx];
-		
+
 		const int32_t inactive_duration = cache->now_stamp - cached_glyph->last_access_stamp;
 		if (inactive_duration <= evict_after_duration)
 			break;
@@ -1245,7 +1245,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 		int32_t prev_glyph_idx = cached_glyph->lru.prev;
 
 		if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
-			
+
 			skb_atlas_image_t* atlas_image = &cache->images[cached_glyph->texture_idx];
 			skb__atlas_t* atlas = &atlas_image->atlas;
 
@@ -1269,12 +1269,12 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 				skb__image_clear(&atlas_image->image, cached_glyph->atlas_offset_x, cached_glyph->atlas_offset_y, cached_glyph->width, cached_glyph->height);
 			}
 
-			// Returns glyph to freelist. 
+			// Returns glyph to freelist.
 			memset(cached_glyph, 0, sizeof(skb__cached_glyph_t));
 			cached_glyph->state = SKB_RENDER_CACHE_ITEM_REMOVED;
 			cached_glyph->lru.next = cache->glyphs_freelist;
 			cache->glyphs_freelist = glyph_idx;
-			
+
 			evicted_count++;
 		}
 
@@ -1285,7 +1285,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 	int32_t icon_idx = cache->icons_lru.tail; // Tail has least used items.
 	while (icon_idx != SKB_INVALID_INDEX) {
 		skb__cached_icon_t* cached_icon = &cache->icons[icon_idx];
-		
+
 		const int32_t inactive_duration = cache->now_stamp - cached_icon->last_access_stamp;
 		if (inactive_duration <= evict_after_duration)
 			break;
@@ -1315,8 +1315,8 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, dirty);
 				skb__image_clear(&atlas_image->image, cached_icon->atlas_offset_x, cached_icon->atlas_offset_y, cached_icon->width, cached_icon->height);
 			}
-			
-			// Returns icon to freelist. 
+
+			// Returns icon to freelist.
 			memset(cached_icon, 0, sizeof(skb__cached_glyph_t));
 			cached_icon->state = SKB_RENDER_CACHE_ITEM_REMOVED;
 			cached_icon->lru.next = cache->icons_freelist;
@@ -1327,20 +1327,20 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 
 		icon_idx = prev_icon_idx;
 	}
-	
+
 	return evicted_count > 0;
 }
 
 bool skb_render_cache_compact(skb_render_cache_t* cache)
 {
 	assert(cache);
-	
+
 	cache->now_stamp++;
 
 	// TODO: smarted eviction strategy.
 	// This tries to evict more items from the cache the higher the max usage is.
 	// Maybe better option would be to do this per image. In which case the LRU lists should be per image.
-	
+
 	float max_occupancy = 0.f;
 	for (int32_t i = 0; i < cache->images_count; i++) {
 		skb_atlas_image_t* atlas_image = &cache->images[i];
@@ -1355,7 +1355,7 @@ bool skb_render_cache_compact(skb_render_cache_t* cache)
 		evict_after_duration = (evict_after_duration+1)/2;
 
 	skb__try_evict_from_cache(cache, evict_after_duration);
-	
+
 	return true;
 }
 
@@ -1378,13 +1378,13 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 		if (!skb_rect2i_is_empty(atlas_image->dirty_bounds))
 			updated = true;
 	}
-	
+
 	// Glyphs
 	if (cache->has_new_glyphs) {
 		for (int32_t i = 0; i < cache->glyphs_count; i++) {
 			skb__cached_glyph_t* cached_glyph = &cache->glyphs[i];
 			if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_INITIALIZED) {
-				
+
 				skb_rect2i_t atlas_bounds = {
 					.x = cached_glyph->atlas_offset_x,
 					.y = cached_glyph->atlas_offset_y,
@@ -1394,7 +1394,7 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 
 				const skb_render_alpha_mode_t alpha_mode = cached_glyph->is_sdf ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
 				skb_atlas_image_t* atlas_image = &cache->images[cached_glyph->texture_idx];
-				
+
 				skb_image_t target = {0};
 				target.width = cached_glyph->width;
 				target.height = cached_glyph->height;
@@ -1438,7 +1438,7 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 				const skb_render_alpha_mode_t alpha_mode = cached_icon->is_sdf ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
 
 				skb_atlas_image_t* atlas_image = &cache->images[cached_icon->texture_idx];
-				
+
 				skb_image_t target = {0};
 				target.width = cached_icon->width;
 				target.height = cached_icon->height;

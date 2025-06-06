@@ -10,12 +10,12 @@ static int test_init(void)
 	ENSURE(renderer != NULL);
 
 	skb_renderer_destroy(renderer);
-	
+
 	return 0;
 }
 
 int render_tests(void)
 {
 	RUN_SUBTEST(test_init);
-	return 0;	
+	return 0;
 }

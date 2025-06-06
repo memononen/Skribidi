@@ -782,7 +782,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					}
 
 					// Script
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_ot_tag(script)), text_props[cp_idx].is_emoji ? ":)" : "");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), text_props[cp_idx].is_emoji ? ":)" : "");
 					ly += 15.f;
 					// Direction
 					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, text_props[cp_idx].is_rlt ? "<R" : "L>");

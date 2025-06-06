@@ -20,7 +20,7 @@ int main( void )
 
 	printf( "Starting Skribidi unit tests\n" );
 	printf( "======================================\n" );
-	
+
 	RUN_TEST(basic_tests);
 	RUN_TEST(tempalloc_tests);
 	RUN_TEST(hashtable_tests);
@@ -36,5 +36,5 @@ int main( void )
 	printf( "======================================\n" );
 	printf( "All tests passed!\n" );
 
-	return 0;	
+	return 0;
 }
