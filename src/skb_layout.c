@@ -9,7 +9,6 @@
 #include "skb_font_collection_internal.h"
 
 #include "hb.h"
-#include "hb-ot.h"
 #include "SheenBidi/SheenBidi.h"
 #include "graphemebreak.h"
 #include "linebreak.h"
@@ -820,7 +819,7 @@ static void skb__create_shaping_spans(skb__layout_build_context_t* build_context
 
 
 typedef struct skb__script_run_iter {
-	const skb_text_property_t* text_attribs;
+	const skb_text_property_t* text_props;
 	int32_t pos;
 	int32_t end;
 } skb__script_run_iter;
@@ -828,7 +827,7 @@ typedef struct skb__script_run_iter {
 static skb__script_run_iter skb__script_run_iter_make(skb_range_t range, const skb_text_property_t* text_attribs)
 {
 	skb__script_run_iter iter = {
-		.text_attribs = text_attribs,
+		.text_props = text_attribs,
 		.pos = range.start,
 		.end = range.end,
 	};
@@ -843,10 +842,10 @@ static bool skb__script_run_iter_next(skb__script_run_iter* iter, skb_range_t* r
 	run_range->start = iter->pos;
 
 	// Find continuous script range.
-	uint8_t prev_script = iter->text_attribs[iter->pos].script;
+	uint8_t prev_script = iter->text_props[iter->pos].script;
 	while (iter->pos < iter->end) {
 		iter->pos++;
-		const uint8_t script = iter->pos < iter->end ? iter->text_attribs[iter->pos].script : 0;
+		const uint8_t script = iter->pos < iter->end ? iter->text_props[iter->pos].script : 0;
 		if (prev_script != script)
 			break;
 		prev_script = script;
