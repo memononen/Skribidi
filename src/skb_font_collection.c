@@ -134,7 +134,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);
-	if (!blob) goto error;
+	if (blob == hb_blob_get_empty()) goto error;
 
 	face = hb_face_create(blob, 0);
 	hb_blob_destroy(blob);

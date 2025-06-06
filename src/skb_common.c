@@ -166,6 +166,8 @@ skb_temp_alloc_t* skb_temp_alloc_create(int32_t default_block_size)
 
 void skb_temp_alloc_destroy(skb_temp_alloc_t* alloc)
 {
+	if (!alloc) return;
+
 	skb_temp_alloc_reset(alloc);
 	skb_temp_alloc_block_t* block = alloc->free_list;
 	while (block) {
@@ -196,6 +198,8 @@ skb_temp_alloc_stats_t skb_temp_alloc_stats(skb_temp_alloc_t* alloc)
 
 void skb_temp_alloc_reset(skb_temp_alloc_t* alloc)
 {
+	if (!alloc) return;
+
 	// Move used blocks to freelist
 	skb_temp_alloc_block_t* block = alloc->block_list;
 	while (block) {
