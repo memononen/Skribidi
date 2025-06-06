@@ -44,17 +44,56 @@ target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
 
+function(collect_data_files output_var dir)
+    file(GLOB files "${dir}/*")
+    set(all_files)
+    foreach(file ${files})
+        if(IS_DIRECTORY ${file})
+            collect_data_files(sub_files ${file})
+            list(APPEND all_files ${sub_files})
+        else()
+            list(APPEND all_files ${file})
+        endif()
+    endforeach()
+    set(${output_var} ${all_files} PARENT_SCOPE)
+endfunction()
+
 # Create a symbolic link to the data folder at build time, with copy fallback for Windows
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    add_custom_command(
-        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_CURRENT_SOURCE_DIR}/data
-                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
-        COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
-    )
+    if(MSVC)
+        # Collect all files in the data directory recursively
+        collect_data_files(DATA_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data")
+        
+        # Create a stamp file to mark the copy operation, placed in the config-specific output directory
+        set(DATA_STAMP "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data_copied.stamp")
+        
+        add_custom_command(
+            OUTPUT ${DATA_STAMP}
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_CURRENT_SOURCE_DIR}/data
+                    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data
+            COMMAND ${CMAKE_COMMAND} -E touch ${DATA_STAMP}
+            DEPENDS ${DATA_FILES}
+            COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data"
+        )
+        
+        # Add a custom target to depend on the stamp file
+        add_custom_target(data_target ALL DEPENDS ${DATA_STAMP})
+    else()
+        # For MinGW on Windows, use copy_directory without stamp
+        add_custom_command(
+            OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_CURRENT_SOURCE_DIR}/data
+                    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
+            COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
+        )
+        
+        add_custom_target(data_target ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
+    endif()
 else()
+    # Non-Windows (symlink)
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
         COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -63,10 +102,8 @@ else()
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
         COMMENT "Creating symlink to data folder in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
     )
+    
+    add_custom_target(data_target ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 endif()
-
-add_custom_target(data_target ALL
-    DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
-)
 
 add_dependencies(skribidi_example data_target)
