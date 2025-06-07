@@ -6,6 +6,12 @@
 
 #include <stdint.h>
 
+#define SKB_SET_FLAG(flags, bit_mask, condition) \
+	if (condition) \
+		(flags) |= (bit_mask); \
+	else \
+		(flags) &= ~(bit_mask);
+
 typedef struct skb_hashtable_item_t {
 	uint64_t hash;				// Unique hash that can be used to locate the item. 0 if item not in use.
 	int32_t next;				// The next item in hash lookup or freelist chain, SKB_INVALID_INDEX if no next item.
