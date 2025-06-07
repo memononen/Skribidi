@@ -20,6 +20,12 @@ enum {
 	SKB_ATLAS_NULL = 0xffff,
 };
 
+// Atlas row flags
+enum skb__atlas_row_flags_t {
+	SKB__ATLAS_ROW_IS_EMPTY = 1 << 0,
+	SKB__ATLAS_ROW_IS_FREED = 1 << 1,
+};
+
 typedef struct skb__atlas_row_t {
 	uint16_t y;
 	uint16_t height;
@@ -28,9 +34,14 @@ typedef struct skb__atlas_row_t {
 	uint16_t max_empty_item_width;
 	uint16_t first_item;
 	uint16_t next;
-	uint8_t is_empty : 1;
-	uint8_t is_freed : 1;
+	uint8_t flags;
 } skb__atlas_row_t;
+
+// Atlas item flags
+enum skb__atlas_item_flags_t {
+	SKB__ATLAS_ITEM_IS_EMPTY = 1 << 0,
+	SKB__ATLAS_ITEM_IS_FREED = 1 << 1,
+};
 
 typedef struct skb__atlas_item_t {
 	uint16_t x;
@@ -38,8 +49,7 @@ typedef struct skb__atlas_item_t {
 	uint16_t next;
 	uint16_t generation;
 	uint16_t row;
-	uint8_t is_empty : 1;
-	uint8_t is_freed : 1;
+	uint8_t flags;
 } skb__atlas_item_t;
 
 typedef struct skb__atlas_handle_t {
@@ -78,6 +88,12 @@ typedef enum {
 	SKB_RENDER_CACHE_ITEM_RASTERIZED,
 } skb__render_cache_item_state_t;
 
+// Cached glyph flags
+enum skb__cached_glyph_flags_t {
+	SKB__CACHED_GLYPH_IS_COLOR = 1 << 0,
+	SKB__CACHED_GLYPH_IS_SDF   = 1 << 1,
+};
+
 typedef struct skb__cached_glyph_t {
 	const skb_font_t* font;
 	uint64_t hash_id;
@@ -93,10 +109,15 @@ typedef struct skb__cached_glyph_t {
 	int16_t atlas_offset_x;
 	int16_t atlas_offset_y;
 	uint8_t state;
-	uint8_t is_color : 1;
-	uint8_t is_sdf : 1;
+	uint8_t flags;
 	uint8_t texture_idx;
 } skb__cached_glyph_t;
+
+// Cached icon flags
+enum skb__cached_icon_flags_t {
+	SKB__CACHED_ICON_IS_COLOR = 1 << 0,
+	SKB__CACHED_ICON_IS_SDF   = 1 << 1,
+};
 
 typedef struct skb__cached_icon_t {
 	const skb_icon_t* icon;
@@ -112,8 +133,7 @@ typedef struct skb__cached_icon_t {
 	int16_t atlas_offset_x;
 	int16_t atlas_offset_y;
 	uint8_t state;
-	uint8_t is_color : 1;
-	uint8_t is_sdf : 1;
+	uint8_t flags;
 	uint8_t texture_idx;
 } skb__cached_icon_t;
 
@@ -405,7 +425,7 @@ void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_
 		const skb__atlas_row_t* row = &atlas->rows[row_idx];
 		for (uint16_t it = row->first_item; it != SKB_ATLAS_NULL; it = atlas->items[it].next) {
 			const skb__atlas_item_t* item = &atlas->items[it];
-			if (item->is_empty) {
+			if (item->flags & SKB__ATLAS_ITEM_IS_EMPTY) {
 				callback(item->x, row->y, item->width, row->height, context);
 			}
 		}
@@ -481,7 +501,7 @@ static void skb__atlas_free_row(skb__atlas_t* atlas, uint16_t row_idx)
 	}
 
 	atlas->rows[row_idx].next = atlas->row_freelist;
-	atlas->rows[row_idx].is_freed = 1;
+	atlas->rows[row_idx].flags |= SKB__ATLAS_ROW_IS_FREED;
 	atlas->row_freelist = row_idx;
 }
 
@@ -506,7 +526,7 @@ static uint16_t skb__atlas_alloc_item(skb__atlas_t* atlas)
 
 static void skb__atlas_free_item(skb__atlas_t* atlas, uint16_t item_idx)
 {
-	atlas->items[item_idx].is_freed = 1;
+	atlas->items[item_idx].flags |= SKB__ATLAS_ITEM_IS_FREED;
 	atlas->items[item_idx].next = atlas->item_freelist;
 	atlas->item_freelist = item_idx;
 }
@@ -521,7 +541,7 @@ static uint16_t skb__atlas_alloc_empty_row(skb__atlas_t* atlas, uint16_t y, uint
 	row->max_diff = 0;
 	row->base_height = 0;
 	row->max_empty_item_width = SKB_ATLAS_NULL; // to be calculated later
-	row->is_empty = 1;
+	row->flags |= SKB__ATLAS_ROW_IS_EMPTY;
 	row->next = SKB_ATLAS_NULL;
 
 	uint16_t item_idx = skb__atlas_alloc_item(atlas);
@@ -529,7 +549,7 @@ static uint16_t skb__atlas_alloc_empty_row(skb__atlas_t* atlas, uint16_t y, uint
 	item->x = 0;
 	item->width = (uint16_t)atlas->width;
 	item->next = SKB_ATLAS_NULL;
-	item->is_empty = 1;
+	item->flags |= SKB__ATLAS_ITEM_IS_EMPTY;
 	item->row = row_idx;
 
 	row->first_item = item_idx;
@@ -578,12 +598,12 @@ static void skb__atlas_get_item_offset(const skb__atlas_t* atlas, skb__atlas_han
 static skb__atlas_handle_t skb__atlas_row_alloc_item(skb__atlas_t* atlas, uint16_t row_idx, uint16_t requested_width)
 {
 	skb__atlas_row_t* row = &atlas->rows[row_idx];
-	assert(!row->is_freed);
+	assert(!(row->flags & SKB__ATLAS_ROW_IS_FREED));
 
 	uint16_t item_idx = SKB_ATLAS_NULL;
 	for (uint16_t item_it = row->first_item; item_it != SKB_ATLAS_NULL; item_it = atlas->items[item_it].next) {
-		assert(!atlas->items[item_it].is_freed);
-		if (atlas->items[item_it].is_empty && atlas->items[item_it].width >= requested_width) {
+		assert(!(atlas->items[item_it].flags & SKB__ATLAS_ITEM_IS_FREED));
+		if ((atlas->items[item_it].flags & SKB__ATLAS_ITEM_IS_EMPTY) && atlas->items[item_it].width >= requested_width) {
 			item_idx = item_it;
 			break;
 		}
@@ -592,7 +612,7 @@ static skb__atlas_handle_t skb__atlas_row_alloc_item(skb__atlas_t* atlas, uint16
 	if (item_idx == SKB_ATLAS_NULL)
 		return (skb__atlas_handle_t) {0};
 
-	row->is_empty = 0;
+	row->flags &= ~SKB__ATLAS_ROW_IS_EMPTY;
 	row->max_empty_item_width = -1;
 
 	// Split
@@ -605,13 +625,13 @@ static skb__atlas_handle_t skb__atlas_row_alloc_item(skb__atlas_t* atlas, uint16
 	uint16_t next_item_idx = item->next;
 
 	item->width = requested_width;
-	item->is_empty = 0;
+	item->flags &= ~SKB__ATLAS_ITEM_IS_EMPTY;
 	item->next = remainder_item_idx;
 
 	remainter_item->row = row_idx;
 	remainter_item->x = item->x + requested_width;
 	remainter_item->width = available_space - requested_width;
-	remainter_item->is_empty = 1;
+	remainter_item->flags |= SKB__ATLAS_ITEM_IS_EMPTY;
 	remainter_item->next = next_item_idx;
 
 	return (skb__atlas_handle_t) {
@@ -625,8 +645,8 @@ static bool skb__atlas_row_has_space(const skb__atlas_t* atlas, skb__atlas_row_t
 	if (row->max_empty_item_width == SKB_ATLAS_NULL) {
 		row->max_empty_item_width = 0;
 		for (uint16_t item_it = row->first_item; item_it != SKB_ATLAS_NULL; item_it = atlas->items[item_it].next) {
-			assert(!atlas->items[item_it].is_freed);
-			if (atlas->items[item_it].is_empty && atlas->items[item_it].width > row->max_empty_item_width)
+			assert(!(atlas->items[item_it].flags & SKB__ATLAS_ITEM_IS_FREED));
+			if ((atlas->items[item_it].flags & SKB__ATLAS_ITEM_IS_EMPTY) && atlas->items[item_it].width > row->max_empty_item_width)
 				row->max_empty_item_width = atlas->items[item_it].width;
 		}
 	}
@@ -649,9 +669,9 @@ static bool skb__atlas_alloc_rect(
 
 	for (uint16_t row_it = atlas->first_row; row_it != SKB_ATLAS_NULL; row_it = atlas->rows[row_it].next) {
 		skb__atlas_row_t* row = &atlas->rows[row_it];
-		assert(!row->is_freed);
+		assert(!(row->flags & SKB__ATLAS_ROW_IS_FREED));
 
-		if (row->is_empty) {
+		if (row->flags & SKB__ATLAS_ROW_IS_EMPTY) {
 			if (requested_height > (int32_t)row->height)
 				continue;
 
@@ -693,7 +713,7 @@ static bool skb__atlas_alloc_rect(
 				const int32_t error = requested_height - (int32_t)row->height;
 				if (error < best_row_error) {
 					skb__atlas_row_t* next_row = &atlas->rows[row->next];
-					if (next_row->is_empty && (int32_t)(row->height + next_row->height) >= requested_height) {
+					if ((next_row->flags & SKB__ATLAS_ROW_IS_EMPTY) && (int32_t)(row->height + next_row->height) >= requested_height) {
 						best_row_error = error;
 						best_row_idx = row_it;
 					}
@@ -706,7 +726,7 @@ static bool skb__atlas_alloc_rect(
 	if (best_row_idx == SKB_ATLAS_NULL)
 		return false;
 
-	if (atlas->rows[best_row_idx].is_empty) {
+	if (atlas->rows[best_row_idx].flags & SKB__ATLAS_ROW_IS_EMPTY) {
 		// The best row is empty, split it to requested size.
 		uint16_t row_y = atlas->rows[best_row_idx].y;
 		uint16_t row_height = atlas->rows[best_row_idx].height;
@@ -726,8 +746,8 @@ static bool skb__atlas_alloc_rect(
 	} else if (requested_height > atlas->rows[best_row_idx].height) {
 		// Make the best row larger.
 		uint16_t next_row_idx = atlas->rows[best_row_idx].next;
-		assert(next_row_idx != SKB_ATLAS_NULL && atlas->rows[next_row_idx].is_empty);
-		assert(!atlas->rows[next_row_idx].is_freed);
+		assert(next_row_idx != SKB_ATLAS_NULL && (atlas->rows[next_row_idx].flags & SKB__ATLAS_ROW_IS_EMPTY));
+		assert(!(atlas->rows[next_row_idx].flags & SKB__ATLAS_ROW_IS_FREED));
 
 		uint16_t combined_height = atlas->rows[best_row_idx].height + atlas->rows[next_row_idx].height;
 		assert((int32_t)combined_height >= requested_height);
@@ -756,29 +776,29 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 		return false;
 
 	skb__atlas_item_t* item = &atlas->items[item_idx];
-	assert(!item->is_freed);
+	assert(!(item->flags & SKB__ATLAS_ITEM_IS_FREED));
 
 	uint16_t row_idx = item->row;
 	skb__atlas_row_t* row = &atlas->rows[row_idx];
-	assert(!row->is_freed);
+	assert(!(row->flags & SKB__ATLAS_ROW_IS_FREED));
 
 	atlas->occupancy -= (int32_t)row->height * (int32_t)item->width;
 
 	// Find prev item index as we don't store it explicitly.
 	uint16_t prev_item_idx = SKB_ATLAS_NULL;
 	for (uint16_t item_it = row->first_item; item_it != SKB_ATLAS_NULL; item_it = atlas->items[item_it].next) {
-		assert(!atlas->items[item_it].is_freed);
+		assert(!(atlas->items[item_it].flags & SKB__ATLAS_ITEM_IS_FREED));
 		if (item_it == item_idx)
 			break;
 		prev_item_idx = item_it;
 	}
 
 	// Mark the item empty
-	item->is_empty = 1;
+	item->flags |= SKB__ATLAS_ITEM_IS_EMPTY;
 	item->generation++; // bump generation to recognize stale access
 
 	// Merge with previous empty
-	if (prev_item_idx != SKB_ATLAS_NULL && atlas->items[prev_item_idx].is_empty) {
+	if (prev_item_idx != SKB_ATLAS_NULL && (atlas->items[prev_item_idx].flags & SKB__ATLAS_ITEM_IS_EMPTY)) {
 		skb__atlas_item_t* prev_item = &atlas->items[prev_item_idx];
 		prev_item->width += item->width;
 		prev_item->next = item->next;
@@ -787,7 +807,7 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 	}
 
 	// Merge with next empty
-	if (item->next != SKB_ATLAS_NULL && atlas->items[item->next].is_empty) {
+	if (item->next != SKB_ATLAS_NULL && (atlas->items[item->next].flags & SKB__ATLAS_ITEM_IS_EMPTY)) {
 		uint16_t next_item_idx = item->next;
 		skb__atlas_item_t* next_item = &atlas->items[next_item_idx];
 		item->width += next_item->width;
@@ -798,10 +818,13 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 	row->max_empty_item_width = SKB_ATLAS_NULL; // to be calculated later
 
 	assert(row->first_item != SKB_ATLAS_NULL);
-	row->is_empty = atlas->items[row->first_item].is_empty && atlas->items[row->first_item].next == SKB_ATLAS_NULL;
+	const bool is_empty =
+		(atlas->items[row->first_item].flags & SKB__ATLAS_ITEM_IS_EMPTY)
+		&& atlas->items[row->first_item].next == SKB_ATLAS_NULL;
+	SKB_SET_FLAG(row->flags, SKB__ATLAS_ROW_IS_EMPTY, is_empty);
 
 	// The row became empty
-	if (row->is_empty) {
+	if (row->flags & SKB__ATLAS_ROW_IS_EMPTY) {
 
 		row->max_diff = 0;
 		row->base_height = 0;
@@ -809,14 +832,14 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 		// Find prev row index as we don't store it explicitly.
 		uint16_t prev_row_idx = SKB_ATLAS_NULL;
 		for (uint16_t row_it = atlas->first_row; row_it != SKB_ATLAS_NULL; row_it = atlas->rows[row_it].next) {
-			assert(!atlas->rows[row_it].is_freed);
+			assert(!(atlas->rows[row_it].flags & SKB__ATLAS_ROW_IS_FREED));
 			if (row_it == row_idx)
 				break;
 			prev_row_idx = row_it;
 		}
 
 		// Merge with previous empty
-		if (prev_row_idx != SKB_ATLAS_NULL && atlas->rows[prev_row_idx].is_empty) {
+		if (prev_row_idx != SKB_ATLAS_NULL && (atlas->rows[prev_row_idx].flags & SKB__ATLAS_ROW_IS_EMPTY)) {
 			skb__atlas_row_t* prev_row = &atlas->rows[prev_row_idx];
 			prev_row->height += row->height;
 			prev_row->next = row->next;
@@ -825,7 +848,7 @@ static bool skb__atlas_free_rect(skb__atlas_t* atlas, skb__atlas_handle_t handle
 		}
 
 		// Merge with next empty
-		if (row->next != SKB_ATLAS_NULL && atlas->rows[row->next].is_empty) {
+		if (row->next != SKB_ATLAS_NULL && (atlas->rows[row->next].flags & SKB__ATLAS_ROW_IS_EMPTY)) {
 			uint16_t next_row_idx = row->next;
 			skb__atlas_row_t* next_row = &atlas->rows[next_row_idx];
 			row->height += next_row->height;
@@ -858,7 +881,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 				last_item_idx = item_it;
 			assert(last_item_idx != SKB_ATLAS_NULL);
 
-			if (atlas->items[last_item_idx].is_empty) {
+			if (atlas->items[last_item_idx].flags & SKB__ATLAS_ITEM_IS_EMPTY) {
 				// Expand existing empty item.
 				atlas->items[last_item_idx].width += expansion_width;
 			} else {
@@ -867,7 +890,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 				skb__atlas_item_t* item = &atlas->items[item_idx];
 				item->x = expansion_x;
 				item->width = expansion_width;
-				item->is_empty = 1;
+				item->flags |= SKB__ATLAS_ITEM_IS_EMPTY;
 				item->next = SKB_INVALID_INDEX;
 				item->row = row_it;
 				atlas->items[last_item_idx].next = item_idx;
@@ -886,7 +909,7 @@ static void skb__atlas_expand(skb__atlas_t* atlas, int32_t new_width, int32_t ne
 		for (uint16_t row_it = atlas->first_row; row_it != SKB_ATLAS_NULL; row_it = atlas->rows[row_it].next)
 			last_row_idx = row_it;
 
-		if (atlas->rows[last_row_idx].is_empty) {
+		if (atlas->rows[last_row_idx].flags & SKB__ATLAS_ROW_IS_EMPTY) {
 			// Last row is empty, just increase height
 			atlas->rows[last_row_idx].height += expansion_height;
 		} else {
@@ -1056,8 +1079,8 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 		cached_glyph->atlas_handle = atlas_handle;
 		cached_glyph->pen_offset_x = (int16_t)bounds.x;
 		cached_glyph->pen_offset_y = (int16_t)bounds.y;
-		cached_glyph->is_sdf = alpha_mode == SKB_RENDER_ALPHA_SDF;
-		cached_glyph->is_color = is_color;
+		SKB_SET_FLAG(cached_glyph->flags, SKB__CACHED_GLYPH_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
+		SKB_SET_FLAG(cached_glyph->flags, SKB__CACHED_GLYPH_IS_COLOR, is_color);
 		cached_glyph->state = SKB_RENDER_CACHE_ITEM_INITIALIZED;
 		cached_glyph->texture_idx = (uint8_t)image_idx;
 		cached_glyph->hash_id = hash_id;
@@ -1089,8 +1112,8 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * scale;
 	quad.scale = scale * pixel_scale;
 	quad.image_idx = cached_glyph->texture_idx;
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->is_color);
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->is_sdf);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->flags & SKB__CACHED_GLYPH_IS_COLOR);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->flags & SKB__CACHED_GLYPH_IS_SDF);
 
 	return quad;
 }
@@ -1179,8 +1202,8 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 		cached_icon->atlas_handle = atlas_handle;
 		cached_icon->pen_offset_x = (int16_t)bounds.x;
 		cached_icon->pen_offset_y = (int16_t)bounds.y;
-		cached_icon->is_sdf = alpha_mode == SKB_RENDER_ALPHA_SDF;
-		cached_icon->is_color = 1;
+		SKB_SET_FLAG(cached_icon->flags, SKB__CACHED_ICON_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
+		cached_icon->flags |= SKB__CACHED_ICON_IS_COLOR;
 		cached_icon->state = SKB_RENDER_CACHE_ITEM_INITIALIZED;
 		cached_icon->texture_idx = (uint8_t)image_idx;
 		cached_icon->hash_id = hash_id;
@@ -1214,7 +1237,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.image_idx = cached_icon->texture_idx;
 	quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_icon->is_sdf);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_icon->flags & SKB__CACHED_ICON_IS_SDF);
 
 	return quad;
 }
@@ -1393,7 +1416,7 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 					.height = cached_glyph->height,
 				};
 
-				const skb_render_alpha_mode_t alpha_mode = cached_glyph->is_sdf ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
+				const skb_render_alpha_mode_t alpha_mode = (cached_glyph->flags & SKB__CACHED_GLYPH_IS_SDF) ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
 				skb_atlas_image_t* atlas_image = &cache->images[cached_glyph->texture_idx];
 
 				skb_image_t target = {0};
@@ -1405,7 +1428,7 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 
 				assert(atlas_image->image.stride_bytes == atlas_image->image.width * atlas_image->image.bpp);
 
-				if (cached_glyph->is_color) {
+				if (cached_glyph->flags & SKB__CACHED_GLYPH_IS_COLOR) {
 					skb_render_rasterize_color_glyph(renderer, temp_alloc, cached_glyph->gid, cached_glyph->font, cached_glyph->clamped_font_size, alpha_mode,
 						cached_glyph->pen_offset_x, cached_glyph->pen_offset_y, &target);
 				} else {
@@ -1436,7 +1459,7 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 					.height = cached_icon->height,
 				};
 
-				const skb_render_alpha_mode_t alpha_mode = cached_icon->is_sdf ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
+				const skb_render_alpha_mode_t alpha_mode = (cached_icon->flags & SKB__CACHED_ICON_IS_SDF) ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
 
 				skb_atlas_image_t* atlas_image = &cache->images[cached_icon->texture_idx];
 

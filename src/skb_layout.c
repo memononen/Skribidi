@@ -25,6 +25,11 @@
 #define SB_SCRIPT_INHERITED SBScriptZINH
 #define SB_SCRIPT_UNKNOWN SBScriptZZZZ
 
+// Layout flags
+enum skb__layout_flags_t {
+	SKB__LAYOUT_RESOLVED_IS_RTL = 1 << 0,
+};
+
 typedef struct skb_layout_t {
 	skb_layout_params_t params;
 
@@ -51,7 +56,7 @@ typedef struct skb_layout_t {
 
 	skb_rect2_t bounds;
 
-	uint8_t resolved_is_rlt : 1;
+	uint8_t flags;
 } skb_layout_t;
 
 
@@ -107,14 +112,19 @@ static bool skb__is_japanese_script(uint8_t script)
 // Layout
 //
 
+// Shaping run flags
+enum skb__shaping_run_flags_t {
+	SKB__SHAPING_RUN_IS_RTL   = 1 << 0,
+	SKB__SHAPING_RUN_IS_EMOJI = 1 << 1,
+};
+
 // Run ready for shaping.
 typedef struct skb__shaping_run_t {
 	int32_t offset;
 	int32_t length;
 	int32_t shaping_span_idx;
 	uint8_t script;
-	uint8_t is_rtl : 1;
-	uint8_t is_emoji : 1;
+	uint8_t flags;
 } skb__shaping_run_t;
 
 // Span that affects the shaping
@@ -181,7 +191,7 @@ static void skb__shape_run(
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
 
-	hb_buffer_set_direction(buffer, run->is_rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+	hb_buffer_set_direction(buffer, (run->flags & SKB__SHAPING_RUN_IS_RTL) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
 	hb_buffer_set_script(buffer, skb__sb_script_to_hb(run->script));
 	hb_buffer_set_language(buffer, shaping_span->lang ? shaping_span->lang : build_context->lang);
 
@@ -238,7 +248,7 @@ static void skb__shape_run(
 
 			// Figure out the section of codepoints that belongs to this grapheme cluster.
 			int32_t missing_text_start, missing_text_end;
-			if (run->is_rtl) {
+			if (run->flags & SKB__SHAPING_RUN_IS_RTL) {
 				missing_text_start = (int32_t)glyph_info[glyph_end].cluster;
 				missing_text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -253,8 +263,7 @@ static void skb__shape_run(
 				skb__shaping_run_t fallback_run = {
 					.offset = missing_text_start,
 					.length = missing_text_end - missing_text_start,
-					.is_rtl = run->is_rtl,
-					.is_emoji = run->is_emoji,
+					.flags = run->flags,
 					.script = run->script,
 				};
 				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_count, font_idx+1);
@@ -286,7 +295,7 @@ static void skb__shape_run(
 				glyph_end++;
 
 			// Figure out the section of text that belongs to this grapheme cluster.
-			if (run->is_rtl) {
+			if (run->flags & SKB__SHAPING_RUN_IS_RTL) {
 				text_start = (int32_t)glyph_info[glyph_end].cluster;
 				text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -315,7 +324,7 @@ static void skb__shape_run(
 			}
 
 			glyph->font_idx = font->idx;
-			SKB_SET_FLAG(glyph->flags, SKB_GLYPH_IS_RTL, run->is_rtl);
+			SKB_SET_FLAG(glyph->flags, SKB_GLYPH_IS_RTL, run->flags & SKB__SHAPING_RUN_IS_RTL);
 			glyph->text_range.start = text_start;
 			glyph->text_range.end = text_end;
 			glyph->visual_idx = layout->glyphs_count - 1;
@@ -496,7 +505,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-			if ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_RTL) == (layout->resolved_is_rlt ? SKB_TEXT_PROP_RTL : 0)
+			if ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_RTL) == ((layout->flags & SKB__LAYOUT_RESOLVED_IS_RTL) ? SKB_TEXT_PROP_RTL : 0)
 					&& ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL))) {
 				run_end_whitespace_width += cluster_width;
 			} else {
@@ -594,7 +603,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			// Find beginning of the last grapheme on the line (needed or caret positioning, etc).
 			line->last_grapheme_offset = skb_layout_align_grapheme_offset(layout, line->text_range.end - 1);
 
-			SKB_SET_FLAG(line->flags, SKB_LAYOUT_LINE_IS_RTL, layout->resolved_is_rlt);
+			SKB_SET_FLAG(line->flags, SKB_LAYOUT_LINE_IS_RTL, layout->flags & SKB__LAYOUT_RESOLVED_IS_RTL);
 
 			// Sort back to visual order.
 			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
@@ -861,9 +870,13 @@ static bool skb__script_run_iter_next(skb__script_run_iter* iter, skb_range_t* r
 }
 
 
+enum skb__text_style_run_iter_flags_t {
+	SKB__TEXT_STYLE_RUN_ITER_IS_RTL = 1 << 0,
+};
+
 typedef struct skb__text_style_run_iter {
 	skb_range_t range;
-	bool is_rtl;
+	uint8_t flags;
 	int32_t span_idx;
 	int32_t span_end;
 	const skb__shaping_attribute_span_t* shaping_spans;
@@ -874,10 +887,12 @@ static skb__text_style_run_iter skb__text_style_run_iter_make(skb_range_t range,
 {
 	skb__text_style_run_iter iter = {
 		.range = range,
-		.is_rtl = is_rtl,
+		.flags = 0,
 		.shaping_spans = shaping_spans,
 		.shaping_spans_count = shaping_spans_count
 	};
+	
+	SKB_SET_FLAG(iter.flags, SKB__TEXT_STYLE_RUN_ITER_IS_RTL, is_rtl);
 
 	if (is_rtl) {
 		iter.span_idx = shaping_spans_count - 1;
@@ -895,7 +910,7 @@ static bool skb__text_style_run_iter_next(skb__text_style_run_iter* iter, skb_ra
 	if (iter->span_idx == iter->span_end)
 		return false;
 
-	if (iter->is_rtl) {
+	if (iter->flags & SKB__TEXT_STYLE_RUN_ITER_IS_RTL) {
 		// Reverse if RTL
 		while (iter->span_idx > iter->span_end) {
 			const skb__shaping_attribute_span_t* shaping_span = &iter->shaping_spans[iter->span_idx];
@@ -999,7 +1014,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 
 		// The overal text direction is taken from the first paragraph.
 		if (paragraph_start == 0)
-			layout->resolved_is_rlt = SBParagraphGetBaseLevel(bidi_paragraph) & 1;
+			SKB_SET_FLAG(layout->flags, SKB__LAYOUT_RESOLVED_IS_RTL, SBParagraphGetBaseLevel(bidi_paragraph) & 1);
 
 		// Iterate over all the bidi runs.
 		const SBLineRef bidi_line = SBParagraphCreateLine(bidi_paragraph, paragraph_start, paragraph_length);
@@ -1040,8 +1055,8 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 						shaping_run->script = script;
 						shaping_run->offset = emoji_range.start;
 						shaping_run->length = emoji_range.end - emoji_range.start;
-						shaping_run->is_rtl = style_is_rtl;
-						shaping_run->is_emoji = has_emoji;
+						SKB_SET_FLAG(shaping_run->flags, SKB__SHAPING_RUN_IS_RTL, style_is_rtl);
+						SKB_SET_FLAG(shaping_run->flags, SKB__SHAPING_RUN_IS_EMOJI, has_emoji);
 						shaping_run->shaping_span_idx = style_span_idx;
 					}
 				}
@@ -1214,8 +1229,8 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		for (int32_t j = 0; j < run->length; j++) {
-			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_RTL, run->is_rtl);
-			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_EMOJI, run->is_emoji);
+			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_RTL, run->flags & SKB__SHAPING_RUN_IS_RTL);
+			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_EMOJI, run->flags & SKB__SHAPING_RUN_IS_EMOJI);
 			layout->text_props[run->offset + j].script = run->script;
 		}
 	}
@@ -1230,7 +1245,7 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		const skb__shaping_attribute_span_t* shaping_span = &build_context.shaping_spans[run->shaping_span_idx];
-		const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : shaping_span->font_family;
+		const uint8_t font_family = (run->flags & SKB__SHAPING_RUN_IS_EMOJI) ? SKB_FONT_FAMILY_EMOJI : shaping_span->font_family;
 
 		const skb_font_t* fonts[32];
 		int32_t fonts_count = skb_font_collection_match_fonts(
@@ -1413,7 +1428,7 @@ void skb_layout_reset(skb_layout_t* layout)
 	layout->attribute_spans_count = 0;
 	layout->font_features_count = 0;
 	layout->bounds = skb_rect2_make_undefined();
-	layout->resolved_is_rlt = 0;
+	layout->flags = 0;
 }
 
 void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count)
@@ -1683,7 +1698,7 @@ bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_positio
 	assert(layout);
 	if (pos.offset >= 0 && pos.offset < layout->text_count)
 		return (layout->text_props[pos.offset].flags & SKB_TEXT_PROP_RTL);
-	return layout->resolved_is_rlt;
+	return (layout->flags & SKB__LAYOUT_RESOLVED_IS_RTL) != 0;
 }
 
 skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x)
