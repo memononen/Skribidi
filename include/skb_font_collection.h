@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "skb_common.h"
 
 // harfbuzz forward declarations
@@ -138,6 +139,17 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection);
  * @return pointer to the added font, on NULL if failed to load the font.
  */
 skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family);
+
+/**
+ * Adds OTF or TTF font to the collection from memory.
+ * @param font_collection font collection to use.
+ * @param font_data pointer to the font data in memory.
+ * @param data_length length of the font data in bytes.
+ * @param name used to uniquely identify the font.
+ * @param font_family font family identifier.
+ * @return pointer to the added font, on NULL if failed to load the font.
+ */
+skb_font_t* skb_font_collection_add_font_from_data(skb_font_collection_t* font_collection, const void* font_data, size_t data_length, const char* name, uint8_t font_family);
 
 /**
  * Returns fonts matching specific font properties.
