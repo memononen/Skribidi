@@ -103,6 +103,14 @@ typedef struct skb_font_metrics_t {
 	float x_height;
 } skb_font_metrics_t;
 
+/** Caret metrics */
+typedef struct skb_caret_metrics_t {
+	/** Caret X offset from current position. */
+	float offset;
+	/** How much X changes per Y. */
+	float slope;
+} skb_caret_metrics_t;
+
 /** Opaque type for the font collection. Use skb_font_collection_create() to create. */
 typedef struct skb_font_collection_t skb_font_collection_t;
 
@@ -191,6 +199,13 @@ skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id,
  * @return font metrics.
  */
 skb_font_metrics_t skb_font_get_metrics(const skb_font_t* font);
+
+/**
+ * Returns font caret metrics
+ * @param font font to use.
+ * @return caret metrics.
+ */
+skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_t* font);
 
 /**
  * Returns Harfbuzz representation of the font.

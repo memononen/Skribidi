@@ -536,31 +536,28 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					float caret_x = 0.f;
 					float caret_advance = 0.f;
-					skb_text_position_t left = {0};
-					bool left_is_rtl = false;
-					skb_text_position_t right = {0};
-					bool right_is_rtl = false;
+					skb_caret_result_t left = {0};
+					skb_caret_result_t right = {0};
 
-
-					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
+					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
 
-						if (left_is_rtl != right_is_rtl) {
+						if (left.is_rtl != right.is_rtl) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
-							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.affinity], left.offset);
-							draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.affinity], right.offset);
+							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
+							draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 							left_text_offset = caret_advance < 40.f ? 15 : 0;
 						} else {
-							if (right.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
-								draw_tri(cx, top_y+5, cx + (right_is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
-								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.affinity], right.offset);
+							if (right.text_position.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
+								draw_tri(cx, top_y+5, cx + (right.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
+								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 								left_text_offset = caret_advance < 40.f ? 15 : 0;
 							} else {
-								draw_tri(cx, top_y+5, cx + (left_is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
-								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.affinity], left.offset);
+								draw_tri(cx, top_y+5, cx + (left.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
+								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
 								left_text_offset = 0.f;
 							}
 						}
@@ -601,32 +598,32 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
 		}
 
-		{
+		// Caret is generally drawn only when there is no selection.
+		if (skb_input_get_selection_count(ctx->input, edit_selection) == 0) {
+
 			// Visual caret
-			if (skb_input_get_selection_count(ctx->input, edit_selection)) {
-
-				skb_visual_caret_t start_caret = skb_input_get_visual_caret(ctx->input, edit_selection.start_pos);
-
-				draw_line_width(4.f);
-				draw_line(ox + start_caret.x, oy + start_caret.y, ox + start_caret.x, oy + start_caret.y + start_caret.height, caret_color);
-			}
-
 			skb_visual_caret_t caret_pos = skb_input_get_visual_caret(ctx->input, edit_selection.end_pos);
 
-			float caret_x = ox + caret_pos.x;
-			float caret_top_y = oy + caret_pos.y;
-			float caret_bot_y = oy + caret_pos.y + caret_pos.height;
+			float caret_slope = caret_pos.width / caret_pos.height;
+			float caret_top_x = ox + caret_pos.x + caret_pos.width - caret_slope * 3.f;
+			float caret_top_y = oy + caret_pos.y + 3.f;
+			float caret_bot_x = ox + caret_pos.x + caret_slope * 3.f;
+			float caret_bot_y = oy + caret_pos.y + caret_pos.height - 3.f;
 
 			draw_line_width(6.f);
 
-			draw_line(caret_x, caret_top_y+3, caret_x, caret_bot_y-3, caret_color);
+			draw_line(caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color);
 
 			float as = skb_absf(caret_pos.height) / 10.f;
 			float dx = (caret_pos.is_rtl ? -as : as);
 			draw_line_width(2.f);
-			draw_tri(caret_x, caret_top_y,
-				caret_x + dx, caret_top_y,
-				caret_x, caret_top_y + as,
+			float tri_top_x = ox + caret_pos.x + caret_pos.width;
+			float tri_top_y = oy + caret_pos.y;
+			float tri_bot_x = tri_top_x - as * caret_slope;
+			float tri_bot_y = tri_top_y + as;
+			draw_tri(tri_top_x, tri_top_y,
+				tri_top_x + dx, tri_top_y,
+				tri_bot_x, tri_bot_y,
 				caret_color);
 
 			draw_line_width(1.f);
@@ -635,7 +632,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			float dir = (edit_selection.end_pos.affinity == SKB_AFFINITY_LEADING || edit_selection.end_pos.affinity == SKB_AFFINITY_SOL) ? -1.f : 1.f;
 			bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
 			if (caret_is_rtl) dir = -dir;
-			draw_text(caret_x + dir*7.f, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
+			draw_text(caret_bot_x + dir*7.f + caret_slope * 23, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
 		}
 	}
 

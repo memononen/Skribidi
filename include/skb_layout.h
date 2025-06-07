@@ -424,14 +424,19 @@ typedef struct skb_text_selection_t {
 	skb_text_position_t end_pos;
 } skb_text_selection_t;
 
-/** Struct descring visual caret location. */
+/** Struct describing visual caret location.
+ * The caret line can be described as: (x+width, y) - (x, y+height).
+ * Where, (x,y) is the top left corner of the rectangle containing the caret.
+ */
 typedef struct skb_visual_caret_t {
 	/** X location of the caret */
 	float x;
 	/** Y location of the caret */
 	float y;
-	/** height of the caret */
+	/** Height of the caret */
 	float height;
+	/** Width of the caret (slant) */
+	float width;
 	/** 1 if the caret is within right-to-left text. */
 	uint8_t is_rtl : 1;
 } skb_visual_caret_t;
@@ -565,6 +570,16 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 // Caret iterator
 //
 
+/** Struct describing result of caret iterator. */
+typedef struct skb_caret_result_t {
+	/** Text position of the caret */
+	skb_text_position_t text_position;
+	/** Glyph index of the caret. */
+	int32_t glyph_idx;
+	/** True if the text at caret location is right-to-left. */
+	bool is_rtl;
+} skb_caret_result_t;
+
 /** Struct holding state for iterating over all caret locations in a layout. */
 typedef struct skb_caret_iterator_t {
 	// Internal
@@ -586,8 +601,7 @@ typedef struct skb_caret_iterator_t {
 	int32_t line_first_grapheme_offset;
 	int32_t line_last_grapheme_offset;
 	uint8_t line_is_rtl;
-	skb_text_position_t pending_left;
-	bool pending_left_is_rtl;
+	skb_caret_result_t pending_left;
 } skb_caret_iterator_t;
 
 /**
@@ -610,7 +624,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
  * @param right_is_rtl true if right text position is right-to-left.
  * @return true as long as the output values are valid.
  */
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_text_position_t* left, bool* left_is_rtl, skb_text_position_t* right, bool* right_is_rtl);
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_result_t* left, skb_caret_result_t* right);
 
 /**
  * Returns four letter ISO 15924 script tag of the specified script.

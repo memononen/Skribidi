@@ -249,6 +249,9 @@ void skb_temp_alloc_restore(skb_temp_alloc_t* alloc, skb_temp_alloc_mark_t mark)
 		// Advance to next block
 		block = next_block;
 	}
+
+	// Set the block list to start at  the rolled back block.
+	alloc->block_list = block;
 }
 
 void* skb_temp_alloc_alloc(skb_temp_alloc_t* alloc, int32_t size)
@@ -289,10 +292,9 @@ void* skb_temp_alloc_alloc(skb_temp_alloc_t* alloc, int32_t size)
 		cur_block->num = alloc->block_list ? alloc->block_list->num + 1 : 0;
 
 		// Insert the block to active block list
-		if (cur_block != alloc->block_list) {
-			cur_block->next = alloc->block_list;
-			alloc->block_list = cur_block;
-		}
+		assert(cur_block != alloc->block_list);
+		cur_block->next = alloc->block_list;
+		alloc->block_list = cur_block;
 
 		offset = skb_align(cur_block->offset + SKB_TEMPALLOC_HEADER_SIZE, SKB_TEMPALLOC_ALIGN);
 		assert((offset + size) <= cur_block->cap);
