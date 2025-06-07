@@ -18,8 +18,10 @@ typedef struct skb_font_collection_t {
 
 
 // Font flags
-/** 1 if the font is color font. */
-#define SKB_FONT_IS_COLOR 0x01
+enum skb_font_flags_t {
+	/** 1 if the font is color font. */
+	SKB_FONT_IS_COLOR = 1 << 0,
+};
 
 typedef struct skb_font_t {
 	hb_font_t* hb_font;		// Associate harfbuzz font.

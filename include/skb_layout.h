@@ -92,8 +92,10 @@ typedef struct skb_text_attribs_t {
 } skb_text_attribs_t;
 
 // Layout parameter flags
-/** Ignored line breaks from control characters. */
-#define SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS 0x01
+enum skb_layout_params_flags_t {
+	/** Ignored line breaks from control characters. */
+	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
+};
 
 /** Struct describing parameters that apply to the whole text layout. */
 typedef struct skb_layout_params_t {
@@ -144,8 +146,10 @@ typedef struct skb_text_run_utf32_t {
 } skb_text_run_utf32_t;
 
 // Glyph flags
-/** 1 if the glyph is part of right-to-left text. */
-#define SKB_GLYPH_IS_RTL 0x01
+enum skb_glyph_flags_t {
+	/** 1 if the glyph is part of right-to-left text. */
+	SKB_GLYPH_IS_RTL = 1 << 0,
+};
 
 /** Struct describing shaped and positioned glyph. */
 typedef struct skb_glyph_t {
@@ -170,22 +174,24 @@ typedef struct skb_glyph_t {
 } skb_glyph_t;
 
 // Text property flags
-/** Grapheme break after the codepoint. */
-#define SKB_TEXT_PROP_GRAPHEME_BREAK   0x01
-/** Word break after the codepoint. */
-#define SKB_TEXT_PROP_WORD_BREAK       0x02
-/** Must break line after the code point. */
-#define SKB_TEXT_PROP_MUST_LINE_BREAK  0x04
-/** Allow line break after the codepoint. */
-#define SKB_TEXT_PROP_ALLOW_LINE_BREAK 0x08
-/** The codepoint is part of a right-to-left text segment. */
-#define SKB_TEXT_PROP_RTL              0x10
-/** The codepoint is an emoji. */
-#define SKB_TEXT_PROP_EMOJI            0x20
-/** The codepoint is a control character. */
-#define SKB_TEXT_PROP_CONTROL          0x40
-/** The codepoint is a white space character. */
-#define SKB_TEXT_PROP_WHITESPACE       0x80
+enum skb_text_prop_flags_t {
+	/** Grapheme break after the codepoint. */
+	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
+	/** Word break after the codepoint. */
+	SKB_TEXT_PROP_WORD_BREAK       = 1 << 1,
+	/** Must break line after the code point. */
+	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
+	/** Allow line break after the codepoint. */
+	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
+	/** The codepoint is part of a right-to-left text segment. */
+	SKB_TEXT_PROP_RTL              = 1 << 4,
+	/** The codepoint is an emoji. */
+	SKB_TEXT_PROP_EMOJI            = 1 << 5,
+	/** The codepoint is a control character. */
+	SKB_TEXT_PROP_CONTROL          = 1 << 6,
+	/** The codepoint is a white space character. */
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 7
+};
 
 /** Struct describing properties if a single codepoint. */
 typedef struct skb_text_property_t {
@@ -196,8 +202,10 @@ typedef struct skb_text_property_t {
 } skb_text_property_t;
 
 // Layout line flags
-/** 1 if the line is right-to-left. */
-#define SKB_LAYOUT_LINE_IS_RTL 0x01
+enum skb_layout_line_flags_t {
+	/** 1 if the line is right-to-left. */
+	SKB_LAYOUT_LINE_IS_RTL = 1 << 0,
+};
 
 /** Struct describing a line of text. */
 typedef struct skb_layout_line_t {
@@ -441,8 +449,10 @@ typedef struct skb_text_selection_t {
 } skb_text_selection_t;
 
 // Visual caret flags
-/** 1 if the caret is within right-to-left text. */
-#define SKB_VISUAL_CARET_IS_RTL 0x01
+enum skb_visual_caret_flags_t {
+	/** 1 if the caret is within right-to-left text. */
+	SKB_VISUAL_CARET_IS_RTL = 1 << 0,
+};
 
 /** Struct descring visual caret location. */
 typedef struct skb_visual_caret_t {
