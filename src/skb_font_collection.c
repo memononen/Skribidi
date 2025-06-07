@@ -202,7 +202,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	hb_face_t* face = NULL;
 	skb_font_t* font = NULL;
 	
-	skb_debug_log("Loading font: %s\n", path);
+	// skb_debug_log("Loading font: %s\n", path);
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);
@@ -228,7 +228,7 @@ static skb_font_t* skb__font_create_from_data(const void* font_data, size_t data
 	hb_face_t* face = NULL;
 	skb_font_t* font = NULL;
 
-	skb_debug_log("Loading font from data: %s\n", name);
+	// skb_debug_log("Loading font from data: %s\n", name);
 
 	// Use Harfbuzz to create blob from memory data with read-only mode
 	blob = hb_blob_create((const char*)font_data, (unsigned int)data_length, HB_MEMORY_MODE_READONLY, NULL, NULL);
