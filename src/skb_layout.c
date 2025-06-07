@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "skb_common.h"
+#include "skb_common_internal.h"
 #include "skb_layout.h"
 #include "skb_font_collection_internal.h"
 
@@ -314,11 +315,7 @@ static void skb__shape_run(
 			}
 
 			glyph->font_idx = font->idx;
-			if (run->is_rtl) {
-				glyph->flags |= SKB_GLYPH_IS_RTL;
-			} else {
-				glyph->flags &= ~SKB_GLYPH_IS_RTL;
-			}
+			SKB_SET_FLAG(glyph->flags, SKB_GLYPH_IS_RTL, run->is_rtl);
 			glyph->text_range.start = text_start;
 			glyph->text_range.end = text_end;
 			glyph->visual_idx = layout->glyphs_count - 1;
@@ -425,18 +422,13 @@ static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang,
 	hb_unicode_funcs_t* unicode_funcs = hb_unicode_funcs_get_default();
 	for (int i = 0; i < text_count; i++) {
 		const hb_unicode_general_category_t category = hb_unicode_general_category(unicode_funcs, text[i]);
-		if (category == HB_UNICODE_GENERAL_CATEGORY_CONTROL) {
-			text_attribs[i].flags |= SKB_TEXT_PROP_CONTROL;
-		} else {
-			text_attribs[i].flags &= ~SKB_TEXT_PROP_CONTROL;
-		}
-		if (category == HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR
+		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_CONTROL, category == HB_UNICODE_GENERAL_CATEGORY_CONTROL);
+		const bool is_whitespace = (
+			category == HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR
 			|| category == HB_UNICODE_GENERAL_CATEGORY_PARAGRAPH_SEPARATOR
-			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR) {
-			text_attribs[i].flags |= SKB_TEXT_PROP_WHITESPACE;
-		} else {
-			text_attribs[i].flags &= ~SKB_TEXT_PROP_WHITESPACE;
-		}
+			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR
+		);
+		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_WHITESPACE, is_whitespace);
 	}	
 	
 	SKB_TEMP_FREE(temp_alloc, breaks);
@@ -602,11 +594,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			// Find beginning of the last grapheme on the line (needed or caret positioning, etc).
 			line->last_grapheme_offset = skb_layout_align_grapheme_offset(layout, line->text_range.end - 1);
 
-			if (layout->resolved_is_rlt) {
-				line->flags |= SKB_LAYOUT_LINE_IS_RTL;
-			} else {
-				line->flags &= ~SKB_LAYOUT_LINE_IS_RTL;
-			}
+			SKB_SET_FLAG(line->flags, SKB_LAYOUT_LINE_IS_RTL, layout->resolved_is_rlt);
 
 			// Sort back to visual order.
 			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
@@ -1226,16 +1214,8 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		for (int32_t j = 0; j < run->length; j++) {
-			if (run->is_rtl) {
-				layout->text_props[run->offset + j].flags |= SKB_TEXT_PROP_RTL;
-			} else {
-				layout->text_props[run->offset + j].flags &= ~SKB_TEXT_PROP_RTL;
-			}
-			if (run->is_emoji) {
-				layout->text_props[run->offset + j].flags |= SKB_TEXT_PROP_EMOJI;
-			} else {
-				layout->text_props[run->offset + j].flags &= ~SKB_TEXT_PROP_EMOJI;
-			}
+			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_RTL, run->is_rtl);
+			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_EMOJI, run->is_emoji);
 			layout->text_props[run->offset + j].script = run->script;
 		}
 	}
@@ -1851,20 +1831,12 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 
 	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
 		if (pos.offset == left.offset && pos.affinity == left.affinity) {
-			if (left_is_rtl) {
-				vis_caret.flags |= SKB_VISUAL_CARET_IS_RTL;
-			} else {
-				vis_caret.flags &= ~SKB_VISUAL_CARET_IS_RTL;
-			}
+			SKB_SET_FLAG(vis_caret.flags, SKB_VISUAL_CARET_IS_RTL, left_is_rtl);
 			vis_caret.x = caret_iter.x;
 			break;
 		}
 		if (pos.offset == right.offset && pos.affinity == right.affinity) {
-			if (right_is_rtl) {
-				vis_caret.flags |= SKB_VISUAL_CARET_IS_RTL;
-			} else {
-				vis_caret.flags &= ~SKB_VISUAL_CARET_IS_RTL;
-			}
+			SKB_SET_FLAG(vis_caret.flags, SKB_VISUAL_CARET_IS_RTL, right_is_rtl);
 			vis_caret.x = caret_iter.x;
 			break;
 		}

@@ -3,6 +3,7 @@
 
 #include "skb_render_cache.h"
 
+#include "skb_common_internal.h"
 #include "skb_font_collection.h"
 #include "skb_font_collection_internal.h"
 #include "skb_icon_collection_internal.h"
@@ -1088,16 +1089,8 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * scale;
 	quad.scale = scale * pixel_scale;
 	quad.image_idx = cached_glyph->texture_idx;
-	if (cached_glyph->is_color) {
-		quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
-	} else {
-		quad.flags &= ~SKB_RENDER_QUAD_IS_COLOR;
-	}
-	if (cached_glyph->is_sdf) {
-		quad.flags |= SKB_RENDER_QUAD_IS_SDF;
-	} else {
-		quad.flags &= ~SKB_RENDER_QUAD_IS_SDF;
-	}
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->is_color);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->is_sdf);
 
 	return quad;
 }
@@ -1221,11 +1214,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.image_idx = cached_icon->texture_idx;
 	quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
-	if (cached_icon->is_sdf) {
-		quad.flags |= SKB_RENDER_QUAD_IS_SDF;
-	} else {
-		quad.flags &= ~SKB_RENDER_QUAD_IS_SDF;
-	}
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_icon->is_sdf);
 
 	return quad;
 }
