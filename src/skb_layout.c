@@ -505,8 +505,11 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-			if ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_RTL) == ((layout->flags & SKB__LAYOUT_RESOLVED_IS_RTL) ? SKB_TEXT_PROP_RTL : 0)
-					&& ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL))) {
+			const bool codepoint_is_rtl = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_RTL);
+			const bool layout_is_rtl = ((layout->flags & SKB__LAYOUT_RESOLVED_IS_RTL) ? SKB_TEXT_PROP_RTL : 0);
+			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
+			if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control)) {
 				run_end_whitespace_width += cluster_width;
 			} else {
 				if (run_end_whitespace_width > 0.f) {
