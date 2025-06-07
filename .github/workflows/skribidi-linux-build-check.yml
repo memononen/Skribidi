@@ -14,7 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wayland-protocols
+        sudo apt-get install -y wayland-protocols libwayland-dev
     - name: Build
       run: |
         mkdir build

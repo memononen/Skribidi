@@ -24,7 +24,6 @@ jobs:
         $cores = [Environment]::ProcessorCount
         Write-Host "Found $cores logical processors. Building with -j$cores"
         cmake --build . --config Debug -j"$cores"
-
     - name: Unit Tests
       shell: cmd
       run: |
