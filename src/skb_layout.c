@@ -1016,8 +1016,9 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		const int32_t paragraph_length = (int32_t)SBParagraphGetLength(bidi_paragraph);
 
 		// The overal text direction is taken from the first paragraph.
-		if (paragraph_start == 0)
+		if (paragraph_start == 0) {
 			SKB_SET_FLAG(layout->flags, SKB__LAYOUT_RESOLVED_IS_RTL, SBParagraphGetBaseLevel(bidi_paragraph) & 1);
+		}
 
 		// Iterate over all the bidi runs.
 		const SBLineRef bidi_line = SBParagraphCreateLine(bidi_paragraph, paragraph_start, paragraph_length);
