@@ -200,6 +200,24 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_X_HEIGHT, &x_height)) {
 		font->metrics.x_height = -(float)x_height * font->upem_scale;
 	}
+
+	// Caret metrics
+	hb_position_t caret_offset;
+	hb_position_t caret_rise;
+	hb_position_t caret_run;
+
+	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_OFFSET, &caret_offset)
+		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &caret_rise)
+		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run)) {
+
+		font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
+		font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
+
+	} else {
+		font->caret_metrics.offset = 0.f;
+		font->caret_metrics.slope = 0.f;
+	}
+
 	return font;
 
 error:
@@ -545,6 +563,12 @@ skb_font_metrics_t skb_font_get_metrics(const skb_font_t* font)
 {
 	assert(font);
 	return font->metrics;
+}
+
+skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_t* font)
+{
+	assert(font);
+	return font->caret_metrics;
 }
 
 hb_font_t* skb_font_get_hb_font(const skb_font_t* font)

@@ -1718,18 +1718,16 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 
 		float x = 0.f;
 		float advance = 0.f;
-		skb_text_position_t left = {0};
-		bool left_is_rtl = false;
-		skb_text_position_t right = {0};
-		bool right_is_rtl = false;
+		skb_caret_result_t left = {0};
+		skb_caret_result_t right = {0};
 
-		while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
+		while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
 			if (hit_x < x) {
-				result = left;
+				result = left.text_position;
 				break;
 			}
 			if (hit_x < x + advance * 0.5f) {
-				result = right;
+				result = right.text_position;
 				break;
 			}
 		}
@@ -1813,29 +1811,49 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		.is_rtl = line->is_rtl,
 		.x = line->bounds.x,
 		.y = line->bounds.y,
+		.width = 0.f,
 		.height = -line->ascender + line->descender,
 	};
 
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
 
+	skb_font_t* font = NULL;
+	skb_text_attribs_span_t* attribute_span = NULL;
 	float x = 0.f;
 	float advance = 0.f;
-	skb_text_position_t left = {0};
-	bool left_is_rtl = false;
-	skb_text_position_t right = {0};
-	bool right_is_rtl = false;
+	skb_caret_result_t left = {0};
+	skb_caret_result_t right = {0};
 
-	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
-		if (pos.offset == left.offset && pos.affinity == left.affinity) {
-			vis_caret.is_rtl = left_is_rtl;
+	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
+		if (pos.offset == left.text_position.offset && pos.affinity == left.text_position.affinity) {
+			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
+			attribute_span = &layout->attribute_spans[glyph->span_idx];
+			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
+			vis_caret.is_rtl = left.is_rtl;
 			vis_caret.x = caret_iter.x;
+			vis_caret.y = glyph->offset_y;
 			break;
 		}
-		if (pos.offset == right.offset && pos.affinity == right.affinity) {
-			vis_caret.is_rtl = right_is_rtl;
+		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
+			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
+			attribute_span = &layout->attribute_spans[glyph->span_idx];
+			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
+			vis_caret.is_rtl = right.is_rtl;
 			vis_caret.x = caret_iter.x;
+			vis_caret.y = glyph->offset_y;
 			break;
 		}
+	}
+
+	if (font && attribute_span) {
+		skb_font_metrics_t font_metrics = skb_font_get_metrics(font);
+		skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(font);
+		const float font_size = attribute_span->attribs.font_size;
+		vis_caret.x -= caret_metrics.slope * font_metrics.descender * font_size;
+		vis_caret.y += font_metrics.ascender * font_size;
+		vis_caret.height = (-font_metrics.ascender + font_metrics.descender) * font_size;
+		vis_caret.width = vis_caret.height * caret_metrics.slope;
+
 	}
 
 	return vis_caret;
@@ -2124,13 +2142,14 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 
 	// Previous caret is at the start of the line.
 	if (iter.line_is_rtl) {
-		iter.pending_left.offset = iter.line_last_grapheme_offset;
-		iter.pending_left.affinity = SKB_AFFINITY_EOL;
+		iter.pending_left.text_position.offset = iter.line_last_grapheme_offset;
+		iter.pending_left.text_position.affinity = SKB_AFFINITY_EOL;
 	} else {
-		iter.pending_left.offset = iter.line_first_grapheme_offset;
-		iter.pending_left.affinity = SKB_AFFINITY_SOL;
+		iter.pending_left.text_position.offset = iter.line_first_grapheme_offset;
+		iter.pending_left.text_position.affinity = SKB_AFFINITY_SOL;
 	}
-	iter.pending_left_is_rtl = iter.line_is_rtl;
+	iter.pending_left.is_rtl = iter.line_is_rtl;
+	iter.pending_left.glyph_idx = line->glyph_range.start;
 
 	iter.glyph_pos = line->glyph_range.start;
 	iter.glyph_end = line->glyph_range.end;
@@ -2143,7 +2162,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	return iter;
 }
 
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_text_position_t* left, bool* left_is_rtl, skb_text_position_t* right, bool* right_is_rtl)
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_result_t* left, skb_caret_result_t* right)
 {
 	if (iter->end_of_line)
 		return false;
@@ -2154,7 +2173,6 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 	iter->x += iter->advance;
 
 	*left = iter->pending_left;
-	*left_is_rtl = iter->pending_left_is_rtl;
 
 	// Advance to next glyph
 	if (iter->end_of_glyph) {
@@ -2194,13 +2212,14 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 
 	if (iter->end_of_line) {
 		if (iter->line_is_rtl) {
-			right->offset = iter->line_first_grapheme_offset;
-			right->affinity = SKB_AFFINITY_SOL;
+			right->text_position.offset = iter->line_first_grapheme_offset;
+			right->text_position.affinity = SKB_AFFINITY_SOL;
 		} else {
-			right->offset = iter->line_last_grapheme_offset;
-			right->affinity = SKB_AFFINITY_EOL;
+			right->text_position.offset = iter->line_last_grapheme_offset;
+			right->text_position.affinity = SKB_AFFINITY_EOL;
 		}
-		*right_is_rtl = iter->line_is_rtl;
+		right->is_rtl = iter->line_is_rtl;
+		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	} else {
 		// Advance to next grapheme location
 		int32_t offset = 0;
@@ -2220,13 +2239,15 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			iter->end_of_glyph = iter->grapheme_pos >= iter->grapheme_end;
 		}
 
-		right->offset = offset;
-		right->affinity = iter->glyph_is_rtl ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
-		*right_is_rtl = iter->glyph_is_rtl;
+		right->text_position.offset = offset;
+		right->text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
+		right->is_rtl = iter->glyph_is_rtl;
+		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 
-		iter->pending_left.offset = offset;
-		iter->pending_left.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
-		iter->pending_left_is_rtl = iter->glyph_is_rtl;
+		iter->pending_left.text_position.offset = offset;
+		iter->pending_left.text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
+		iter->pending_left.is_rtl = iter->glyph_is_rtl;
+		iter->pending_left.glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	}
 
 	*x = iter->x;
