@@ -83,6 +83,14 @@ static void char_callback(GLFWwindow* window, unsigned int codepoint)
 		g_example->on_char(g_example, codepoint);
 }
 
+static void mouse_scale_pos_to_screen_coords(GLFWwindow* window, double* xpos, double* ypos)
+{
+	float xscale, yscale;
+	glfwGetWindowContentScale(g_window, &xscale, &yscale);
+	*xpos *= xscale;
+	*ypos *= yscale;
+}
+
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	(void)window;
@@ -90,12 +98,8 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 	g_last_key_mods = mods;
 
 	double xpos, ypos;
-	float xscale, yscale;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
-
-	glfwGetWindowContentScale(g_window, &xscale, &yscale);
-	xpos *= xscale;
-	ypos *= yscale;
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_button)
 		g_example->on_mouse_button(g_example, (float)xpos, (float)ypos, button, action, mods);
@@ -103,6 +107,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 static void mouse_move_callback(GLFWwindow* window, double xpos, double ypos)
 {
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 	if (g_example && g_example->on_mouse_move)
 		g_example->on_mouse_move(g_example, (float)xpos, (float)ypos);
 }
@@ -111,6 +116,7 @@ static void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yof
 {
 	double xpos, ypos;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_scroll)
 		g_example->on_mouse_scroll(g_example, (float)xpos, (float)ypos, (float)xoffset, (float)yoffset, g_last_key_mods);
