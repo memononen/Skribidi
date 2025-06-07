@@ -646,26 +646,29 @@ void skb_canvas_pop_layer(skb_canvas_t* c)
 	skb_canvas_pop_mask(c);
 }
 
+enum {
+	SKB_GRADIENT_CACHE_SIZE = 256,	// Must be power of 2
+};
 
-#define SKB_GRADIENT_CACHE_SIZE 256
+// Allowing the gradient indexing to go up to SKB_GRADIENT_CACHE_SIZE inclusive, makes the spread mode calculation simpler.
 typedef struct skb_gradient_cache_t {
-	skb_color_t colors[SKB_GRADIENT_CACHE_SIZE];
+	skb_color_t colors[SKB_GRADIENT_CACHE_SIZE+1];
 } skb_gradient_cache_t;
 
 static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_color_stop_t* stops, int32_t stops_count)
 {
 	if (stops_count == 0) {
 		skb_color_t black = {0};
-		for (int32_t i = 0; i < SKB_GRADIENT_CACHE_SIZE; i++)
+		for (int32_t i = 0; i <= SKB_GRADIENT_CACHE_SIZE; i++)
 			cache->colors[i] = black;
 	} else if (stops_count == 1) {
-		for (int32_t i = 0; i < SKB_GRADIENT_CACHE_SIZE; i++)
+		for (int32_t i = 0; i <= SKB_GRADIENT_CACHE_SIZE; i++)
 			cache->colors[i] = stops[0].color;
 	} else {
 		// Scale offsets, so that first stop is at 0, and last at 1.
 
 		// Colors before the first stop.
-		int32_t idx = skb_clampi((int32_t)(stops[0].offset * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
+		int32_t idx = skb_clampi((int32_t)(stops[0].offset * SKB_GRADIENT_CACHE_SIZE), 0, SKB_GRADIENT_CACHE_SIZE);
 		skb_color_t color = stops[0].color;
 		for (int32_t i = 0; i < idx; i++)
 			cache->colors[i] = color;
@@ -676,7 +679,7 @@ static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_colo
 			int32_t prev_idx = idx;
 			skb_color_t prev_color = color;
 
-			idx = skb_clampi((int32_t)(stops[stop_idx].offset * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
+			idx = skb_clampi((int32_t)(stops[stop_idx].offset * SKB_GRADIENT_CACHE_SIZE), 0, SKB_GRADIENT_CACHE_SIZE);
 			color = stops[stop_idx].color;
 
 			const int32_t count = idx - prev_idx;
@@ -691,7 +694,7 @@ static void skb_gradient_cache_init_(skb_gradient_cache_t* cache, const skb_colo
 		}
 
 		// Colors after the first stop.
-		for (int32_t i = idx; i < SKB_GRADIENT_CACHE_SIZE; i++)
+		for (int32_t i = idx; i <= SKB_GRADIENT_CACHE_SIZE; i++)
 			cache->colors[i] = color;
 	}
 }
@@ -721,6 +724,19 @@ void skb_canvas_fill_solid_color(skb_canvas_t* c, skb_color_t color)
 			x_layer++;
 		}
 	}
+}
+
+static inline int32_t skb__apply_spread(int32_t index, skb_gradient_spread_t spread)
+{
+	if (spread == SKB_SPREAD_PAD)
+		return skb_clampi(index, 0, SKB_GRADIENT_CACHE_SIZE);
+	if (spread == SKB_SPREAD_REPEAT)
+		// Sawtooth wave: mod(index, period)
+		return (index & (SKB_GRADIENT_CACHE_SIZE-1));
+	if (spread == SKB_SPREAD_REFLECT)
+		// Triangle wave: period/2 - abs(mod(index, period) - period/2)
+		return SKB_GRADIENT_CACHE_SIZE - skb_absi((index & (SKB_GRADIENT_CACHE_SIZE*2-1)) - SKB_GRADIENT_CACHE_SIZE);
+	return skb_clampi(index, 0, SKB_GRADIENT_CACHE_SIZE);
 }
 
 void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t p1, skb_gradient_spread_t spread, const skb_color_stop_t* stops, int32_t stops_count)
@@ -764,7 +780,7 @@ void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t 
 				// Calculate gradient position
 				const float t = (dir_x * fx + dir_y * fy) * dir_s;
 				// Sample color
-				const int32_t ti = skb_clampi((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
+				const int32_t ti = skb__apply_spread((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE)), spread);
 				const skb_color_t col = cache.colors[ti];
 				// Blend
 				*x_layer = skb_color_lerp(*x_layer, col, *x_mask);
@@ -833,7 +849,7 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 				// Calculate gradient position.
 				const float t = (sqrtf(fx*fx + fy*fy) - r0) * r_scale;
 				// Sample gradient.
-				const int32_t ti = skb_clampi((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE-1)), 0, SKB_GRADIENT_CACHE_SIZE-1);
+				const int32_t ti = skb__apply_spread((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE)), spread);
 				const skb_color_t col = cache.colors[ti];
 				// Blend
 				*x_layer = skb_color_lerp(*x_layer, col, *x_mask);

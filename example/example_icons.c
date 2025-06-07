@@ -87,13 +87,13 @@ void* icons_create(void)
 	}
 
 	// Procedural icon
-	skb_icon_t* icon3 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
-	if (!icon3) {
-		skb_debug_log("Failed to make icon3\n");
-		goto error;
-	}
-
 	{
+		skb_icon_t* icon3 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
+		if (!icon3) {
+			skb_debug_log("Failed to make icon3\n");
+			goto error;
+		}
+
 		skb_icon_shape_t* shape = skb_icon_add_shape(icon3);
 		skb_icon_shape_move_to(shape, (skb_vec2_t){18,10});
 		skb_icon_shape_line_to(shape, (skb_vec2_t){4,16});
@@ -105,6 +105,35 @@ void* icons_create(void)
 			{1.f, skb_rgba(163,53,53,255) },
 		};
 		int32_t grad_idx = skb_icon_create_linear_gradient(icon3, (skb_vec2_t){8,4}, (skb_vec2_t){12,16}, skb_mat2_make_identity(), SKB_SPREAD_PAD, stops, SKB_COUNTOF(stops));
+		skb_icon_shape_set_gradient(shape, grad_idx);
+	}
+
+	// Make simiar icons with different spread modes.
+	for (int32_t i = 0; i < 3; i++) {
+		char name[32];
+		snprintf(name, 32, "grad_%d", i);
+		skb_icon_t* icon = skb_icon_collection_add_icon(ctx->icon_collection, name, 20,100);
+		if (!icon) {
+			skb_debug_log("Failed to make %s\n", name);
+			goto error;
+		}
+
+		skb_gradient_spread_t spread = SKB_SPREAD_PAD;
+		if (i == 1) spread = SKB_SPREAD_REPEAT;
+		if (i == 2) spread = SKB_SPREAD_REFLECT;
+
+		skb_icon_shape_t* shape = skb_icon_add_shape(icon);
+		skb_icon_shape_move_to(shape, (skb_vec2_t){2,2});
+		skb_icon_shape_line_to(shape, (skb_vec2_t){18,2});
+		skb_icon_shape_line_to(shape, (skb_vec2_t){18,98});
+		skb_icon_shape_line_to(shape, (skb_vec2_t){2,98});
+		skb_icon_shape_close_path(shape);
+		skb_color_stop_t stops[] = {
+			{0.0f, skb_rgba(255,102,0,255) },
+			{0.5f, skb_rgba(238,242,33,255) },
+			{1.f, skb_rgba(49,109,237,255) },
+		};
+		int32_t grad_idx = skb_icon_create_linear_gradient(icon, (skb_vec2_t){2,25}, (skb_vec2_t){2,50}, skb_mat2_make_identity(), spread, stops, SKB_COUNTOF(stops));
 		skb_icon_shape_set_gradient(shape, grad_idx);
 	}
 
@@ -230,7 +259,7 @@ static float draw_icon(icons_context_t* ctx, skb_icon_t* icon, float ox, float o
 	skb_vec2_t icon_base_size = skb_icon_get_size(icon);
 
 	skb_rect2_t icon_rect = {
-		ox, oy, icon_base_size.x * icon_scale.x, icon_base_size.x * icon_scale.y,
+		ox, oy, icon_base_size.x * icon_scale.x, icon_base_size.y * icon_scale.y,
 	};
 	icon_rect = view_transform_rect(&ctx->view, icon_rect);
 
@@ -283,6 +312,10 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+
 	}
 	oy += 180.f;
 
@@ -292,6 +325,9 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 	}
 
 	// Update atlas and textures
