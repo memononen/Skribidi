@@ -16,7 +16,7 @@ jobs:
         mkdir build
         cd build
         cmake ..
-        cmake --build -j$(sysctl -n hw.ncpu)
+        cmake --build . -j$(sysctl -n hw.ncpu)
     - name: Unit Tests
       run: |
         cd build/bin/

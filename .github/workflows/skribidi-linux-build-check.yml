@@ -11,12 +11,16 @@ jobs:
       with:
         ref: ${{ github.ref }}
         fetch-depth: 2
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wayland-protocols
     - name: Build
       run: |
         mkdir build
         cd build
         cmake ..
-        cmake --build -j$(nproc)
+        cmake --build . -j$(nproc)
     - name: Unit Tests
       run: |
         cd build/bin/
