@@ -1282,7 +1282,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 			// Remove from LRU
 			skb_list_remove(&cache->glyphs_lru, glyph_idx, skb__get_glyph, cache);
 
-			if ((cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED)) {
+			if (cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED) {
 				const skb_rect2i_t dirty = {
 					.x = cached_glyph->atlas_offset_x,
 					.y = cached_glyph->atlas_offset_y,
@@ -1329,7 +1329,7 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 			// Remove from LRU
 			skb_list_remove(&cache->icons_lru, icon_idx, skb__get_icon, cache);
 
-			if ((cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED)) {
+			if (cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED) {
 				const skb_rect2i_t dirty = {
 					.x = cached_icon->atlas_offset_x,
 					.y = cached_icon->atlas_offset_y,

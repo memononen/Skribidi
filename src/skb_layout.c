@@ -1711,7 +1711,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 	skb_text_position_t result = {0};
 
 	if (hit_x < line->bounds.x) {
-		if ((line->flags & SKB_LAYOUT_LINE_IS_RTL)) {
+		if (line->flags & SKB_LAYOUT_LINE_IS_RTL) {
 			result = (skb_text_position_t) {
 				.offset = line->last_grapheme_offset,
 				.affinity = SKB_AFFINITY_EOL,
@@ -1723,7 +1723,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 			};
 		}
 	} else if (hit_x >= (line->bounds.x + line->bounds.width)) {
-		if ((line->flags & SKB_LAYOUT_LINE_IS_RTL)) {
+		if (line->flags & SKB_LAYOUT_LINE_IS_RTL) {
 			result = (skb_text_position_t) {
 				.offset = line->text_range.start,
 				.affinity = SKB_AFFINITY_SOL,
@@ -1907,7 +1907,7 @@ skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb
 	int32_t offset = pos.offset;
 
 	while (offset >= 0) {
-		if ((layout->text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK)) {
+		if (layout->text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			offset = skb_layout_align_grapheme_offset(layout, offset);
 			break;
 		}
@@ -1934,7 +1934,7 @@ skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_t
 	int32_t offset = pos.offset;
 
 	while (offset < layout->text_count) {
-		if ((layout->text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK)) {
+		if (layout->text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			offset = skb_layout_align_grapheme_offset(layout, offset);
 			break;
 		}
@@ -2045,7 +2045,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 							grapheme_start_idx = grapheme_count;
 						if (cp_offset == selected_run_end_offset)
 							grapheme_end_idx = grapheme_count;
-						if ((layout->text_props[cp_offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+						if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK)
 							grapheme_count++;
 					}
 					if (selected_run_end_offset == glyph_run_end_offset)
@@ -2197,7 +2197,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			// Find graphemes in the run
 			int32_t grapheme_count = 0;
 			for (int32_t ti = text_range.start; ti < text_range.end; ti++) {
-				if ((layout->text_props[ti].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+				if (layout->text_props[ti].flags & SKB_TEXT_PROP_GRAPHEME_BREAK)
 					grapheme_count++;
 			}
 
