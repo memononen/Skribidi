@@ -1,0 +1,43 @@
+{
+  "skribidi": {
+    "build": [
+      {
+        "args": "-j${nproc}",
+        "command": "make",
+        "working_dir": "${project_root}/build/"
+      }
+    ],
+    "build_types": [],
+    "clean": [
+      {
+        "args": "clean",
+        "command": "make",
+        "working_dir": "${project_root}/build/"
+      }
+    ],
+    "config": {
+      "clear_sys_env": false
+    },
+    "os": [],
+    "output_parser": {
+      "config": {
+        "preset": "generic",
+        "relative_file_paths": true
+      }
+    },
+    "run": [
+      {
+        "args": "",
+        "command": "${project_root}/build/bin/skribidi_example",
+        "name": "skribidi_example",
+        "working_dir": "${project_root}/example/"
+      },
+      {
+        "args": "",
+        "command": "${project_root}/build/bin/skribidi_test",
+        "name": "skribidi_test",
+        "working_dir": "${project_root}/build/bin/"
+      }
+    ]
+  }
+}
