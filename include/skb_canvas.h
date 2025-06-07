@@ -54,7 +54,11 @@ typedef enum {
 /** Opaque type for the canvas. Use skb_canvas_create() to create. */
 typedef struct skb_canvas_t skb_canvas_t;
 
-/** Defines gradient color stop.  */
+/**
+ * Defines gradient color stop.
+ * The colors stops differ from OpenType COLR v1. The offsets are in range [0..1], and the whole range is defined interval.
+ * The defined interval is used for the spread mode. The font renderer will normalize the ranges coming from the fonts.
+ */
 typedef struct skb_color_stop_t {
 	/** Offset of the color, in range [0..1] */
 	float offset;
