@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#include "skb_font_collection.h"
+
 // harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;
 
@@ -29,7 +31,8 @@ typedef struct skb_font_t {
 	uint64_t name_hash;		// Hash of the name, used as unique identifier.
 	int32_t upem;			// units per em square.
 	float upem_scale;		// 1 / upem.
-	skb_font_metrics_t metrics;	// Font metrics (ascender, etc).
+	skb_font_metrics_t metrics;			// Font metrics (ascender, etc).
+	skb_caret_metrics_t caret_metrics;	// Caret metrics (offset, slope)
 	uint8_t* scripts;		// Supported scripts
 	int32_t scripts_count;	// Number of supported scripts
 	uint8_t font_family;	// font family identifier.
