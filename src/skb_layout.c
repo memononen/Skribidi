@@ -1990,12 +1990,12 @@ int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_sele
 	return range.end - range.start;
 }
 
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	skb_layout_get_selection_bounds_with_offset(layout, 0.f, selection, callback, context);
 }
 
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);

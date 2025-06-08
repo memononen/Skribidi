@@ -543,7 +543,7 @@ int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_sele
  * @param rect rectangle that has part of the selection.
  * @param context context passed to skb_layout_get_selection_bounds()
  */
-typedef void skb_selection_rect_callback(skb_rect2_t rect, void* context);
+typedef void skb_selection_rect_func_t(skb_rect2_t rect, void* context);
 
 /**
  * Returns set of rectangles that represent the selection.
@@ -553,7 +553,7 @@ typedef void skb_selection_rect_callback(skb_rect2_t rect, void* context);
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context);
+void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
 
 /**
  * Returns set of rectangles that represent the selection.
@@ -564,7 +564,7 @@ void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_select
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context);
+void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
 
 //
 // Caret iterator

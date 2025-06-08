@@ -898,7 +898,7 @@ typedef struct skb_list_t {
 } skb_list_t;
 
 /** Signature of function used to return the links of a specified item. */
-typedef skb_list_item_t* skb_list_get_item_t(int32_t item_idx, void* context);
+typedef skb_list_item_t* skb_list_get_item_func_t(int32_t item_idx, void* context);
 
 /** @returm a list initialized to empty. */
 static inline skb_list_t skb_list_make(void)
@@ -925,7 +925,7 @@ static inline skb_list_item_t skb_list_item_make(void)
  * @param get_item callback used to retrieve links of a specified item.
  * @param context context passed to the get_item callback.
  */
-static inline void skb_list_remove(skb_list_t* list, int32_t item_idx, skb_list_get_item_t* get_item, void* context)
+static inline void skb_list_remove(skb_list_t* list, int32_t item_idx, skb_list_get_item_func_t* get_item, void* context)
 {
 	skb_list_item_t* item = get_item(item_idx, context);
 
@@ -950,7 +950,7 @@ static inline void skb_list_remove(skb_list_t* list, int32_t item_idx, skb_list_
  * @param get_item callback used to retrieve links of a specified item.
  * @param context context passed to the get_item callback.
  */
-static inline void skb_list_move_to_front(skb_list_t* list, int32_t item_idx, skb_list_get_item_t* get_item, void* context)
+static inline void skb_list_move_to_front(skb_list_t* list, int32_t item_idx, skb_list_get_item_func_t* get_item, void* context)
 {
 	skb_list_remove(list, item_idx, get_item, context);
 

@@ -35,7 +35,7 @@ typedef struct skb_input_t skb_input_t;
  * @param input input that changed.
  * @param context context pointer that was passed to skb_input_set_on_change_callback().
  */
-typedef void skb_input_on_change_t(skb_input_t* input, void* context);
+typedef void skb_input_on_change_func_t(skb_input_t* input, void* context);
 
 /** Enum describing the caret movement mode. */
 typedef enum {
@@ -101,7 +101,7 @@ skb_input_t* skb_input_create(const skb_input_params_t* params);
  * @param callback pointer to the callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_t* callback, void* context);
+void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_func_t* callback, void* context);
 
 /**
  * Destroys an input.
@@ -236,7 +236,7 @@ int32_t skb_input_get_selection_count(const skb_input_t* input, skb_text_selecti
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context);
+void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
 
 /** @return return selection text utf-8 length. */
 int32_t skb_input_get_selection_text_utf8_count(const skb_input_t* input, skb_text_selection_t selection);

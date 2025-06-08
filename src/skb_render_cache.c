@@ -154,7 +154,7 @@ typedef struct skb_render_cache_t {
 	int32_t last_evicted_stamp;
 
 	skb_render_cache_config_t config;
-	skb_create_texture_callback_t* create_texture_callback;
+	skb_create_texture_func_t* create_texture_callback;
 	void* create_texture_callback_context;
 
 } skb_render_cache_t;
@@ -332,7 +332,7 @@ skb_render_cache_config_t skb_render_cache_get_config(skb_render_cache_t* cache)
 	return cache->config;
 }
 
-void skb_render_cache_set_create_texture_callback(skb_render_cache_t* cache, skb_create_texture_callback_t* create_texture_callback, void* context)
+void skb_render_cache_set_create_texture_callback(skb_render_cache_t* cache, skb_create_texture_func_t* create_texture_callback, void* context)
 {
 	assert(cache);
 	cache->create_texture_callback = create_texture_callback;
@@ -392,7 +392,7 @@ void skb_render_cache_set_image_user_data(skb_render_cache_t* cache, int32_t ind
 	cache->images[index].user_data = user_data;
 }
 
-void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_callback_t* callback, void* context)
+void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_func_t* callback, void* context)
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
@@ -412,7 +412,7 @@ void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_
 
 }
 
-void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_callback_t* callback, void* context)
+void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_func_t* callback, void* context)
 {
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);

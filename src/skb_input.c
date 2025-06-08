@@ -48,7 +48,7 @@ typedef struct skb__input_paragraph_t {
 
 typedef struct skb_input_t {
 	skb_input_params_t params;
-	skb_input_on_change_t* on_change_callback;
+	skb_input_on_change_func_t* on_change_callback;
 	void* on_change_context;
 
 	skb__input_paragraph_t* paragraphs;
@@ -163,7 +163,7 @@ skb_input_t* skb_input_create(const skb_input_params_t* params)
 	return input;
 }
 
-void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_t* callback, void* context)
+void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_func_t* callback, void* context)
 {
 	assert(input);
 	input->on_change_callback = callback;
@@ -1888,7 +1888,7 @@ int32_t skb_input_get_selection_count(const skb_input_t* input, skb_text_selecti
 	return range.end.text_offset - range.start.text_offset;
 }
 
-void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	const skb__input_range_t range = skb__get_sanitized_range(input, selection);
 
