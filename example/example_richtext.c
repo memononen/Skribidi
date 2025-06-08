@@ -104,7 +104,7 @@ void* richtext_create(void)
 
 	skb_layout_params_t params = {
 		.lang = "zh-hans",
-		.base_direction = SKB_DIR_AUTO,
+		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.line_break_width = 600.f,
 		.align = SKB_ALIGN_START,

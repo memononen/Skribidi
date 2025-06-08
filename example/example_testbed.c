@@ -166,7 +166,7 @@ void* testbed_create(void)
 	skb_input_params_t edit_params = {
 		.layout_params = {
 			.lang = "zh-hans",
-			.base_direction = SKB_DIR_AUTO,
+			.base_direction = SKB_DIRECTION_AUTO,
 			.font_collection = ctx->font_collection,
 			.line_break_width = 1200.f,
 		},
@@ -463,7 +463,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				draw_line(rox - 25, baseline_y,rox,baseline_y, ink_color);
 				draw_text(rox - 12, baseline_y - 4,12,0.5, ink_color, "L%d", li);
 
-				if (line->flags & SKB_LAYOUT_LINE_IS_RTL)
+				if (skb_is_rtl(skb_layout_get_resolved_direction(edit_layout)))
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "< RTL");
 				else
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "LTR >");
@@ -536,15 +536,15 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					float caret_x = 0.f;
 					float caret_advance = 0.f;
-					skb_caret_result_t left = {0};
-					skb_caret_result_t right = {0};
+					skb_caret_iterator_result_t left = {0};
+					skb_caret_iterator_result_t right = {0};
 
 					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
 
-						if (left.is_rtl != right.is_rtl) {
+						if ((left.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) != (right.flags  & SKB_CARET_ITERATOR_RESULT_IS_RTL)) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
 							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
@@ -552,11 +552,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							left_text_offset = caret_advance < 40.f ? 15 : 0;
 						} else {
 							if (right.text_position.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
-								draw_tri(cx, top_y+5, cx + (right.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
+								draw_tri(cx, top_y+5, cx + ((right.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
 								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 								left_text_offset = caret_advance < 40.f ? 15 : 0;
 							} else {
-								draw_tri(cx, top_y+5, cx + (left.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
+								draw_tri(cx, top_y+5, cx + ((left.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
 								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
 								left_text_offset = 0.f;
 							}

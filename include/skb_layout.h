@@ -46,12 +46,12 @@ typedef enum {
 /** Enum describing text writing direction. */
 typedef enum {
 	/** Auto, infer from the text. */
-	SKB_DIR_AUTO,
+	SKB_DIRECTION_AUTO,
 	/** Left-to-right */
-	SKB_DIR_LTR,
+	SKB_DIRECTION_LTR,
 	/** Right-to-left */
-	SKB_DIR_RTL,
-} skb_text_dir_t;
+	SKB_DIRECTION_RTL,
+} skb_text_direction_t;
 
 /** Struct describing a single font feature. */
 typedef struct skb_font_feature_t {
@@ -145,12 +145,6 @@ typedef struct skb_text_run_utf32_t {
 	const skb_text_attribs_t* attribs;
 } skb_text_run_utf32_t;
 
-/** Enum describing flags for skb_glyph_t. */
-enum skb_glyph_flags_t {
-	/** Glyph is part of right-to-left text. */
-	SKB_GLYPH_IS_RTL = 1 << 0,
-};
-
 /** Struct describing shaped and positioned glyph. */
 typedef struct skb_glyph_t {
 	/** X offset of the glyph (including layout origin). */
@@ -169,8 +163,6 @@ typedef struct skb_glyph_t {
 	uint16_t span_idx;
 	/** Index of the font in font collection. */
 	uint8_t font_idx;
-	/** Glyph flags (see skb_glyph_flags_t). */
-	uint8_t flags;
 } skb_glyph_t;
 
 /** Enum describing flags for skb_text_property_t. */
@@ -201,12 +193,6 @@ typedef struct skb_text_property_t {
 	uint8_t script;
 } skb_text_property_t;
 
-/** Enum describing flags for skb_layout_line_t. */
-enum skb_layout_line_flags_t {
-	/** 1 if the line is right-to-left. */
-	SKB_LAYOUT_LINE_IS_RTL = 1 << 0,
-};
-
 /** Struct describing a line of text. */
 typedef struct skb_layout_line_t {
 	/** Range of glyphs that belong to the line. */
@@ -221,8 +207,6 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Bounding rectangle of the line. */
 	skb_rect2_t bounds;
-	/** Layout line flags (see skb_layout_line_flags_t). */
-	uint8_t flags;
 } skb_layout_line_t;
 
 /** Opaque type for the text layout. Use skb_layout_create*() to create. */
@@ -390,6 +374,9 @@ const skb_text_attribs_span_t* skb_layout_get_attribute_spans(const skb_layout_t
 /** @return typographic bunds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
 
+/** @return text direction of the layout, if the direction was auto, the direction inferred from the text. */
+skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout);
+
 /**
  * Get the start of the next grapheme in the layout based on text offset.
  * @param layout layout to use
@@ -436,7 +423,7 @@ enum skb_caret_affinity_t {
 typedef struct skb_text_position_t {
 	/** Offset (codepoints) within the text. */
 	int32_t offset;
-	/** Relation to the codepoint. */
+	/** Relation to the codepoint. See skb_caret_affinity_t */
 	uint8_t affinity;
 } skb_text_position_t;
 
@@ -600,15 +587,21 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 // Caret iterator
 //
 
+/** Enum describing flags for skb_caret_iterator_result_t. */
+enum skb_caret_iterator_result_flags_t {
+	/** Text position is within right-to-left text. */
+	SKB_CARET_ITERATOR_RESULT_IS_RTL = 1 << 0,
+};
+
 /** Struct describing result of caret iterator. */
-typedef struct skb_caret_result_t {
+typedef struct skb_caret_iterator_result_t {
 	/** Text position of the caret */
 	skb_text_position_t text_position;
 	/** Glyph index of the caret. */
 	int32_t glyph_idx;
-	/** True if the text at caret location is right-to-left. */
-	bool is_rtl;
-} skb_caret_result_t;
+	/** Flags for the result, see skb_caret_iterator_result_flags_t. */
+	uint8_t flags;
+} skb_caret_iterator_result_t;
 
 /** Struct holding state for iterating over all caret locations in a layout. */
 typedef struct skb_caret_iterator_t {
@@ -620,18 +613,18 @@ typedef struct skb_caret_iterator_t {
 
 	int32_t glyph_pos;
 	int32_t glyph_end;
-	uint8_t glyph_is_rtl;
+	bool glyph_is_rtl;
 
 	int32_t grapheme_pos;
 	int32_t grapheme_end;
 
-	uint8_t end_of_glyph;
-	uint8_t end_of_line;
+	bool end_of_glyph;
+	bool end_of_line;
 
 	int32_t line_first_grapheme_offset;
 	int32_t line_last_grapheme_offset;
-	uint8_t line_is_rtl;
-	skb_caret_result_t pending_left;
+
+	skb_caret_iterator_result_t pending_left;
 } skb_caret_iterator_t;
 
 /**
@@ -654,7 +647,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
  * @param right_is_rtl true if right text position is right-to-left.
  * @return true as long as the output values are valid.
  */
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_result_t* left, skb_caret_result_t* right);
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
 
 /**
  * Returns four letter ISO 15924 script tag of the specified script.
@@ -662,6 +655,12 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
  * @return four letter tag.
  */
 uint32_t skb_script_to_iso15924_tag(uint8_t script);
+
+/** @retur true if the text direction is right-to-left. */
+static inline bool skb_is_rtl(skb_text_direction_t direction)
+{
+	return direction == SKB_DIRECTION_RTL;
+}
 
 /** @} */
 

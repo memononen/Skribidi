@@ -206,7 +206,7 @@ void cached_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float d
 void render_text(cached_context_t* ctx, float x, float y, float font_size, int32_t font_weight, skb_color_t color, const char* text)
 {
 	skb_layout_params_t params = {
-		.base_direction = SKB_DIR_AUTO,
+		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.align = SKB_ALIGN_START,
 		.baseline = SKB_BASELINE_MIDDLE,
