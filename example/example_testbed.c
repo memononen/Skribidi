@@ -544,7 +544,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
 
-						if ((left.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) != (right.flags  & SKB_CARET_ITERATOR_RESULT_IS_RTL)) {
+						if (left.direction != right.direction) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
 							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
@@ -552,11 +552,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							left_text_offset = caret_advance < 40.f ? 15 : 0;
 						} else {
 							if (right.text_position.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
-								draw_tri(cx, top_y+5, cx + ((right.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(right.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
 								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 								left_text_offset = caret_advance < 40.f ? 15 : 0;
 							} else {
-								draw_tri(cx, top_y+5, cx + ((left.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL) ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(left.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
 								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
 								left_text_offset = 0.f;
 							}
@@ -615,7 +615,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			draw_line(caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color);
 
 			float as = skb_absf(caret_pos.height) / 10.f;
-			float dx = ((caret_pos.flags & SKB_VISUAL_CARET_IS_RTL) ? -as : as);
+			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
 			draw_line_width(2.f);
 			float tri_top_x = ox + caret_pos.x + caret_pos.width;
 			float tri_top_y = oy + caret_pos.y;
@@ -630,7 +630,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Caret affinity text
 			float dir = (edit_selection.end_pos.affinity == SKB_AFFINITY_LEADING || edit_selection.end_pos.affinity == SKB_AFFINITY_SOL) ? -1.f : 1.f;
-			bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+			bool caret_is_rtl = skb_input_get_text_direction_at(ctx->input, edit_selection.end_pos);
 			if (caret_is_rtl) dir = -dir;
 			draw_text(caret_bot_x + dir*7.f + caret_slope * 23, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
 		}
@@ -706,7 +706,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						draw_line_width(1.f);
 
 						// Direction triangle
-						bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+						bool caret_is_rtl = skb_input_get_text_direction_at(ctx->input, edit_selection.end_pos);
 						float as = sz / 8.f;
 						float dx = (caret_is_rtl ? -as : as);
 						draw_tri(cx, oy+4,
@@ -782,7 +782,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI) ? ":)" : "");
 					ly += 15.f;
 					// Direction
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, (text_props[cp_idx].flags & SKB_TEXT_PROP_RTL) ? "<R" : "L>");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, skb_is_rtl(text_props[cp_idx].direction) ? "<R" : "L>");
 					ly += 15.f;
 
 					// Next block

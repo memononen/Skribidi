@@ -43,16 +43,6 @@ typedef enum {
 	SKB_ALIGN_CENTER,
 } skb_align_t;
 
-/** Enum describing text writing direction. */
-typedef enum {
-	/** Auto, infer from the text. */
-	SKB_DIRECTION_AUTO,
-	/** Left-to-right */
-	SKB_DIRECTION_LTR,
-	/** Right-to-left */
-	SKB_DIRECTION_RTL,
-} skb_text_direction_t;
-
 /** Struct describing a single font feature. */
 typedef struct skb_font_feature_t {
 	/** Four letter tag describing the OpenType feature. See SKB_TAG() macro. */
@@ -175,22 +165,22 @@ enum skb_text_prop_flags_t {
 	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
 	/** Allow line break after the codepoint. */
 	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
-	/** The codepoint is part of a right-to-left text segment. */
-	SKB_TEXT_PROP_RTL              = 1 << 4,
 	/** The codepoint is an emoji. */
-	SKB_TEXT_PROP_EMOJI            = 1 << 5,
+	SKB_TEXT_PROP_EMOJI            = 1 << 4,
 	/** The codepoint is a control character. */
-	SKB_TEXT_PROP_CONTROL          = 1 << 6,
+	SKB_TEXT_PROP_CONTROL          = 1 << 5,
 	/** The codepoint is a white space character. */
-	SKB_TEXT_PROP_WHITESPACE       = 1 << 7
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 6
 };
 
 /** Struct describing properties if a single codepoint. */
 typedef struct skb_text_property_t {
-	/** Text property flags (use SKB_TEXT_PROP_* macros). */
+	/** Text property flags (see skb_text_prop_flags_t). */
 	uint8_t flags;
 	/** Script of the codepoint. */
 	uint8_t script;
+	/** Text direction. */
+	uint8_t direction;
 } skb_text_property_t;
 
 /** Struct describing a line of text. */
@@ -435,12 +425,6 @@ typedef struct skb_text_selection_t {
 	skb_text_position_t end_pos;
 } skb_text_selection_t;
 
-/** Enum describing flags for skb_visual_caret_t. */
-enum skb_visual_caret_flags_t {
-	/** Caret is within right-to-left text. */
-	SKB_VISUAL_CARET_IS_RTL = 1 << 0,
-};
-
 /** Struct describing visual caret location.
  * The caret line can be described as: (x+width, y) - (x, y+height).
  * Where, (x,y) is the top left corner of the rectangle containing the caret.
@@ -454,8 +438,8 @@ typedef struct skb_visual_caret_t {
 	float height;
 	/** Width of the caret (slant) */
 	float width;
-	/** Visual caret flags (see skb_visual_caret_flags_t). */
-	uint8_t flags;
+	/** Text direction at caret location. */
+	uint8_t direction;
 } skb_visual_caret_t;
 
 /**
@@ -475,12 +459,12 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
- * Returns true if the text position is within right-to-left text run.
+ * Returns text direction at the specified text postition.
  * @param layout layout to use
  * @param pos position within the text.
- * @return true of the text position is whitin right-to-left text.
+ * @return text direction at the specified text postition.
  */
-bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_position_t pos);
+skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 
 /** Enum describing intended movement. Caret movement and selection cursor movement have diffent behavior at the end of hte line. */
@@ -587,20 +571,14 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 // Caret iterator
 //
 
-/** Enum describing flags for skb_caret_iterator_result_t. */
-enum skb_caret_iterator_result_flags_t {
-	/** Text position is within right-to-left text. */
-	SKB_CARET_ITERATOR_RESULT_IS_RTL = 1 << 0,
-};
-
 /** Struct describing result of caret iterator. */
 typedef struct skb_caret_iterator_result_t {
 	/** Text position of the caret */
 	skb_text_position_t text_position;
 	/** Glyph index of the caret. */
 	int32_t glyph_idx;
-	/** Flags for the result, see skb_caret_iterator_result_flags_t. */
-	uint8_t flags;
+	/** Text direction at the text position. */
+	uint8_t direction;
 } skb_caret_iterator_result_t;
 
 /** Struct holding state for iterating over all caret locations in a layout. */
@@ -613,7 +591,7 @@ typedef struct skb_caret_iterator_t {
 
 	int32_t glyph_pos;
 	int32_t glyph_end;
-	bool glyph_is_rtl;
+	uint8_t glyph_direction;
 
 	int32_t grapheme_pos;
 	int32_t grapheme_end;
@@ -650,17 +628,11 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
 
 /**
- * Returns four letter ISO 15924 script tag of the specified script.
+ * Returns four-letter ISO 15924 script tag of the specified script.
  * @param script scrip to covert.
  * @return four letter tag.
  */
 uint32_t skb_script_to_iso15924_tag(uint8_t script);
-
-/** @retur true if the text direction is right-to-left. */
-static inline bool skb_is_rtl(skb_text_direction_t direction)
-{
-	return direction == SKB_DIRECTION_RTL;
-}
 
 /** @} */
 

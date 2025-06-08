@@ -969,12 +969,29 @@ static inline void skb_list_move_to_front(skb_list_t* list, int32_t item_idx, sk
 
 
 /**
- * @defgroup unicode Unicode
- * Unicode helpers.
+ * @defgroup text Text
+ * Unicode helpers and text related code.
  * See https://www.unicode.org/reports/tr51/ for further detail on the emoji functions.
  *
  * @{
  */
+
+/** Enum describing text writing direction. */
+typedef enum {
+	/** Auto, infer from the text. */
+	SKB_DIRECTION_AUTO,
+	/** Left-to-right */
+	SKB_DIRECTION_LTR,
+	/** Right-to-left */
+	SKB_DIRECTION_RTL,
+} skb_text_direction_t;
+
+/** @retur true if the text direction is right-to-left. */
+static inline bool skb_is_rtl(skb_text_direction_t direction)
+{
+	return direction == SKB_DIRECTION_RTL;
+}
+
 
 /** Commonly references unicode codepoints. */
 typedef enum {

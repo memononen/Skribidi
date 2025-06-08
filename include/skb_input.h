@@ -175,8 +175,8 @@ int32_t skb_input_get_line_index_at(const skb_input_t* input, skb_text_position_
 int32_t skb_input_get_column_index_at(const skb_input_t* input, skb_text_position_t pos);
 /** @return text offset of specified text position. */
 int32_t skb_input_get_text_offset_at(const skb_input_t* input, skb_text_position_t pos);
-/** @return true if the character at specified text position is right-to-left writing direction. */
-bool skb_input_is_character_rtl_at(const skb_input_t* input, skb_text_position_t pos);
+/** @return text direction at specified text position. */
+skb_text_direction_t skb_input_get_text_direction_at(const skb_input_t* input, skb_text_position_t pos);
 /** @return visual caret at specified text position. */
 skb_visual_caret_t skb_input_get_visual_caret(const skb_input_t* input, skb_text_position_t pos);
 /**

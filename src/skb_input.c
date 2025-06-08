@@ -675,7 +675,7 @@ static bool skb__is_rtl(const skb_input_t* input, skb__input_position_t edit_pos
 
 	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
-	return (text_props[edit_pos.paragraph_offset].flags & SKB_TEXT_PROP_RTL);
+	return skb_is_rtl(text_props[edit_pos.paragraph_offset].direction);
 }
 
 static bool skb__are_on_same_line(skb__input_position_t a, skb__input_position_t b)
@@ -1841,7 +1841,7 @@ int32_t skb_input_get_text_offset_at(const skb_input_t* input, skb_text_position
 	return edit_pos.text_offset;
 }
 
-bool skb_input_is_character_rtl_at(const skb_input_t* input, skb_text_position_t pos)
+skb_text_direction_t skb_input_get_text_direction_at(const skb_input_t* input, skb_text_position_t pos)
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
@@ -1849,7 +1849,7 @@ bool skb_input_is_character_rtl_at(const skb_input_t* input, skb_text_position_t
 		.offset = edit_pos.paragraph_offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
-	return skb_layout_is_character_rtl_at(paragraph->layout, layout_pos);
+	return skb_layout_get_text_direction_at(paragraph->layout, layout_pos);
 }
 
 skb_visual_caret_t skb_input_get_visual_caret(const skb_input_t* input, skb_text_position_t pos)

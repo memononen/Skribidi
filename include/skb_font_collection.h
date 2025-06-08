@@ -223,7 +223,7 @@ hb_font_t* skb_font_get_hb_font(const skb_font_t* font);
  * @param font_size size of the font in use.
  * @return vertical location of the baseline.
  */
-float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, bool is_rtl, uint8_t script, float font_size);
+float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size);
 
 /** @} */
 

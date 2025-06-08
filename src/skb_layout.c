@@ -113,7 +113,7 @@ typedef struct skb__shaping_run_t {
 	int32_t length;
 	int32_t shaping_span_idx;
 	uint8_t script;
-	bool is_rtl;
+	uint8_t direction;
 	bool is_emoji;
 } skb__shaping_run_t;
 
@@ -181,7 +181,7 @@ static void skb__shape_run(
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
 
-	hb_buffer_set_direction(buffer, run->is_rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+	hb_buffer_set_direction(buffer, skb_is_rtl(run->direction) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
 	hb_buffer_set_script(buffer, skb__sb_script_to_hb(run->script));
 	hb_buffer_set_language(buffer, shaping_span->lang ? shaping_span->lang : build_context->lang);
 
@@ -238,7 +238,7 @@ static void skb__shape_run(
 
 			// Figure out the section of codepoints that belongs to this grapheme cluster.
 			int32_t missing_text_start, missing_text_end;
-			if (run->is_rtl) {
+			if (skb_is_rtl(run->direction)) {
 				missing_text_start = (int32_t)glyph_info[glyph_end].cluster;
 				missing_text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -253,7 +253,7 @@ static void skb__shape_run(
 				skb__shaping_run_t fallback_run = {
 					.offset = missing_text_start,
 					.length = missing_text_end - missing_text_start,
-					.is_rtl = run->is_rtl,
+					.direction = run->direction,
 					.is_emoji = run->is_emoji,
 					.script = run->script,
 				};
@@ -286,7 +286,7 @@ static void skb__shape_run(
 				glyph_end++;
 
 			// Figure out the section of text that belongs to this grapheme cluster.
-			if (run->is_rtl) {
+			if (skb_is_rtl(run->direction)) {
 				text_start = (int32_t)glyph_info[glyph_end].cluster;
 				text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -495,7 +495,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-			const bool codepoint_is_rtl = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_RTL);
+			const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
 			const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
 			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
@@ -615,8 +615,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
 
 					skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
-					bool is_rtl = (text_prop.flags & SKB_TEXT_PROP_RTL);
-					const float baseline = skb_font_get_baseline(font, layout->params.baseline, is_rtl, text_prop.script, span->attribs.font_size);
+					const float baseline = skb_font_get_baseline(font, layout->params.baseline, text_prop.direction, text_prop.script, span->attribs.font_size);
 
 					baseline_align_offset = -baseline;
 
@@ -1010,16 +1009,16 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		for (int32_t i = 0; i < bidi_line_runs_count; ++i) {
 			const SBRun* bidi_run = &bidi_line_runs[i];
 			const skb_range_t bidi_range = { .start = (int32_t)bidi_run->offset, .end = (int32_t)(bidi_run->offset + bidi_run->length) };
-			const uint8_t bidi_is_rtl = (bidi_run->level & 1);
+			const uint8_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 			// Split bidi runs at shaping style span boundaries.
-			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, bidi_is_rtl, build_context->shaping_spans, build_context->shaping_spans_count);
+			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), build_context->shaping_spans, build_context->shaping_spans_count);
 
 			skb_range_t style_range = {0};
 			int32_t style_span_idx = 0;
 			while (skb__text_style_run_iter_next(&style_iter, &style_range, &style_span_idx)) {
 				const skb__shaping_attribute_span_t* shaping_span = &build_context->shaping_spans[style_span_idx];
-				const bool style_is_rtl = shaping_span->direction != SKB_DIRECTION_AUTO ? (shaping_span->direction == SKB_DIRECTION_RTL) : bidi_is_rtl;
+				const uint8_t style_direction = shaping_span->direction != SKB_DIRECTION_AUTO ? shaping_span->direction : bidi_direction;
 
 				// Process the rest of the itemization forward, and reverse the sequence of runs once completed.
 				int32_t first_run = build_context->shaping_runs_count;
@@ -1041,14 +1040,14 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 						shaping_run->script = script;
 						shaping_run->offset = emoji_range.start;
 						shaping_run->length = emoji_range.end - emoji_range.start;
-						shaping_run->is_rtl = style_is_rtl;
+						shaping_run->direction = style_direction;
 						shaping_run->is_emoji = has_emoji;
 						shaping_run->shaping_span_idx = style_span_idx;
 					}
 				}
 
 				// Reverse shaping runs if RTL. The runs are processed forward for simplicity.
-				if (style_is_rtl) {
+				if (skb_is_rtl(style_direction)) {
 					int32_t last_run = build_context->shaping_runs_count - 1;
 					while (first_run < last_run) {
 						skb__shaping_run_t tmp = build_context->shaping_runs[first_run];
@@ -1215,8 +1214,8 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		for (int32_t j = 0; j < run->length; j++) {
-			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_RTL, run->is_rtl);
 			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_EMOJI, run->is_emoji);
+			layout->text_props[run->offset + j].direction = run->direction;
 			layout->text_props[run->offset + j].script = run->script;
 		}
 	}
@@ -1685,12 +1684,12 @@ int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position
 	return skb_clampi(pos.offset, 0, layout->text_count);
 }
 
-bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_position_t pos)
+skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
 	assert(layout);
 	if (pos.offset >= 0 && pos.offset < layout->text_count)
-		return (layout->text_props[pos.offset].flags & SKB_TEXT_PROP_RTL);
-	return skb_is_rtl(layout->resolved_direction);
+		return layout->text_props[pos.offset].direction;
+	return layout->resolved_direction;
 }
 
 skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x)
@@ -1819,11 +1818,11 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	pos = skb__sanitize_offset(layout, line, pos);
 
 	skb_visual_caret_t vis_caret = {
-		.flags = skb_is_rtl(layout->resolved_direction) ? SKB_VISUAL_CARET_IS_RTL : 0,
 		.x = line->bounds.x,
 		.y = line->bounds.y,
 		.width = 0.f,
 		.height = -line->ascender + line->descender,
+		.direction = layout->resolved_direction,
 	};
 
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
@@ -1840,18 +1839,18 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
 			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
-			SKB_SET_FLAG(vis_caret.flags, SKB_VISUAL_CARET_IS_RTL, left.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL);
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
+			vis_caret.direction = left.direction;
 			break;
 		}
 		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
 			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
-			SKB_SET_FLAG(vis_caret.flags, SKB_VISUAL_CARET_IS_RTL, right.flags & SKB_CARET_ITERATOR_RESULT_IS_RTL);
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
+			vis_caret.direction = right.direction;
 			break;
 		}
 	}
@@ -2020,7 +2019,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 
 			for (int32_t glyph_idx = line->glyph_range.start; glyph_idx < line->glyph_range.end; glyph_idx++) {
 				// Figure out glyph run
-				bool is_rtl = layout->text_props[layout->glyphs[glyph_idx].text_range.start].flags & SKB_TEXT_PROP_RTL;
+				const bool is_rtl = skb_is_rtl(layout->text_props[layout->glyphs[glyph_idx].text_range.start].direction);
 				float glyph_run_width = layout->glyphs[glyph_idx].advance_x;
 				int32_t glyph_run_start_offset = layout->glyphs[glyph_idx].text_range.start;
 				int32_t glyph_run_end_offset = layout->glyphs[glyph_idx].text_range.end;
@@ -2152,7 +2151,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 		iter.pending_left.text_position.offset = iter.line_first_grapheme_offset;
 		iter.pending_left.text_position.affinity = SKB_AFFINITY_SOL;
 	}
-	iter.pending_left.flags = line_is_rtl ? SKB_CARET_ITERATOR_RESULT_IS_RTL : 0;
+	iter.pending_left.direction = layout->resolved_direction;
 	iter.pending_left.glyph_idx = line->glyph_range.start;
 
 	iter.glyph_pos = line->glyph_range.start;
@@ -2188,7 +2187,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			// Find new glyph run
 			float glyph_run_width = 0.f;
 			const skb_range_t text_range = layout->glyphs[iter->glyph_pos].text_range;
-			iter->glyph_is_rtl = (layout->text_props[text_range.start].flags & SKB_TEXT_PROP_RTL);
+			iter->glyph_direction = layout->text_props[text_range.start].direction;
 
 			while (iter->glyph_pos < iter->glyph_end && layout->glyphs[iter->glyph_pos].text_range.start == text_range.start) {
 				glyph_run_width += layout->glyphs[iter->glyph_pos].advance_x;
@@ -2204,7 +2203,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 
 			iter->advance = (grapheme_count > 0) ? (glyph_run_width / (float)grapheme_count) : 0.f;
 
-			if (iter->glyph_is_rtl) {
+			if (skb_is_rtl(iter->glyph_direction)) {
 				iter->grapheme_pos = text_range.end;
 				iter->grapheme_end = text_range.start;
 			} else {
@@ -2223,12 +2222,12 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			right->text_position.offset = iter->line_last_grapheme_offset;
 			right->text_position.affinity = SKB_AFFINITY_EOL;
 		}
-		right->flags = line_is_rtl ? SKB_CARET_ITERATOR_RESULT_IS_RTL : 0;
+		right->direction = layout->resolved_direction;
 		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	} else {
 		// Advance to next grapheme location
 		int32_t offset = 0;
-		if (iter->glyph_is_rtl) {
+		if (skb_is_rtl(iter->glyph_direction)) {
 			assert(iter->grapheme_pos > iter->grapheme_end);
 			iter->grapheme_pos--;
 			while (iter->grapheme_pos > iter->grapheme_end && !(layout->text_props[iter->grapheme_pos - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
@@ -2245,13 +2244,13 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 		}
 
 		right->text_position.offset = offset;
-		right->text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
-		right->flags = iter->glyph_is_rtl ? SKB_CARET_ITERATOR_RESULT_IS_RTL : 0;
+		right->text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
+		right->direction = iter->glyph_direction;
 		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 
 		iter->pending_left.text_position.offset = offset;
-		iter->pending_left.text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
-		iter->pending_left.flags = iter->glyph_is_rtl ? SKB_CARET_ITERATOR_RESULT_IS_RTL : 0;
+		iter->pending_left.text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
+		iter->pending_left.direction = iter->glyph_direction;
 		iter->pending_left.glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	}
 
