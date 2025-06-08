@@ -19,6 +19,12 @@ typedef struct skb_font_collection_t {
 } skb_font_collection_t;
 
 
+/** Enum describing flags for skb_font_t. */
+enum skb_font_flags_t {
+	/** The font is a color font. */
+	SKB_FONT_IS_COLOR = 1 << 0,
+};
+
 typedef struct skb_font_t {
 	hb_font_t* hb_font;		// Associate harfbuzz font.
 	char* name;				// Name of the font (file name)
@@ -30,7 +36,7 @@ typedef struct skb_font_t {
 	uint8_t* scripts;		// Supported scripts
 	int32_t scripts_count;	// Number of supported scripts
 	uint8_t font_family;	// font family identifier.
-	uint8_t is_color : 1;	// 1 if the font is color font.
+	uint8_t flags;			// Font flags (see skb_font_flags_t).
 	uint8_t style;			// Normal, italic, oblique (skb_font_style_t)
 	float stretch;			// From 0.5 (ultra condensed) -> 1.0 (normal) -> 2.0 (ultra wide).
 	uint16_t weight;		// weight of the font (400 = regular).

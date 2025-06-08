@@ -57,7 +57,7 @@ static void set_example(int32_t example_idx)
 		g_example = NULL;
 	}
 
-	g_example_idx = skb__wrap(example_idx, g_examples_count); 
+	g_example_idx = skb__wrap(example_idx, g_examples_count);
 
 	g_example = g_examples[g_example_idx].create();
 	assert(g_example);
@@ -72,7 +72,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		if (key == GLFW_KEY_F1)
 			set_example(g_example_idx + 1);
 	}
-	
+
 	if (g_example && g_example->on_key)
 		g_example->on_key(g_example, window, key, action, mods);
 }
@@ -83,6 +83,14 @@ static void char_callback(GLFWwindow* window, unsigned int codepoint)
 		g_example->on_char(g_example, codepoint);
 }
 
+static void mouse_scale_pos_to_screen_coords(GLFWwindow* window, double* xpos, double* ypos)
+{
+	float xscale, yscale;
+	glfwGetWindowContentScale(g_window, &xscale, &yscale);
+	*xpos *= xscale;
+	*ypos *= yscale;
+}
+
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	(void)window;
@@ -91,6 +99,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 	double xpos, ypos;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_button)
 		g_example->on_mouse_button(g_example, (float)xpos, (float)ypos, button, action, mods);
@@ -98,6 +107,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 static void mouse_move_callback(GLFWwindow* window, double xpos, double ypos)
 {
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 	if (g_example && g_example->on_mouse_move)
 		g_example->on_mouse_move(g_example, (float)xpos, (float)ypos);
 }
@@ -106,6 +116,7 @@ static void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yof
 {
 	double xpos, ypos;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_scroll)
 		g_example->on_mouse_scroll(g_example, (float)xpos, (float)ypos, (float)xoffset, (float)yoffset, g_last_key_mods);
