@@ -36,6 +36,14 @@ typedef struct skb_layout_t skb_layout_t;
 /** Opaque type for the render cache. Use skb_render_cache_create() to create. */
 typedef struct skb_render_cache_t skb_render_cache_t;
 
+/** Enum describing flags for skb_render_quad_t. */
+enum skb_render_quad_flags_t {
+	/** The quad uses color texture. */
+	SKB_RENDER_QUAD_IS_COLOR = 1 << 0,
+	/** The quad uses SDF. */
+	SKB_RENDER_QUAD_IS_SDF   = 1 << 1,
+};
+
 /** Quad representing a glyph or icon. */
 typedef struct skb_render_quad_t {
 	/** Geometry of the quad to render */
@@ -46,10 +54,8 @@ typedef struct skb_render_quad_t {
 	float scale;
 	/** Cache image index of the image to draw. */
 	uint8_t image_idx;
-	/** Set to 1, if the quad uses color texture. */
-	uint8_t is_color : 1;
-	/** Set to 1, if the quad uses SDF. */
-	uint8_t is_sdf : 1;
+	/** Render quad flags (see skb_render_quad_flags_t). */
+	uint8_t flags;
 } skb_render_quad_t;
 
 /**
@@ -77,6 +83,12 @@ typedef struct skb_render_image_config_t {
 	int32_t padding;
 } skb_render_image_config_t;
 
+/** Enum describing flags for skb_render_cache_config_t. */
+enum skb_render_cache_config_flags_t {
+	/** The space in atlas for removed items is cleared. This makes it easier to see which parts of the atlas are unused. */
+	SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED = 1 << 0,
+};
+
 /**
  * Render cache configuration.
  * Tall atlas performs much better than wide, as it can support more size variations.
@@ -98,8 +110,8 @@ typedef struct skb_render_cache_config_t {
 	float atlas_fit_max_factor;
 	/** Defines after which duration inactive items are removed from the cache. Each call to skb_render_cache_compact() bumps the counter. Default: 0.25. */
 	int32_t evict_inactive_duration;
-	/** If set to 1, the space in atlas for removed items are cleared. This makes it easier to see which parts of the atlas are unused. Default: 10. */
-	uint8_t debug_clear_removed : 1;
+	/** Render cache config flags (see skb_render_cache_config_flags_t). */
+	uint8_t flags;
 	/** Image config for SDF glyphs */
 	skb_render_image_config_t glyph_sdf;
 	/** Image config for alpha glyphs */

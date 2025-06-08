@@ -91,6 +91,12 @@ typedef struct skb_text_attribs_t {
 	uint8_t direction;
 } skb_text_attribs_t;
 
+/** Enum describing flags for skb_layout_params_t. */
+enum skb_layout_params_flags_t {
+	/** Ignored line breaks from control characters. */
+	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
+};
+
 /** Struct describing parameters that apply to the whole text layout. */
 typedef struct skb_layout_params_t {
 	/** Pointer to font collection to use. */
@@ -107,8 +113,8 @@ typedef struct skb_layout_params_t {
 	uint8_t align;
 	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
 	uint8_t baseline;
-	/** Ignored line breaks from control characters. */
-	uint8_t ignore_must_line_breaks : 1;
+	/** Layout parameter flags (see skb_layout_params_flags_t). */
+	uint8_t flags;
 } skb_layout_params_t;
 
 /** Struct describing attributes assigned to a range of text. */
@@ -139,6 +145,12 @@ typedef struct skb_text_run_utf32_t {
 	const skb_text_attribs_t* attribs;
 } skb_text_run_utf32_t;
 
+/** Enum describing flags for skb_glyph_t. */
+enum skb_glyph_flags_t {
+	/** Glyph is part of right-to-left text. */
+	SKB_GLYPH_IS_RTL = 1 << 0,
+};
+
 /** Struct describing shaped and positioned glyph. */
 typedef struct skb_glyph_t {
 	/** X offset of the glyph (including layout origin). */
@@ -157,31 +169,43 @@ typedef struct skb_glyph_t {
 	uint16_t span_idx;
 	/** Index of the font in font collection. */
 	uint8_t font_idx;
-	/** 1 if the glyph is part of right-to-left text. */
-	uint8_t is_rtl : 1;
+	/** Glyph flags (see skb_glyph_flags_t). */
+	uint8_t flags;
 } skb_glyph_t;
+
+/** Enum describing flags for skb_text_property_t. */
+enum skb_text_prop_flags_t {
+	/** Grapheme break after the codepoint. */
+	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
+	/** Word break after the codepoint. */
+	SKB_TEXT_PROP_WORD_BREAK       = 1 << 1,
+	/** Must break line after the code point. */
+	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
+	/** Allow line break after the codepoint. */
+	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
+	/** The codepoint is part of a right-to-left text segment. */
+	SKB_TEXT_PROP_RTL              = 1 << 4,
+	/** The codepoint is an emoji. */
+	SKB_TEXT_PROP_EMOJI            = 1 << 5,
+	/** The codepoint is a control character. */
+	SKB_TEXT_PROP_CONTROL          = 1 << 6,
+	/** The codepoint is a white space character. */
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 7
+};
 
 /** Struct describing properties if a single codepoint. */
 typedef struct skb_text_property_t {
-	/** Grapheme break after the codepoint. */
-	uint8_t is_grapheme_break : 1;
-	/** Word break after the codepoint. */
-	uint8_t is_word_break : 1;
-	/** Must break line after the code point. */
-	uint8_t is_must_line_break : 1;
-	/** Allow line break after the codepoint. */
-	uint8_t is_allow_line_break : 1;
-	/** The codepoint is part of a right-to-left text segment. */
-	uint8_t is_rlt : 1;
-	/** The codepoint is an emoji. */
-	uint8_t is_emoji : 1;
-	/** The codepoint is a control character. */
-	uint8_t is_control : 1;
-	/** The codepoint is a white space character. */
-	uint8_t is_whitespace : 1;
+	/** Text property flags (use SKB_TEXT_PROP_* macros). */
+	uint8_t flags;
 	/** Script of the codepoint. */
 	uint8_t script;
 } skb_text_property_t;
+
+/** Enum describing flags for skb_layout_line_t. */
+enum skb_layout_line_flags_t {
+	/** 1 if the line is right-to-left. */
+	SKB_LAYOUT_LINE_IS_RTL = 1 << 0,
+};
 
 /** Struct describing a line of text. */
 typedef struct skb_layout_line_t {
@@ -197,8 +221,8 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Bounding rectangle of the line. */
 	skb_rect2_t bounds;
-	/** 1 if the line is right-to-left. */
-	uint8_t is_rtl : 1;
+	/** Layout line flags (see skb_layout_line_flags_t). */
+	uint8_t flags;
 } skb_layout_line_t;
 
 /** Opaque type for the text layout. Use skb_layout_create*() to create. */
@@ -424,6 +448,12 @@ typedef struct skb_text_selection_t {
 	skb_text_position_t end_pos;
 } skb_text_selection_t;
 
+/** Enum describing flags for skb_visual_caret_t. */
+enum skb_visual_caret_flags_t {
+	/** Caret is within right-to-left text. */
+	SKB_VISUAL_CARET_IS_RTL = 1 << 0,
+};
+
 /** Struct describing visual caret location.
  * The caret line can be described as: (x+width, y) - (x, y+height).
  * Where, (x,y) is the top left corner of the rectangle containing the caret.
@@ -437,8 +467,8 @@ typedef struct skb_visual_caret_t {
 	float height;
 	/** Width of the caret (slant) */
 	float width;
-	/** 1 if the caret is within right-to-left text. */
-	uint8_t is_rtl : 1;
+	/** Visual caret flags (see skb_visual_caret_flags_t). */
+	uint8_t flags;
 } skb_visual_caret_t;
 
 /**
