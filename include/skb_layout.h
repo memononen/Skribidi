@@ -91,7 +91,7 @@ typedef struct skb_text_attribs_t {
 	uint8_t direction;
 } skb_text_attribs_t;
 
-// Layout parameter flags
+/** Enum describing flags for skb_layout_params_t. */
 enum skb_layout_params_flags_t {
 	/** Ignored line breaks from control characters. */
 	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
@@ -113,7 +113,7 @@ typedef struct skb_layout_params_t {
 	uint8_t align;
 	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
 	uint8_t baseline;
-	/** Layout parameter flags (use SKB_LAYOUT_PARAMS_* macros). */
+	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
 } skb_layout_params_t;
 
@@ -145,9 +145,9 @@ typedef struct skb_text_run_utf32_t {
 	const skb_text_attribs_t* attribs;
 } skb_text_run_utf32_t;
 
-// Glyph flags
+/** Enum describing flags for skb_glyph_t. */
 enum skb_glyph_flags_t {
-	/** 1 if the glyph is part of right-to-left text. */
+	/** Glyph is part of right-to-left text. */
 	SKB_GLYPH_IS_RTL = 1 << 0,
 };
 
@@ -169,11 +169,11 @@ typedef struct skb_glyph_t {
 	uint16_t span_idx;
 	/** Index of the font in font collection. */
 	uint8_t font_idx;
-	/** Glyph flags (use SKB_GLYPH_* macros). */
+	/** Glyph flags (see skb_glyph_flags_t). */
 	uint8_t flags;
 } skb_glyph_t;
 
-// Text property flags
+/** Enum describing flags for skb_text_property_t. */
 enum skb_text_prop_flags_t {
 	/** Grapheme break after the codepoint. */
 	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
@@ -201,7 +201,7 @@ typedef struct skb_text_property_t {
 	uint8_t script;
 } skb_text_property_t;
 
-// Layout line flags
+/** Enum describing flags for skb_layout_line_t. */
 enum skb_layout_line_flags_t {
 	/** 1 if the line is right-to-left. */
 	SKB_LAYOUT_LINE_IS_RTL = 1 << 0,
@@ -221,7 +221,7 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Bounding rectangle of the line. */
 	skb_rect2_t bounds;
-	/** Layout line flags (use SKB_LAYOUT_LINE_* macros). */
+	/** Layout line flags (see skb_layout_line_flags_t). */
 	uint8_t flags;
 } skb_layout_line_t;
 
@@ -448,9 +448,9 @@ typedef struct skb_text_selection_t {
 	skb_text_position_t end_pos;
 } skb_text_selection_t;
 
-// Visual caret flags
+/** Enum describing flags for skb_visual_caret_t. */
 enum skb_visual_caret_flags_t {
-	/** 1 if the caret is within right-to-left text. */
+	/** Caret is within right-to-left text. */
 	SKB_VISUAL_CARET_IS_RTL = 1 << 0,
 };
 
@@ -462,7 +462,7 @@ typedef struct skb_visual_caret_t {
 	float y;
 	/** height of the caret */
 	float height;
-	/** Visual caret flags (use SKB_VISUAL_CARET_* macros). */
+	/** Visual caret flags (see skb_visual_caret_flags_t). */
 	uint8_t flags;
 } skb_visual_caret_t;
 

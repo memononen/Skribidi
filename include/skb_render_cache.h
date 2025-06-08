@@ -36,11 +36,11 @@ typedef struct skb_layout_t skb_layout_t;
 /** Opaque type for the render cache. Use skb_render_cache_create() to create. */
 typedef struct skb_render_cache_t skb_render_cache_t;
 
-// Render quad flags
+/** Enum describing flags for skb_render_quad_t. */
 enum skb_render_quad_flags_t {
-	/** Set to 1, if the quad uses color texture. */
+	/** The quad uses color texture. */
 	SKB_RENDER_QUAD_IS_COLOR = 1 << 0,
-	/** Set to 1, if the quad uses SDF. */
+	/** The quad uses SDF. */
 	SKB_RENDER_QUAD_IS_SDF   = 1 << 1,
 };
 
@@ -54,7 +54,7 @@ typedef struct skb_render_quad_t {
 	float scale;
 	/** Cache image index of the image to draw. */
 	uint8_t image_idx;
-	/** Render quad flags (use SKB_RENDER_QUAD_* macros). */
+	/** Render quad flags (see skb_render_quad_flags_t). */
 	uint8_t flags;
 } skb_render_quad_t;
 
@@ -83,10 +83,9 @@ typedef struct skb_render_image_config_t {
 	int32_t padding;
 } skb_render_image_config_t;
 
-
-// Render cache config flags
+/** Enum describing flags for skb_render_cache_config_t. */
 enum skb_render_cache_config_flags_t {
-	/** If set to 1, the space in atlas for removed items are cleared. This makes it easier to see which parts of the atlas are unused. */
+	/** The space in atlas for removed items is cleared. This makes it easier to see which parts of the atlas are unused. */
 	SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED = 1 << 0,
 };
 
@@ -111,7 +110,7 @@ typedef struct skb_render_cache_config_t {
 	float atlas_fit_max_factor;
 	/** Defines after which duration inactive items are removed from the cache. Each call to skb_render_cache_compact() bumps the counter. Default: 0.25. */
 	int32_t evict_inactive_duration;
-	/** Render cache config flags (use SKB_RENDER_CACHE_CONFIG_* macros). */
+	/** Render cache config flags (see skb_render_cache_config_flags_t). */
 	uint8_t flags;
 	/** Image config for SDF glyphs */
 	skb_render_image_config_t glyph_sdf;
