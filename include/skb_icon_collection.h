@@ -7,13 +7,17 @@
 #include "skb_canvas.h"
 #include "skb_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @defgroup icon_collection Icon Collection
  *
  * An Icon Collection contains number of icons, which can be queried based by name.
  *
  * The collection supports icons in PicoSVG format. It is a tiny SVG subset, see https://github.com/googlefonts/picosvg
- * 
+ *
  * Alternatively the icons can be created in code.
  * @{
  */
@@ -25,7 +29,7 @@ typedef struct skb_icon_collection_t skb_icon_collection_t;
 typedef struct skb_icon_t skb_icon_t;
 
 /** Opaque type for the icon shape. Use skb_icon_shape_add() to create. */
-typedef struct skb_icon_shape_t skb_icon_shape_t; 
+typedef struct skb_icon_shape_t skb_icon_shape_t;
 
 
 /**
@@ -171,5 +175,9 @@ int32_t skb_icon_create_linear_gradient(skb_icon_t* icon, skb_vec2_t p0, skb_vec
 int32_t skb_icon_create_radial_gradient(skb_icon_t* icon, skb_vec2_t p0, skb_vec2_t p1, float radius, skb_mat2_t xform, uint8_t spread, skb_color_stop_t* stops, int32_t stops_count);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_ICON_COLLECTION_H

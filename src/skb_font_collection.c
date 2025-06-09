@@ -11,6 +11,7 @@
 #include "SheenBidi/SBScript.h"
 #include "hb.h"
 #include "hb-ot.h"
+#include "skb_layout.h"
 
 //
 // Fonts
@@ -144,7 +145,6 @@ static skb_font_t* skb__font_create_from_face(hb_face_t* face, const char* name,
 
 	font->upem = (int)upem;
 	font->upem_scale = 1.f / (float)upem;
-	font->is_color = has_paint || has_layers;
 
 	if (italic > 0.1f)
 		font->style = SKB_FONT_STYLE_ITALIC;
@@ -188,6 +188,24 @@ static skb_font_t* skb__font_create_from_face(hb_face_t* face, const char* name,
 	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_X_HEIGHT, &x_height)) {
 		font->metrics.x_height = -(float)x_height * font->upem_scale;
 	}
+
+	// Caret metrics
+	hb_position_t caret_offset;
+	hb_position_t caret_rise;
+	hb_position_t caret_run;
+
+	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_OFFSET, &caret_offset)
+		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &caret_rise)
+		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run)) {
+
+		font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
+		font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
+
+	} else {
+		font->caret_metrics.offset = 0.f;
+		font->caret_metrics.slope = 0.f;
+	}
+
 	return font;
 
 error:
@@ -586,10 +604,10 @@ skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id,
 }
 
 
-static float skb__get_baseline_normalized(const skb_font_t* font, hb_ot_layout_baseline_tag_t baseline_tag, bool is_rtl, hb_script_t script)
+static float skb__get_baseline_normalized(const skb_font_t* font, hb_ot_layout_baseline_tag_t baseline_tag, skb_text_direction_t direction, hb_script_t script)
 {
 	hb_position_t coord;
-	hb_ot_layout_get_baseline_with_fallback2(font->hb_font, baseline_tag, is_rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR, script, NULL, &coord);
+	hb_ot_layout_get_baseline_with_fallback2(font->hb_font, baseline_tag, skb_is_rtl(direction) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR, script, NULL, &coord);
 	return -(float)coord * font->upem_scale;
 }
 
@@ -599,20 +617,26 @@ skb_font_metrics_t skb_font_get_metrics(const skb_font_t* font)
 	return font->metrics;
 }
 
+skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_t* font)
+{
+	assert(font);
+	return font->caret_metrics;
+}
+
 hb_font_t* skb_font_get_hb_font(const skb_font_t* font)
 {
 	assert(font);
 	return font->hb_font;
 }
 
-float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, bool is_rtl, uint8_t script, float font_size)
+float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, skb_text_direction_t direction , uint8_t script, float font_size)
 {
-	hb_ot_layout_baseline_tag_t baseline_tag = {0};
+	hb_ot_layout_baseline_tag_t baseline_tag = HB_OT_LAYOUT_BASELINE_TAG_ROMAN;
 
 	uint32_t unicode_tag = SBScriptGetUnicodeTag(script);
 	hb_script_t hb_script = hb_script_from_iso15924_tag(unicode_tag);
 
-	const float alphabetic_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, is_rtl, hb_script);
+	const float alphabetic_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, direction, hb_script);
 	float baseline_value = 0.f;
 
 	switch (baseline) {
@@ -620,16 +644,16 @@ float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, boo
 		baseline_value = alphabetic_value;
 		break;
 	case SKB_BASELINE_IDEOGRAPHIC:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, is_rtl, hb_script);
+		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, direction, hb_script);
 		break;
 	case SKB_BASELINE_CENTRAL:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL, is_rtl, hb_script);
+		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL, direction, hb_script);
 		break;
 	case SKB_BASELINE_HANGING:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_HANGING, is_rtl, hb_script);
+		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_HANGING, direction, hb_script);
 		break;
 	case SKB_BASELINE_MATHEMATICAL:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_MATH, is_rtl, hb_script);
+		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_MATH, direction, hb_script);
 		break;
 	case SKB_BASELINE_MIDDLE:
 		baseline_value = font->metrics.x_height * 0.5f;

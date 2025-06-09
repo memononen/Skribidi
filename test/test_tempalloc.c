@@ -162,12 +162,18 @@ static int test_alloc_mark(void)
 	skb_temp_alloc_t* a = skb_temp_alloc_create(32);
 
 	uint8_t* ptr0 = skb_temp_alloc_alloc(a, 22); // block 0
+	ENSURE(num_used_blocks(a) == 1);
+
 	uint8_t* ptr1 = skb_temp_alloc_alloc(a, 4); // block 1
+	ENSURE(num_used_blocks(a) == 2);
 
 	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(a);
 
 	uint8_t* ptr2 = skb_temp_alloc_alloc(a, 4); // block 1
+	ENSURE(num_used_blocks(a) == 2);
+
 	uint8_t* ptr3 = skb_temp_alloc_alloc(a, 20); // block 2
+	ENSURE(num_used_blocks(a) == 3);
 
 	skb_temp_alloc_restore(a, mark);
 	ENSURE(num_free_blocks(a) == 1);

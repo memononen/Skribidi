@@ -8,6 +8,10 @@
 #include <stdbool.h>
 #include "skb_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct skb_font_t skb_font_t;
 typedef struct skb_icon_t skb_icon_t;
 
@@ -19,7 +23,7 @@ typedef struct skb_icon_t skb_icon_t;
  *
  * The render allows icons and glyphs to be rendered with signed distance field (SDF) or mask as alpha channel.
  * The SDF allows the images to be rendered at different sizes while maintaining scrisp outline.
- * Color images can also be rendered with SDF alpha channel, in which case the colors inside the image are interpolated, but the outline can be crisp.   
+ * Color images can also be rendered with SDF alpha channel, in which case the colors inside the image are interpolated, but the outline can be crisp.
  *
  * The following code is used to convert the floating point distance field to 8-bit alpha channel:
  * ```
@@ -28,7 +32,7 @@ typedef struct skb_icon_t skb_icon_t;
  * The _on_edge_value_ defines the location of SDF zero in 8-bit alpha, and _pixel_dist_scale_ defines the resolution. It allows to tune how much of the SDF range is inside or outside of the image.
  * Smaller values of _pixel_dist_scale_ will cause jagginess when the SDF image is scaled, and larger values will reduce the range of the SDF (e.g. when used for effects).
  * See skb_renderer_config_t.
- * 
+ *
  * @{
  */
 
@@ -77,10 +81,10 @@ void skb_renderer_destroy(skb_renderer_t* renderer);
 
 /**
  * Calculates the dimensions required to render a specific glyph at spcified size.
- * The width and height of the returned rectangle defines the image size, and origin defines the offset the glyph should be rendered at. 
+ * The width and height of the returned rectangle defines the image size, and origin defines the offset the glyph should be rendered at.
  * @param glyph_id glyph id to render
  * @param font font used for rendering
- * @param font_size font size 
+ * @param font_size font size
  * @param padding padding to leave around the glyph.
  * @return rect describing size and offset required to render the glyph.
  */
@@ -137,7 +141,7 @@ skb_vec2_t skb_render_calc_proportional_icon_scale(const skb_icon_t* icon, float
 
 /**
  * Calculates the dimensions required to render a specific icon at spcified size.
- * The width and height of the returned rectangle defines the image size, and origin defines the offset the icon should be rendered at. 
+ * The width and height of the returned rectangle defines the image size, and origin defines the offset the icon should be rendered at.
  * @param icon icon to render.
  * @param icon_scale icon scale (see skb_render_calc_proportional_icon_scale()).
  * @param padding padding to leave around the icon.
@@ -164,5 +168,9 @@ bool skb_render_rasterize_icon(
 	int32_t offset_x, int32_t offset_y, skb_image_t* target);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_RENDERER_H

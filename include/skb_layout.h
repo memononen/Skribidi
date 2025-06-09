@@ -9,6 +9,10 @@
 #include "skb_common.h"
 #include "skb_font_collection.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;
 typedef const struct hb_language_impl_t *hb_language_t;
@@ -42,16 +46,6 @@ typedef enum {
 	/** Center align the lines. */
 	SKB_ALIGN_CENTER,
 } skb_align_t;
-
-/** Enum describing text writing direction. */
-typedef enum {
-	/** Auto, infer from the text. */
-	SKB_DIR_AUTO,
-	/** Left-to-right */
-	SKB_DIR_LTR,
-	/** Right-to-left */
-	SKB_DIR_RTL,
-} skb_text_dir_t;
 
 /** Struct describing a single font feature. */
 typedef struct skb_font_feature_t {
@@ -91,6 +85,12 @@ typedef struct skb_text_attribs_t {
 	uint8_t direction;
 } skb_text_attribs_t;
 
+/** Enum describing flags for skb_layout_params_t. */
+enum skb_layout_params_flags_t {
+	/** Ignored line breaks from control characters. */
+	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
+};
+
 /** Struct describing parameters that apply to the whole text layout. */
 typedef struct skb_layout_params_t {
 	/** Pointer to font collection to use. */
@@ -107,8 +107,8 @@ typedef struct skb_layout_params_t {
 	uint8_t align;
 	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
 	uint8_t baseline;
-	/** Ignored line breaks from control characters. */
-	uint8_t ignore_must_line_breaks : 1;
+	/** Layout parameter flags (see skb_layout_params_flags_t). */
+	uint8_t flags;
 } skb_layout_params_t;
 
 /** Struct describing attributes assigned to a range of text. */
@@ -157,30 +157,34 @@ typedef struct skb_glyph_t {
 	uint16_t span_idx;
 	/** Index of the font in font collection. */
 	uint8_t font_idx;
-	/** 1 if the glyph is part of right-to-left text. */
-	uint8_t is_rtl : 1;
 } skb_glyph_t;
+
+/** Enum describing flags for skb_text_property_t. */
+enum skb_text_prop_flags_t {
+	/** Grapheme break after the codepoint. */
+	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
+	/** Word break after the codepoint. */
+	SKB_TEXT_PROP_WORD_BREAK       = 1 << 1,
+	/** Must break line after the code point. */
+	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
+	/** Allow line break after the codepoint. */
+	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
+	/** The codepoint is an emoji. */
+	SKB_TEXT_PROP_EMOJI            = 1 << 4,
+	/** The codepoint is a control character. */
+	SKB_TEXT_PROP_CONTROL          = 1 << 5,
+	/** The codepoint is a white space character. */
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 6
+};
 
 /** Struct describing properties if a single codepoint. */
 typedef struct skb_text_property_t {
-	/** Grapheme break after the codepoint. */
-	uint8_t is_grapheme_break : 1;
-	/** Word break after the codepoint. */
-	uint8_t is_word_break : 1;
-	/** Must break line after the code point. */
-	uint8_t is_must_line_break : 1;
-	/** Allow line break after the codepoint. */
-	uint8_t is_allow_line_break : 1;
-	/** The codepoint is part of a right-to-left text segment. */
-	uint8_t is_rlt : 1;
-	/** The codepoint is an emoji. */
-	uint8_t is_emoji : 1;
-	/** The codepoint is a control character. */
-	uint8_t is_control : 1;
-	/** The codepoint is a white space character. */
-	uint8_t is_whitespace : 1;
+	/** Text property flags (see skb_text_prop_flags_t). */
+	uint8_t flags;
 	/** Script of the codepoint. */
 	uint8_t script;
+	/** Text direction. */
+	uint8_t direction;
 } skb_text_property_t;
 
 /** Struct describing a line of text. */
@@ -197,8 +201,6 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Bounding rectangle of the line. */
 	skb_rect2_t bounds;
-	/** 1 if the line is right-to-left. */
-	uint8_t is_rtl : 1;
 } skb_layout_line_t;
 
 /** Opaque type for the text layout. Use skb_layout_create*() to create. */
@@ -366,6 +368,9 @@ const skb_text_attribs_span_t* skb_layout_get_attribute_spans(const skb_layout_t
 /** @return typographic bunds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
 
+/** @return text direction of the layout, if the direction was auto, the direction inferred from the text. */
+skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout);
+
 /**
  * Get the start of the next grapheme in the layout based on text offset.
  * @param layout layout to use
@@ -412,7 +417,7 @@ enum skb_caret_affinity_t {
 typedef struct skb_text_position_t {
 	/** Offset (codepoints) within the text. */
 	int32_t offset;
-	/** Relation to the codepoint. */
+	/** Relation to the codepoint. See skb_caret_affinity_t */
 	uint8_t affinity;
 } skb_text_position_t;
 
@@ -424,16 +429,21 @@ typedef struct skb_text_selection_t {
 	skb_text_position_t end_pos;
 } skb_text_selection_t;
 
-/** Struct descring visual caret location. */
+/** Struct describing visual caret location.
+ * The caret line can be described as: (x+width, y) - (x, y+height).
+ * Where, (x,y) is the top left corner of the rectangle containing the caret.
+ */
 typedef struct skb_visual_caret_t {
 	/** X location of the caret */
 	float x;
 	/** Y location of the caret */
 	float y;
-	/** height of the caret */
+	/** Height of the caret */
 	float height;
-	/** 1 if the caret is within right-to-left text. */
-	uint8_t is_rtl : 1;
+	/** Width of the caret (slant) */
+	float width;
+	/** Text direction at caret location. */
+	uint8_t direction;
 } skb_visual_caret_t;
 
 /**
@@ -453,12 +463,12 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
- * Returns true if the text position is within right-to-left text run.
+ * Returns text direction at the specified text postition.
  * @param layout layout to use
  * @param pos position within the text.
- * @return true of the text position is whitin right-to-left text.
+ * @return text direction at the specified text postition.
  */
-bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_position_t pos);
+skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 
 /** Enum describing intended movement. Caret movement and selection cursor movement have diffent behavior at the end of hte line. */
@@ -538,7 +548,7 @@ int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_sele
  * @param rect rectangle that has part of the selection.
  * @param context context passed to skb_layout_get_selection_bounds()
  */
-typedef void skb_selection_rect_callback(skb_rect2_t rect, void* context);
+typedef void skb_selection_rect_func_t(skb_rect2_t rect, void* context);
 
 /**
  * Returns set of rectangles that represent the selection.
@@ -548,7 +558,7 @@ typedef void skb_selection_rect_callback(skb_rect2_t rect, void* context);
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context);
+void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
 
 /**
  * Returns set of rectangles that represent the selection.
@@ -559,11 +569,21 @@ void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_select
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context);
+void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
 
 //
 // Caret iterator
 //
+
+/** Struct describing result of caret iterator. */
+typedef struct skb_caret_iterator_result_t {
+	/** Text position of the caret */
+	skb_text_position_t text_position;
+	/** Glyph index of the caret. */
+	int32_t glyph_idx;
+	/** Text direction at the text position. */
+	uint8_t direction;
+} skb_caret_iterator_result_t;
 
 /** Struct holding state for iterating over all caret locations in a layout. */
 typedef struct skb_caret_iterator_t {
@@ -575,19 +595,18 @@ typedef struct skb_caret_iterator_t {
 
 	int32_t glyph_pos;
 	int32_t glyph_end;
-	uint8_t glyph_is_rtl;
+	uint8_t glyph_direction;
 
 	int32_t grapheme_pos;
 	int32_t grapheme_end;
 
-	uint8_t end_of_glyph;
-	uint8_t end_of_line;
+	bool end_of_glyph;
+	bool end_of_line;
 
 	int32_t line_first_grapheme_offset;
 	int32_t line_last_grapheme_offset;
-	uint8_t line_is_rtl;
-	skb_text_position_t pending_left;
-	bool pending_left_is_rtl;
+
+	skb_caret_iterator_result_t pending_left;
 } skb_caret_iterator_t;
 
 /**
@@ -610,15 +629,19 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
  * @param right_is_rtl true if right text position is right-to-left.
  * @return true as long as the output values are valid.
  */
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_text_position_t* left, bool* left_is_rtl, skb_text_position_t* right, bool* right_is_rtl);
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
 
 /**
- * Returns four letter ISO 15924 script tag of the specified script.
+ * Returns four-letter ISO 15924 script tag of the specified script.
  * @param script scrip to covert.
  * @return four letter tag.
  */
 uint32_t skb_script_to_iso15924_tag(uint8_t script);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_LAYOUT_H

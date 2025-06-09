@@ -134,6 +134,7 @@ typedef struct draw__context_t {
 	uint32_t image_id;
 	uint32_t sdf_id;
 
+	GLfloat line_width_range[2];
 } draw__context_t;
 
 static draw__context_t g_context = { 0 };
@@ -146,7 +147,7 @@ int draw_init(void)
 	GLint success = GL_FALSE;
 
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-	const GLchar* vs_source = "#version 130\n"
+	const GLchar* vs_source = "#version 140\n"
 		"uniform vec2 viewsize;\n"
 		"uniform vec2 tex_size;\n"
 		"in vec3 apos;\n"
@@ -174,7 +175,7 @@ int draw_init(void)
 	}
 
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-	const GLchar* fs_source = "#version 130\n"
+	const GLchar* fs_source = "#version 140\n"
 		"in vec4 fcolor;\n"
 		"in vec2 fuv;\n"
 		"in float fscale;\n"
@@ -244,6 +245,8 @@ int draw_init(void)
 	glGenBuffers(1, &g_context.vbo);
 
 	draw__check_error("gen vbo");
+
+	glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, g_context.line_width_range);
 
 	return 1;
 }
@@ -405,7 +408,7 @@ static void draw__add_vertex(skb_vec2_t pos, skb_color_t col)
 
 void draw_line_width(float w)
 {
-	g_context.line_width = w;
+	g_context.line_width = skb_clampf(w, g_context.line_width_range[0], g_context.line_width_range[1]);
 }
 
 void draw_tick(float x, float y, float s, skb_color_t col)

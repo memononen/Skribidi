@@ -6,6 +6,10 @@
 
 #include "skb_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @defgroup canvas Canvas
  *
@@ -209,5 +213,9 @@ void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t 
 void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, skb_vec2_t p1, float r1, skb_gradient_spread_t spread, const skb_color_stop_t* stops, int32_t stops_count);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_CANVAS_H

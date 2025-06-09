@@ -57,10 +57,29 @@ static void set_example(int32_t example_idx)
 		g_example = NULL;
 	}
 
-	g_example_idx = skb__wrap(example_idx, g_examples_count); 
+	g_example_idx = skb__wrap(example_idx, g_examples_count);
 
 	g_example = g_examples[g_example_idx].create();
 	assert(g_example);
+}
+
+static float g_pixel_scale_x = 1.f;
+static float g_pixel_scale_y = 1.f;
+
+static void update_pixel_scale(GLFWwindow* window)
+{
+	int32_t win_width, win_height;
+	int32_t fb_width, fb_height;
+	glfwGetWindowSize(g_window, &win_width, &win_height);
+	glfwGetFramebufferSize(g_window, &fb_width, &fb_height);
+
+	g_pixel_scale_x = (float)fb_width / (float)win_width;
+	g_pixel_scale_y = (float)fb_height / (float)win_height;
+}
+
+static void resize_callback(GLFWwindow* window, int width, int height)
+{
+	update_pixel_scale(window);
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -72,7 +91,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		if (key == GLFW_KEY_F1)
 			set_example(g_example_idx + 1);
 	}
-	
+
 	if (g_example && g_example->on_key)
 		g_example->on_key(g_example, window, key, action, mods);
 }
@@ -83,6 +102,12 @@ static void char_callback(GLFWwindow* window, unsigned int codepoint)
 		g_example->on_char(g_example, codepoint);
 }
 
+static void mouse_scale_pos_to_screen_coords(GLFWwindow* window, double* xpos, double* ypos)
+{
+	*xpos *= g_pixel_scale_x;
+	*ypos *= g_pixel_scale_y;
+}
+
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	(void)window;
@@ -91,6 +116,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 	double xpos, ypos;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_button)
 		g_example->on_mouse_button(g_example, (float)xpos, (float)ypos, button, action, mods);
@@ -98,6 +124,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 static void mouse_move_callback(GLFWwindow* window, double xpos, double ypos)
 {
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 	if (g_example && g_example->on_mouse_move)
 		g_example->on_mouse_move(g_example, (float)xpos, (float)ypos);
 }
@@ -106,6 +133,7 @@ static void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yof
 {
 	double xpos, ypos;
 	glfwGetCursorPos(g_window, &xpos, &ypos);
+	mouse_scale_pos_to_screen_coords(window, &xpos, &ypos);
 
 	if (g_example && g_example->on_mouse_scroll)
 		g_example->on_mouse_scroll(g_example, (float)xpos, (float)ypos, (float)xoffset, (float)yoffset, g_last_key_mods);
@@ -135,6 +163,7 @@ int main(int argc, char** args)
 		return -1;
 	}
 
+	glfwSetWindowSizeCallback(g_window, resize_callback);
 	glfwSetKeyCallback(g_window, key_callback);
 	glfwSetCharCallback(g_window, char_callback);
 	glfwSetMouseButtonCallback(g_window, mouse_button_callback);
@@ -143,6 +172,7 @@ int main(int argc, char** args)
 
 	glfwMakeContextCurrent(g_window);
 	glfwSwapInterval(1); // Enable vsync
+	update_pixel_scale(g_window);
 
 	int version = gladLoadGL(glfwGetProcAddress);
 	if (version == 0) {

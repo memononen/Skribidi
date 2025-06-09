@@ -18,7 +18,7 @@
 #include "skb_font_collection.h"
 #include "skb_render.h"
 #include "skb_layout.h"
-#include "skb_input.h"
+#include "skb_editor.h"
 #include "skb_render_cache.h"
 
 
@@ -30,7 +30,7 @@ typedef struct testbed_context_t {
 	skb_render_cache_t* render_cache;
 	skb_renderer_t* renderer;
 
-	skb_input_t* input;
+	skb_editor_t* editor;
 
 	bool allow_char;
 	view_t view;
@@ -163,10 +163,10 @@ void* testbed_create(void)
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
 
-	skb_input_params_t edit_params = {
+	skb_editor_params_t edit_params = {
 		.layout_params = {
 			.lang = "zh-hans",
-			.base_direction = SKB_DIR_AUTO,
+			.base_direction = SKB_DIRECTION_AUTO,
 			.font_collection = ctx->font_collection,
 			.line_break_width = 1200.f,
 		},
@@ -176,9 +176,9 @@ void* testbed_create(void)
 		},
 	};
 
-	ctx->input = skb_input_create(&edit_params);
-	assert(ctx->input);
-	skb_input_set_text_utf8(ctx->input, ctx->temp_alloc, bidiText, -1);
+	ctx->editor = skb_editor_create(&edit_params);
+	assert(ctx->editor);
+	skb_editor_set_text_utf8(ctx->editor, ctx->temp_alloc, bidiText, -1);
 
 	ctx->render_cache = skb_render_cache_create(NULL);
 	assert(ctx->render_cache);
@@ -202,7 +202,7 @@ void testbed_destroy(void* ctx_ptr)
 	testbed_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
-	skb_input_destroy(ctx->input);
+	skb_editor_destroy(ctx->editor);
 	skb_font_collection_destroy(ctx->font_collection);
 
 	skb_render_cache_destroy(ctx->render_cache);
@@ -229,35 +229,35 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		ctx->allow_char = true;
 		if (key == GLFW_KEY_A && mods & GLFW_MOD_CONTROL) {
 			// Select all
-			skb_input_select_all(ctx->input);
+			skb_editor_select_all(ctx->editor);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_ESCAPE) {
 			// Clear selection
-			skb_text_selection_t selection = skb_input_get_current_selection(ctx->input);
-			if (skb_input_get_selection_text_utf32_count(ctx->input, selection) > 0)
-				skb_input_select_none(ctx->input);
+			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
+			if (skb_editor_get_selection_text_utf32_count(ctx->editor, selection) > 0)
+				skb_editor_select_none(ctx->editor);
 			else
 				glfwSetWindowShouldClose(window, GL_TRUE);
 		}
 		if (key == GLFW_KEY_X && mods & GLFW_MOD_CONTROL) {
 			// Cut
-			skb_text_selection_t selection = skb_input_get_current_selection(ctx->input);
-			int32_t text_len = skb_input_get_selection_text_utf8(ctx->input, selection, NULL, -1);
+			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
+			int32_t text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, NULL, -1);
 			char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
-			text_len = skb_input_get_selection_text_utf8(ctx->input, selection, text, text_len);
+			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
-			skb_input_cut(ctx->input, ctx->temp_alloc);
+			skb_editor_cut(ctx->editor, ctx->temp_alloc);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_C && mods & GLFW_MOD_CONTROL) {
 			// Copy
-			skb_text_selection_t selection = skb_input_get_current_selection(ctx->input);
-			int32_t text_len = skb_input_get_selection_text_utf8_count(ctx->input, selection);
+			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
+			int32_t text_len = skb_editor_get_selection_text_utf8_count(ctx->editor, selection);
 			char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
-			text_len = skb_input_get_selection_text_utf8(ctx->input, selection, text, text_len);
+			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
@@ -266,27 +266,27 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		if (key == GLFW_KEY_V && mods & GLFW_MOD_CONTROL) {
 			// Paste
 			const char* clipboard_text = glfwGetClipboardString(window);
-			skb_input_paste_utf8(ctx->input, ctx->temp_alloc, clipboard_text, -1);
+			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_LEFT)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_LEFT, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_LEFT, edit_mods);
 		if (key == GLFW_KEY_RIGHT)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_RIGHT, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_RIGHT, edit_mods);
 		if (key == GLFW_KEY_UP)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_UP, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_UP, edit_mods);
 		if (key == GLFW_KEY_DOWN)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_DOWN, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DOWN, edit_mods);
 		if (key == GLFW_KEY_HOME)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_HOME, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_HOME, edit_mods);
 		if (key == GLFW_KEY_END)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_END, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_END, edit_mods);
 		if (key == GLFW_KEY_BACKSPACE)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
 		if (key == GLFW_KEY_DELETE)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_DELETE, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DELETE, edit_mods);
 		if (key == GLFW_KEY_ENTER)
-			skb_input_key_pressed(ctx->input, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
 
 
 		if (key == GLFW_KEY_F8) {
@@ -309,7 +309,7 @@ void testbed_on_char(void* ctx_ptr, unsigned int codepoint)
 	assert(ctx);
 
 	if (ctx->allow_char)
-		skb_input_insert_codepoint(ctx->input, ctx->temp_alloc, codepoint);
+		skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, codepoint);
 }
 
 void testbed_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods)
@@ -343,7 +343,7 @@ void testbed_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int bu
 		if (action == GLFW_PRESS) {
 			if (!ctx->drag_text) {
 				ctx->drag_text = true;
-				skb_input_mouse_click(ctx->input, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy, mouse_mods, glfwGetTime());
+				skb_editor_process_mouse_click(ctx->editor, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy, mouse_mods, glfwGetTime());
 			}
 		}
 
@@ -366,7 +366,7 @@ void testbed_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 	}
 
 	if (ctx->drag_text) {
-		skb_input_mouse_drag(ctx->input, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy);
+		skb_editor_process_mouse_drag(ctx->editor, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy);
 	}
 }
 
@@ -406,13 +406,13 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 	skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	skb_text_selection_t edit_selection = skb_input_get_current_selection(ctx->input);
+	skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 
 
 	float layout_height = 0.f;
 	float layout_width = 0.f;
-	for (int32_t pi = 0; pi < skb_input_get_paragraph_count(ctx->input); pi++) {
-		const skb_layout_t* edit_layout = skb_input_get_paragraph_layout(ctx->input, pi);
+	for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
+		const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
 		const skb_rect2_t layout_bounds = skb_layout_get_bounds(edit_layout);
 		layout_height += layout_bounds.height;
 		layout_width = skb_maxf(layout_width, layout_bounds.width);
@@ -431,18 +431,18 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		float oy = ctx->view.cy;
 
 		// line break boundaries
-		const float line_break_width = skb_input_get_params(ctx->input)->layout_params.line_break_width;
+		const float line_break_width = skb_editor_get_params(ctx->editor)->layout_params.line_break_width;
 		draw_dashed_line(ox, oy-50, ox, oy+layout_height+50, 6, ink_color_trans);
 		draw_dashed_line(ox+line_break_width, oy+50, ox+line_break_width, oy+layout_height+50, 6, ink_color_trans);
 
-		if (skb_input_get_selection_count(ctx->input, edit_selection) > 0) {
+		if (skb_editor_get_selection_count(ctx->editor, edit_selection) > 0) {
 			draw_selection_context_t sel_ctx = { .x = ox, .y = oy, .color = sel_color };
-			skb_input_get_selection_bounds(ctx->input, edit_selection, draw_selection_rect, &sel_ctx);
+			skb_editor_get_selection_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
 		}
 
-		for (int32_t pi = 0; pi < skb_input_get_paragraph_count(ctx->input); pi++) {
-			const skb_layout_t* edit_layout = skb_input_get_paragraph_layout(ctx->input, pi);
-			const float edit_layout_y = skb_input_get_paragraph_offset_y(ctx->input, pi);
+		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
+			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
+			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
@@ -463,7 +463,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				draw_line(rox - 25, baseline_y,rox,baseline_y, ink_color);
 				draw_text(rox - 12, baseline_y - 4,12,0.5, ink_color, "L%d", li);
 
-				if (line->is_rtl)
+				if (skb_is_rtl(skb_layout_get_resolved_direction(edit_layout)))
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "< RTL");
 				else
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "LTR >");
@@ -501,7 +501,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					// Glyph image
 					skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
 						skb_roundf(gx), skb_roundf(gy), 1.f, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
-					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, quad.is_color ? skb_rgba(255,255,255,255) : ink_color,
+					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 
 					pen_x += glyph->advance_x;
@@ -536,31 +536,28 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					float caret_x = 0.f;
 					float caret_advance = 0.f;
-					skb_text_position_t left = {0};
-					bool left_is_rtl = false;
-					skb_text_position_t right = {0};
-					bool right_is_rtl = false;
+					skb_caret_iterator_result_t left = {0};
+					skb_caret_iterator_result_t right = {0};
 
-
-					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &left_is_rtl, &right, &right_is_rtl)) {
+					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
 
-						if (left_is_rtl != right_is_rtl) {
+						if (left.direction != right.direction) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
-							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.affinity], left.offset);
-							draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.affinity], right.offset);
+							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
+							draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 							left_text_offset = caret_advance < 40.f ? 15 : 0;
 						} else {
-							if (right.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
-								draw_tri(cx, top_y+5, cx + (right_is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
-								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.affinity], right.offset);
+							if (right.text_position.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(right.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
+								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 								left_text_offset = caret_advance < 40.f ? 15 : 0;
 							} else {
-								draw_tri(cx, top_y+5, cx + (left_is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
-								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.affinity], left.offset);
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(left.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
+								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
 								left_text_offset = 0.f;
 							}
 						}
@@ -578,20 +575,20 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			cx = draw_text(cx + 5,oy + layout_height + 30,12,0,caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
 
-			// Input location
-			int32_t insert_idx = skb_input_get_text_offset_at(ctx->input, edit_selection.end_pos);
+			// Caret location
+			int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
 			skb_text_position_t insert_pos = {
 				.offset = insert_idx,
 				.affinity = SKB_AFFINITY_TRAILING,
 			};
-			int32_t line_idx = skb_input_get_line_index_at(ctx->input, insert_pos);
-			int32_t col_idx = skb_input_get_column_index_at(ctx->input, insert_pos);
+			int32_t line_idx = skb_editor_get_line_index_at(ctx->editor, insert_pos);
+			int32_t col_idx = skb_editor_get_column_index_at(ctx->editor, insert_pos);
 
 			cx = draw_text(cx,oy + layout_height + 30,12,0,log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
 
 			// Selection count
-			const int32_t selection_count = skb_input_get_selection_count(ctx->input, edit_selection);
+			const int32_t selection_count = skb_editor_get_selection_count(ctx->editor, edit_selection);
 			if (selection_count > 0) {
 				cx = draw_text(cx,oy + layout_height + 30,12,0,ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
 				cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
@@ -601,47 +598,47 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
 		}
 
-		{
+		// Caret is generally drawn only when there is no selection.
+		if (skb_editor_get_selection_count(ctx->editor, edit_selection) == 0) {
+
 			// Visual caret
-			if (skb_input_get_selection_count(ctx->input, edit_selection)) {
+			skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
 
-				skb_visual_caret_t start_caret = skb_input_get_visual_caret(ctx->input, edit_selection.start_pos);
-
-				draw_line_width(4.f);
-				draw_line(ox + start_caret.x, oy + start_caret.y, ox + start_caret.x, oy + start_caret.y + start_caret.height, caret_color);
-			}
-
-			skb_visual_caret_t caret_pos = skb_input_get_visual_caret(ctx->input, edit_selection.end_pos);
-
-			float caret_x = ox + caret_pos.x;
-			float caret_top_y = oy + caret_pos.y;
-			float caret_bot_y = oy + caret_pos.y + caret_pos.height;
+			float caret_slope = caret_pos.width / caret_pos.height;
+			float caret_top_x = ox + caret_pos.x + caret_pos.width - caret_slope * 3.f;
+			float caret_top_y = oy + caret_pos.y + 3.f;
+			float caret_bot_x = ox + caret_pos.x + caret_slope * 3.f;
+			float caret_bot_y = oy + caret_pos.y + caret_pos.height - 3.f;
 
 			draw_line_width(6.f);
 
-			draw_line(caret_x, caret_top_y+3, caret_x, caret_bot_y-3, caret_color);
+			draw_line(caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color);
 
 			float as = skb_absf(caret_pos.height) / 10.f;
-			float dx = (caret_pos.is_rtl ? -as : as);
+			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
 			draw_line_width(2.f);
-			draw_tri(caret_x, caret_top_y,
-				caret_x + dx, caret_top_y,
-				caret_x, caret_top_y + as,
+			float tri_top_x = ox + caret_pos.x + caret_pos.width;
+			float tri_top_y = oy + caret_pos.y;
+			float tri_bot_x = tri_top_x - as * caret_slope;
+			float tri_bot_y = tri_top_y + as;
+			draw_tri(tri_top_x, tri_top_y,
+				tri_top_x + dx, tri_top_y,
+				tri_bot_x, tri_bot_y,
 				caret_color);
 
 			draw_line_width(1.f);
 
 			// Caret affinity text
 			float dir = (edit_selection.end_pos.affinity == SKB_AFFINITY_LEADING || edit_selection.end_pos.affinity == SKB_AFFINITY_SOL) ? -1.f : 1.f;
-			bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+			bool caret_is_rtl = skb_editor_get_text_direction_at(ctx->editor, edit_selection.end_pos);
 			if (caret_is_rtl) dir = -dir;
-			draw_text(caret_x + dir*7.f, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
+			draw_text(caret_bot_x + dir*7.f + caret_slope * 23, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
 		}
 	}
 
 	// Draw logical string info
 	{
-		const skb_input_params_t* edit_params = skb_input_get_params(ctx->input);
+		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
 		const skb_text_attribs_t* text_attribs = &edit_params->text_attribs;
 		float ox = ctx->view.cx;
 		float oy = ctx->view.cy + 30.f + layout_height + 80.f;
@@ -652,23 +649,23 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		uint8_t prev_script = 0;
 		const skb_font_t* font = NULL;
 
-		int32_t caret_insert_idx = skb_input_get_text_offset_at(ctx->input, edit_selection.end_pos);
+		int32_t caret_insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
 
 		int caret_selection_start_idx = -1;
 		int caret_selection_end_idx = -1;
-		if (skb_input_get_selection_count(ctx->input, edit_selection) > 0) {
-			int caret_start_idx = skb_input_get_text_offset_at(ctx->input, edit_selection.start_pos);
+		if (skb_editor_get_selection_count(ctx->editor, edit_selection) > 0) {
+			int caret_start_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.start_pos);
 			caret_selection_start_idx = skb_mini(caret_start_idx, caret_insert_idx);
 			caret_selection_end_idx = skb_maxi(caret_start_idx, caret_insert_idx);
 		}
 
-		const int32_t edit_text_count = skb_input_get_text_utf32(ctx->input, NULL, 0);
-		const int32_t edit_layout_count = skb_input_get_paragraph_count(ctx->input);
+		const int32_t edit_text_count = skb_editor_get_text_utf32(ctx->editor, NULL, 0);
+		const int32_t edit_layout_count = skb_editor_get_paragraph_count(ctx->editor);
 		float start_x = ctx->view.cx;
 
 		for (int32_t pi = 0; pi < edit_layout_count; pi++) {
-			const skb_layout_t* edit_layout = skb_input_get_paragraph_layout(ctx->input, pi);
-			const int32_t edit_text_offset = skb_input_get_paragraph_text_offset(ctx->input, pi);
+			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
+			const int32_t edit_text_offset = skb_editor_get_paragraph_text_offset(ctx->editor, pi);
 			const bool is_last_edit_line = pi == edit_layout_count - 1;
 
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
@@ -709,7 +706,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						draw_line_width(1.f);
 
 						// Direction triangle
-						bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+						bool caret_is_rtl = skb_editor_get_text_direction_at(ctx->editor, edit_selection.end_pos);
 						float as = sz / 8.f;
 						float dx = (caret_is_rtl ? -as : as);
 						draw_tri(cx, oy+4,
@@ -721,7 +718,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					}
 
 					const uint8_t script = text_props[cp_idx].script;
-					const bool is_emoji = text_props[cp_idx].is_emoji;
+					const bool is_emoji = (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI);
 					if (!font || script != prev_script || is_emoji != prev_is_emoji) {
 						if (skb_font_collection_match_fonts(ctx->font_collection, script, is_emoji, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font, 1) == 0)
 							font = NULL;
@@ -751,7 +748,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
 							skb_roundf(gx), skb_roundf(gy), 1.f, gid, font, text_attribs->font_size * font_scale, SKB_RENDER_ALPHA_MASK);
 
-						draw_image_quad(quad.geom_bounds, quad.image_bounds, quad.is_color ? skb_rgba(255,255,255,255) : ink_color,
+						draw_image_quad(quad.geom_bounds, quad.image_bounds, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 							(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 					} else {
 						draw_text(ox+10+0.5f, oy+sz*0.5+0.5f,12,0, ink_color_trans, "<Empty>");
@@ -763,29 +760,29 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					float rx = ox + sz-4;
 					float ry = oy + sz + 15;
 
-					if (text_props[cp_idx].is_grapheme_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_GRAPHEME_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, caret_color, "GB");
 						ry += 15.f;
 					}
 
-					if (text_props[cp_idx].is_word_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_WORD_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, ink_color_trans, "WB");
 						ry += 15.f;
 					}
-					if (text_props[cp_idx].is_must_line_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, log_color, "LB!");
 						ry += 15.f;
 					}
-					if (text_props[cp_idx].is_allow_line_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, log_color, "LB?");
 						ry += 15.f;
 					}
 
 					// Script
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), text_props[cp_idx].is_emoji ? ":)" : "");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI) ? ":)" : "");
 					ly += 15.f;
 					// Direction
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, text_props[cp_idx].is_rlt ? "<R" : "L>");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, skb_is_rtl(text_props[cp_idx].direction) ? "<R" : "L>");
 					ly += 15.f;
 
 					// Next block
