@@ -9,7 +9,7 @@ set(SKRIBIDI_TEST_FILES
 	test_canvas.c
 	test_font_collection.c
 	test_icon_collection.c
-	test_input.c
+	test_editor.c
 	test_layout.c
 	test_layout_cache.c
 	test_render.c

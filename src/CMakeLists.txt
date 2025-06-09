@@ -107,7 +107,7 @@ set(SKRIBIDI_SOURCE_FILES
 	skb_layout_cache.c
 	skb_render.c
 	skb_render_cache.c
-	skb_input.c
+	skb_editor.c
 )
 
 set(SKRIBIDI_API_FILES
@@ -119,7 +119,7 @@ set(SKRIBIDI_API_FILES
 	../include/skb_layout_cache.h
 	../include/skb_render.h
 	../include/skb_render_cache.h
-	../include/skb_input.h
+	../include/skb_editor.h
 )
 
 

@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_input.h"
+#include "skb_editor.h"
 
-static int test0(void)
+static int test_init(void)
 {
-	skb_input_params_t params = {
+	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = NULL,
 		 },
@@ -18,16 +18,16 @@ static int test0(void)
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 	};
 
-	skb_input_t* input = skb_input_create(&params);
-	ENSURE(input != NULL);
+	skb_editor_t* editor = skb_editor_create(&params);
+	ENSURE(editor != NULL);
 
-	skb_input_destroy(input);
+	skb_editor_destroy(editor);
 
 	return 0;
 }
 
-int input_tests(void)
+int editor_tests(void)
 {
-	RUN_SUBTEST(test0);
+	RUN_SUBTEST(test_init);
 	return 0;
 }
