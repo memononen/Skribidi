@@ -166,7 +166,7 @@ void* testbed_create(void)
 	skb_input_params_t edit_params = {
 		.layout_params = {
 			.lang = "zh-hans",
-			.base_direction = SKB_DIR_AUTO,
+			.base_direction = SKB_DIRECTION_AUTO,
 			.font_collection = ctx->font_collection,
 			.line_break_width = 1200.f,
 		},
@@ -463,7 +463,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				draw_line(rox - 25, baseline_y,rox,baseline_y, ink_color);
 				draw_text(rox - 12, baseline_y - 4,12,0.5, ink_color, "L%d", li);
 
-				if (line->is_rtl)
+				if (skb_is_rtl(skb_layout_get_resolved_direction(edit_layout)))
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "< RTL");
 				else
 					draw_text(rox - 10, bot_y - 5.f,12,1, log_color, "LTR >");
@@ -501,7 +501,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					// Glyph image
 					skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
 						skb_roundf(gx), skb_roundf(gy), 1.f, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
-					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, quad.is_color ? skb_rgba(255,255,255,255) : ink_color,
+					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 
 					pen_x += glyph->advance_x;
@@ -536,15 +536,15 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					float caret_x = 0.f;
 					float caret_advance = 0.f;
-					skb_caret_result_t left = {0};
-					skb_caret_result_t right = {0};
+					skb_caret_iterator_result_t left = {0};
+					skb_caret_iterator_result_t right = {0};
 
 					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
 						float cx = ox + caret_x;
 						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
 
-						if (left.is_rtl != right.is_rtl) {
+						if (left.direction != right.direction) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
 							draw_tri(cx, top_y+5, cx+5, top_y+5, cx, top_y+5+5, caret_color);
 							draw_text(cx-3,top_y + 20 + left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
@@ -552,11 +552,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							left_text_offset = caret_advance < 40.f ? 15 : 0;
 						} else {
 							if (right.text_position.affinity == SKB_AFFINITY_TRAILING) { // || caret_iter.right.affinity == SKB_AFFINITY_EOL) {
-								draw_tri(cx, top_y+5, cx + (right.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(right.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret_color);
 								draw_text(cx+3,top_y + 20,10,0,caret_color, "%s%d", affinity_str[right.text_position.affinity], right.text_position.offset);
 								left_text_offset = caret_advance < 40.f ? 15 : 0;
 							} else {
-								draw_tri(cx, top_y+5, cx + (left.is_rtl ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
+								draw_tri(cx, top_y+5, cx + (skb_is_rtl(left.direction) ? -5 : 5), top_y+5, cx, top_y+5+5, caret2_color);
 								draw_text(cx-3,top_y + 20+left_text_offset,10,1,caret2_color, "%s%d", affinity_str[left.text_position.affinity], left.text_position.offset);
 								left_text_offset = 0.f;
 							}
@@ -615,7 +615,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			draw_line(caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color);
 
 			float as = skb_absf(caret_pos.height) / 10.f;
-			float dx = (caret_pos.is_rtl ? -as : as);
+			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
 			draw_line_width(2.f);
 			float tri_top_x = ox + caret_pos.x + caret_pos.width;
 			float tri_top_y = oy + caret_pos.y;
@@ -630,7 +630,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Caret affinity text
 			float dir = (edit_selection.end_pos.affinity == SKB_AFFINITY_LEADING || edit_selection.end_pos.affinity == SKB_AFFINITY_SOL) ? -1.f : 1.f;
-			bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+			bool caret_is_rtl = skb_input_get_text_direction_at(ctx->input, edit_selection.end_pos);
 			if (caret_is_rtl) dir = -dir;
 			draw_text(caret_bot_x + dir*7.f + caret_slope * 23, caret_bot_y - 23, 12, dir > 0.f ? 0 : 1, caret_color, affinity_str[edit_selection.end_pos.affinity]);
 		}
@@ -706,7 +706,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						draw_line_width(1.f);
 
 						// Direction triangle
-						bool caret_is_rtl = skb_input_is_character_rtl_at(ctx->input, edit_selection.end_pos);
+						bool caret_is_rtl = skb_input_get_text_direction_at(ctx->input, edit_selection.end_pos);
 						float as = sz / 8.f;
 						float dx = (caret_is_rtl ? -as : as);
 						draw_tri(cx, oy+4,
@@ -718,7 +718,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					}
 
 					const uint8_t script = text_props[cp_idx].script;
-					const bool is_emoji = text_props[cp_idx].is_emoji;
+					const bool is_emoji = (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI);
 					if (!font || script != prev_script || is_emoji != prev_is_emoji) {
 						if (skb_font_collection_match_fonts(ctx->font_collection, script, is_emoji, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font, 1) == 0)
 							font = NULL;
@@ -748,7 +748,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
 							skb_roundf(gx), skb_roundf(gy), 1.f, gid, font, text_attribs->font_size * font_scale, SKB_RENDER_ALPHA_MASK);
 
-						draw_image_quad(quad.geom_bounds, quad.image_bounds, quad.is_color ? skb_rgba(255,255,255,255) : ink_color,
+						draw_image_quad(quad.geom_bounds, quad.image_bounds, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 							(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 					} else {
 						draw_text(ox+10+0.5f, oy+sz*0.5+0.5f,12,0, ink_color_trans, "<Empty>");
@@ -760,29 +760,29 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					float rx = ox + sz-4;
 					float ry = oy + sz + 15;
 
-					if (text_props[cp_idx].is_grapheme_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_GRAPHEME_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, caret_color, "GB");
 						ry += 15.f;
 					}
 
-					if (text_props[cp_idx].is_word_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_WORD_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, ink_color_trans, "WB");
 						ry += 15.f;
 					}
-					if (text_props[cp_idx].is_must_line_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, log_color, "LB!");
 						ry += 15.f;
 					}
-					if (text_props[cp_idx].is_allow_line_break) {
+					if (text_props[cp_idx].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK) {
 						draw_text(rx+0.5f, ry+0.5f,12,1, log_color, "LB?");
 						ry += 15.f;
 					}
 
 					// Script
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), text_props[cp_idx].is_emoji ? ":)" : "");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI) ? ":)" : "");
 					ly += 15.f;
 					// Direction
-					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, text_props[cp_idx].is_rlt ? "<R" : "L>");
+					draw_text(lx+0.5f, ly+0.5f,12,0, log_color, skb_is_rtl(text_props[cp_idx].direction) ? "<R" : "L>");
 					ly += 15.f;
 
 					// Next block

@@ -49,13 +49,22 @@ Skribidi just got started. There are bugs and the API is very likely to change.
 - `mkdir build`
 - `cd build`
 - `cmake ..`
-- On Windows: Open and build `build/skribidi.sln`
-  On Linux: use `cmake --build . -j$(nproc)`
-  On macOS: use `cmake --build . -j$(sysctl -n hw.ncpu)`
+- Build
+	- *Windows*: Open and build `build/skribidi.sln`
+	- *Linux*: use `cmake --build . -j$(nproc)`
+	- *macOS*: use `cmake --build . -j$(sysctl -n hw.ncpu)`
 
+When running the example or test, the working directory should be the the binary direction (`/build/bin`). On Windows, the example data direction is copied there and on Linux or macOS there's a symlink for the data directory.
+
+## Dependencies
 The project uses CMake, but you dont need to. If you handle dependecies yourself you can just add the
 `include` and `src` to your project and you're good to go. The CMake is used to fetch the right deps
 and to build the examples and tests, making development simpler.
+
+- [Harfbuzz](https://github.com/harfbuzz/harfbuzz) - 11.0.0
+- [SheenBidi](https://github.com/Tehreer/SheenBidi) - 83f77108a2873600283f6da4b326a2dca7a3a7a6
+- [libunibreak](https://github.com/adah1972/libunibreak) - libunibreak_6_1.zip
+- [budouxc](https://github.com/memononen/budouxc) - a044d49afc654117fac7623fff15bec15943270c
 
 ## License
 Skribidi is developed by Mikko Mononen and uses the [MIT license](https://en.wikipedia.org/wiki/MIT_License).

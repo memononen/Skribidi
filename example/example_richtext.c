@@ -104,7 +104,7 @@ void* richtext_create(void)
 
 	skb_layout_params_t params = {
 		.lang = "zh-hans",
-		.base_direction = SKB_DIR_AUTO,
+		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.line_break_width = 600.f,
 		.align = SKB_ALIGN_START,
@@ -328,7 +328,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			draw_image_quad_sdf(
 				view_transform_rect(&ctx->view, quad.geom_bounds),
-				quad.image_bounds, 1.f / quad.scale, quad.is_color ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
+				quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
 				(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 		}
 	}

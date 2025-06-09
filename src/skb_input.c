@@ -48,7 +48,7 @@ typedef struct skb__input_paragraph_t {
 
 typedef struct skb_input_t {
 	skb_input_params_t params;
-	skb_input_on_change_t* on_change_callback;
+	skb_input_on_change_func_t* on_change_callback;
 	void* on_change_context;
 
 	skb__input_paragraph_t* paragraphs;
@@ -74,11 +74,11 @@ static void skb__update_layout(skb_input_t* input, skb_temp_alloc_t* temp_alloc)
 
 	skb_layout_params_t layout_params = input->params.layout_params;
 	layout_params.origin = (skb_vec2_t){ 0 };
-	layout_params.ignore_must_line_breaks = 1;
+	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
 	// TODO: we will need to improve the logic pick up the direction automatically.
 	// If left to AUTO, each split paragraph will adjust separately and it's confusing.
-	if (layout_params.base_direction == SKB_DIR_AUTO)
-		layout_params.base_direction = SKB_DIR_LTR;
+	if (layout_params.base_direction == SKB_DIRECTION_AUTO)
+		layout_params.base_direction = SKB_DIRECTION_LTR;
 
 	float y = 0.f;
 
@@ -163,7 +163,7 @@ skb_input_t* skb_input_create(const skb_input_params_t* params)
 	return input;
 }
 
-void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_t* callback, void* context)
+void skb_input_set_on_change_callback(skb_input_t* input, skb_input_on_change_func_t* callback, void* context)
 {
 	assert(input);
 	input->on_change_callback = callback;
@@ -554,7 +554,7 @@ skb_text_position_t skb_input_get_word_start_at(const skb_input_t* input, skb_te
 
 	if (text_props) {
 		while (offset >= 0) {
-			if (text_props[offset-1].is_word_break) {
+			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
 				offset = skb_layout_align_grapheme_offset(paragraph->layout, offset);
 				break;
 			}
@@ -584,7 +584,7 @@ skb_text_position_t skb_input_get_word_end_at(const skb_input_t* input, skb_text
 
 	if (text_props) {
 		while (offset < text_count) {
-			if (text_props[offset].is_word_break) {
+			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
 				offset = skb_layout_align_grapheme_offset(paragraph->layout, offset);
 				break;
 			}
@@ -607,10 +607,8 @@ skb_text_position_t skb_input_get_selection_ordered_start(const skb_input_t* inp
 	skb__input_position_t end = skb__get_sanitized_position(input, selection.end_pos, SKB_SANITIZE_ADJUST_AFFINITY);
 
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[end.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const bool line_is_rtl = lines[end.line_idx].is_rtl;
 
-	if (line_is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return start.text_offset > end.text_offset ? selection.start_pos : selection.end_pos;
 
 	return start.text_offset <= end.text_offset ? selection.start_pos : selection.end_pos;
@@ -622,10 +620,8 @@ skb_text_position_t skb_input_get_selection_ordered_end(const skb_input_t* input
 	skb__input_position_t end = skb__get_sanitized_position(input, selection.end_pos, SKB_SANITIZE_ADJUST_AFFINITY);
 
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[end.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const bool line_is_rtl = lines[end.line_idx].is_rtl;
 
-	if (line_is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return start.text_offset <= end.text_offset ? selection.start_pos : selection.end_pos;
 
 	return start.text_offset > end.text_offset ? selection.start_pos : selection.end_pos;
@@ -664,21 +660,22 @@ static bool skb__is_rtl(const skb_input_t* input, skb__input_position_t edit_pos
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
 	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
 	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
+	const bool layout_is_rtl = skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout));
 
 	if (affinity == SKB_AFFINITY_EOL || affinity == SKB_AFFINITY_SOL)
-		return line->is_rtl;
+		return layout_is_rtl;
 
 	if (edit_pos.paragraph_offset > line->last_grapheme_offset)
-		return line->is_rtl;
+		return layout_is_rtl;
 
 	const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
 
 	if (text_count == 0)
-		return line->is_rtl;
+		return layout_is_rtl;
 
 	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
-	return text_props[edit_pos.paragraph_offset].is_rlt;
+	return skb_is_rtl(text_props[edit_pos.paragraph_offset].direction);
 }
 
 static bool skb__are_on_same_line(skb__input_position_t a, skb__input_position_t b)
@@ -802,9 +799,7 @@ skb_text_position_t skb_input_move_to_next_char(const skb_input_t* input, skb_te
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
-	if (line->is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_backward(input, edit_pos, pos.affinity);
 	return skb__advance_forward(input, edit_pos, pos.affinity);
 }
@@ -813,9 +808,7 @@ skb_text_position_t skb_input_move_to_prev_char(const skb_input_t* input, skb_te
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
-	if (line->is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_forward(input, edit_pos, pos.affinity);
 	return skb__advance_backward(input, edit_pos, pos.affinity);
 }
@@ -829,9 +822,9 @@ static skb_text_position_t skb__advance_word_forward(const skb_input_t* input, s
 	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
 	while (offset < text_count) {
-		if (text_props[offset].is_word_break) {
+		if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
-			if (!text_props[next_offset].is_whitespace) {
+			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
 				offset = next_offset;
 				break;
 			}
@@ -889,9 +882,9 @@ static skb_text_position_t skb__advance_word_backward(const skb_input_t* input, 
 	offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
 
 	while (offset > 0) {
-		if (text_props[offset-1].is_word_break) {
+		if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
-			if (!text_props[next_offset].is_whitespace) {
+			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
 				offset = next_offset;
 				break;
 			}
@@ -909,9 +902,7 @@ skb_text_position_t skb_input_move_to_next_word(const skb_input_t* input, skb_te
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
-	if (line->is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_backward(input, edit_pos);
 	return skb__advance_word_forward(input, edit_pos);
 }
@@ -920,9 +911,7 @@ skb_text_position_t skb_input_move_to_prev_word(const skb_input_t* input, skb_te
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
-	if (line->is_rtl)
+	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_forward(input, edit_pos);
 	return skb__advance_word_backward(input, edit_pos);
 }
@@ -1852,7 +1841,7 @@ int32_t skb_input_get_text_offset_at(const skb_input_t* input, skb_text_position
 	return edit_pos.text_offset;
 }
 
-bool skb_input_is_character_rtl_at(const skb_input_t* input, skb_text_position_t pos)
+skb_text_direction_t skb_input_get_text_direction_at(const skb_input_t* input, skb_text_position_t pos)
 {
 	skb__input_position_t edit_pos = skb__get_sanitized_position(input, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__input_paragraph_t* paragraph = &input->paragraphs[edit_pos.paragraph_idx];
@@ -1860,7 +1849,7 @@ bool skb_input_is_character_rtl_at(const skb_input_t* input, skb_text_position_t
 		.offset = edit_pos.paragraph_offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
-	return skb_layout_is_character_rtl_at(paragraph->layout, layout_pos);
+	return skb_layout_get_text_direction_at(paragraph->layout, layout_pos);
 }
 
 skb_visual_caret_t skb_input_get_visual_caret(const skb_input_t* input, skb_text_position_t pos)
@@ -1888,7 +1877,7 @@ int32_t skb_input_get_selection_count(const skb_input_t* input, skb_text_selecti
 	return range.end.text_offset - range.start.text_offset;
 }
 
-void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_input_get_selection_bounds(const skb_input_t* input, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	const skb__input_range_t range = skb__get_sanitized_range(input, selection);
 

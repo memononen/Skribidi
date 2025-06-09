@@ -63,6 +63,25 @@ static void set_example(int32_t example_idx)
 	assert(g_example);
 }
 
+static float g_pixel_scale_x = 1.f;
+static float g_pixel_scale_y = 1.f;
+
+static void update_pixel_scale(GLFWwindow* window)
+{
+	int32_t win_width, win_height;
+	int32_t fb_width, fb_height;
+	glfwGetWindowSize(g_window, &win_width, &win_height);
+	glfwGetFramebufferSize(g_window, &fb_width, &fb_height);
+
+	g_pixel_scale_x = (float)fb_width / (float)win_width;
+	g_pixel_scale_y = (float)fb_height / (float)win_height;
+}
+
+static void resize_callback(GLFWwindow* window, int width, int height)
+{
+	update_pixel_scale(window);
+}
+
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	(void)scancode;
@@ -85,10 +104,8 @@ static void char_callback(GLFWwindow* window, unsigned int codepoint)
 
 static void mouse_scale_pos_to_screen_coords(GLFWwindow* window, double* xpos, double* ypos)
 {
-	float xscale, yscale;
-	glfwGetWindowContentScale(g_window, &xscale, &yscale);
-	*xpos *= xscale;
-	*ypos *= yscale;
+	*xpos *= g_pixel_scale_x;
+	*ypos *= g_pixel_scale_y;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -146,6 +163,7 @@ int main(int argc, char** args)
 		return -1;
 	}
 
+	glfwSetWindowSizeCallback(g_window, resize_callback);
 	glfwSetKeyCallback(g_window, key_callback);
 	glfwSetCharCallback(g_window, char_callback);
 	glfwSetMouseButtonCallback(g_window, mouse_button_callback);

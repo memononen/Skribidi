@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "skb_common.h"
+#include "skb_common_internal.h"
 #include "skb_layout.h"
 #include "skb_font_collection_internal.h"
 
@@ -50,7 +51,7 @@ typedef struct skb_layout_t {
 
 	skb_rect2_t bounds;
 
-	uint8_t resolved_is_rlt : 1;
+	uint8_t resolved_direction;
 } skb_layout_t;
 
 
@@ -61,7 +62,7 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
 	hash = skb_hash64_append_float(hash, params->line_break_width);
 	hash = skb_hash64_append_float(hash, params->origin.x);
 	hash = skb_hash64_append_float(hash, params->origin.y);
-	hash = skb_hash64_append_uint8(hash, params->ignore_must_line_breaks);
+	hash = skb_hash64_append_uint8(hash, params->flags);
 	hash = skb_hash64_append_uint8(hash, params->base_direction);
 
 	return hash;
@@ -112,8 +113,8 @@ typedef struct skb__shaping_run_t {
 	int32_t length;
 	int32_t shaping_span_idx;
 	uint8_t script;
-	uint8_t is_rtl : 1;
-	uint8_t is_emoji : 1;
+	uint8_t direction;
+	bool is_emoji;
 } skb__shaping_run_t;
 
 // Span that affects the shaping
@@ -180,7 +181,7 @@ static void skb__shape_run(
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
 
-	hb_buffer_set_direction(buffer, run->is_rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+	hb_buffer_set_direction(buffer, skb_is_rtl(run->direction) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
 	hb_buffer_set_script(buffer, skb__sb_script_to_hb(run->script));
 	hb_buffer_set_language(buffer, shaping_span->lang ? shaping_span->lang : build_context->lang);
 
@@ -224,8 +225,8 @@ static void skb__shape_run(
 	// Iterate clusters
 	for (int32_t i = 0; i < glyph_count; ) {
 
-		const bool is_whitespace = layout->text_props[glyph_info[i].cluster].is_whitespace;
-		const bool is_control = layout->text_props[glyph_info[i].cluster].is_control;
+		const bool is_whitespace = (layout->text_props[glyph_info[i].cluster].flags & SKB_TEXT_PROP_WHITESPACE);
+		const bool is_control = (layout->text_props[glyph_info[i].cluster].flags & SKB_TEXT_PROP_CONTROL);
 
 		// Encountered invalid glyph. If the grapheme is not a control character, reshape with a fallback font.
 		if (glyph_info[i].codepoint == 0 && !is_whitespace && !is_control) {
@@ -237,7 +238,7 @@ static void skb__shape_run(
 
 			// Figure out the section of codepoints that belongs to this grapheme cluster.
 			int32_t missing_text_start, missing_text_end;
-			if (run->is_rtl) {
+			if (skb_is_rtl(run->direction)) {
 				missing_text_start = (int32_t)glyph_info[glyph_end].cluster;
 				missing_text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -252,7 +253,7 @@ static void skb__shape_run(
 				skb__shaping_run_t fallback_run = {
 					.offset = missing_text_start,
 					.length = missing_text_end - missing_text_start,
-					.is_rtl = run->is_rtl,
+					.direction = run->direction,
 					.is_emoji = run->is_emoji,
 					.script = run->script,
 				};
@@ -285,7 +286,7 @@ static void skb__shape_run(
 				glyph_end++;
 
 			// Figure out the section of text that belongs to this grapheme cluster.
-			if (run->is_rtl) {
+			if (skb_is_rtl(run->direction)) {
 				text_start = (int32_t)glyph_info[glyph_end].cluster;
 				text_end = (glyph_start > 0) ? (int32_t)glyph_info[glyph_start-1].cluster : (run->offset + run->length);
 			} else {
@@ -314,7 +315,6 @@ static void skb__shape_run(
 			}
 
 			glyph->font_idx = font->idx;
-			glyph->is_rtl = run->is_rtl;
 			glyph->text_range.start = text_start;
 			glyph->text_range.end = text_end;
 			glyph->visual_idx = layout->glyphs_count - 1;
@@ -401,30 +401,33 @@ static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang,
 	set_graphemebreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == GRAPHEMEBREAK_BREAK)
-			text_attribs[i].is_grapheme_break = 1;
+			text_attribs[i].flags |= SKB_TEXT_PROP_GRAPHEME_BREAK;
 	}
 
 	set_wordbreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == WORDBREAK_BREAK)
-			text_attribs[i].is_word_break = 1;
+			text_attribs[i].flags |= SKB_TEXT_PROP_WORD_BREAK;
 	}
 
 	set_linebreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == LINEBREAK_MUSTBREAK)
-			text_attribs[i].is_must_line_break = 1;
+			text_attribs[i].flags |= SKB_TEXT_PROP_MUST_LINE_BREAK;
 		if (breaks[i] == LINEBREAK_ALLOWBREAK)
-			text_attribs[i].is_allow_line_break = 1;
+			text_attribs[i].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
 	}
 
 	hb_unicode_funcs_t* unicode_funcs = hb_unicode_funcs_get_default();
 	for (int i = 0; i < text_count; i++) {
 		const hb_unicode_general_category_t category = hb_unicode_general_category(unicode_funcs, text[i]);
-		text_attribs[i].is_control = category == HB_UNICODE_GENERAL_CATEGORY_CONTROL;
-		text_attribs[i].is_whitespace = category == HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR
+		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_CONTROL, category == HB_UNICODE_GENERAL_CATEGORY_CONTROL);
+		const bool is_whitespace = (
+			category == HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR
 			|| category == HB_UNICODE_GENERAL_CATEGORY_PARAGRAPH_SEPARATOR
-			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR;
+			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR
+		);
+		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_WHITESPACE, is_whitespace);
 	}
 
 	SKB_TEMP_FREE(temp_alloc, breaks);
@@ -492,8 +495,11 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-			if (layout->text_props[cp_offset].is_rlt == layout->resolved_is_rlt
-					&& (layout->text_props[cp_offset].is_whitespace || layout->text_props[cp_offset].is_control)) {
+			const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
+			const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
+			if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control)) {
 				run_end_whitespace_width += cluster_width;
 			} else {
 				if (run_end_whitespace_width > 0.f) {
@@ -503,11 +509,11 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 				run_width += cluster_width;
 			}
 
-			if (layout->text_props[cp_offset].is_must_line_break) {
+			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
 				must_break = true;
 				break;
 			}
-			if (layout->text_props[cp_offset].is_allow_line_break)
+			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK)
 				break;
 		}
 
@@ -590,8 +596,6 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			// Find beginning of the last grapheme on the line (needed or caret positioning, etc).
 			line->last_grapheme_offset = skb_layout_align_grapheme_offset(layout, line->text_range.end - 1);
 
-			line->is_rtl = layout->resolved_is_rlt;
-
 			// Sort back to visual order.
 			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
 			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
@@ -611,8 +615,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
 
 					skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
-					bool is_rtl = text_prop.is_rlt;
-					const float baseline = skb_font_get_baseline(font, layout->params.baseline, is_rtl, text_prop.script, span->attribs.font_size);
+					const float baseline = skb_font_get_baseline(font, layout->params.baseline, text_prop.direction, text_prop.script, span->attribs.font_size);
 
 					baseline_align_offset = -baseline;
 
@@ -650,18 +653,19 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 	if (line_break_width < FLT_MAX)
 		max_line_width = skb_maxf(max_line_width, line_break_width);
 
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 	float top_y = 0.f;
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
 		// Update line bounds
 		float start_x = 0.f;
-		if (line->is_rtl) {
+		if (layout_is_rtl) {
 			// Prune space used by whitespace or control characters.
 			float whitespace_width = 0.f;
 			for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
 				skb_glyph_t* glyph = &layout->glyphs[gi];
-				if (layout->text_props[glyph->text_range.start].is_whitespace || layout->text_props[glyph->text_range.start].is_control)
+				if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
 					whitespace_width += glyph->advance_x;
 				else
 					break;
@@ -682,7 +686,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			float whitespace_width = 0.f;
 			for (int32_t gi = line->glyph_range.end-1; gi >= line->glyph_range.start; gi--) {
 				skb_glyph_t* glyph = &layout->glyphs[gi];
-				if (layout->text_props[glyph->text_range.start].is_whitespace || layout->text_props[glyph->text_range.start].is_control)
+				if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
 					whitespace_width += glyph->advance_x;
 				else
 					break;
@@ -941,9 +945,9 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		return;
 
 	SBLevel base_level = SBLevelDefaultLTR;
-	if (layout->params.base_direction == SKB_DIR_RTL)
+	if (layout->params.base_direction == SKB_DIRECTION_RTL)
 		base_level = 1;
-	else if (layout->params.base_direction == SKB_DIR_LTR)
+	else if (layout->params.base_direction == SKB_DIRECTION_LTR)
 		base_level = 0;
 
 	// Create array of style spans that affect the text shaping.
@@ -995,7 +999,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 
 		// The overal text direction is taken from the first paragraph.
 		if (paragraph_start == 0)
-			layout->resolved_is_rlt = SBParagraphGetBaseLevel(bidi_paragraph) & 1;
+			layout->resolved_direction = (SBParagraphGetBaseLevel(bidi_paragraph) & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 		// Iterate over all the bidi runs.
 		const SBLineRef bidi_line = SBParagraphCreateLine(bidi_paragraph, paragraph_start, paragraph_length);
@@ -1005,16 +1009,16 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		for (int32_t i = 0; i < bidi_line_runs_count; ++i) {
 			const SBRun* bidi_run = &bidi_line_runs[i];
 			const skb_range_t bidi_range = { .start = (int32_t)bidi_run->offset, .end = (int32_t)(bidi_run->offset + bidi_run->length) };
-			const uint8_t bidi_is_rtl = (bidi_run->level & 1);
+			const uint8_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 			// Split bidi runs at shaping style span boundaries.
-			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, bidi_is_rtl, build_context->shaping_spans, build_context->shaping_spans_count);
+			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), build_context->shaping_spans, build_context->shaping_spans_count);
 
 			skb_range_t style_range = {0};
 			int32_t style_span_idx = 0;
 			while (skb__text_style_run_iter_next(&style_iter, &style_range, &style_span_idx)) {
 				const skb__shaping_attribute_span_t* shaping_span = &build_context->shaping_spans[style_span_idx];
-				const bool style_is_rtl = shaping_span->direction != SKB_DIR_AUTO ? (shaping_span->direction == SKB_DIR_RTL) : bidi_is_rtl;
+				const uint8_t style_direction = shaping_span->direction != SKB_DIRECTION_AUTO ? shaping_span->direction : bidi_direction;
 
 				// Process the rest of the itemization forward, and reverse the sequence of runs once completed.
 				int32_t first_run = build_context->shaping_runs_count;
@@ -1036,14 +1040,14 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 						shaping_run->script = script;
 						shaping_run->offset = emoji_range.start;
 						shaping_run->length = emoji_range.end - emoji_range.start;
-						shaping_run->is_rtl = style_is_rtl;
+						shaping_run->direction = style_direction;
 						shaping_run->is_emoji = has_emoji;
 						shaping_run->shaping_span_idx = style_span_idx;
 					}
 				}
 
 				// Reverse shaping runs if RTL. The runs are processed forward for simplicity.
-				if (style_is_rtl) {
+				if (skb_is_rtl(style_direction)) {
 					int32_t last_run = build_context->shaping_runs_count - 1;
 					while (first_run < last_run) {
 						skb__shaping_run_t tmp = build_context->shaping_runs[first_run];
@@ -1083,9 +1087,9 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 			skb__shaping_run_t* cur_run = &build_context->shaping_runs[ri];
 
 			// Find runs that have more than one white space, or one white space at the end of line.
-			if (!layout->text_props[cur_run->offset].is_whitespace)
+			if (!(layout->text_props[cur_run->offset].flags & SKB_TEXT_PROP_WHITESPACE))
 				continue;
-			if (!((cur_run->offset + 1 >= layout->text_count) || layout->text_props[cur_run->offset+1].is_whitespace))
+			if (!((cur_run->offset + 1 >= layout->text_count) || (layout->text_props[cur_run->offset+1].flags & SKB_TEXT_PROP_WHITESPACE)))
 				continue;
 
 			// Find previous adjacent run.
@@ -1121,16 +1125,16 @@ static void skb__override_line_breaks(skb_layout_t* layout, int32_t start_offset
 {
 	// Override line breaks.
 	for (int32_t j = start_offset; j < end_offset; j++)
-		layout->text_props[j].is_allow_line_break = 0;
+		layout->text_props[j].flags &= ~SKB_TEXT_PROP_ALLOW_LINE_BREAK;
 
 	int32_t range_start = 0, range_end = 0;
 	while (boundary_iterator_next(&iter, &range_start, &range_end)) {
 		// Include white space after the word to be consistent with unibreak.
 		// The iterator is fed a substring starting at start_offset, we will need to adjust the iterator to start with start_offset.
 		int32_t offset = start_offset + range_end-1;
-		while ((offset+1) < layout->text_count && layout->text_props[offset].is_whitespace)
+		while ((offset+1) < layout->text_count && (layout->text_props[offset].flags & SKB_TEXT_PROP_WHITESPACE))
 			offset++;
-		layout->text_props[offset].is_allow_line_break = 1;
+		layout->text_props[offset].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
 	}
 }
 
@@ -1210,8 +1214,8 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		for (int32_t j = 0; j < run->length; j++) {
-			layout->text_props[run->offset + j].is_rlt = run->is_rtl;
-			layout->text_props[run->offset + j].is_emoji = run->is_emoji;
+			SKB_SET_FLAG(layout->text_props[run->offset + j].flags, SKB_TEXT_PROP_EMOJI, run->is_emoji);
+			layout->text_props[run->offset + j].direction = run->direction;
 			layout->text_props[run->offset + j].script = run->script;
 		}
 	}
@@ -1264,19 +1268,19 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 
 			// Apply letter spacing for each grapheme.
 			skb_text_property_t text_props = layout->text_props[glyph->text_range.end-1];
-			if (text_props.is_grapheme_break) {
-				if (text_props.is_whitespace || skb__allow_letter_spacing(text_props.script))
+			if (text_props.flags & SKB_TEXT_PROP_GRAPHEME_BREAK) {
+				if ((text_props.flags & SKB_TEXT_PROP_WHITESPACE) || skb__allow_letter_spacing(text_props.script))
 					glyph->advance_x += span->attribs.letter_spacing;
 			}
 
 			// Apply word spacing for each white space.
-			if (layout->text_props[glyph->text_range.end-1].is_whitespace)
+			if (layout->text_props[glyph->text_range.end-1].flags & SKB_TEXT_PROP_WHITESPACE)
 				glyph->advance_x += span->attribs.word_spacing;
 		}
 	}
 
 	// Break layout to lines.
-	skb__break_lines(layout, temp_alloc, layout->params.origin, layout->params.line_break_width, layout->params.ignore_must_line_breaks);
+	skb__break_lines(layout, temp_alloc, layout->params.origin, layout->params.line_break_width, layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS);
 }
 
 
@@ -1409,7 +1413,7 @@ void skb_layout_reset(skb_layout_t* layout)
 	layout->attribute_spans_count = 0;
 	layout->font_features_count = 0;
 	layout->bounds = skb_rect2_make_undefined();
-	layout->resolved_is_rlt = 0;
+	layout->resolved_direction = SKB_DIRECTION_AUTO;
 }
 
 void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count)
@@ -1570,12 +1574,18 @@ skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout)
 	return layout->bounds;
 }
 
+skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->resolved_direction;
+}
+
 int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t offset)
 {
 	offset = skb_clampi(offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	// Find end of the current grapheme.
-	while (offset < layout->text_count && !layout->text_props[offset].is_grapheme_break)
+	while (offset < layout->text_count && !(layout->text_props[offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 		offset++;
 
 	if (offset >= layout->text_count)
@@ -1596,7 +1606,7 @@ int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t offs
 
 	// Find begining of the current grapheme.
 	if (layout->text_count) {
-		while ((offset - 1) >= 0 && !layout->text_props[offset - 1].is_grapheme_break)
+		while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 			offset--;
 	}
 
@@ -1607,7 +1617,7 @@ int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t offs
 	offset--;
 
 	// Find beginning of the previous grapheme.
-	while ((offset - 1) >= 0 && !layout->text_props[offset - 1].is_grapheme_break)
+	while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 		offset--;
 
 	return offset;
@@ -1622,7 +1632,7 @@ int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t off
 		return offset;
 
 	// Find beginning of the current grapheme.
-	while ((offset - 1) >= 0 && !layout->text_props[offset - 1].is_grapheme_break)
+	while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 		offset--;
 
 	if (offset <= 0)
@@ -1638,7 +1648,7 @@ skb_text_position_t skb__caret_prune_control_eol(const skb_layout_t* layout, con
 		// If the caret is at the leading edge of a control character and the end of line, move it to trailing.
 		// This is used for selection, mouse drag can place the caret at the "forbidden" location, but mouse click should not.
 		if ((caret.affinity == SKB_AFFINITY_LEADING || caret.affinity == SKB_AFFINITY_EOL) && caret.offset == line->last_grapheme_offset) {
-			if (layout->text_props[line->last_grapheme_offset].is_control) {
+			if (layout->text_props[line->last_grapheme_offset].flags & SKB_TEXT_PROP_CONTROL) {
 				caret.affinity = SKB_AFFINITY_TRAILING;
 			}
 		}
@@ -1674,12 +1684,12 @@ int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position
 	return skb_clampi(pos.offset, 0, layout->text_count);
 }
 
-bool skb_layout_is_character_rtl_at(const skb_layout_t* layout, skb_text_position_t pos)
+skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
 	assert(layout);
 	if (pos.offset >= 0 && pos.offset < layout->text_count)
-		return layout->text_props[pos.offset].is_rlt;
-	return layout->resolved_is_rlt;
+		return layout->text_props[pos.offset].direction;
+	return layout->resolved_direction;
 }
 
 skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x)
@@ -1689,7 +1699,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 	skb_text_position_t result = {0};
 
 	if (hit_x < line->bounds.x) {
-		if (line->is_rtl) {
+		if (skb_is_rtl(layout->resolved_direction)) {
 			result = (skb_text_position_t) {
 				.offset = line->last_grapheme_offset,
 				.affinity = SKB_AFFINITY_EOL,
@@ -1701,7 +1711,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 			};
 		}
 	} else if (hit_x >= (line->bounds.x + line->bounds.width)) {
-		if (line->is_rtl) {
+		if (skb_is_rtl(layout->resolved_direction)) {
 			result = (skb_text_position_t) {
 				.offset = line->text_range.start,
 				.affinity = SKB_AFFINITY_SOL,
@@ -1718,8 +1728,8 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 
 		float x = 0.f;
 		float advance = 0.f;
-		skb_caret_result_t left = {0};
-		skb_caret_result_t right = {0};
+		skb_caret_iterator_result_t left = {0};
+		skb_caret_iterator_result_t right = {0};
 
 		while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
 			if (hit_x < x) {
@@ -1808,11 +1818,11 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	pos = skb__sanitize_offset(layout, line, pos);
 
 	skb_visual_caret_t vis_caret = {
-		.is_rtl = line->is_rtl,
 		.x = line->bounds.x,
 		.y = line->bounds.y,
 		.width = 0.f,
 		.height = -line->ascender + line->descender,
+		.direction = layout->resolved_direction,
 	};
 
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
@@ -1821,26 +1831,26 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	skb_text_attribs_span_t* attribute_span = NULL;
 	float x = 0.f;
 	float advance = 0.f;
-	skb_caret_result_t left = {0};
-	skb_caret_result_t right = {0};
+	skb_caret_iterator_result_t left = {0};
+	skb_caret_iterator_result_t right = {0};
 
 	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
 		if (pos.offset == left.text_position.offset && pos.affinity == left.text_position.affinity) {
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
 			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
-			vis_caret.is_rtl = left.is_rtl;
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
+			vis_caret.direction = left.direction;
 			break;
 		}
 		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
 			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
-			vis_caret.is_rtl = right.is_rtl;
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
+			vis_caret.direction = right.direction;
 			break;
 		}
 	}
@@ -1903,7 +1913,7 @@ skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb
 	int32_t offset = pos.offset;
 
 	while (offset >= 0) {
-		if (layout->text_props[offset-1].is_word_break) {
+		if (layout->text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			offset = skb_layout_align_grapheme_offset(layout, offset);
 			break;
 		}
@@ -1930,7 +1940,7 @@ skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_t
 	int32_t offset = pos.offset;
 
 	while (offset < layout->text_count) {
-		if (layout->text_props[offset].is_word_break) {
+		if (layout->text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
 			offset = skb_layout_align_grapheme_offset(layout, offset);
 			break;
 		}
@@ -1948,13 +1958,10 @@ skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_t
 
 skb_text_position_t skb_layout_get_selection_ordered_start(const skb_layout_t* layout, skb_text_selection_t selection)
 {
-	const int32_t line_idx = skb_layout_get_line_index(layout, selection.end_pos);
-	const bool line_is_rtl = layout->lines[line_idx].is_rtl;
-
 	const int32_t start_offset = skb_layout_get_text_offset(layout, selection.start_pos);
 	const int32_t end_offset = skb_layout_get_text_offset(layout, selection.end_pos);
 
-	if (line_is_rtl)
+	if (skb_is_rtl(layout->resolved_direction))
 		return start_offset > end_offset ? selection.start_pos : selection.end_pos;
 
 	return start_offset <= end_offset ? selection.start_pos : selection.end_pos;
@@ -1962,13 +1969,10 @@ skb_text_position_t skb_layout_get_selection_ordered_start(const skb_layout_t* l
 
 skb_text_position_t skb_layout_get_selection_ordered_end(const skb_layout_t* layout, skb_text_selection_t selection)
 {
-	const int32_t line_idx = skb_layout_get_line_index(layout, selection.end_pos);
-	const bool line_is_rtl = layout->lines[line_idx].is_rtl;
-
 	const int32_t start_offset = skb_layout_get_text_offset(layout, selection.start_pos);
 	const int32_t end_offset = skb_layout_get_text_offset(layout, selection.end_pos);
 
-	if (line_is_rtl)
+	if (skb_is_rtl(layout->resolved_direction))
 		return start_offset <= end_offset ? selection.start_pos : selection.end_pos;
 
 	return start_offset > end_offset ? selection.start_pos : selection.end_pos;
@@ -1990,12 +1994,12 @@ int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_sele
 	return range.end - range.start;
 }
 
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	skb_layout_get_selection_bounds_with_offset(layout, 0.f, selection, callback, context);
 }
 
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_callback* callback, void* context)
+void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
@@ -2015,7 +2019,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 
 			for (int32_t glyph_idx = line->glyph_range.start; glyph_idx < line->glyph_range.end; glyph_idx++) {
 				// Figure out glyph run
-				uint8_t is_rtl = layout->glyphs[glyph_idx].is_rtl;
+				const bool is_rtl = skb_is_rtl(layout->text_props[layout->glyphs[glyph_idx].text_range.start].direction);
 				float glyph_run_width = layout->glyphs[glyph_idx].advance_x;
 				int32_t glyph_run_start_offset = layout->glyphs[glyph_idx].text_range.start;
 				int32_t glyph_run_end_offset = layout->glyphs[glyph_idx].text_range.end;
@@ -2041,7 +2045,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 							grapheme_start_idx = grapheme_count;
 						if (cp_offset == selected_run_end_offset)
 							grapheme_end_idx = grapheme_count;
-						if (layout->text_props[cp_offset].is_grapheme_break)
+						if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK)
 							grapheme_count++;
 					}
 					if (selected_run_end_offset == glyph_run_end_offset)
@@ -2127,28 +2131,27 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	assert(layout);
 	assert(line_idx >= 0 && line_idx < layout->lines_count);
 
+	const bool line_is_rtl = skb_is_rtl(layout->resolved_direction);
 	skb_caret_iterator_t iter = {0};
-
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 
 	iter.layout = layout;
-	iter.line_is_rtl = line->is_rtl;
 	iter.line_first_grapheme_offset = line->text_range.start;
 	iter.line_last_grapheme_offset = line->last_grapheme_offset;
-	iter.end_of_line = 0;
+	iter.end_of_line = false;
 
 	iter.x = line->bounds.x;
 	iter.advance = 0.f;
 
 	// Previous caret is at the start of the line.
-	if (iter.line_is_rtl) {
+	if (line_is_rtl) {
 		iter.pending_left.text_position.offset = iter.line_last_grapheme_offset;
 		iter.pending_left.text_position.affinity = SKB_AFFINITY_EOL;
 	} else {
 		iter.pending_left.text_position.offset = iter.line_first_grapheme_offset;
 		iter.pending_left.text_position.affinity = SKB_AFFINITY_SOL;
 	}
-	iter.pending_left.is_rtl = iter.line_is_rtl;
+	iter.pending_left.direction = layout->resolved_direction;
 	iter.pending_left.glyph_idx = line->glyph_range.start;
 
 	iter.glyph_pos = line->glyph_range.start;
@@ -2157,17 +2160,18 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	iter.grapheme_pos = 0;
 	iter.grapheme_end = 0;
 
-	iter.end_of_glyph = 1;
+	iter.end_of_glyph = true;
 
 	return iter;
 }
 
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_result_t* left, skb_caret_result_t* right)
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right)
 {
 	if (iter->end_of_line)
 		return false;
 
 	const skb_layout_t* layout = iter->layout;
+	const bool line_is_rtl = skb_is_rtl(layout->resolved_direction);
 
 	// Carry over from previous update.
 	iter->x += iter->advance;
@@ -2183,7 +2187,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			// Find new glyph run
 			float glyph_run_width = 0.f;
 			const skb_range_t text_range = layout->glyphs[iter->glyph_pos].text_range;
-			iter->glyph_is_rtl = layout->glyphs[iter->glyph_pos].is_rtl;
+			iter->glyph_direction = layout->text_props[text_range.start].direction;
 
 			while (iter->glyph_pos < iter->glyph_end && layout->glyphs[iter->glyph_pos].text_range.start == text_range.start) {
 				glyph_run_width += layout->glyphs[iter->glyph_pos].advance_x;
@@ -2193,13 +2197,13 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			// Find graphemes in the run
 			int32_t grapheme_count = 0;
 			for (int32_t ti = text_range.start; ti < text_range.end; ti++) {
-				if (layout->text_props[ti].is_grapheme_break)
+				if (layout->text_props[ti].flags & SKB_TEXT_PROP_GRAPHEME_BREAK)
 					grapheme_count++;
 			}
 
 			iter->advance = (grapheme_count > 0) ? (glyph_run_width / (float)grapheme_count) : 0.f;
 
-			if (iter->glyph_is_rtl) {
+			if (skb_is_rtl(iter->glyph_direction)) {
 				iter->grapheme_pos = text_range.end;
 				iter->grapheme_end = text_range.start;
 			} else {
@@ -2211,42 +2215,42 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 	}
 
 	if (iter->end_of_line) {
-		if (iter->line_is_rtl) {
+		if (line_is_rtl) {
 			right->text_position.offset = iter->line_first_grapheme_offset;
 			right->text_position.affinity = SKB_AFFINITY_SOL;
 		} else {
 			right->text_position.offset = iter->line_last_grapheme_offset;
 			right->text_position.affinity = SKB_AFFINITY_EOL;
 		}
-		right->is_rtl = iter->line_is_rtl;
+		right->direction = layout->resolved_direction;
 		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	} else {
 		// Advance to next grapheme location
 		int32_t offset = 0;
-		if (iter->glyph_is_rtl) {
+		if (skb_is_rtl(iter->glyph_direction)) {
 			assert(iter->grapheme_pos > iter->grapheme_end);
 			iter->grapheme_pos--;
-			while (iter->grapheme_pos > iter->grapheme_end && !layout->text_props[iter->grapheme_pos - 1].is_grapheme_break)
+			while (iter->grapheme_pos > iter->grapheme_end && !(layout->text_props[iter->grapheme_pos - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 				iter->grapheme_pos--;
 			offset = iter->grapheme_pos;
-			iter->end_of_glyph = iter->grapheme_pos <= iter->grapheme_end;
+			iter->end_of_glyph = (iter->grapheme_pos <= iter->grapheme_end);
 		} else {
 			assert(iter->grapheme_pos < iter->grapheme_end);
 			offset = iter->grapheme_pos;
-			while (iter->grapheme_pos < (iter->grapheme_end - 1) && !layout->text_props[iter->grapheme_pos].is_grapheme_break)
+			while (iter->grapheme_pos < (iter->grapheme_end - 1) && !(layout->text_props[iter->grapheme_pos].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
 				iter->grapheme_pos++;
 			iter->grapheme_pos++;
-			iter->end_of_glyph = iter->grapheme_pos >= iter->grapheme_end;
+			iter->end_of_glyph = (iter->grapheme_pos >= iter->grapheme_end);
 		}
 
 		right->text_position.offset = offset;
-		right->text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
-		right->is_rtl = iter->glyph_is_rtl;
+		right->text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
+		right->direction = iter->glyph_direction;
 		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 
 		iter->pending_left.text_position.offset = offset;
-		iter->pending_left.text_position.affinity = iter->glyph_is_rtl ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
-		iter->pending_left.is_rtl = iter->glyph_is_rtl;
+		iter->pending_left.text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
+		iter->pending_left.direction = iter->glyph_direction;
 		iter->pending_left.glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
 	}
 

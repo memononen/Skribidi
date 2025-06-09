@@ -29,12 +29,20 @@ typedef struct skb_layout_t skb_layout_t;
  * You can register to get notified when a new texture is created. The user should do just enough work in that callback to be able to handle the new image index returned with the quad.
  *
  * In the second phase we have a list of glyphs and icons that need to be rendered. Once rendered, we can iterate over the images to see which portions of the images need to update.
- * 
+ *
  * @{
  */
 
 /** Opaque type for the render cache. Use skb_render_cache_create() to create. */
 typedef struct skb_render_cache_t skb_render_cache_t;
+
+/** Enum describing flags for skb_render_quad_t. */
+enum skb_render_quad_flags_t {
+	/** The quad uses color texture. */
+	SKB_RENDER_QUAD_IS_COLOR = 1 << 0,
+	/** The quad uses SDF. */
+	SKB_RENDER_QUAD_IS_SDF   = 1 << 1,
+};
 
 /** Quad representing a glyph or icon. */
 typedef struct skb_render_quad_t {
@@ -46,10 +54,8 @@ typedef struct skb_render_quad_t {
 	float scale;
 	/** Cache image index of the image to draw. */
 	uint8_t image_idx;
-	/** Set to 1, if the quad uses color texture. */
-	uint8_t is_color : 1;
-	/** Set to 1, if the quad uses SDF. */
-	uint8_t is_sdf : 1;
+	/** Render quad flags (see skb_render_quad_flags_t). */
+	uint8_t flags;
 } skb_render_quad_t;
 
 /**
@@ -58,7 +64,7 @@ typedef struct skb_render_quad_t {
  * @param image_idx index of the new image.
  * @param context context pointer provided for the render cachen when setting up the callback.
  */
-typedef void skb_create_texture_callback_t(skb_render_cache_t* cache, uint8_t image_idx, void* context);
+typedef void skb_create_texture_func_t(skb_render_cache_t* cache, uint8_t image_idx, void* context);
 
 /**
  * Configuration for rendering specific image type.
@@ -77,16 +83,22 @@ typedef struct skb_render_image_config_t {
 	int32_t padding;
 } skb_render_image_config_t;
 
+/** Enum describing flags for skb_render_cache_config_t. */
+enum skb_render_cache_config_flags_t {
+	/** The space in atlas for removed items is cleared. This makes it easier to see which parts of the atlas are unused. */
+	SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED = 1 << 0,
+};
+
 /**
  * Render cache configuration.
  * Tall atlas performs much better than wide, as it can support more size variations.
  */
 typedef struct skb_render_cache_config_t {
-	/** Initial width of a newly create atlas. Default: 1024 */	
+	/** Initial width of a newly create atlas. Default: 1024 */
 	int32_t atlas_init_width;
-	/** Initial height of a newly create atlas: Default 1024 */	
+	/** Initial height of a newly create atlas: Default 1024 */
 	int32_t atlas_init_height;
-	/** Increment of how much atlas is grown when running out of space. Default 512. */	
+	/** Increment of how much atlas is grown when running out of space. Default 512. */
 	int32_t atlas_expand_size;
 	/** Maximum atlas width. Default 1024. */
 	int32_t atlas_max_width;
@@ -98,8 +110,8 @@ typedef struct skb_render_cache_config_t {
 	float atlas_fit_max_factor;
 	/** Defines after which duration inactive items are removed from the cache. Each call to skb_render_cache_compact() bumps the counter. Default: 0.25. */
 	int32_t evict_inactive_duration;
-	/** If set to 1, the space in atlas for removed items are cleared. This makes it easier to see which parts of the atlas are unused. Default: 10. */
-	uint8_t debug_clear_removed : 1;
+	/** Render cache config flags (see skb_render_cache_config_flags_t). */
+	uint8_t flags;
 	/** Image config for SDF glyphs */
 	skb_render_image_config_t glyph_sdf;
 	/** Image config for alpha glyphs */
@@ -131,7 +143,7 @@ skb_render_cache_config_t skb_render_cache_get_default_config(void);
 
 /**
  * Returns the config used to create the render cache.
- * @param cache render cache to use. 
+ * @param cache render cache to use.
  * @return config for the specified render cache.
  */
 skb_render_cache_config_t skb_render_cache_get_config(skb_render_cache_t* cache);
@@ -140,9 +152,9 @@ skb_render_cache_config_t skb_render_cache_get_config(skb_render_cache_t* cache)
  * Sets the texture creation callback of the render cache.
  * @param cache render cache to use.
  * @param create_texture_callback pointer to the callback function.
- * @param context pointer passed to the callback function each time it is called. 
+ * @param context pointer passed to the callback function each time it is called.
  */
-void skb_render_cache_set_create_texture_callback(skb_render_cache_t* cache, skb_create_texture_callback_t* create_texture_callback, void* context);
+void skb_render_cache_set_create_texture_callback(skb_render_cache_t* cache, skb_create_texture_func_t* create_texture_callback, void* context);
 
 /** @return number of images in the render cache. */
 int32_t skb_render_cache_get_image_count(skb_render_cache_t* cache);
@@ -194,20 +206,20 @@ uintptr_t skb_render_cache_get_image_user_data(skb_render_cache_t* cache, int32_
  * Signature of rectangle iterator functions.
  * @param x x location of the rectangle in the image.
  * @param y y location of the rectangle in the image.
- * @param width with of the rectangle. 
+ * @param width with of the rectangle.
  * @param height height of the rectangle.
- * @param context context that was passed to the iterator function. 
+ * @param context context that was passed to the iterator function.
  */
-typedef void skb_debug_rect_iterator_callback_t(int32_t x, int32_t y, int32_t width, int32_t height, void* context);
+typedef void skb_debug_rect_iterator_func_t(int32_t x, int32_t y, int32_t width, int32_t height, void* context);
 
 /**
- * Iterates all the free space in specified image. Used for debugging. 
+ * Iterates all the free space in specified image. Used for debugging.
  * @param cache render cache to use.
  * @param index image to query.
  * @param callback callback that is called for each free space rectangle in the atlas.
  * @param context contest pointer passed to the callback.
  */
-void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_callback_t* callback, void* context);
+void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_func_t* callback, void* context);
 
 /**
  * Iterates over all the used rectangles in a specific image. Used for debugging.
@@ -216,7 +228,7 @@ void skb_render_cache_debug_iterate_free_rects(skb_render_cache_t* cache, int32_
  * @param callback callback that is called for each used rectangle in the atlas.
  * @param context contest pointer passed to the callback.
  */
-void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_callback_t* callback, void* context);
+void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_t index, skb_debug_rect_iterator_func_t* callback, void* context);
 
 /**
  * Returns previous non-empty dirty bounds of the specified image. Can be used to visualize the last update region.
@@ -229,13 +241,13 @@ skb_rect2i_t skb_render_cache_debug_get_prev_dirty_bounds(skb_render_cache_t* ca
 
 /**
  * Get a quad representing the geometry and image portion of the specified glyph.
- * 
+ *
  * The pixel scale is used to control the ratio between glyph geometry size and image size.
  * For example, if font_size 12 is requested, and pixel_scale is 2, then the geometry of the quad is based on 12 units, but the requested image will be twice the size.
  * This is useful for cases where geometry will later go through a separate transformation process, and we want to match the pixel density.
- * 
+ *
  * The function will return an existing glyph or request a new glyph to be rendered if one does not exist.
- * 
+ *
  * @param cache render cache to use
  * @param x position x to render the glyph at.
  * @param y position y to render the glyph at.
@@ -252,13 +264,13 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 /**
  * Get a quad representing the geometry and image portion of the specified icon.
- * 
+ *
  * The pixel scale is used to control the ratio between icon geometry size and image size.
  * For example, if icon of size 20 is requested, and pixel_scale is 2, then the geometry of the quad is based on the 20 units, but the requested image will be twice the size.
  * This is useful for cases where geometry will later go through a separate transformation process, and we want to match the pixel density.
- * 
+ *
  * The function will return an existing icon or request a new icon to be rendered if one does not exist.
- * 
+ *
  * @param cache render cache to use.
  * @param x position x to render the glyph at.
  * @param y position y to render the glyph at.
@@ -287,7 +299,7 @@ bool skb_render_cache_compact(skb_render_cache_t* cache);
  *
  * If the function returns true, you can use skb_render_cache_get_image_count() and skb_render_cache_get_and_reset_image_dirty_bounds() iterate
  * over all the images and see which ones, and what portions need to be uploaded to the GPU.
- * 
+ *
  * @param cache cache to use.
  * @param temp_alloc temp alloc to use during rasterization.
  * @param renderer renderer to use during rasterization.
