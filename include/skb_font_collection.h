@@ -144,16 +144,29 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection);
  */
 skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family);
 
+/** Signature of destroy function */
+typedef void skb_destroy_func_t(void *context);
+
 /**
  * Adds OTF or TTF font to the collection from memory.
  * @param font_collection font collection to use.
- * @param font_data pointer to the font data in memory.
- * @param data_length length of the font data in bytes.
  * @param name used to uniquely identify the font.
  * @param font_family font family identifier.
+ * @param font_data pointer to the font data in memory.
+ * @param font_data_length length of the font data in bytes.
+ * @param context pointer passed to the destroy function, when the font data is no longer used. null can be passed in.
+ * @param destroy_func function to call, when the font data is longer used. null can be passed in if no callback is desired.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_t* skb_font_collection_add_font_from_data(skb_font_collection_t* font_collection, const void* font_data, size_t data_length, const char* name, uint8_t font_family);
+skb_font_t* skb_font_collection_add_font_from_data(
+	skb_font_collection_t* font_collection,
+	const char* name,
+	uint8_t font_family,
+	const void* font_data,
+	size_t font_data_length,
+	void* context,
+	skb_destroy_func_t* destroy_func
+);
 
 /**
  * Returns fonts matching specific font properties.

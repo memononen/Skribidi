@@ -240,7 +240,12 @@ error:
 	return NULL;
 }
 
-static skb_font_t* skb__font_create_from_data(const void* font_data, size_t data_length, const char* name, uint8_t font_family)
+static skb_font_t* skb__font_create_from_data(
+	const char* name,
+	uint8_t font_family,
+	const void* font_data,
+	size_t font_data_length
+)
 {
 	hb_blob_t* blob = NULL;
 	hb_face_t* face = NULL;
@@ -249,7 +254,7 @@ static skb_font_t* skb__font_create_from_data(const void* font_data, size_t data
 	// skb_debug_log("Loading font from data: %s\n", name);
 
 	// Use Harfbuzz to create blob from memory data with read-only mode
-	blob = hb_blob_create((const char*)font_data, (unsigned int)data_length, HB_MEMORY_MODE_READONLY, NULL, NULL);
+	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, NULL, NULL);
 	if (!blob) goto error;
 		
 	face = hb_face_create(blob, 0);
@@ -310,11 +315,19 @@ skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection,
 	return font;
 }
 
-skb_font_t* skb_font_collection_add_font_from_data(skb_font_collection_t* font_collection, const void* font_data, size_t data_length, const char* name, uint8_t font_family)
+skb_font_t* skb_font_collection_add_font_from_data(
+	skb_font_collection_t* font_collection,
+	const char* name,
+	uint8_t font_family,
+	const void* font_data,
+	size_t font_data_length,
+	void* context,
+	skb_destroy_func_t* destroy_func
+)
 {
 	SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
 	
-	skb_font_t* font = skb__font_create_from_data(font_data, data_length, name, font_family);
+	skb_font_t* font = skb__font_create_from_data(name, font_family, font_data, font_data_length);
 	if (font) {
 		assert(font_collection->fonts_count <= 255);
 		font->idx = (uint8_t)font_collection->fonts_count;
