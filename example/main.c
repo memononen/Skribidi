@@ -172,6 +172,7 @@ int main(int argc, char** args)
 
 	glfwMakeContextCurrent(g_window);
 	glfwSwapInterval(1); // Enable vsync
+	update_pixel_scale(g_window);
 
 	int version = gladLoadGL(glfwGetProcAddress);
 	if (version == 0) {
