@@ -14,6 +14,7 @@ int layout_tests(void);
 int layout_cache_tests(void);
 int render_tests(void);
 int render_cache_tests(void);
+int cpp_tests(void);
 
 int main( void )
 {
@@ -32,6 +33,7 @@ int main( void )
 	RUN_TEST(layout_cache_tests);
 	RUN_TEST(render_tests);
 	RUN_TEST(render_cache_tests);
+	RUN_TEST(cpp_tests);
 
 	printf( "======================================\n" );
 	printf( "All tests passed!\n" );

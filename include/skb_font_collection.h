@@ -8,6 +8,10 @@
 #include <stdbool.h>
 #include "skb_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;
 
@@ -226,5 +230,9 @@ hb_font_t* skb_font_get_hb_font(const skb_font_t* font);
 float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_FONT_COLLECTION_H

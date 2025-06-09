@@ -9,6 +9,10 @@
 #include "skb_common.h"
 #include "skb_font_collection.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;
 typedef const struct hb_language_impl_t *hb_language_t;
@@ -635,5 +639,9 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 uint32_t skb_script_to_iso15924_tag(uint8_t script);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_LAYOUT_H

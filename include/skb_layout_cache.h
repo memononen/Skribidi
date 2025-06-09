@@ -7,6 +7,10 @@
 #include <stdint.h>
 #include "skb_layout.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @defgroup layout_cache Layout Cache
  *
@@ -15,7 +19,7 @@
  * The layouts are located based on hash of the inputs provided for the getter functions.
  *
  * Old entries get evicted by periodically calling skb_layout_cache_compact().
- * 
+ *
  * @{
  */
 
@@ -37,11 +41,11 @@ void skb_layout_cache_destroy(skb_layout_cache_t* cache);
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
  * @param cache layout cache to use.
- * @param temp_alloc temp allocator used to during creation of the layout. 
+ * @param temp_alloc temp allocator used to during creation of the layout.
  * @param params layout parameters to use for the layout.
  * @param text text to layout in utf-8 encoding.
  * @param text_count length of the text, or -1 if null terminated.
- * @param attribs text attributes to 
+ * @param attribs text attributes to
  * @return const pointer to the requested layout.
  */
 const skb_layout_t* skb_layout_cache_get_utf8(
@@ -51,7 +55,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
  * @param cache layout cache to use.
- * @param temp_alloc temp allocator used to during creation of the layout. 
+ * @param temp_alloc temp allocator used to during creation of the layout.
  * @param params layout parameters to use for the layout.
  * @param text text to layout in utf-32 encoding.
  * @param text_count length of the text, or -1 if null terminated.
@@ -65,7 +69,7 @@ const skb_layout_t* skb_layout_cache_get_utf32(
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
  * @param cache layout cache to use.
- * @param temp_alloc temp allocator used to during creation of the layout. 
+ * @param temp_alloc temp allocator used to during creation of the layout.
  * @param params layout parameters to use for the layout.
  * @param runs array of utf-8 text runs to layout.
  * @param runs_count number of runs in runs array.
@@ -78,7 +82,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs_utf8(
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
  * @param cache layout cache to use.
- * @param temp_alloc temp allocator used to during creation of the layout. 
+ * @param temp_alloc temp allocator used to during creation of the layout.
  * @param params layout parameters to use for the layout.
  * @param runs array of utf-32 text runs to layout.
  * @param runs_count number of runs in runs array.
@@ -97,5 +101,9 @@ const skb_layout_t* skb_layout_cache_get_from_runs_utf32(
 bool skb_layout_cache_compact(skb_layout_cache_t* cache);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_LAYOUT_CACHE_H

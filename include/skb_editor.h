@@ -7,6 +7,10 @@
 #include <stdint.h>
 #include "skb_layout.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @defgroup editor Text Editor
  * The Text editor provides the logic to handle text editing. It takes mouse movement and key presses as input and
@@ -324,5 +328,9 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
 void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_EDITOR_H

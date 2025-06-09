@@ -18,6 +18,7 @@ FetchContent_MakeAvailable(glfw)
 
 
 add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>")
+add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 
 set(SKRIBIDI_EXAMPLE_FILES
 	example_testbed.c
@@ -63,10 +64,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     if(MSVC)
         # Collect all files in the data directory recursively
         collect_data_files(DATA_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data")
-        
+
         # Create a stamp file to mark the copy operation, placed in the config-specific output directory
         set(DATA_STAMP "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data_copied.stamp")
-        
+
         add_custom_command(
             OUTPUT ${DATA_STAMP}
             COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -76,7 +77,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             DEPENDS ${DATA_FILES}
             COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data"
         )
-        
+
         # Add a custom target to depend on the stamp file
         add_custom_target(data_target ALL DEPENDS ${DATA_STAMP})
     else()
@@ -89,7 +90,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
             COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
         )
-        
+
         add_custom_target(data_target ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
     endif()
 else()
@@ -102,7 +103,7 @@ else()
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data
         COMMENT "Creating symlink to data folder in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
     )
-    
+
     add_custom_target(data_target ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 endif()
 

@@ -9,6 +9,10 @@
 #include "skb_common.h"
 #include "skb_render.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct skb_font_t skb_font_t;
 typedef struct skb_font_collection_t skb_font_collection_t;
 typedef struct skb_icon_t skb_icon_t;
@@ -308,5 +312,9 @@ bool skb_render_cache_compact(skb_render_cache_t* cache);
 bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_temp_alloc_t* temp_alloc, skb_renderer_t* renderer);
 
 /** @} */
+
+#ifdef __cplusplus
+}; // extern "C"
+#endif
 
 #endif // SKB_RENDER_CACHE_H

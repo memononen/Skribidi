@@ -1,25 +1,27 @@
 # unit test app
 
 set(SKRIBIDI_TEST_FILES
-    tester.c
-    test_macros.h
 	test_basic.c
-	test_tempalloc.c
-	test_hashtable.c
 	test_canvas.c
-	test_font_collection.c
-	test_icon_collection.c
+	test_cpp.cpp
 	test_editor.c
+	test_font_collection.c
+	test_hashtable.c
+	test_icon_collection.c
 	test_layout.c
 	test_layout_cache.c
 	test_render.c
 	test_render_cache.c
+	test_tempalloc.c
+    test_macros.h
+    tester.c
 )
 
 add_executable(skribidi_test ${SKRIBIDI_TEST_FILES})
 
 set_target_properties(skribidi_test PROPERTIES
     C_STANDARD 17
+    CXX_STANDARD 17
     C_STANDARD_REQUIRED YES
     C_EXTENSIONS NO
 )

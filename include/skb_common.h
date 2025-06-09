@@ -10,6 +10,10 @@
 #include <stdint.h>
 #include <math.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @defgroup common Common
  * Common functionality used across the different features.
@@ -206,7 +210,12 @@ typedef struct skb_color_t {
 /** @returns new color constructed from RGBA components. */
 static inline skb_color_t skb_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-	return (skb_color_t) { r, g, b, a };
+	skb_color_t res;
+	res.r = r;
+	res.g = g;
+	res.b = b;
+	res.a = a;
+	return res;
 }
 
 /** @return true if the colors are equal. */
@@ -303,7 +312,12 @@ static inline skb_color_t skb_color_premult(skb_color_t col)
 	const int32_t r = skb_mul255(col.r, a);
 	const int32_t g = skb_mul255(col.g, a);
 	const int32_t b = skb_mul255(col.b, a);
-	return (skb_color_t) { (uint8_t)r, (uint8_t)g, (uint8_t)b, (uint8_t)a, };
+	skb_color_t res;
+	res.r = (uint8_t)r;
+	res.g = (uint8_t)g;
+	res.b = (uint8_t)b;
+	res.a = (uint8_t)a;
+	return res;
 }
 
 
@@ -329,47 +343,50 @@ typedef struct skb_vec2_t {
 
 static inline skb_vec2_t skb_vec2_make(float x, float y)
 {
-	return (skb_vec2_t) { x, y };
+	skb_vec2_t res;
+	res.x = x;
+	res.y = y;
+	return res;
 }
 
 static inline skb_vec2_t skb_vec2_add(skb_vec2_t a, skb_vec2_t b)
 {
-	return (skb_vec2_t) {
-		.x = a.x + b.x,
-		.y = a.y + b.y,
-	};
+	skb_vec2_t res;
+	res.x = a.x + b.x;
+	res.y = a.y + b.y;
+	return res;
 }
 
 static inline skb_vec2_t skb_vec2_sub(skb_vec2_t a, skb_vec2_t b)
 {
-	return (skb_vec2_t) {
-		.x = a.x - b.x,
-		.y = a.y - b.y,
-	};
+	skb_vec2_t res;
+	res.x = a.x - b.x;
+	res.y = a.y - b.y;
+	return res;
 }
 
 static inline skb_vec2_t skb_vec2_scale(skb_vec2_t a, float s)
 {
-	return (skb_vec2_t) {
-		.x = a.x * s,
-		.y = a.y * s,
-	};
+	skb_vec2_t res;
+	res.x = a.x * s;
+	res.y = a.y * s;
+	return res;
 }
 
 static inline skb_vec2_t skb_vec2_mad(skb_vec2_t a, skb_vec2_t b, float s)
 {
-	return (skb_vec2_t) {
-		.x = a.x + b.x * s,
-		.y = a.y + b.y * s,
-	};
+	skb_vec2_t res;
+	res.x = a.x + b.x * s;
+	res.y = a.y + b.y * s;
+	return res;
 }
 
 static inline skb_vec2_t skb_vec2_lerp(skb_vec2_t a, skb_vec2_t b, float t)
 {
-	return (skb_vec2_t) {
-		.x = a.x + (b.x - a.x) * t,
-		.y = a.y + (b.y - a.y) * t,
-	};
+	skb_vec2_t res;
+	res.x = a.x + (b.x - a.x) * t;
+	res.y = a.y + (b.y - a.y) * t;
+	return res;
 }
 
 static inline float skb_vec2_dot(skb_vec2_t a, skb_vec2_t b)
@@ -411,59 +428,71 @@ typedef struct skb_mat2_t {
 
 static inline skb_mat2_t skb_mat2_make_identity()
 {
-	return (skb_mat2_t) {
-		.xx = 1.0f, .yx = 0.0f,
-		.xy = 0.0f, .yy = 1.0f,
-		.dx = 0.0f, .dy = 0.0f,
-	};
+	skb_mat2_t res;
+	res.xx = 1.0f;
+	res.yx = 0.0f;
+	res.xy = 0.0f;
+	res.yy = 1.0f;
+	res.dx = 0.0f;
+	res.dy = 0.0f;
+	return res;
 }
 
 static inline skb_mat2_t skb_mat2_make_translation(float tx, float ty)
 {
-	return (skb_mat2_t) {
-		.xx = 1.0f, .yx = 0.0f,
-		.xy = 0.0f, .yy = 1.0f,
-		.dx = tx, .dy = ty,
-	};
+	skb_mat2_t res;
+	res.xx = 1.0f;
+	res.yx = 0.0f;
+	res.xy = 0.0f;
+	res.yy = 1.0f;
+	res.dx = tx;
+	res.dy = ty;
+	return res;
 }
 
 static inline skb_mat2_t skb_mat2_make_scale(float sx, float sy)
 {
-	return (skb_mat2_t) {
-		.xx = sx, .yx = 0.0f,
-		.xy = 0.0f, .yy = sy,
-		.dx = 0.0f, .dy = 0.0f,
-	};
+	skb_mat2_t res;
+	res.xx = sx;
+	res.yx = 0.0f;
+	res.xy = 0.0f;
+	res.yy = sy;
+	res.dx = 0.0f;
+	res.dy = 0.0f;
+	return res;
 }
 
 static inline skb_mat2_t skb_mat2_make_rotation(float a)
 {
 	const float cs = cosf(a), sn = sinf(a);
-	return (skb_mat2_t) {
-		.xx = cs, .yx = sn,
-		.xy = -sn, .yy = cs,
-		.dx = 0.0f, .dy = 0.0f,
-	};
+	skb_mat2_t res;
+	res.xx = cs;
+	res.yx = sn;
+	res.xy = -sn;
+	res.yy = cs;
+	res.dx = 0.0f;
+	res.dy = 0.0f;
+	return res;
 }
 
 static inline skb_mat2_t skb_mat2_multiply(skb_mat2_t t, skb_mat2_t s)
 {
-	return (skb_mat2_t) {
-		.xx = t.xx * s.xx + t.yx * s.xy,
-		.yx = t.xx * s.yx + t.yx * s.yy,
-		.xy = t.xy * s.xx + t.yy * s.xy,
-		.yy = t.xy * s.yx + t.yy * s.yy,
-		.dx = t.dx * s.xx + t.dx * s.xy + s.dx,
-		.dy = t.dy * s.yx + t.dy * s.yy + s.dy,
-	};
+	skb_mat2_t res;
+	res.xx = t.xx * s.xx + t.yx * s.xy;
+	res.yx = t.xx * s.yx + t.yx * s.yy;
+	res.xy = t.xy * s.xx + t.yy * s.xy;
+	res.yy = t.xy * s.yx + t.yy * s.yy;
+	res.dx = t.dx * s.xx + t.dx * s.xy + s.dx;
+	res.dy = t.dy * s.yx + t.dy * s.yy + s.dy;
+	return res;
 }
 
 static inline skb_vec2_t skb_mat2_point(skb_mat2_t t, skb_vec2_t pt)
 {
-	return (skb_vec2_t) {
-		.x = pt.x * t.xx + pt.y * t.xy + t.dx,
-		.y = pt.x * t.yx + pt.y * t.yy + t.dy,
-	};
+	skb_vec2_t res;
+	res.x = pt.x * t.xx + pt.y * t.xy + t.dx;
+	res.y = pt.x * t.yx + pt.y * t.yy + t.dy;
+	return res;
 }
 
 skb_mat2_t skb_mat2_inverse(skb_mat2_t t);
@@ -482,12 +511,12 @@ static inline skb_rect2_t skb_rect2_make_undefined(void)
 {
 	// These values are chosen so that min_x = SKB_FLT_MAX / 2.f and max_x = -SKB_FLT_MAX / 2.f,
 	// which allows to call union on an initially invalid rect.
-	return (skb_rect2_t) {
-		.x = SKB_FLT_MAX / 2.f,
-		.y = SKB_FLT_MAX / 2.f,
-		.width = -SKB_FLT_MAX,
-		.height = -SKB_FLT_MAX,
-	};
+	skb_rect2_t res;
+	res.x = SKB_FLT_MAX / 2.f;
+	res.y = SKB_FLT_MAX / 2.f;
+	res.width = -SKB_FLT_MAX;
+	res.height = -SKB_FLT_MAX;
+	return res;
 }
 
 static inline skb_rect2_t skb_rect2_union_point(skb_rect2_t r, skb_vec2_t pt)
@@ -496,7 +525,12 @@ static inline skb_rect2_t skb_rect2_union_point(skb_rect2_t r, skb_vec2_t pt)
 	const float min_y = skb_minf(r.y, pt.y);
 	const float max_x = skb_maxf(r.x + r.width, pt.x);
 	const float max_y = skb_maxf(r.y + r.height, pt.y);
-	return (skb_rect2_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline skb_rect2_t skb_rect2_union(const skb_rect2_t a, const skb_rect2_t b)
@@ -505,7 +539,12 @@ static inline skb_rect2_t skb_rect2_union(const skb_rect2_t a, const skb_rect2_t
 	const float min_y = skb_minf(a.y, b.y);
 	const float max_x = skb_maxf(a.x + a.width, b.x + b.width);
 	const float max_y = skb_maxf(a.y + a.height, b.y + b.height);
-	return (skb_rect2_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline skb_rect2_t skb_rect2_intersection(const skb_rect2_t a, const skb_rect2_t b)
@@ -514,17 +553,22 @@ static inline skb_rect2_t skb_rect2_intersection(const skb_rect2_t a, const skb_
 	const float min_y = skb_maxf(a.y, b.y);
 	const float max_x = skb_minf(a.x + a.width, b.x + b.width);
 	const float max_y = skb_minf(a.y + a.height, b.y + b.height);
-	return (skb_rect2_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline skb_rect2_t skb_rect2_translate(const skb_rect2_t r, const skb_vec2_t d)
 {
-	return (skb_rect2_t) {
-		.x = r.x + d.x,
-		.y = r.y + d.y,
-		.width = r.width,
-		.height = r.height,
-	};
+	skb_rect2_t res;
+	res.x = r.x + d.x;
+	res.y = r.y + d.y;
+	res.width = r.width;
+	res.height = r.height;
+	return res;
 }
 
 static inline bool skb_rect2_is_empty(const skb_rect2_t r)
@@ -549,12 +593,12 @@ typedef struct skb_rect2i_t {
 /** Makes undefined rectangle. Undefined rectangle is set up so that it is empty, and allows efficiently union with points and other rectangles. */
 static inline skb_rect2i_t skb_rect2i_make_undefined(void)
 {
-	return (skb_rect2i_t) {
-		.x = INT32_MAX/2,
-		.y = INT32_MAX/2,
-		.width = INT32_MIN,
-		.height = INT32_MIN,
-	};
+	skb_rect2i_t res;
+	res.x = INT32_MAX/2;
+	res.y = INT32_MAX/2;
+	res.width = INT32_MIN;
+	res.height = INT32_MIN;
+	return res;
 }
 
 static inline skb_rect2i_t skb_rect2i_union_point(skb_rect2i_t r, int32_t x, int32_t y)
@@ -563,7 +607,12 @@ static inline skb_rect2i_t skb_rect2i_union_point(skb_rect2i_t r, int32_t x, int
 	const int32_t min_y = skb_mini(r.y, y);
 	const int32_t max_x = skb_maxi(r.x + r.width, x);
 	const int32_t max_y = skb_maxi(r.y + r.height, y);
-	return (skb_rect2i_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2i_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline skb_rect2i_t skb_rect2i_union(const skb_rect2i_t a, const skb_rect2i_t b)
@@ -572,7 +621,12 @@ static inline skb_rect2i_t skb_rect2i_union(const skb_rect2i_t a, const skb_rect
 	const int32_t min_y = skb_mini(a.y, b.y);
 	const int32_t max_x = skb_maxi(a.x + a.width, b.x + b.width);
 	const int32_t max_y = skb_maxi(a.y + a.height, b.y + b.height);
-	return (skb_rect2i_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2i_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline skb_rect2i_t skb_rect2i_intersection(const skb_rect2i_t a, const skb_rect2i_t b)
@@ -581,7 +635,12 @@ static inline skb_rect2i_t skb_rect2i_intersection(const skb_rect2i_t a, const s
 	const int32_t min_y = skb_maxi(a.y, b.y);
 	const int32_t max_x = skb_mini(a.x + a.width, b.x + b.width);
 	const int32_t max_y = skb_mini(a.y + a.height, b.y + b.height);
-	return (skb_rect2i_t) { .x = min_x, .y = min_y, .width = max_x - min_x, .height = max_y - min_y, };
+	skb_rect2i_t res;
+	res.x = min_x;
+	res.y = min_y;
+	res.width = max_x - min_x;
+	res.height = max_y - min_y;
+	return res;
 }
 
 static inline bool skb_rect2i_is_empty(const skb_rect2i_t r)
@@ -903,19 +962,19 @@ typedef skb_list_item_t* skb_list_get_item_func_t(int32_t item_idx, void* contex
 /** @returm a list initialized to empty. */
 static inline skb_list_t skb_list_make(void)
 {
-	return (skb_list_t) {
-		.head = SKB_INVALID_INDEX,
-		.tail = SKB_INVALID_INDEX,
-	};
+	skb_list_t res;
+	res.head = SKB_INVALID_INDEX;
+	res.tail = SKB_INVALID_INDEX;
+	return res;
 }
 
 /** @return a list item initialized to empty. */
 static inline skb_list_item_t skb_list_item_make(void)
 {
-	return (skb_list_item_t) {
-		.prev = SKB_INVALID_INDEX,
-		.next = SKB_INVALID_INDEX,
-	};
+	skb_list_item_t res;
+	res.prev = SKB_INVALID_INDEX;
+	res.next = SKB_INVALID_INDEX;
+	return res;
 }
 
 /**
@@ -1159,6 +1218,10 @@ int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end);
 	defined( __HAIKU__ ) || defined( __BEOS__ ) || defined( __emscripten__ ) ||                 \
 	defined( EMSCRIPTEN )
 #define SKB_PLATFORM_POSIX
+#endif
+
+#ifdef __cplusplus
+}; // extern "C"
 #endif
 
 #endif // SKB_COMMON_H

@@ -6,7 +6,7 @@ project(skribidi
 	VERSION 0.1.0
 	DESCRIPTION "Bidi text rendering and input library"
 	HOMEPAGE_URL "https://github.com/memononen/skribidi"
-	LANGUAGES C
+	LANGUAGES C CXX
 )
 
 option(ENABLE_ASAN "Enable Address Sanitizer flags" OFF)
