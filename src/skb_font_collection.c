@@ -109,12 +109,32 @@ static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t*
 	hb_set_destroy(unicodes);
 }
 
+skb_font_handle_t skb__make_font_handle(int32_t index, uint32_t generation)
+{
+	assert(index >= 0 && index <= 0xffff);
+	assert(generation >= 0 && generation <= 0xffff);
+	return index | (generation << 16);
+}
 
-static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
+static skb_font_t* skb__get_font_by_handle(const skb_font_collection_t* font_collection, skb_font_handle_t font)
+{
+	uint32_t index = font & 0xffff;
+	uint32_t generation = (font >> 16) & 0xffff;
+	if ((int32_t)index < font_collection->fonts_count && font_collection->fonts[index].generation == generation)
+		return &font_collection->fonts[index];
+	return NULL;
+}
+
+static inline skb_font_t* skb__get_font_unchecked(const skb_font_collection_t* font_collection, skb_font_handle_t font)
+{
+	uint32_t index = font & 0xffff;
+	return &font_collection->fonts[index];
+}
+
+static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
 {
 	hb_blob_t* blob = NULL;
 	hb_face_t* face = NULL;
-	skb_font_t* font = NULL;
 
 	skb__sb_tag_array_t scripts = {0};
 
@@ -152,7 +172,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	if (!hb_font) goto error;
 
-	font = (skb_font_t*)skb_malloc(sizeof(skb_font_t));
+	// Initialize font.
 	memset(font, 0, sizeof(skb_font_t));
 
 	font->upem = (int)upem;
@@ -176,7 +196,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 	size_t path_len = strlen(path);
 	font->name = skb_malloc(path_len+1);
 	memcpy(font->name, path, path_len+1); // copy null term.
-	font->name_hash = skb_hash64_append_str(skb_hash64_empty(), font->name);
+	font->hash = skb_hash64_append_str(skb_hash64_empty(), font->name);
 
 	// Store supported scripts
 	font->scripts = scripts.tags;
@@ -184,7 +204,7 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 
 	font->font_family = font_family;
 
-	// Leaving this debug log here, as it has been often needed.
+	// Leaving this debug log here, as it has often been needed.
 //	for (uint32_t i = 0; i < font->scripts_count; i++)
 //		skb_debug_log(" - script: %c%c%c%c\n", HB_UNTAG(SBScriptGetOpenTypeTag(font->scripts[i])));
 
@@ -218,13 +238,15 @@ static skb_font_t* skb__font_create(const char* path, uint8_t font_family)
 		font->caret_metrics.slope = 0.f;
 	}
 
-	return font;
+	return true;
 
 error:
 	hb_face_destroy(face);
 	skb_free(scripts.tags);
 
-	return NULL;
+	memset(font, 0, sizeof(skb_font_t));
+
+	return false;
 }
 
 static void skb__font_destroy(skb_font_t* font)
@@ -233,7 +255,6 @@ static void skb__font_destroy(skb_font_t* font)
 	skb_free(font->name);
 	skb_free(font->scripts);
 	hb_font_destroy(font->hb_font);
-	skb_free(font);
 }
 
 skb_font_collection_t* skb_font_collection_create(void)
@@ -251,25 +272,70 @@ skb_font_collection_t* skb_font_collection_create(void)
 void skb_font_collection_destroy(skb_font_collection_t* font_collection)
 {
 	if (!font_collection) return;
-	for (int32_t i = 0; i < font_collection->fonts_count; i++) {
-		if (font_collection->fonts[i])
-			skb__font_destroy(font_collection->fonts[i]);
-	}
+	for (int32_t i = 0; i < font_collection->fonts_count; i++)
+		skb__font_destroy(&font_collection->fonts[i]);
+	skb_free(font_collection->fonts);
 	skb_free(font_collection);
 }
 
-skb_font_t* skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
+void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context)
 {
-	SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
-
-	skb_font_t* font = skb__font_create(file_name, font_family);
-	if (font) {
-		assert(font_collection->fonts_count <= 255);
-		font->idx = (uint8_t)font_collection->fonts_count;
-		font_collection->fonts[font_collection->fonts_count++] = font;
-	}
-	return font;
+	assert(font_collection);
+	font_collection->fallback_func = fallback_func;
+	font_collection->fallback_context = context;
 }
+
+skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
+{
+	// Try to find free slot.
+	int32_t font_idx = SKB_INVALID_INDEX;
+	uint32_t generation = 1;
+	if (font_collection->empty_fonts_count > 0 ) {
+		// Using linear search as we dont expect to have that many fonts loaded.
+		for (int32_t i = 0; i < font_collection->fonts_count; i++) {
+			if (font_collection->fonts[i].hash == 0) {
+				font_idx = i;
+				font_collection->empty_fonts_count--;
+				generation = font_collection->fonts[i].generation;
+				break;
+			}
+		}
+	} else {
+		SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
+		font_idx = font_collection->fonts_count++;
+	}
+	assert(font_idx != SKB_INVALID_INDEX);
+
+	skb_font_t* font = &font_collection->fonts[font_idx];
+	if (!skb__font_create(font, file_name, font_family)) {
+		// skb__font_create() has emptied the font struct, indicate that we have one empty to use.
+		font_collection->empty_fonts_count++;
+		font->generation = generation;
+		return false;
+	}
+
+	font->generation = generation;
+	font->handle = skb__make_font_handle(font_idx, generation);
+
+	return font->handle;
+}
+
+bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle)
+{
+	skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font)
+		return false;
+
+	uint32_t generation = font->generation + 1;
+
+	skb__font_destroy(font);
+	memset(font, 0, sizeof(skb_font_t));
+
+	font->generation = generation;
+
+	return true;
+}
+
 
 static float g_stretch_to_value[] = {
 	1.0f, // SKB_FONT_STRETCH_NORMAL
@@ -292,11 +358,11 @@ static bool skb__supports_script(const skb_font_t* font, uint8_t script)
 	return false;
 }
 
-int32_t skb_font_collection_match_fonts(
+int32_t skb__match_fonts(
 	const skb_font_collection_t* font_collection,
-	const uint8_t requested_script, uint8_t requested_font_family,
+	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
 	skb_font_style_t requested_style, skb_font_stretch_t requested_stretch, uint16_t requested_weight,
-	const skb_font_t** results, int32_t results_cap)
+	skb_font_handle_t* results, int32_t results_cap)
 {
 	// Based on https://drafts.csswg.org/css-fonts-3/#font-style-matching
 
@@ -308,17 +374,17 @@ int32_t skb_font_collection_match_fonts(
 
 	// Match script and font family.
 	for (int32_t font_idx = 0; font_idx < font_collection->fonts_count; font_idx++) {
-		const skb_font_t* font = font_collection->fonts[font_idx];
+		const skb_font_t* font = &font_collection->fonts[font_idx];
 		if (font->font_family == requested_font_family
 			&& (requested_font_family == SKB_FONT_FAMILY_EMOJI || skb__supports_script(font, requested_script))) { // Ignore script for emoji fonts, as emojis are the same on each writing system.
 			if (candidates_count < results_cap) {
 				if (candidates_count > 0) {
-					const skb_font_t* prev_font = results[candidates_count - 1];
+					const skb_font_t* prev_font = skb__get_font_unchecked(font_collection, results[candidates_count - 1]);
 					multiple_stretch |= !skb_equalsf(prev_font->stretch, font->stretch, 0.01f);
 					multiple_styles |= prev_font->style != font->style;
 					multiple_weights |= prev_font->weight != font->weight;
 				}
-				results[candidates_count++] = font;
+				results[candidates_count++] = font->handle;
 			}
 		}
 	}
@@ -337,7 +403,7 @@ int32_t skb_font_collection_match_fonts(
 		float nearest_wide = requested_stretch_value;
 
 		for (int32_t i = 0; i < candidates_count; i++) {
-			const skb_font_t* font = results[i];
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (skb_equalsf(requested_stretch_value, font->stretch, 0.01f)) {
 				exact_stretch_match = true;
 				break;
@@ -377,7 +443,8 @@ int32_t skb_font_collection_match_fonts(
 		current_candidates_count = candidates_count;
 		candidates_count = 0;
 		for (int32_t i = 0; i < current_candidates_count; i++) {
-			if (!skb_equalsf(selected_stretch, results[i]->stretch, 0.01f))
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
+			if (!skb_equalsf(selected_stretch, font->stretch, 0.01f))
 				continue;
 			results[candidates_count++] = results[i];
 		}
@@ -392,7 +459,8 @@ int32_t skb_font_collection_match_fonts(
 		int32_t italic_count = 0;
 		int32_t oblique_count = 0;
 		for (int32_t i = 0; i < candidates_count; i++) {
-			uint8_t style = results[i]->style;
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
+			uint8_t style = font->style;
 			if (style == SKB_FONT_STYLE_NORMAL)
 				normal_count++;
 			if (style == SKB_FONT_STYLE_ITALIC)
@@ -429,7 +497,8 @@ int32_t skb_font_collection_match_fonts(
 		current_candidates_count = candidates_count;
 		candidates_count = 0;
 		for (int32_t i = 0; i < current_candidates_count; i++) {
-			if (results[i]->style != selected_style)
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
+			if (font->style != selected_style)
 				continue;
 			results[candidates_count++] = results[i];
 		}
@@ -449,7 +518,7 @@ int32_t skb_font_collection_match_fonts(
 		uint16_t nearest_darker = requested_weight;
 
 		for (int32_t i = 0; i < candidates_count; i++) {
-			const skb_font_t* font = results[i];
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (requested_weight == font->weight) {
 				exact_weight_match = true;
 				break;
@@ -498,7 +567,8 @@ int32_t skb_font_collection_match_fonts(
 		current_candidates_count = candidates_count;
 		candidates_count = 0;
 		for (int32_t i = 0; i < current_candidates_count; i++) {
-			if (results[i]->weight != selected_weight)
+			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
+			if (font->weight != selected_weight)
 				continue;
 			results[candidates_count++] = results[i];
 		}
@@ -507,20 +577,43 @@ int32_t skb_font_collection_match_fonts(
 	return candidates_count;
 }
 
-const skb_font_t* skb_font_collection_get_default_font(const skb_font_collection_t* font_collection, uint8_t font_family)
+int32_t skb_font_collection_match_fonts(
+	skb_font_collection_t* font_collection,
+	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
+	skb_font_style_t requested_style, skb_font_stretch_t requested_stretch, uint16_t requested_weight,
+	skb_font_handle_t* results, int32_t results_cap)
 {
-	const skb_font_t* results[64];
-	int32_t results_count = skb_font_collection_match_fonts(
-		font_collection, SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL,
-		400, results, SKB_COUNTOF( results ) );
-	return results_count > 0 ? results[0] : NULL;
+	int32_t results_count =  skb__match_fonts(
+		font_collection, requested_lang, requested_script, requested_font_family,
+		requested_style, requested_stretch, requested_weight, results, results_cap);
+
+	if (results_count != 0)
+		return results_count;
+
+	// No fonts found, signal callback and try again.
+	if (font_collection->fallback_func) {
+		if (font_collection->fallback_func(font_collection, requested_lang, requested_script, requested_font_family, font_collection->fallback_context)) {
+			results_count =  skb__match_fonts(
+				font_collection, requested_lang, requested_script, requested_font_family,
+				requested_style, requested_stretch, requested_weight, results, results_cap);
+		}
+	}
+
+	return results_count;
 }
 
-skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, uint8_t font_idx)
+skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* font_collection, uint8_t font_family)
 {
-	assert(font_collection);
-	assert((int32_t)font_idx < font_collection->fonts_count);
-	return font_collection->fonts[font_idx];
+	skb_font_handle_t results[32];
+	int32_t results_count = skb_font_collection_match_fonts(
+		font_collection, "", SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL,
+		400, results, SKB_COUNTOF( results ) );
+	return results_count > 0 ? results[0] : (skb_font_handle_t)0;
+}
+
+skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle)
+{
+	return skb__get_font_by_handle(font_collection, font_handle);
 }
 
 uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection)
@@ -529,8 +622,9 @@ uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection
 	return font_collection->id;
 }
 
-skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id, float font_size)
+skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, uint32_t glyph_id, float font_size)
 {
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
 	if (!font || glyph_id == 0) return (skb_rect2_t) { 0 };
 
 	hb_glyph_extents_t extents;
@@ -552,6 +646,28 @@ skb_rect2_t skb_font_get_glyph_bounds(const skb_font_t* font, uint32_t glyph_id,
 }
 
 
+skb_font_metrics_t skb_font_get_metrics(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle)
+{
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font) return (skb_font_metrics_t) {0};
+	return font->metrics;
+}
+
+skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle)
+{
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font) return (skb_caret_metrics_t) {0};
+	return font->caret_metrics;
+}
+
+
+hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle)
+{
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font) return NULL;
+	return font->hb_font;
+}
+
 static float skb__get_baseline_normalized(const skb_font_t* font, hb_ot_layout_baseline_tag_t baseline_tag, skb_text_direction_t direction, hb_script_t script)
 {
 	hb_position_t coord;
@@ -559,26 +675,11 @@ static float skb__get_baseline_normalized(const skb_font_t* font, hb_ot_layout_b
 	return -(float)coord * font->upem_scale;
 }
 
-skb_font_metrics_t skb_font_get_metrics(const skb_font_t* font)
+float skb_font_get_baseline(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction , uint8_t script, float font_size)
 {
-	assert(font);
-	return font->metrics;
-}
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font) return 0.f;
 
-skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_t* font)
-{
-	assert(font);
-	return font->caret_metrics;
-}
-
-hb_font_t* skb_font_get_hb_font(const skb_font_t* font)
-{
-	assert(font);
-	return font->hb_font;
-}
-
-float skb_font_get_baseline(const skb_font_t* font, skb_baseline_t baseline, skb_text_direction_t direction , uint8_t script, float font_size)
-{
 	hb_ot_layout_baseline_tag_t baseline_tag = HB_OT_LAYOUT_BASELINE_TAG_ROMAN;
 
 	uint32_t unicode_tag = SBScriptGetUnicodeTag(script);

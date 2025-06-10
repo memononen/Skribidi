@@ -21,15 +21,16 @@ add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>")
 add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 
 set(SKRIBIDI_EXAMPLE_FILES
-	example_testbed.c
-	example_richtext.c
-	example_icons.c
-	example_cached.c
-	utils.h
-	utils.c
-	main.c
 	debug_draw.c
 	debug_draw.h
+	example_cached.c
+	example_fallback.c
+	example_icons.c
+	example_richtext.c
+	example_testbed.c
+	main.c
+	utils.c
+	utils.h
 )
 
 add_executable(skribidi_example ${SKRIBIDI_EXAMPLE_FILES})

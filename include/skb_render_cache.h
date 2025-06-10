@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "skb_common.h"
+#include "skb_font_collection.h"
+#include "skb_icon_collection.h"
 #include "skb_render.h"
 
 #ifdef __cplusplus
@@ -256,15 +258,16 @@ skb_rect2i_t skb_render_cache_debug_get_prev_dirty_bounds(skb_render_cache_t* ca
  * @param x position x to render the glyph at.
  * @param y position y to render the glyph at.
  * @param pixel_scale the size of a pixel compared to the geometry.
- * @param glyph_id glyph id.
- * @param font font.
+ * @param font_collection font collection to use.
+ * @param font_handle handle to the font in the font collection.
+ * @param glyph_id glyph id to render.
  * @param font_size font size.
  * @param alpha_mode whether to render the glyph as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
 skb_render_quad_t skb_render_cache_get_glyph_quad(
 	skb_render_cache_t* cache, float x, float y, float pixel_scale,
-	uint32_t glyph_id, const skb_font_t* font, float font_size, skb_render_alpha_mode_t alpha_mode);
+	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size, skb_render_alpha_mode_t alpha_mode);
 
 /**
  * Get a quad representing the geometry and image portion of the specified icon.

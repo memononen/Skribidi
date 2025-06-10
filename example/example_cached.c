@@ -231,13 +231,15 @@ void render_text(cached_context_t* ctx, float x, float y, float font_size, int32
 	for (int32_t gi = 0; gi < glyphs_count; gi++) {
 		const skb_glyph_t* glyph = &glyphs[gi];
 		const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
-		const skb_font_t* font = skb_font_collection_get_font(layout_params->font_collection, glyph->font_idx);
 
 		const float gx = x + glyph->offset_x;
 		const float gy = y + glyph->offset_y;
 
 		// Glyph image
-		skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,gx, gy, ctx->view.scale, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+		skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
+			ctx->render_cache,gx, gy, ctx->view.scale,
+			layout_params->font_collection, glyph->font_handle, glyph->gid,
+			span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 
 		draw_image_quad_sdf(
 			view_transform_rect(&ctx->view, quad.geom_bounds),

@@ -477,7 +477,6 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
 					const skb_glyph_t* glyph = &glyphs[gi];
 					const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
-					const skb_font_t* font = skb_font_collection_get_font(layout_params->font_collection, glyph->font_idx);
 
 					float gx = ox + glyph->offset_x;
 					float gy = oy + edit_layout_y + glyph->offset_y;
@@ -487,7 +486,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						draw_tick(gx, gy, 5.f, ink_color_trans);
 
 						// Glyph bounds
-						skb_rect2_t bounds = skb_font_get_glyph_bounds(font, glyph->gid, span->attribs.font_size);
+						skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size);
 						draw_rect(gx + bounds.x, gy + bounds.y, bounds.width, bounds.height, ink_color_trans);
 
 						// Visual index
@@ -500,7 +499,10 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					// Glyph image
 					skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
-						skb_roundf(gx), skb_roundf(gy), 1.f, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+						skb_roundf(gx), skb_roundf(gy), 1.f,
+						layout_params->font_collection, glyph->font_handle, glyph->gid,
+						span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+
 					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 
@@ -647,7 +649,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		bool prev_is_emoji = false;
 		uint8_t prev_script = 0;
-		const skb_font_t* font = NULL;
+		skb_font_handle_t font_handle = 0;
 
 		int32_t caret_insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
 
@@ -719,9 +721,10 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					const uint8_t script = text_props[cp_idx].script;
 					const bool is_emoji = (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI);
-					if (!font || script != prev_script || is_emoji != prev_is_emoji) {
-						if (skb_font_collection_match_fonts(ctx->font_collection, script, is_emoji, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font, 1) == 0)
-							font = NULL;
+					const uint8_t font_family = is_emoji ? SKB_FONT_FAMILY_EMOJI : text_attribs->font_family;
+					if (!font_handle || script != prev_script || is_emoji != prev_is_emoji) {
+						if (skb_font_collection_match_fonts(ctx->font_collection, "", script, font_family, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font_handle, 1) == 0)
+							font_handle = 0;
 						prev_script = script;
 						prev_is_emoji = is_emoji;
 					}
@@ -732,12 +735,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					// Codepoint
 					draw_text(ox+4+0.5f, oy+14+0.5f,12,0, ink_color, "0x%X", cp);
 
-					if (font) {
+					if (font_handle) {
 						uint32_t gid = 0;
-						hb_font_get_nominal_glyph(skb_font_get_hb_font(font), cp, &gid);
+						hb_font_get_nominal_glyph(skb_font_get_hb_font(ctx->font_collection, font_handle), cp, &gid);
 
 						// Draw glyph centered on the rect.
-						skb_rect2_t bounds = skb_font_get_glyph_bounds(font, gid, text_attribs->font_size * font_scale);
+						skb_rect2_t bounds = skb_font_get_glyph_bounds(ctx->font_collection, font_handle, gid, text_attribs->font_size * font_scale);
 
 						float base_line = oy + sz * 0.75f;
 						draw_line(ox+4+0.5f, base_line+0.5f, ox + sz - 4+0.5f, base_line+0.5f, log_color);
@@ -746,7 +749,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						float gy = base_line+0.5f;
 
 						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
-							skb_roundf(gx), skb_roundf(gy), 1.f, gid, font, text_attribs->font_size * font_scale, SKB_RENDER_ALPHA_MASK);
+							skb_roundf(gx), skb_roundf(gy), 1.f,
+							ctx->font_collection,  font_handle, gid, text_attribs->font_size * font_scale, SKB_RENDER_ALPHA_MASK);
 
 						draw_image_quad(quad.geom_bounds, quad.image_bounds, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
 							(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
