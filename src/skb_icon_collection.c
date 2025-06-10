@@ -1532,7 +1532,7 @@ void skb_icon_builder_fill_linear_gradient(skb_icon_builder_t* icon_builder, skb
 	}
 }
 
-void skb_icon_builder_fill_radial_gradient(skb_icon_builder_t* icon_builder, skb_vec2_t p0, skb_vec2_t p1, float radius, skb_mat2_t xform, uint8_t spread, skb_color_stop_t* stops, int32_t stops_count)
+void skb_icon_builder_fill_radial_gradient(skb_icon_builder_t* icon_builder, skb_vec2_t p0, skb_vec2_t p1, float radius, skb_mat2_t xform, skb_gradient_spread_t spread, skb_color_stop_t* stops, int32_t stops_count)
 {
 	assert(stops);
 	assert(icon_builder);
