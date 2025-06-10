@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include "skb_canvas.h"
+#include "skb_icon_collection.h"
 
 typedef enum {
 	SKB_SVG_MOVE_TO,
@@ -53,20 +54,23 @@ typedef struct skb_icon_shape_t {
 
 typedef struct skb_icon_t {
 	skb_icon_gradient_t* gradients;	// Array of gradients in the icon.
-	int32_t gradients_count;		// Number of gradients in the icon. 
+	int32_t gradients_count;		// Number of gradients in the icon.
 	int32_t gradients_cap;			// Capacity of the gradients array.
 	skb_icon_shape_t root;			// Root shape
-	skb_rect2_t view;				// View rectangle, which defines size and origin offset of the icon. 
+	skb_rect2_t view;				// View rectangle, which defines size and origin offset of the icon.
 	uint64_t hash;					// Hash used to identify the icon.
 	char* name;
+	skb_icon_handle_t handle;
+	uint32_t generation;
 } skb_icon_t;
 
 typedef struct skb_icon_collection_t {
 	uint32_t id;					// Unique id of the icon collection.
 	skb_hash_table_t* icons_lookup;	// Lookup used to find an icon by name,
-	skb_icon_t** icons;				// Array of icons in the collection.
+	skb_icon_t* icons;				// Array of icons in the collection.
 	int32_t icons_count;			// Number of icons in the collection.
 	int32_t icons_cap;				// Capacity of the icons array.
+	int32_t empty_icons_count;
 } skb_icon_collection_t;
 
 #endif // SKB_ICON_COLLECTION_INTERNAL_H

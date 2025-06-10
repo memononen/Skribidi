@@ -282,14 +282,15 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
  * @param x position x to render the glyph at.
  * @param y position y to render the glyph at.
  * @param pixel_scale the size of a pixel compared to the geometry.
- * @param icon icon to render.
+ * @param icon_collection icon collection to use.
+ * @param icon_handle handle to icon in the icon collection.
  * @param icon_scale scale of the icon to render.
  * @param alpha_mode whether to render the icon as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
 skb_render_quad_t skb_render_cache_get_icon_quad(
 	skb_render_cache_t* cache, float x, float y, float pixel_scale,
-	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode);
+	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode);
 
 /**
  * Compacts the render cache based on usage.

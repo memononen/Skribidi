@@ -1171,32 +1171,6 @@ static void skb_icon_draw_(skb_canvas_t* canvas, const skb_icon_t* svg)
 	skb_icon_draw_shape_(canvas, svg, &svg->root, 1.f);
 }
 
-skb_vec2_t skb_render_calc_proportional_icon_scale(const skb_icon_t* icon, float width, float height)
-{
-	if (!icon)
-		return (skb_vec2_t) {0};
-
-	if (width <= 0 && height <= 0) {
-		// Auto width and height, use the icon size.
-		return (skb_vec2_t) { 1.f, 1.f };
-	}
-	if (width <= 0) {
-		// Auto width
-		const float scale = icon->view.height > 0.f ? height / icon->view.height : 0.f;
-		return (skb_vec2_t) { scale, scale };
-	}
-	if (height <= 0) {
-		// Auto height
-		const float scale = icon->view.width > 0.f ? width / icon->view.width : 0.f;
-		return (skb_vec2_t) { scale, scale };
-	}
-
-	return (skb_vec2_t) {
-		.x = icon->view.width > 0.f ? width / icon->view.width : 0.f,
-		.y = icon->view.height > 0.f ? height / icon->view.height : 0.f,
-	};
-}
-
 skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
 {
 	assert(icon);
