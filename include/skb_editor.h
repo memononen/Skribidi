@@ -61,6 +61,8 @@ typedef struct skb_editor_params_t {
 	uint8_t base_direction;
 	/** Care movement mode */
 	skb_editor_caret_mode_t caret_mode;
+	/** Maximum number of undo levels, if zero, set to default undo levels, if < 0 undo is disabled. */
+	int32_t max_undo_levels;
 } skb_editor_params_t;
 
 /** Keys handled by the editor */
@@ -329,6 +331,26 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
  */
 void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
 
+/** @return True, if the last change can be undone. */
+bool skb_editor_can_undo(skb_editor_t* editor);
+
+/**
+ * Undo the last change.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used to relayout the text.
+ */
+void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
+/** @return True, if the last undone change can be redone. */
+bool skb_editor_can_redo(skb_editor_t* editor);
+
+/**
+ * Redo the last undone change.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used to relayout the text.
+ */
+void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+	
 /**
  * Sets temporary IME composition text as utf-32. The text will be laid out at the current cursor location.
  * The function can be called multiple times during while the user composes the input.

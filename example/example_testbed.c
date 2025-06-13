@@ -270,7 +270,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 
 	if (action == GLFW_PRESS) {
 		ctx->allow_char = true;
-		if (key == GLFW_KEY_A && mods & GLFW_MOD_CONTROL) {
+		if (key == GLFW_KEY_A && (mods & GLFW_MOD_CONTROL)) {
 			// Select all
 			skb_editor_select_all(ctx->editor);
 			ctx->allow_char = false;
@@ -283,7 +283,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			else
 				glfwSetWindowShouldClose(window, GL_TRUE);
 		}
-		if (key == GLFW_KEY_X && mods & GLFW_MOD_CONTROL) {
+		if (key == GLFW_KEY_X && (mods & GLFW_MOD_CONTROL)) {
 			// Cut
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			int32_t text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, NULL, -1);
@@ -295,7 +295,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			skb_editor_cut(ctx->editor, ctx->temp_alloc);
 			ctx->allow_char = false;
 		}
-		if (key == GLFW_KEY_C && mods & GLFW_MOD_CONTROL) {
+		if (key == GLFW_KEY_C && (mods & GLFW_MOD_CONTROL)) {
 			// Copy
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			int32_t text_len = skb_editor_get_selection_text_utf8_count(ctx->editor, selection);
@@ -306,12 +306,16 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
 			ctx->allow_char = false;
 		}
-		if (key == GLFW_KEY_V && mods & GLFW_MOD_CONTROL) {
+		if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL)) {
 			// Paste
 			const char* clipboard_text = glfwGetClipboardString(window);
 			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
 			ctx->allow_char = false;
 		}
+		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT) == 0)
+			skb_editor_undo(ctx->editor, ctx->temp_alloc);
+		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
+			skb_editor_redo(ctx->editor, ctx->temp_alloc);
 		if (key == GLFW_KEY_LEFT)
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_LEFT, edit_mods);
 		if (key == GLFW_KEY_RIGHT)

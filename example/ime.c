@@ -160,6 +160,9 @@ static void ime__on_composition(UINT umsg, WPARAM wparam, LPARAM lparam)
 		if (g_context.handler)
 			g_context.handler(IME_EVENT_COMPOSITION, g_context.preedit_text, g_context.preedit_text_count, g_context.caret_position, g_context.handler_context);
 	} else {
+		// Call cancel
+		if (g_context.handler)
+			g_context.handler(IME_EVENT_CANCEL, NULL, 0, 0, g_context.handler_context);
 		g_context.is_composing = false;
 	}
 
