@@ -267,7 +267,9 @@ static bool skb__font_create_from_data(
 	const char* name,
 	uint8_t font_family,
 	const void* font_data,
-	size_t font_data_length
+	size_t font_data_length,
+	void* context,
+	skb_destroy_func_t* destroy_func
 )
 {
 	hb_blob_t* blob = NULL;
@@ -276,7 +278,8 @@ static bool skb__font_create_from_data(
 	// skb_debug_log("Loading font from data: %s\n", name);
 
 	// Use Harfbuzz to create blob from memory data with read-only mode
-	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, NULL, NULL);
+	// Pass the context and destroy function to HarfBuzz so it can manage the lifetime
+	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
 	if (!blob) goto error;
 		
 	face = hb_face_create(blob, 0);
@@ -395,7 +398,7 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 	assert(font_idx != SKB_INVALID_INDEX);
 
 	skb_font_t* font = &font_collection->fonts[font_idx];
-	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length)) {
+	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length, context, destroy_func)) {
 		// skb__font_create_from_data() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
 		font->generation = generation;
