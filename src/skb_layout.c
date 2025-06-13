@@ -433,8 +433,6 @@ static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf3
 		assert(layout->text_props);
 	}
 
-	layout->text_count = utf32_len;
-
 	memcpy(layout->text + new_text_offset, utf32, new_text_count * sizeof(uint32_t));
 	memset(layout->text_props + new_text_offset, 0, new_text_count * sizeof(skb_text_property_t));
 
@@ -1467,6 +1465,29 @@ void skb_layout_reset(skb_layout_t* layout)
 	layout->resolved_direction = SKB_DIRECTION_AUTO;
 }
 
+
+static void skb__init_text_props_from_spans(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
+{
+	// Init text props for contiguous runs of same language.
+	// Some properties calculated in skb__init_text_props() depends on the text context, only language affects it.
+	int32_t start_offset = 0;
+	int32_t cur_offset = 0;
+	const char* prev_lang = layout->params.lang;
+	for (int32_t i = 0; i < layout->attribute_spans_count; i++) {
+		const skb_text_attribs_span_t* span = &layout->attribute_spans[i];
+		const char* lang = span->attribs.lang ? span->attribs.lang : layout->params.lang;
+		if (lang != prev_lang) {
+			if (cur_offset > start_offset)
+				skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
+			prev_lang = lang;
+			start_offset = cur_offset;
+		}
+		cur_offset = span->text_range.end;
+	}
+	if (cur_offset > start_offset)
+		skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
+}
+
 void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count)
 {
 	assert(layout);
@@ -1497,10 +1518,10 @@ void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_
 
 		int32_t offset = layout->text_count;
 		int32_t count = skb__append_text_utf8(layout, runs[i].text, text_counts[i]);
-		skb__init_text_props(temp_alloc, lang, layout->text + offset, layout->text_props + offset, count);
-
 		skb__append_attribs(layout, attribs, lang, offset, offset + count);
 	}
+
+	skb__init_text_props_from_spans(layout, temp_alloc);
 
 	SKB_TEMP_FREE(temp_alloc, text_counts);
 
@@ -1537,10 +1558,10 @@ void skb_layout_set_from_runs_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp
 
 		int32_t offset = layout->text_count;
 		int32_t count = skb__append_text_utf32(layout, runs[i].text, text_counts[i]);
-		skb__init_text_props(temp_alloc, lang, layout->text + offset, layout->text_props + offset, count);
-
 		skb__append_attribs(layout, attribs, lang, offset, offset + count);
 	}
+
+	skb__init_text_props_from_spans(layout, temp_alloc);
 
 	SKB_TEMP_FREE(temp_alloc, text_counts);
 

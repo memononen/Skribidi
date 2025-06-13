@@ -55,6 +55,8 @@ typedef struct skb_editor_params_t {
 	skb_layout_params_t layout_params;
 	/** Text attributes for all the text. */
 	skb_text_attribs_t text_attribs;
+	/** Text attributes for the IME composition text. */
+	skb_text_attribs_t composition_text_attribs;
 	/** Base direction of the text editor. */
 	uint8_t base_direction;
 	/** Care movement mode */
@@ -326,6 +328,35 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  */
 void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Sets temporary IME composition text as utf-32. The text will be laid out at the current cursor location.
+ * The function can be called multiple times during while the user composes the input.
+ * Use skb_editor_commit_composition_utf32() to commit or skb_editor_clear_composition() to clear the composition text.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used for updating the editor text.
+ * @param utf32 pointer to utf-32 string to set.
+ * @param utf32_len length of the string, or -1 if nul terminated.
+ * @param caret_position caret position whitin the text. Zero is in front of the first character, and utf32_len is after the last character.
+ */
+void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position);
+
+/**
+ * Commits the specified string and clears composition text.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used for updating the editor text.
+ * @param utf32 pointer to utf-32 string to commit, if NULL previous text set with skb_editor_set_composition_utf32 will be used.
+ * @param utf32_len length of the string, or -1 if nul terminated.
+ */
+void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
+
+/**
+ * Clears composition text.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used for updating the editor text.
+ */
+void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
 
 /** @} */
 

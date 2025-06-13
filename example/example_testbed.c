@@ -20,7 +20,7 @@
 #include "skb_layout.h"
 #include "skb_editor.h"
 #include "skb_render_cache.h"
-
+#include "ime.h"
 
 typedef struct testbed_context_t {
 	example_t base;
@@ -51,6 +51,34 @@ static void on_create_texture(skb_render_cache_t* cache, uint8_t image_idx, void
 		uint32_t tex_id = draw_create_texture(image->width, image->height, image->stride_bytes, NULL, image->bpp);
 		skb_render_cache_set_image_user_data(cache, image_idx, tex_id);
 	}
+}
+
+static void update_ime_rect(testbed_context_t* ctx)
+{
+	skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
+	skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
+
+	skb_rect2i_t input_rect = {
+		.x = (int32_t)(ctx->view.cx + caret_pos.x),
+		.y = (int32_t)(ctx->view.cy + caret_pos.y),
+		.width = (int32_t)caret_pos.width,
+		.height = (int32_t)caret_pos.height,
+	};
+	ime_set_input_rect(input_rect);
+}
+
+static void ime_handler(ime_event_t event, const uint32_t* text, int32_t text_length, int32_t cursor, void* context)
+{
+	testbed_context_t* ctx = context;
+
+	if (event == IME_EVENT_COMPOSITION)
+		skb_editor_set_composition_utf32(ctx->editor, ctx->temp_alloc, text, text_length, cursor);
+	else if (event == IME_EVENT_COMMIT)
+		skb_editor_commit_composition_utf32(ctx->editor, ctx->temp_alloc, text, text_length);
+	else if (event == IME_EVENT_CANCEL)
+		skb_editor_clear_composition(ctx->editor, ctx->temp_alloc);
+
+	update_ime_rect(ctx);
 }
 
 void testbed_destroy(void* ctx_ptr);
@@ -163,6 +191,8 @@ void* testbed_create(void)
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
 
+	skb_color_t ink_color = skb_rgba(64,64,64,255);
+
 	skb_editor_params_t edit_params = {
 		.layout_params = {
 			.lang = "zh-hans",
@@ -173,6 +203,12 @@ void* testbed_create(void)
 		.text_attribs = {
 			.font_size = 92.f,
 			.line_spacing_multiplier = 1.3f,
+			.color = ink_color,
+		},
+		.composition_text_attribs = {
+			.font_size = 92.f,
+			.line_spacing_multiplier = 1.3f,
+			.color = skb_rgba(0,128,192,255),
 		},
 	};
 
@@ -189,6 +225,10 @@ void* testbed_create(void)
 	assert(ctx->renderer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f };
+
+	ime_set_handler(ime_handler, ctx);
+
+	update_ime_rect(ctx);
 
 	return ctx;
 
@@ -210,6 +250,9 @@ void testbed_destroy(void* ctx_ptr)
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(testbed_context_t));
+
+	ime_cancel();
+	ime_set_handler(NULL, NULL);
 
 	skb_free(ctx);
 }
@@ -288,6 +331,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		if (key == GLFW_KEY_ENTER)
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
 
+		update_ime_rect(ctx);
 
 		if (key == GLFW_KEY_F8) {
 			ctx->show_caret_details = !ctx->show_caret_details;
@@ -342,6 +386,7 @@ void testbed_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int bu
 		// caret hit testing
 		if (action == GLFW_PRESS) {
 			if (!ctx->drag_text) {
+				ime_cancel();
 				ctx->drag_text = true;
 				skb_editor_process_mouse_click(ctx->editor, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy, mouse_mods, glfwGetTime());
 			}
@@ -352,8 +397,9 @@ void testbed_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int bu
 				ctx->drag_text = false;
 			}
 		}
-
 	}
+
+	update_ime_rect(ctx);
 }
 
 void testbed_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
@@ -363,10 +409,12 @@ void testbed_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 
 	if (ctx->drag_view) {
 		view_drag_move(&ctx->view, mouse_x, mouse_y);
+		update_ime_rect(ctx);
 	}
 
 	if (ctx->drag_text) {
 		skb_editor_process_mouse_drag(ctx->editor, mouse_x - ctx->view.cx, mouse_y - ctx->view.cy);
+		update_ime_rect(ctx);
 	}
 }
 
@@ -503,7 +551,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						layout_params->font_collection, glyph->font_handle, glyph->gid,
 						span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 
-					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,
+					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : span->attribs.color,
 						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 
 					pen_x += glyph->advance_x;

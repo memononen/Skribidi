@@ -28,6 +28,8 @@ set(SKRIBIDI_EXAMPLE_FILES
 	example_icons.c
 	example_richtext.c
 	example_testbed.c
+	ime.c
+	ime.h
 	main.c
 	utils.c
 	utils.h
@@ -43,6 +45,11 @@ set_target_properties(skribidi_example PROPERTIES
 
 target_include_directories(skribidi_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${GLAD_DIR}/include)
 target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
+
+# IME only works on Windows for now.
+if(MSVC)
+    target_link_libraries(skribidi_example PUBLIC imm32.lib comctl32.lib)
+endif()
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
 
