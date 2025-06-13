@@ -129,17 +129,6 @@ bool skb_render_rasterize_color_glyph(
 	int32_t offset_x, int32_t offset_y, skb_image_t* target);
 
 /**
- * Calculates propertional scale to render icon at specific size.
- * For example, if icon size is 20, and you request 30, the scaling will be 1.5.
- * If width or height is set to -1, then uniform scaling is used.
- * @param icon icon to render.
- * @param width requested with, if -1 the result x scale is same as y scale.
- * @param height requested with, if -1 the result y scale is same as x scale.
- * @return how much to scale the icon to get requested size.
- */
-skb_vec2_t skb_render_calc_proportional_icon_scale(const skb_icon_t* icon, float width, float height);
-
-/**
  * Calculates the dimensions required to render a specific icon at spcified size.
  * The width and height of the returned rectangle defines the image size, and origin defines the offset the icon should be rendered at.
  * @param icon icon to render.

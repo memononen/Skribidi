@@ -28,14 +28,14 @@ void skb_debug_log(const char* format, ...)
 
 static LARGE_INTEGER g_freq = {0};
 
-int64_t skg_perf_timer_get(void)
+int64_t skb_perf_timer_get(void)
 {
 	LARGE_INTEGER t;
 	QueryPerformanceCounter(&t);
 	return t.QuadPart;
 }
 
-int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end)
+int64_t skb_perf_timer_elapsed_us(int64_t start, int64_t end)
 {
 	if (g_freq.QuadPart == 0)
 		QueryPerformanceFrequency(&g_freq);
@@ -54,14 +54,14 @@ void skb_debug_log(const char* format, ...)
 	va_end(args);
 }
 
-int64_t skg_perf_timer_get(void)
+int64_t skb_perf_timer_get(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end)
+int64_t skb_perf_timer_elapsed_us(int64_t start, int64_t end)
 {
 	return (end - start) / 1000;
 }
@@ -78,12 +78,12 @@ void skb_debug_log(const char* format, ...)
 	va_end(args);
 }
 
-int64_t skg_perf_timer_get(void)
+int64_t skb_perf_timer_get(void)
 {
 	return 0;
 }
 
-int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end)
+int64_t skb_perf_timer_elapsed_us(int64_t start, int64_t end)
 {
 	return 0;
 }

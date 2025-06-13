@@ -98,6 +98,56 @@ uint32_t skb_script_to_iso15924_tag(uint8_t script)
 	return SBScriptGetUnicodeTag(script);
 }
 
+
+typedef struct skb__script_tag_t {
+	uint32_t tag;
+	uint8_t script;
+} skb__script_tag_t;
+
+enum {
+	SKB_MAX_SCRIPTS = 0xab+1, // This is highest SBScript value + 1
+};
+
+static int32_t skb__compare_script_tags(const void* a, const void* b)
+{
+	const skb__script_tag_t* sa = a;
+	const skb__script_tag_t* sb = b;
+	return (int32_t)sa->tag - (int32_t)sb->tag;
+}
+
+uint8_t skb_script_from_iso15924_tag(uint32_t script_tag)
+{
+	// Sheenbidi does not provide script reverse lookup, make one.
+	// Create SBScript -> ISO-15924 table, which can be binary searched.
+	static skb__script_tag_t script_tags[SKB_MAX_SCRIPTS] = {0};
+	static bool initialized = false;
+	if (!initialized) {
+		for (int32_t sb_script = 0; sb_script < SKB_MAX_SCRIPTS; sb_script++) {
+			// SBScript -> ISO-15924
+			script_tags[sb_script].tag = SBScriptGetUnicodeTag((uint8_t)sb_script);
+			script_tags[sb_script].script = (uint8_t)sb_script;
+		}
+		// Sort in tag order
+		qsort(script_tags, SKB_MAX_SCRIPTS, sizeof(skb__script_tag_t), skb__compare_script_tags);
+		initialized = true;
+	}
+
+	// Binary search tag.
+	int32_t low = 0;
+	int32_t high = SKB_MAX_SCRIPTS - 1;
+	while (low != high) {
+		const int32_t mid = low + (high - low + 1) / 2; // ceil
+		if (script_tags[mid].tag > script_tag)
+			high = mid - 1;
+		else
+			low = mid;
+	}
+	if (script_tags[low].tag == script_tag)
+		return script_tags[low].script;
+
+	return SBScriptNil;
+}
+
 static bool skb__is_japanese_script(uint8_t script)
 {
 	return script == SBScriptHANI || script == SBScriptHIRA || script == SBScriptKANA;
@@ -171,13 +221,13 @@ static void skb__shape_run(
 	const skb__shaping_run_t* run,
 	const skb__shaping_attribute_span_t* shaping_span,
 	hb_buffer_t* buffer,
-	const skb_font_t** fonts,
+	const skb_font_handle_t* fonts,
 	int32_t fonts_count,
 	int32_t font_idx)
 {
 	assert(fonts_count > 0);
 
-	const skb_font_t* font = fonts[font_idx];
+	const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, fonts[font_idx]);
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
 
@@ -314,7 +364,7 @@ static void skb__shape_run(
 				glyph->advance_x = (float)glyph_pos[j].x_advance * scale;
 			}
 
-			glyph->font_idx = font->idx;
+			glyph->font_handle = font->handle;
 			glyph->text_range.start = text_start;
 			glyph->text_range.end = text_end;
 			glyph->visual_idx = layout->glyphs_count - 1;
@@ -382,8 +432,6 @@ static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf3
 		layout->text_props = skb_realloc(layout->text_props, layout->text_count * sizeof(skb_text_property_t));
 		assert(layout->text_props);
 	}
-
-	layout->text_count = utf32_len;
 
 	memcpy(layout->text + new_text_offset, utf32, new_text_count * sizeof(uint32_t));
 	memset(layout->text_props + new_text_offset, 0, new_text_count * sizeof(skb_text_property_t));
@@ -600,22 +648,22 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
 			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
 
-			int32_t prev_font = -1;
+			skb_font_handle_t prev_font_handle = 0;
 			int32_t prev_span_idx = -1;
 			float baseline_align_offset = 0.f;
 
 			// Update line dimensions
 			for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
 				skb_glyph_t* glyph = &layout->glyphs[gi];
-				if (prev_font != (int32_t)glyph->font_idx || prev_span_idx != glyph->span_idx) {
-					prev_font = glyph->font_idx;
+				if (prev_font_handle != glyph->font_handle || prev_span_idx != glyph->span_idx) {
+					prev_font_handle = glyph->font_handle;
 					prev_span_idx = glyph->span_idx;
 
 					const skb_text_attribs_span_t* span = &layout->attribute_spans[glyph->span_idx];
-					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
+					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
 
 					skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
-					const float baseline = skb_font_get_baseline(font, layout->params.baseline, text_prop.direction, text_prop.script, span->attribs.font_size);
+					const float baseline = skb_font_get_baseline(layout->params.font_collection, glyph->font_handle, layout->params.baseline, text_prop.direction, text_prop.script, span->attribs.font_size);
 
 					baseline_align_offset = -baseline;
 
@@ -639,7 +687,8 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 			// If we end up here, the last glyph should be a new line.
 			const skb_text_attribs_span_t* last_span = &layout->attribute_spans[layout->attribute_spans_count - 1];
-			const skb_font_t* font = skb_font_collection_get_default_font(layout->params.font_collection, last_span->attribs.font_family);
+			const skb_font_handle_t default_font_handle = skb_font_collection_get_default_font(layout->params.font_collection, last_span->attribs.font_family);
+			const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, default_font_handle);
 			if (font) {
 				line->ascender = skb_minf(line->ascender, font->metrics.ascender * last_span->attribs.font_size * last_span->attribs.line_spacing_multiplier);
 				line->descender = skb_maxf(line->descender, font->metrics.descender * last_span->attribs.font_size * last_span->attribs.line_spacing_multiplier);
@@ -1232,9 +1281,9 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		const skb__shaping_attribute_span_t* shaping_span = &build_context.shaping_spans[run->shaping_span_idx];
 		const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : shaping_span->font_family;
 
-		const skb_font_t* fonts[32];
+		skb_font_handle_t fonts[32];
 		int32_t fonts_count = skb_font_collection_match_fonts(
-			layout->params.font_collection, run->script, font_family,
+			layout->params.font_collection, hb_language_to_string(shaping_span->lang), run->script, font_family,
 			shaping_span->style, shaping_span->font_stretch, shaping_span->font_weight,
 			fonts, SKB_COUNTOF(fonts));
 
@@ -1416,6 +1465,29 @@ void skb_layout_reset(skb_layout_t* layout)
 	layout->resolved_direction = SKB_DIRECTION_AUTO;
 }
 
+
+static void skb__init_text_props_from_spans(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
+{
+	// Init text props for contiguous runs of same language.
+	// Some properties calculated in skb__init_text_props() depends on the text context, only language affects it.
+	int32_t start_offset = 0;
+	int32_t cur_offset = 0;
+	const char* prev_lang = layout->params.lang;
+	for (int32_t i = 0; i < layout->attribute_spans_count; i++) {
+		const skb_text_attribs_span_t* span = &layout->attribute_spans[i];
+		const char* lang = span->attribs.lang ? span->attribs.lang : layout->params.lang;
+		if (lang != prev_lang) {
+			if (cur_offset > start_offset)
+				skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
+			prev_lang = lang;
+			start_offset = cur_offset;
+		}
+		cur_offset = span->text_range.end;
+	}
+	if (cur_offset > start_offset)
+		skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
+}
+
 void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count)
 {
 	assert(layout);
@@ -1446,10 +1518,10 @@ void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_
 
 		int32_t offset = layout->text_count;
 		int32_t count = skb__append_text_utf8(layout, runs[i].text, text_counts[i]);
-		skb__init_text_props(temp_alloc, lang, layout->text + offset, layout->text_props + offset, count);
-
 		skb__append_attribs(layout, attribs, lang, offset, offset + count);
 	}
+
+	skb__init_text_props_from_spans(layout, temp_alloc);
 
 	SKB_TEMP_FREE(temp_alloc, text_counts);
 
@@ -1486,10 +1558,10 @@ void skb_layout_set_from_runs_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp
 
 		int32_t offset = layout->text_count;
 		int32_t count = skb__append_text_utf32(layout, runs[i].text, text_counts[i]);
-		skb__init_text_props(temp_alloc, lang, layout->text + offset, layout->text_props + offset, count);
-
 		skb__append_attribs(layout, attribs, lang, offset, offset + count);
 	}
+
+	skb__init_text_props_from_spans(layout, temp_alloc);
 
 	SKB_TEMP_FREE(temp_alloc, text_counts);
 
@@ -1827,7 +1899,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
 
-	skb_font_t* font = NULL;
+	skb_font_handle_t font_handle = 0;
 	skb_text_attribs_span_t* attribute_span = NULL;
 	float x = 0.f;
 	float advance = 0.f;
@@ -1838,7 +1910,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		if (pos.offset == left.text_position.offset && pos.affinity == left.text_position.affinity) {
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
-			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
+			font_handle = glyph->font_handle;
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
 			vis_caret.direction = left.direction;
@@ -1847,7 +1919,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
 			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->span_idx];
-			font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_idx);
+			font_handle = glyph->font_handle;
 			vis_caret.x = caret_iter.x;
 			vis_caret.y = glyph->offset_y;
 			vis_caret.direction = right.direction;
@@ -1855,9 +1927,9 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		}
 	}
 
-	if (font && attribute_span) {
-		skb_font_metrics_t font_metrics = skb_font_get_metrics(font);
-		skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(font);
+	if (font_handle && attribute_span) {
+		skb_font_metrics_t font_metrics = skb_font_get_metrics(layout->params.font_collection, font_handle);
+		skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(layout->params.font_collection, font_handle);
 		const float font_size = attribute_span->attribs.font_size;
 		vis_caret.x -= caret_metrics.slope * font_metrics.descender * font_size;
 		vis_caret.y += font_metrics.ascender * font_size;

@@ -75,12 +75,12 @@ void* icons_create(void)
 	ctx->icon_collection = skb_icon_collection_create();
 	assert(ctx->icon_collection);
 
-	skb_icon_t* icon1 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "icon", "data/grad_pico.svg");
+	skb_icon_handle_t icon1 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "icon", "data/grad_pico.svg");
 	if (!icon1) {
 		skb_debug_log("Failed to load icon1\n");
 		goto error;
 	}
-	skb_icon_t* icon2 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "astro", "data/astronaut_pico.svg");
+	skb_icon_handle_t icon2 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "astro", "data/astronaut_pico.svg");
 	if (!icon2) {
 		skb_debug_log("Failed to load icon2\n");
 		goto error;
@@ -88,31 +88,35 @@ void* icons_create(void)
 
 	// Procedural icon
 	{
-		skb_icon_t* icon3 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
+		skb_icon_handle_t icon3 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
 		if (!icon3) {
 			skb_debug_log("Failed to make icon3\n");
 			goto error;
 		}
 
-		skb_icon_shape_t* shape = skb_icon_add_shape(icon3);
-		skb_icon_shape_move_to(shape, (skb_vec2_t){18,10});
-		skb_icon_shape_line_to(shape, (skb_vec2_t){4,16});
-		skb_icon_shape_quad_to(shape, (skb_vec2_t){8,10}, (skb_vec2_t){4,4});
-		skb_icon_shape_close_path(shape);
+		skb_icon_builder_t builder = skb_icon_builder_make(ctx->icon_collection, icon3);
+
+		skb_icon_builder_begin_shape(&builder);
+
+		skb_icon_builder_move_to(&builder, (skb_vec2_t){18,10});
+		skb_icon_builder_line_to(&builder, (skb_vec2_t){4,16});
+		skb_icon_builder_quad_to(&builder, (skb_vec2_t){8,10}, (skb_vec2_t){4,4});
+		skb_icon_builder_close_path(&builder);
 		skb_color_stop_t stops[] = {
 			{0.1f, skb_rgba(255,198,176,255) },
 			{0.6f, skb_rgba(255,102,0,255) },
 			{1.f, skb_rgba(163,53,53,255) },
 		};
-		int32_t grad_idx = skb_icon_create_linear_gradient(icon3, (skb_vec2_t){8,4}, (skb_vec2_t){12,16}, skb_mat2_make_identity(), SKB_SPREAD_PAD, stops, SKB_COUNTOF(stops));
-		skb_icon_shape_set_gradient(shape, grad_idx);
+		skb_icon_builder_fill_linear_gradient(&builder, (skb_vec2_t){8,4}, (skb_vec2_t){12,16}, skb_mat2_make_identity(), SKB_SPREAD_PAD, stops, SKB_COUNTOF(stops));
+
+		skb_icon_builder_end_shape(&builder);
 	}
 
 	// Make simiar icons with different spread modes.
 	for (int32_t i = 0; i < 3; i++) {
 		char name[32];
 		snprintf(name, 32, "grad_%d", i);
-		skb_icon_t* icon = skb_icon_collection_add_icon(ctx->icon_collection, name, 20,100);
+		skb_icon_handle_t icon = skb_icon_collection_add_icon(ctx->icon_collection, name, 20,100);
 		if (!icon) {
 			skb_debug_log("Failed to make %s\n", name);
 			goto error;
@@ -122,19 +126,23 @@ void* icons_create(void)
 		if (i == 1) spread = SKB_SPREAD_REPEAT;
 		if (i == 2) spread = SKB_SPREAD_REFLECT;
 
-		skb_icon_shape_t* shape = skb_icon_add_shape(icon);
-		skb_icon_shape_move_to(shape, (skb_vec2_t){2,2});
-		skb_icon_shape_line_to(shape, (skb_vec2_t){18,2});
-		skb_icon_shape_line_to(shape, (skb_vec2_t){18,98});
-		skb_icon_shape_line_to(shape, (skb_vec2_t){2,98});
-		skb_icon_shape_close_path(shape);
+		skb_icon_builder_t builder = skb_icon_builder_make(ctx->icon_collection, icon);
+
+		skb_icon_builder_begin_shape(&builder);
+
+		skb_icon_builder_move_to(&builder, (skb_vec2_t){2,2});
+		skb_icon_builder_line_to(&builder, (skb_vec2_t){18,2});
+		skb_icon_builder_line_to(&builder, (skb_vec2_t){18,98});
+		skb_icon_builder_line_to(&builder, (skb_vec2_t){2,98});
+		skb_icon_builder_close_path(&builder);
 		skb_color_stop_t stops[] = {
 			{0.0f, skb_rgba(255,102,0,255) },
 			{0.5f, skb_rgba(238,242,33,255) },
 			{1.f, skb_rgba(49,109,237,255) },
 		};
-		int32_t grad_idx = skb_icon_create_linear_gradient(icon, (skb_vec2_t){2,25}, (skb_vec2_t){2,50}, skb_mat2_make_identity(), spread, stops, SKB_COUNTOF(stops));
-		skb_icon_shape_set_gradient(shape, grad_idx);
+		skb_icon_builder_fill_linear_gradient(&builder, (skb_vec2_t){2,25}, (skb_vec2_t){2,50}, skb_mat2_make_identity(), spread, stops, SKB_COUNTOF(stops));
+
+		skb_icon_builder_end_shape(&builder);
 	}
 
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
@@ -251,12 +259,12 @@ void icons_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float de
 	view_scroll_zoom(&ctx->view, mouse_x, mouse_y, delta_y * zoom_speed);
 }
 
-static float draw_icon(icons_context_t* ctx, skb_icon_t* icon, float ox, float oy, float icon_size, int32_t alpha_mode, bool use_view_scale)
+static float draw_icon(icons_context_t* ctx, skb_icon_handle_t icon_handle, float ox, float oy, float icon_size, int32_t alpha_mode, bool use_view_scale)
 {
-	if (!icon) return 0.f;
+	if (!icon_handle) return 0.f;
 
-	skb_vec2_t icon_scale = skb_render_calc_proportional_icon_scale(icon, -1, (float)icon_size);
-	skb_vec2_t icon_base_size = skb_icon_get_size(icon);
+	skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, icon_handle, -1.f, (float)icon_size);
+	skb_vec2_t icon_base_size = skb_icon_collection_get_icon_size(ctx->icon_collection, icon_handle);
 
 	skb_rect2_t icon_rect = {
 		ox, oy, icon_base_size.x * icon_scale.x, icon_base_size.y * icon_scale.y,
@@ -268,8 +276,9 @@ static float draw_icon(icons_context_t* ctx, skb_icon_t* icon, float ox, float o
 
 	float view_scale = use_view_scale ? ctx->view.scale : 1.f;
 
-	skb_render_quad_t quad = skb_render_cache_get_icon_quad(ctx->render_cache,
-		ox, oy, view_scale, icon, icon_scale, alpha_mode);
+	skb_render_quad_t quad = skb_render_cache_get_icon_quad(
+		ctx->render_cache,ox, oy, view_scale,
+		ctx->icon_collection, icon_handle, icon_scale, alpha_mode);
 
 	float render_scale = use_view_scale ? quad.scale : quad.scale * ctx->view.scale;
 

@@ -23,8 +23,8 @@ skb_text_position_t skb__caret_prune_control_eol(const skb_layout_t* layout, con
 typedef struct skb__editor_text_position_t {
 	int32_t paragraph_idx;
 	int32_t line_idx;
-	int32_t paragraph_offset;
-	int32_t text_offset;
+	int32_t paragraph_offset; // Offset inside the paragraph text.
+	int32_t text_offset; // Offset of the whole text edited.
 } skb__editor_text_position_t;
 
 typedef struct skb__editor_text_range_t {
@@ -43,6 +43,7 @@ typedef struct skb__editor_paragraph_t {
 	int32_t text_count;
 	int32_t text_cap;
 	int32_t text_start_offset;
+	bool has_ime_layout;
 	float y;
 } skb__editor_paragraph_t;
 
@@ -65,8 +66,19 @@ typedef struct skb_editor_t {
 	skb_text_selection_t drag_initial_selection;
 	uint8_t drag_moved;
 	uint8_t drag_mode;
+
+	// IME
+	uint32_t* composition_text;				// Composition text set during IME editing, displayed temporariry at composition_position.
+	int32_t composition_text_cap;			// Space allocated for composition text.
+	int32_t composition_text_count;			// Composition text length.
+	skb__editor_text_position_t composition_position;	// Paragraph and text offset where the composition is displayed.
+	skb_text_position_t composition_selection_base;		// Base position for setting the composition selection.
+	skb_text_selection_t composition_selection;			// Selection during composition.
+	bool composition_cleared_selection;		// True if initial setting the composition text cleared the current selection.
 } skb_editor_t;
 
+// fwd decl
+static skb__editor_text_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_sanitize_affinity_t sanitize_affinity);
 
 static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 {
@@ -82,12 +94,53 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 
 	float y = 0.f;
 
+	skb__editor_text_position_t ime_position = { .paragraph_idx = SKB_INVALID_INDEX };
+	if (editor->composition_text_count > 0)
+		ime_position = editor->composition_position;
+
 	for (int32_t i = 0; i < editor->paragraphs_count; i++) {
 		skb__editor_paragraph_t* paragraph = &editor->paragraphs[i];
 
-		// Layout is removed from the lines where we
-		if (!paragraph->layout)
-			paragraph->layout = skb_layout_create_utf32(temp_alloc, &layout_params, paragraph->text, paragraph->text_count, &editor->params.text_attribs);
+		if (ime_position.paragraph_idx == i) {
+			if (paragraph->layout) {
+				skb_layout_destroy(paragraph->layout);
+				paragraph->layout = NULL;
+			}
+
+			// Compose the paragraph from 3 pieces.
+			skb_text_run_utf32_t runs[] = {
+				{ // Before
+					.attribs = &editor->params.text_attribs,
+					.text = paragraph->text,
+					.text_count = ime_position.paragraph_offset,
+				},
+				{ // Composition
+					.attribs = &editor->params.composition_text_attribs,
+					.text = editor->composition_text,
+					.text_count = editor->composition_text_count,
+				},
+				{ // After
+					.attribs = &editor->params.text_attribs,
+					.text = paragraph->text + ime_position.paragraph_offset,
+					.text_count = paragraph->text_count - ime_position.paragraph_offset,
+				},
+			};
+
+			paragraph->layout = skb_layout_create_from_runs_utf32(temp_alloc, &layout_params, runs, SKB_COUNTOF(runs));
+
+			// Mark as IME layout, so that we can clean things up later.
+			paragraph->has_ime_layout = true;
+
+		} else {
+			// If the paragraph previous had IME layout, relayout.
+			if (paragraph->has_ime_layout) {
+				skb_layout_destroy(paragraph->layout);
+				paragraph->layout = NULL;
+				paragraph->has_ime_layout = false;
+			}
+			if (!paragraph->layout)
+				paragraph->layout = skb_layout_create_utf32(temp_alloc, &layout_params, paragraph->text, paragraph->text_count, &editor->params.text_attribs);
+		}
 		assert(paragraph->layout);
 
 		paragraph->y = y;
@@ -181,6 +234,7 @@ void skb_editor_destroy(skb_editor_t* editor)
 		skb_free(editor->paragraphs[i].text);
 	}
 	skb_free(editor->paragraphs);
+	skb_free(editor->composition_text);
 
 	memset(editor, 0, sizeof(skb_editor_t));
 
@@ -967,14 +1021,16 @@ skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb
 		return skb_editor_get_line_start_at(editor, pos);
 	}
 
-	const int32_t lines_count = skb_layout_get_lines_count(paragraph->layout);
+	int32_t lines_count = skb_layout_get_lines_count(paragraph->layout);
 
 	// Goto prev line
 	if (cur_edit_pos.line_idx - 1 < 0) {
 		// Beginning of current paragraph, goto last line of prev paragraph.
+
 		assert(cur_edit_pos.paragraph_idx - 1 >= 0); // should have been handled by skb__is_at_first_line() above.
 		cur_edit_pos.paragraph_idx--;
 		paragraph = &editor->paragraphs[cur_edit_pos.paragraph_idx];
+		lines_count = skb_layout_get_lines_count(paragraph->layout);
 		cur_edit_pos.line_idx = lines_count - 1;
 	} else {
 		cur_edit_pos.line_idx--;
@@ -1116,6 +1172,11 @@ int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text
 skb_text_selection_t skb_editor_get_current_selection(skb_editor_t* editor)
 {
 	assert(editor);
+
+	if (editor->composition_text_count > 0) {
+		return editor->composition_selection;
+	}
+
 	return editor->selection;
 }
 
@@ -1836,6 +1897,75 @@ void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 	skb__replace_selection(editor, temp_alloc, NULL, 0);
 	skb__update_layout(editor, temp_alloc);
 	skb__emit_on_change(editor);
+}
+
+void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position)
+{
+	assert(editor);
+
+	if (utf32_len == -1)
+		utf32_len = skb_utf32_strlen(utf32);
+
+	const bool had_ime_text = editor->composition_text_count > 0;
+
+	SKB_ARRAY_RESERVE(editor->composition_text, utf32_len);
+	memcpy(editor->composition_text, utf32, utf32_len * sizeof(uint32_t));
+	editor->composition_text_count = utf32_len;
+
+	if (!had_ime_text) {
+		// Capture the text position the first time we set the text.
+		editor->composition_selection_base = skb_editor_get_selection_ordered_start(editor, editor->selection);
+		editor->composition_position = skb__get_sanitized_position(editor, editor->composition_selection_base, SKB_SANITIZE_ADJUST_AFFINITY);
+		// Clear the selection. Since the IME can be cancelled ideally we would clear on commit,
+		// but it gets really complicated when multiple lines area involved.
+		editor->composition_cleared_selection = false;
+		if (skb_editor_get_selection_count(editor, editor->selection) > 0) {
+			skb__replace_selection(editor, temp_alloc, NULL, 0);
+			editor->composition_cleared_selection = true;
+		}
+	}
+
+	// The ime cursor is within the IME string, offset from the selection base.
+	editor->composition_selection.start_pos = editor->composition_selection_base;
+	editor->composition_selection.end_pos = editor->composition_selection_base;
+	editor->composition_selection.start_pos.offset += caret_position;
+	editor->composition_selection.end_pos.offset += caret_position;
+
+	skb__update_layout(editor, temp_alloc);
+}
+
+void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
+{
+	assert(editor);
+
+	if (utf32 == NULL) {
+		utf32 = editor->composition_text;
+		utf32_len = editor->composition_text_count;
+	}
+
+	editor->composition_text_count = 0;
+	editor->composition_selection_base = (skb_text_position_t){0};
+	editor->composition_selection = (skb_text_selection_t){0};
+	editor->composition_position = (skb__editor_text_position_t){0};
+
+	skb_editor_paste_utf32(editor, temp_alloc, utf32, utf32_len);
+}
+
+void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
+{
+	assert(editor);
+
+	if (editor->composition_text_count) {
+		editor->composition_text_count = 0;
+		editor->composition_selection_base = (skb_text_position_t){0};
+		editor->composition_selection = (skb_text_selection_t){0};
+		editor->composition_position = (skb__editor_text_position_t){0};
+
+		skb__update_layout(editor, temp_alloc);
+
+		if (editor->composition_cleared_selection)
+			skb__emit_on_change(editor);
+	}
 }
 
 int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos)

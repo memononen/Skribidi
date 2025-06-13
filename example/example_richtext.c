@@ -308,7 +308,6 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		for (int32_t gi = 0; gi < glyphs_count; gi++) {
 			const skb_glyph_t* glyph = &glyphs[gi];
 			const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
-			const skb_font_t* font = skb_font_collection_get_font(layout_params->font_collection, glyph->font_idx);
 
 			const float gx = glyph->offset_x;
 			const float gy = glyph->offset_y;
@@ -316,7 +315,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			if (ctx->show_glyph_bounds) {
 				draw_tick(view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans);
 
-				skb_rect2_t bounds = skb_font_get_glyph_bounds(font, glyph->gid, span->attribs.font_size);
+				skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size);
 				bounds.x += gx;
 				bounds.y += gy;
 				bounds = view_transform_rect(&ctx->view, bounds);
@@ -324,7 +323,10 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			}
 
 			// Glyph image
-			skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,gx, gy, ctx->view.scale, glyph->gid, font, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+			skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
+				ctx->render_cache,gx, gy, ctx->view.scale,
+				layout_params->font_collection, glyph->font_handle, glyph->gid,
+				span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 
 			draw_image_quad_sdf(
 				view_transform_rect(&ctx->view, quad.geom_bounds),

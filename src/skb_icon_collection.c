@@ -25,13 +25,68 @@ typedef struct skb__picosvg_parser_t {
 	int32_t gradient_names_cap;
 } skb__picosvg_parser_t;
 
-skb_vec2_t skb_icon_get_size(skb_icon_t* icon)
+
+skb_icon_handle_t skb__make_icon_handle(int32_t index, uint32_t generation)
 {
-	assert(icon);
+	assert(index >= 0 && index <= 0xffff);
+	assert(generation >= 0 && generation <= 0xffff);
+	return index | (generation << 16);
+}
+
+skb_icon_t* skb__get_icon_by_handle(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
+{
+	uint32_t index = icon_handle & 0xffff;
+	uint32_t generation = (icon_handle >> 16) & 0xffff;
+	if ((int32_t)index < icon_collection->icons_count && icon_collection->icons[index].generation == generation)
+		return &icon_collection->icons[index];
+	return NULL;
+}
+
+skb_vec2_t skb_icon_collection_calc_proportional_scale(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height)
+{
+	assert(icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_collection, icon_handle);
+
+	if (!icon)
+		return (skb_vec2_t) {0};
+
+	if (width <= 0 && height <= 0) {
+		// Auto width and height, use the icon size.
+		return (skb_vec2_t) { 1.f, 1.f };
+	}
+	if (width <= 0) {
+		// Auto width
+		const float scale = icon->view.height > 0.f ? height / icon->view.height : 0.f;
+		return (skb_vec2_t) { scale, scale };
+	}
+	if (height <= 0) {
+		// Auto height
+		const float scale = icon->view.width > 0.f ? width / icon->view.width : 0.f;
+		return (skb_vec2_t) { scale, scale };
+	}
+
+	return (skb_vec2_t) {
+		.x = icon->view.width > 0.f ? width / icon->view.width : 0.f,
+		.y = icon->view.height > 0.f ? height / icon->view.height : 0.f,
+	};
+}
+
+
+skb_vec2_t skb_icon_collection_get_icon_size(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
+{
+	assert(icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_collection, icon_handle);
+	if (!icon) return (skb_vec2_t){0};
 	return (skb_vec2_t) {
 		.x = icon->view.width,
 		.y = icon->view.height,
 	};
+}
+
+const skb_icon_t* skb_icon_collection_get_icon(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
+{
+	assert(icon_collection);
+	return skb__get_icon_by_handle(icon_collection, icon_handle);
 }
 
 static void skb__icon_shape_destroy(skb_icon_shape_t* shape)
@@ -42,16 +97,13 @@ static void skb__icon_shape_destroy(skb_icon_shape_t* shape)
 	skb_free(shape->children);
 }
 
-static skb_icon_t* skb__icon_create(void)
+static void skb__icon_create(skb_icon_t* icon)
 {
-	skb_icon_t* icon = skb_malloc(sizeof(skb_icon_t));
 	memset(icon, 0, sizeof(skb_icon_t));
 
 	// Init root shape.
 	icon->root.gradient_idx = SKB_INVALID_INDEX;
 	icon->root.opacity = 1.f;
-
-	return icon;
 }
 
 static void skb__icon_destroy(skb_icon_t* icon)
@@ -59,13 +111,97 @@ static void skb__icon_destroy(skb_icon_t* icon)
 	if (!icon) return;
 	skb_free(icon->name);
 	skb__icon_shape_destroy(&icon->root);
-	skb_free(icon);
 }
 
-skb_icon_shape_t* skb_icon_add_shape(skb_icon_t* icon)
+void skb__add_path_command(skb_icon_shape_t* shape, skb_icon_path_command_t cmd)
 {
-	assert(icon);
-	return skb_icon_shape_add_child(&icon->root);
+	SKB_ARRAY_RESERVE(shape->path, shape->path_count+1);
+	shape->path[shape->path_count++] = cmd;
+}
+
+skb_icon_handle_t skb_icon_collection_add_icon(skb_icon_collection_t* icon_collection, const char* name, float width, float height)
+{
+	// If icon of same name already exists, fail.
+	const uint64_t hash = skb_hash64_append_str(skb_hash64_empty(), name);
+	if (skb_hash_table_find(icon_collection->icons_lookup, hash, NULL))
+		return (skb_icon_handle_t)0;
+
+	// Try to find free slot.
+	int32_t icon_idx = SKB_INVALID_INDEX;
+	uint32_t generation = 1;
+	if (icon_collection->empty_icons_count > 0 ) {
+		// Using linear search as we dont expect to have that many fonts loaded.
+		for (int32_t i = 0; i < icon_collection->icons_count; i++) {
+			if (icon_collection->icons[i].hash == 0) {
+				icon_idx = i;
+				icon_collection->empty_icons_count--;
+				generation = icon_collection->icons[i].generation;
+				break;
+			}
+		}
+	} else {
+		SKB_ARRAY_RESERVE(icon_collection->icons, icon_collection->icons_count+1);
+		icon_idx = icon_collection->icons_count++;
+	}
+	assert(icon_idx != SKB_INVALID_INDEX);
+
+	skb_icon_t* icon = &icon_collection->icons[icon_idx];
+	skb__icon_create(icon);
+
+	icon->hash = skb_hash64_append_str(skb_hash64_empty(), name);
+
+	int32_t name_len = strlen(name);
+	icon->name = skb_malloc(name_len+1);
+	memcpy(icon->name, name, name_len+1);
+
+	icon->view = (skb_rect2_t) {
+			.x = 0.f,
+			.y = 0.f,
+			.width = width,
+			.height = height,
+		};
+
+	skb_hash_table_add(icon_collection->icons_lookup, icon->hash, icon_idx);
+
+	icon->generation = generation;
+	icon->handle = skb__make_icon_handle(icon_idx, generation);
+
+	return icon->handle;
+}
+
+bool skb_icon_collection_remove_icon(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
+{
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_collection, icon_handle);
+	if (!icon)
+		return false;
+
+	// Remove from lookup
+	skb_hash_table_remove(icon_collection->icons_lookup, icon->hash);
+
+	uint32_t generation = icon->generation + 1;
+
+	skb__icon_destroy(icon);
+	memset(icon, 0, sizeof(skb_icon_t));
+
+	icon->generation = generation;
+
+	icon_collection->empty_icons_count++;
+
+	return true;
+
+}
+
+static void skb__picosvg_init(skb__picosvg_parser_t* parser, skb_icon_t* icon)
+{
+	memset(parser, 0, sizeof(skb__picosvg_parser_t));
+	parser->icon = icon;
+	parser->current_shape[0] = &parser->icon->root;
+}
+
+static void skb__picosvg_destroy(skb__picosvg_parser_t* parser)
+{
+	if (!parser) return;
+	skb_free(parser->gradient_names);
 }
 
 skb_icon_shape_t* skb_icon_shape_add_child(skb_icon_shape_t* parent_shape)
@@ -76,153 +212,6 @@ skb_icon_shape_t* skb_icon_shape_add_child(skb_icon_shape_t* parent_shape)
 	shape->gradient_idx = SKB_INVALID_INDEX;
 	shape->opacity = 1.f;
 	return shape;
-}
-
-void skb__add_path_command(skb_icon_shape_t* shape, skb_icon_path_command_t cmd)
-{
-	SKB_ARRAY_RESERVE(shape->path, shape->path_count+1);
-	shape->path[shape->path_count++] = cmd;
-}
-
-void skb_icon_shape_move_to(skb_icon_shape_t* shape, skb_vec2_t pt)
-{
-	assert(shape);
-	skb__add_path_command(shape, (skb_icon_path_command_t) {
-		.type = SKB_SVG_MOVE_TO,
-		.pt = pt,
-	});
-}
-
-void skb_icon_shape_line_to(skb_icon_shape_t* shape, skb_vec2_t pt)
-{
-	assert(shape);
-	skb__add_path_command(shape, (skb_icon_path_command_t) {
-		.type = SKB_SVG_LINE_TO,
-		.pt = pt,
-	});
-
-}
-
-void skb_icon_shape_quad_to(skb_icon_shape_t* shape, skb_vec2_t cp, skb_vec2_t pt)
-{
-	assert(shape);
-	skb__add_path_command(shape, (skb_icon_path_command_t) {
-		.type = SKB_SVG_QUAD_TO,
-		.cp0 = cp,
-		.pt = pt,
-	});
-}
-
-void skb_icon_shape_cubic_to(skb_icon_shape_t* shape, skb_vec2_t cp0, skb_vec2_t cp1, skb_vec2_t pt)
-{
-	assert(shape);
-	skb__add_path_command(shape, (skb_icon_path_command_t) {
-		.type = SKB_SVG_CUBIC_TO,
-		.cp0 = cp0,
-		.cp1 = cp1,
-		.pt = pt,
-	});
-
-}
-
-void skb_icon_shape_close_path(skb_icon_shape_t* shape)
-{
-	assert(shape);
-	skb__add_path_command(shape, (skb_icon_path_command_t) {
-		.type = SKB_SVG_CLOSE_PATH,
-	});
-}
-
-void skb_icon_shape_set_opacity(skb_icon_shape_t* shape, float opacity)
-{
-	assert(shape);
-	shape->opacity = opacity;
-}
-
-void skb_icon_shape_set_color(skb_icon_shape_t* shape, skb_color_t color)
-{
-	assert(shape);
-	shape->color = color;
-}
-
-void skb_icon_shape_set_gradient(skb_icon_shape_t* shape, int32_t gradient_idx)
-{
-	assert(shape);
-	shape->gradient_idx = gradient_idx;
-}
-
-int32_t skb_icon_create_linear_gradient(skb_icon_t* icon, skb_vec2_t p0, skb_vec2_t p1, skb_mat2_t xform, uint8_t spread, skb_color_stop_t* stops, int32_t stops_count)
-{
-	SKB_ARRAY_RESERVE(icon->gradients, icon->gradients_count+1);
-	skb_icon_gradient_t* grad = &icon->gradients[icon->gradients_count++];
-	grad->type = SKB_GRADIENT_LINEAR;
-	grad->p0 = p0;
-	grad->p1 = p1;
-	grad->radius = 0.f;
-	grad->xform = xform;
-	grad->spread = spread;
-
-	if (stops_count > 0) {
-		SKB_ARRAY_RESERVE(grad->stops, stops_count);
-		memcpy(grad->stops, stops, sizeof(skb_color_stop_t) * stops_count);
-		grad->stops_count = stops_count;
-	}
-
-	return icon->gradients_count-1;
-}
-
-int32_t skb_icon_create_radial_gradient(skb_icon_t* icon, skb_vec2_t p0, skb_vec2_t p1, float radius, skb_mat2_t xform, uint8_t spread, skb_color_stop_t* stops, int32_t stops_count)
-{
-	SKB_ARRAY_RESERVE(icon->gradients, icon->gradients_count+1);
-	skb_icon_gradient_t* grad = &icon->gradients[icon->gradients_count++];
-	grad->type = SKB_GRADIENT_RADIAL;
-	grad->p0 = p0;
-	grad->p1 = p1;
-	grad->radius = radius;
-	grad->xform = xform;
-	grad->spread = spread;
-
-	if (stops_count > 0) {
-		SKB_ARRAY_RESERVE(grad->stops, stops_count);
-		memcpy(grad->stops, stops, sizeof(skb_color_stop_t) * stops_count);
-		grad->stops_count = stops_count;
-	}
-
-	return icon->gradients_count-1;
-}
-
-skb_icon_t* skb_icon_collection_add_icon(skb_icon_collection_t* icon_collection, const char* name, float width, float height)
-{
-	skb_icon_t* icon = skb__icon_create();
-	icon->hash = skb_hash64_append_str(skb_hash64_empty(), name);
-
-	icon->view = (skb_rect2_t) {
-			.x = 0.f,
-			.y = 0.f,
-			.width = width,
-			.height = height,
-		};
-
-	SKB_ARRAY_RESERVE(icon_collection->icons, icon_collection->icons_count+1);
-	int32_t icon_index = icon_collection->icons_count++;
-	icon_collection->icons[icon_index] = icon;
-	skb_hash_table_add(icon_collection->icons_lookup, icon->hash, icon_index);
-
-	return icon;
-}
-
-static void skb__picosvg_init(skb__picosvg_parser_t* parser)
-{
-	memset(parser, 0, sizeof(skb__picosvg_parser_t));
-	parser->icon = skb__icon_create();
-	parser->current_shape[0] = &parser->icon->root;
-}
-
-static void skb__picosvg_destroy(skb__picosvg_parser_t* parser)
-{
-	if (!parser) return;
-	skb_free(parser->gradient_names);
-	skb__icon_destroy(parser->icon);
 }
 
 static void skb__picosvg_push_shape(skb__picosvg_parser_t* svg)
@@ -1295,13 +1284,13 @@ void skb_icon_collection_destroy(skb_icon_collection_t* icon_collection)
 {
 	if (!icon_collection) return;
 	for (int32_t i = 0; i < icon_collection->icons_count; i++)
-		skb__icon_destroy(icon_collection->icons[i]);
+		skb__icon_destroy(&icon_collection->icons[i]);
 	skb_hash_table_destroy(icon_collection->icons_lookup);
 	skb_free(icon_collection);
 }
 
 
-skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_collection, const char* name, const char* file_path)
+skb_icon_handle_t skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_collection, const char* name, const char* file_name)
 {
 	skb_icon_t* result = NULL;
 	FILE* file = NULL;
@@ -1310,7 +1299,7 @@ skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_col
 	int32_t name_len = strlen(name);
 	if (name_len <= 0) goto error;
 
-	file = fopen(file_path, "rb");
+	file = fopen(file_name, "rb");
 	if (!file) goto error;
 
 	// Get file size
@@ -1320,50 +1309,257 @@ skb_icon_t* skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_col
 
 	// Allocate and read
 	buffer = skb_malloc(buffer_size);
+	if (!buffer) goto error;
+
 	if (fread(buffer, 1, buffer_size, file) != buffer_size)
 		goto error;
 
 	fclose(file);
 	file = NULL;
 
-	if (buffer) {
+	skb_icon_handle_t icon_handle = skb_icon_collection_add_icon(icon_collection, name, 0.f, 0.f);
+	if (!icon_handle) goto error;
 
-		skb__picosvg_parser_t svg;
-		skb__picosvg_init(&svg);
+	skb__picosvg_parser_t svg;
+	skb__picosvg_init(&svg, skb__get_icon_by_handle(icon_collection, icon_handle));
 
-		if (skb__xml_parse((skb__xml_str_t){ (char*)buffer, (char*)buffer + buffer_size }, &skb__picosvg_start_element, &skb__picosvg_end_element, NULL, &svg)) {
-			result = svg.icon;
-			svg.icon = NULL;
-
-			result->hash = skb_hash64_append_str(skb_hash64_empty(), name);
-			result->name = skb_malloc(name_len+1);
-			memcpy(result->name, name, name_len+1);
-
-			SKB_ARRAY_RESERVE(icon_collection->icons, icon_collection->icons_count+1);
-			int32_t icon_index = icon_collection->icons_count++;
-			icon_collection->icons[icon_index] = result;
-			skb_hash_table_add(icon_collection->icons_lookup, result->hash, icon_index);
-		}
-
-		skb__picosvg_destroy(&svg);
+	if (!skb__xml_parse((skb__xml_str_t){ (char*)buffer, (char*)buffer + buffer_size }, &skb__picosvg_start_element, &skb__picosvg_end_element, NULL, &svg)) {
+		skb_icon_collection_remove_icon(icon_collection, icon_handle);
+		icon_handle = 0;
 	}
 
+	skb__picosvg_destroy(&svg);
 	skb_free(buffer);
 
-	return result;
+	return icon_handle;
 
 error:
 	if (file) fclose(file);
 	if (buffer) skb_free(buffer);
 
-	return NULL;
+	return (skb_icon_handle_t)0;
 }
 
-skb_icon_t* skb_icon_collection_find_icon(skb_icon_collection_t* icon_collection, const char* name)
+skb_icon_handle_t skb_icon_collection_find_icon(const skb_icon_collection_t* icon_collection, const char* name)
 {
 	uint64_t hash = skb_hash64_append_str(skb_hash64_empty(), name);
 	int32_t icon_index;
 	if (skb_hash_table_find(icon_collection->icons_lookup, hash, &icon_index))
-		return icon_collection->icons[icon_index];
-	return NULL;
+		return icon_collection->icons[icon_index].handle;
+	return (skb_icon_handle_t)0;
+}
+
+
+skb_icon_builder_t skb_icon_builder_make(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
+{
+	skb_icon_builder_t icon_builder = {0};
+	icon_builder.icon_collection = icon_collection;
+	icon_builder.icon_handle = icon_handle;
+	icon_builder.shape_stack_idx = SKB_INVALID_INDEX;
+	return icon_builder;
+}
+
+void skb_icon_builder_begin_shape(skb_icon_builder_t* icon_builder)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+
+	assert(icon_builder->shape_stack_idx+1 < SKB_ICON_BUILDER_MAX_NESTED_SHAPES);
+
+	skb_icon_shape_t* parent_shape = icon_builder->shape_stack_idx == SKB_INVALID_INDEX ? &icon->root : icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	SKB_ARRAY_RESERVE(parent_shape->children, parent_shape->children_count + 1);
+	skb_icon_shape_t* shape = &parent_shape->children[parent_shape->children_count++];
+	memset(shape, 0, sizeof(skb_icon_shape_t));
+	shape->gradient_idx = SKB_INVALID_INDEX;
+	shape->opacity = 1.f;
+
+	icon_builder->shape_stack_idx++;
+	icon_builder->shape_stack[icon_builder->shape_stack_idx] = shape;
+}
+
+void skb_icon_builder_end_shape(skb_icon_builder_t* icon_builder)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+
+	assert(icon_builder->shape_stack_idx >= 0);
+	icon_builder->shape_stack_idx--;
+}
+
+void skb_icon_builder_move_to(skb_icon_builder_t* icon_builder, skb_vec2_t pt)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	skb__add_path_command(shape, (skb_icon_path_command_t) {
+		.type = SKB_SVG_MOVE_TO,
+		.pt = pt,
+	});
+}
+
+void skb_icon_builder_line_to(skb_icon_builder_t* icon_builder, skb_vec2_t pt)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	skb__add_path_command(shape, (skb_icon_path_command_t) {
+		.type = SKB_SVG_LINE_TO,
+		.pt = pt,
+	});
+}
+
+void skb_icon_builder_quad_to(skb_icon_builder_t* icon_builder, skb_vec2_t cp, skb_vec2_t pt)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	skb__add_path_command(shape, (skb_icon_path_command_t) {
+		.type = SKB_SVG_QUAD_TO,
+		.cp0 = cp,
+		.pt = pt,
+	});
+}
+
+void skb_icon_builder_cubic_to(skb_icon_builder_t* icon_builder, skb_vec2_t cp0, skb_vec2_t cp1, skb_vec2_t pt)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	skb__add_path_command(shape, (skb_icon_path_command_t) {
+		.type = SKB_SVG_CUBIC_TO,
+		.cp0 = cp0,
+		.cp1 = cp1,
+		.pt = pt,
+	});
+}
+
+void skb_icon_builder_close_path(skb_icon_builder_t* icon_builder)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	skb__add_path_command(shape, (skb_icon_path_command_t) {
+		.type = SKB_SVG_CLOSE_PATH,
+	});
+}
+
+void skb_icon_builder_fill_opacity(skb_icon_builder_t* icon_builder, float opacity)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	shape->opacity = opacity;
+}
+
+void skb_icon_builder_fill_color(skb_icon_builder_t* icon_builder, skb_color_t color)
+{
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	shape->color = color;
+	shape->gradient_idx = SKB_INVALID_INDEX;
+}
+
+void skb_icon_builder_fill_linear_gradient(skb_icon_builder_t* icon_builder, skb_vec2_t p0, skb_vec2_t p1, skb_mat2_t xform, skb_gradient_spread_t spread, skb_color_stop_t* stops, int32_t stops_count)
+{
+	assert(stops);
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	if (stops_count == 1) {
+		shape->color = stops[0].color;
+		shape->gradient_idx = SKB_INVALID_INDEX;
+	} else if (stops_count > 1) {
+		// Make gradient
+		SKB_ARRAY_RESERVE(icon->gradients, icon->gradients_count+1);
+		skb_icon_gradient_t* grad = &icon->gradients[icon->gradients_count++];
+		grad->type = SKB_GRADIENT_LINEAR;
+		grad->p0 = p0;
+		grad->p1 = p1;
+		grad->radius = 0.f;
+		grad->xform = xform;
+		grad->spread = spread;
+
+		SKB_ARRAY_RESERVE(grad->stops, stops_count);
+		memcpy(grad->stops, stops, sizeof(skb_color_stop_t) * stops_count);
+		grad->stops_count = stops_count;
+
+		shape->gradient_idx = icon->gradients_count-1;
+	}
+}
+
+void skb_icon_builder_fill_radial_gradient(skb_icon_builder_t* icon_builder, skb_vec2_t p0, skb_vec2_t p1, float radius, skb_mat2_t xform, skb_gradient_spread_t spread, skb_color_stop_t* stops, int32_t stops_count)
+{
+	assert(stops);
+	assert(icon_builder);
+	assert(icon_builder->icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_builder->icon_collection, icon_builder->icon_handle);
+	if (!icon) return;
+	assert(icon_builder->shape_stack_idx >= 0);
+	skb_icon_shape_t* shape = icon_builder->shape_stack[icon_builder->shape_stack_idx];
+	assert(shape);
+
+	if (stops_count == 1) {
+		shape->color = stops[0].color;
+		shape->gradient_idx = SKB_INVALID_INDEX;
+	} else if (stops_count > 1) {
+		SKB_ARRAY_RESERVE(icon->gradients, icon->gradients_count+1);
+		skb_icon_gradient_t* grad = &icon->gradients[icon->gradients_count++];
+		grad->type = SKB_GRADIENT_RADIAL;
+		grad->p0 = p0;
+		grad->p1 = p1;
+		grad->radius = radius;
+		grad->xform = xform;
+		grad->spread = spread;
+
+		SKB_ARRAY_RESERVE(grad->stops, stops_count);
+		memcpy(grad->stops, stops, sizeof(skb_color_stop_t) * stops_count);
+		grad->stops_count = stops_count;
+
+		shape->gradient_idx = icon->gradients_count-1;
+	}
 }

@@ -21,15 +21,18 @@ add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>")
 add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 
 set(SKRIBIDI_EXAMPLE_FILES
-	example_testbed.c
-	example_richtext.c
-	example_icons.c
-	example_cached.c
-	utils.h
-	utils.c
-	main.c
 	debug_draw.c
 	debug_draw.h
+	example_cached.c
+	example_fallback.c
+	example_icons.c
+	example_richtext.c
+	example_testbed.c
+	ime.c
+	ime.h
+	main.c
+	utils.c
+	utils.h
 )
 
 add_executable(skribidi_example ${SKRIBIDI_EXAMPLE_FILES})
@@ -42,6 +45,11 @@ set_target_properties(skribidi_example PROPERTIES
 
 target_include_directories(skribidi_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${GLAD_DIR}/include)
 target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
+
+# IME only works on Windows for now.
+if(MSVC)
+    target_link_libraries(skribidi_example PUBLIC imm32.lib comctl32.lib)
+endif()
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
 

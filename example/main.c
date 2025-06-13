@@ -10,6 +10,7 @@
 
 #include "debug_draw.h"
 #include "utils.h"
+#include "ime.h"
 
 #include "skb_common.h"
 
@@ -26,12 +27,14 @@ void* richtext_create(void);
 void* testbed_create(void);
 void* icons_create(void);
 void* cached_create(void);
+void* fallback_create(void);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
 	{ .create = testbed_create, .name = "Testbed" },
 	{ .create = icons_create, .name = "Icons" },
 	{ .create = cached_create, .name = "Cached" },
+	{ .create = fallback_create, .name = "Font Fallback" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;
@@ -163,12 +166,19 @@ int main(int argc, char** args)
 		return -1;
 	}
 
+	if (!ime_init(g_window)) {
+		skb_debug_log("Failed to initialize IME.");
+		glfwTerminate();
+		return -1;
+	}
+
 	glfwSetWindowSizeCallback(g_window, resize_callback);
 	glfwSetKeyCallback(g_window, key_callback);
 	glfwSetCharCallback(g_window, char_callback);
 	glfwSetMouseButtonCallback(g_window, mouse_button_callback);
 	glfwSetCursorPosCallback(g_window, mouse_move_callback);
 	glfwSetScrollCallback(g_window, mouse_scroll_callback);
+
 
 	glfwMakeContextCurrent(g_window);
 	glfwSwapInterval(1); // Enable vsync
@@ -198,6 +208,7 @@ int main(int argc, char** args)
 	}
 
 	draw_terminate();
+	ime_terminate();
 	glfwDestroyWindow(g_window);
 	glfwTerminate();
 

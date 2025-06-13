@@ -1009,7 +1009,7 @@ static int32_t skb__add_rect_or_grow_atlas(skb_render_cache_t* cache, int32_t re
 
 static uint64_t skb__render_get_glyph_hash(uint32_t gid, const skb_font_t* font, float font_size, skb_render_alpha_mode_t alpha_mode)
 {
-	uint64_t hash = font->name_hash;
+	uint64_t hash = font->hash;
 	hash = skb_hash64_append_uint32(hash, gid);
 	hash = skb_hash64_append_float(hash, font_size);
 	hash = skb_hash64_append_uint8(hash, (uint8_t)alpha_mode);
@@ -1017,13 +1017,14 @@ static uint64_t skb__render_get_glyph_hash(uint32_t gid, const skb_font_t* font,
 }
 
 skb_render_quad_t skb_render_cache_get_glyph_quad(
-	skb_render_cache_t* cache,
-	float x, float y, float pixel_scale,
-	uint32_t glyph_id, const skb_font_t* font, float font_size,
+	skb_render_cache_t* cache, float x, float y, float pixel_scale,
+	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size,
 	skb_render_alpha_mode_t alpha_mode)
 {
 	assert(cache);
-	assert(font);
+
+	const skb_font_t* font = skb_font_collection_get_font(font_collection, font_handle);
+	if (!font) return (skb_render_quad_t) {0};
 
 	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.glyph_sdf : &cache->config.glyph_alpha;
 
@@ -1130,12 +1131,15 @@ static uint64_t skb__render_get_icon_hash(const skb_icon_t* icon, skb_vec2_t ico
 }
 
 skb_render_quad_t skb_render_cache_get_icon_quad(
-	skb_render_cache_t* cache,
-	float x, float y, float pixel_scale,
-	const skb_icon_t* icon, skb_vec2_t icon_scale,
+	skb_render_cache_t* cache, float x, float y, float pixel_scale,
+	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, skb_vec2_t icon_scale,
     skb_render_alpha_mode_t alpha_mode)
 {
 	assert(cache);
+	assert(icon_collection);
+
+	const skb_icon_t* icon = skb_icon_collection_get_icon(icon_collection, icon_handle);
+	if (!icon) return (skb_render_quad_t) {0};
 
 	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.glyph_sdf : &cache->config.glyph_alpha;
 

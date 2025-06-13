@@ -1200,7 +1200,7 @@ int32_t skb_utf32_strlen(const uint32_t* utf32);
  */
 
 /** @return performance timer time stamp. */
-int64_t skg_perf_timer_get(void);
+int64_t skb_perf_timer_get(void);
 
 /**
  * Calculates elapsed time in micro seconds between two performance timer samples.
@@ -1208,7 +1208,7 @@ int64_t skg_perf_timer_get(void);
  * @param end  start time sample
  * @return elapsed time between samples in seconds.
  */
-int64_t skg_perf_timer_elapsed_us(int64_t start, int64_t end);
+int64_t skb_perf_timer_elapsed_us(int64_t start, int64_t end);
 
 /** @} */
 

@@ -94,7 +94,7 @@ enum skb_layout_params_flags_t {
 /** Struct describing parameters that apply to the whole text layout. */
 typedef struct skb_layout_params_t {
 	/** Pointer to font collection to use. */
-	const skb_font_collection_t* font_collection;
+	skb_font_collection_t* font_collection;
 	/** BCP 47 language tag, e.g. fi-FI. */
 	const char* lang;
 	/** Line break width. If 0.0, line width is unbounded. */
@@ -156,7 +156,7 @@ typedef struct skb_glyph_t {
 	/** Index of the attribute span. */
 	uint16_t span_idx;
 	/** Index of the font in font collection. */
-	uint8_t font_idx;
+	skb_font_handle_t font_handle;
 } skb_glyph_t;
 
 /** Enum describing flags for skb_text_property_t. */
@@ -637,6 +637,13 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
  * @return four letter tag.
  */
 uint32_t skb_script_to_iso15924_tag(uint8_t script);
+
+/**
+ * Returns script from four-letter ISO 15924 script tag.
+ * @param ISO 15924 script tag scrip to covert.
+ * @return script.
+ */
+uint8_t skb_script_from_iso15924_tag(uint32_t script_tag);
 
 /** @} */
 

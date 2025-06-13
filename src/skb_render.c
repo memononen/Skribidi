@@ -1010,7 +1010,7 @@ bool skb_render_rasterize_alpha_glyph(
 	if (!target->buffer || target->width <= 0 || target->height <= 0 || target->bpp != 1)
 		return false;
 
-	int64_t t_start = skg_perf_timer_get();
+	int64_t t_start = skb_perf_timer_get();
 
 	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
 
@@ -1033,8 +1033,8 @@ bool skb_render_rasterize_alpha_glyph(
 
 	skb_canvas_destroy(canvas);
 
-	int64_t t_end = skg_perf_timer_get();
-	int64_t elapsed_us = skg_perf_timer_elapsed_us(t_start, t_end);
+	int64_t t_end = skb_perf_timer_get();
+	int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
 	skb_debug_log("Rasterize %s glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", alpha_mode == SKB_RENDER_ALPHA_SDF ? "SDF" : "mask", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
 
@@ -1052,7 +1052,7 @@ bool skb_render_rasterize_color_glyph(
 	if (!target->buffer || target->width <= 0 || target->height <= 0 || target->bpp != 4)
 		return false;
 
-	int64_t t_start = skg_perf_timer_get();
+	int64_t t_start = skb_perf_timer_get();
 
 	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
 
@@ -1109,8 +1109,8 @@ bool skb_render_rasterize_color_glyph(
 
 	skb_canvas_destroy(canvas);
 
-	int64_t t_end = skg_perf_timer_get();
-    int64_t elapsed_us = skg_perf_timer_elapsed_us(t_start, t_end);
+	int64_t t_end = skb_perf_timer_get();
+    int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
     skb_debug_log("Rasterize color glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
 
@@ -1171,32 +1171,6 @@ static void skb_icon_draw_(skb_canvas_t* canvas, const skb_icon_t* svg)
 	skb_icon_draw_shape_(canvas, svg, &svg->root, 1.f);
 }
 
-skb_vec2_t skb_render_calc_proportional_icon_scale(const skb_icon_t* icon, float width, float height)
-{
-	if (!icon)
-		return (skb_vec2_t) {0};
-
-	if (width <= 0 && height <= 0) {
-		// Auto width and height, use the icon size.
-		return (skb_vec2_t) { 1.f, 1.f };
-	}
-	if (width <= 0) {
-		// Auto width
-		const float scale = icon->view.height > 0.f ? height / icon->view.height : 0.f;
-		return (skb_vec2_t) { scale, scale };
-	}
-	if (height <= 0) {
-		// Auto height
-		const float scale = icon->view.width > 0.f ? width / icon->view.width : 0.f;
-		return (skb_vec2_t) { scale, scale };
-	}
-
-	return (skb_vec2_t) {
-		.x = icon->view.width > 0.f ? width / icon->view.width : 0.f,
-		.y = icon->view.height > 0.f ? height / icon->view.height : 0.f,
-	};
-}
-
 skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
 {
 	assert(icon);
@@ -1221,7 +1195,7 @@ bool skb_render_rasterize_icon(
 
 	if (!target) return false;
 
-	int64_t t_start = skg_perf_timer_get();
+	int64_t t_start = skb_perf_timer_get();
 
 	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
 
@@ -1274,8 +1248,8 @@ bool skb_render_rasterize_icon(
 
 	skb_canvas_destroy(canvas);
 
-	int64_t t_end = skg_perf_timer_get();
-	int64_t elapsed_us = skg_perf_timer_elapsed_us(t_start, t_end);
+	int64_t t_end = skb_perf_timer_get();
+	int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
 	skb_debug_log("Rasterize color icon %s, scale: (%.1f, %.1f), canvas: (%d x %d), time: %dus\n", icon->name, icon_scale.x, icon_scale.y, target->width, target->height, (int32_t)elapsed_us);
 
