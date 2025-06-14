@@ -268,6 +268,38 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 	if (mods & GLFW_MOD_CONTROL)
 		edit_mods |= SKB_MOD_CONTROL;
 
+	if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+		if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL)) {
+			// Paste
+			const char* clipboard_text = glfwGetClipboardString(window);
+			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
+			ctx->allow_char = false;
+		}
+		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT) == 0)
+			skb_editor_undo(ctx->editor, ctx->temp_alloc);
+		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
+			skb_editor_redo(ctx->editor, ctx->temp_alloc);
+		if (key == GLFW_KEY_LEFT)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_LEFT, edit_mods);
+		if (key == GLFW_KEY_RIGHT)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_RIGHT, edit_mods);
+		if (key == GLFW_KEY_UP)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_UP, edit_mods);
+		if (key == GLFW_KEY_DOWN)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DOWN, edit_mods);
+		if (key == GLFW_KEY_HOME)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_HOME, edit_mods);
+		if (key == GLFW_KEY_END)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_END, edit_mods);
+		if (key == GLFW_KEY_BACKSPACE)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
+		if (key == GLFW_KEY_DELETE)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DELETE, edit_mods);
+		if (key == GLFW_KEY_ENTER)
+			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
+
+		update_ime_rect(ctx);
+	} else
 	if (action == GLFW_PRESS) {
 		ctx->allow_char = true;
 		if (key == GLFW_KEY_A && (mods & GLFW_MOD_CONTROL)) {
@@ -306,34 +338,6 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
 			ctx->allow_char = false;
 		}
-		if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL)) {
-			// Paste
-			const char* clipboard_text = glfwGetClipboardString(window);
-			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
-			ctx->allow_char = false;
-		}
-		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT) == 0)
-			skb_editor_undo(ctx->editor, ctx->temp_alloc);
-		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT))
-			skb_editor_redo(ctx->editor, ctx->temp_alloc);
-		if (key == GLFW_KEY_LEFT)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_LEFT, edit_mods);
-		if (key == GLFW_KEY_RIGHT)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_RIGHT, edit_mods);
-		if (key == GLFW_KEY_UP)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_UP, edit_mods);
-		if (key == GLFW_KEY_DOWN)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DOWN, edit_mods);
-		if (key == GLFW_KEY_HOME)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_HOME, edit_mods);
-		if (key == GLFW_KEY_END)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_END, edit_mods);
-		if (key == GLFW_KEY_BACKSPACE)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
-		if (key == GLFW_KEY_DELETE)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DELETE, edit_mods);
-		if (key == GLFW_KEY_ENTER)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
 
 		update_ime_rect(ctx);
 
