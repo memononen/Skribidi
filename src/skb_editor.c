@@ -572,6 +572,8 @@ static skb__editor_text_position_t skb__get_next_grapheme_pos(const skb_editor_t
 		}
 	}
 
+	edit_pos.text_offset = paragraph->text_start_offset + edit_pos.paragraph_offset;
+
 	return edit_pos;
 }
 
@@ -601,6 +603,8 @@ static skb__editor_text_position_t skb__get_prev_grapheme_pos(const skb_editor_t
 			break;
 		}
 	}
+
+	edit_pos.text_offset = paragraph->text_start_offset + edit_pos.paragraph_offset;
 
 	return edit_pos;
 }
