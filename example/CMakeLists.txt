@@ -46,9 +46,38 @@ set_target_properties(skribidi_example PROPERTIES
 target_include_directories(skribidi_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${GLAD_DIR}/include)
 target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
 
-# IME only works on Windows for now.
-if(MSVC)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(skribidi_example PUBLIC imm32.lib comctl32.lib)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(STATUS "Detecting GTK for IME support on Linux")
+    find_package(PkgConfig REQUIRED)
+    # Try GTK3, fallback to GTK4
+    pkg_check_modules(GTK_REQ gtk+-3.0)
+    if (GTK_REQ_FOUND)
+        set(GTK_PKG gtk+-3.0)
+    else()
+        pkg_check_modules(GTK_REQ gtk4)
+        if (GTK_REQ_FOUND)
+            set(GTK_PKG gtk4)
+        else()
+            message(FATAL_ERROR "Neither gtk+-3.0 nor gtk4 found. Please install GTK.")
+        endif()
+    endif()
+
+    message(STATUS "Using ${GTK_PKG} for IME support")
+    pkg_check_modules(GTK ${GTK_PKG})
+
+    target_include_directories(skribidi_example
+        PRIVATE ${GTK_INCLUDE_DIRS}
+    )
+    target_link_libraries(skribidi_example
+        PUBLIC ${GTK_LIBRARIES}
+    )
+    target_compile_options(skribidi_example
+        PRIVATE ${GTK_CFLAGS_OTHER}
+    )
+elseif (APPLE)
+    message(WARNING "IME support not implemented for Apple platforms")
 endif()
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
