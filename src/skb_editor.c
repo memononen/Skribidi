@@ -1001,7 +1001,7 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 // TODO: should we expose this?
 skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb_text_position_t pos)
 {
-	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_IGNORE_AFFINITY);
+	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_ADJUST_AFFINITY);
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
 	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_backward(editor, edit_pos);
@@ -1011,7 +1011,7 @@ skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb
 // TODO: should we expose this?
 skb_text_position_t skb_editor_move_to_prev_word(const skb_editor_t* editor, skb_text_position_t pos)
 {
-	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_IGNORE_AFFINITY);
+	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_ADJUST_AFFINITY);
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
 	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_forward(editor, edit_pos);
