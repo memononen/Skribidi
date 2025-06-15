@@ -131,21 +131,10 @@ static inline skb_font_t* skb__get_font_unchecked(const skb_font_collection_t* f
 	return &font_collection->fonts[index];
 }
 
-static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
+static bool skb__font_create_from_face(skb_font_t* font, hb_face_t* face, const char* name, uint8_t font_family)
 {
-	hb_blob_t* blob = NULL;
-	hb_face_t* face = NULL;
-
 	skb__sb_tag_array_t scripts = {0};
 
-	skb_debug_log("Loading font: %s\n", path);
-
-	// Use Harfbuzz to load the font data, it uses mmap when possible.
-	blob = hb_blob_create_from_file(path);
-	if (blob == hb_blob_get_empty()) goto error;
-
-	face = hb_face_create(blob, 0);
-	hb_blob_destroy(blob);
 	if (!face) goto error;
 
 	// Get how many points per EM, used to scale font size.
@@ -163,7 +152,6 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 		skb__append_tags_from_unicodes(face, &scripts);
 
 	hb_font_t* hb_font = hb_font_create(face);
-	hb_face_destroy(face);
 
 	const float italic = hb_style_get_value(hb_font, HB_STYLE_TAG_ITALIC);
 	const float slant = hb_style_get_value(hb_font, HB_STYLE_TAG_SLANT_RATIO);
@@ -193,9 +181,9 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 	font->hb_font = hb_font;
 
 	// Store name
-	size_t path_len = strlen(path);
-	font->name = skb_malloc(path_len+1);
-	memcpy(font->name, path, path_len+1); // copy null term.
+	size_t name_len = strlen(name);
+	font->name = skb_malloc(name_len+1);
+	memcpy(font->name, name, name_len+1); // copy null term.
 	font->hash = skb_hash64_append_str(skb_hash64_empty(), font->name);
 
 	// Store supported scripts
@@ -241,11 +229,71 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 	return true;
 
 error:
-	hb_face_destroy(face);
 	skb_free(scripts.tags);
 
 	memset(font, 0, sizeof(skb_font_t));
 
+	return false;
+}
+
+static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
+{
+	hb_blob_t* blob = NULL;
+	hb_face_t* face = NULL;
+	
+	// skb_debug_log("Loading font: %s\n", path);
+
+	// Use Harfbuzz to load the font data, it uses mmap when possible.
+	blob = hb_blob_create_from_file(path);
+	if (!blob) goto error;
+		
+	face = hb_face_create(blob, 0);
+	hb_blob_destroy(blob);
+	if (!face) goto error;
+	
+	const bool ok = skb__font_create_from_face(font, face, path, font_family);
+	hb_face_destroy(face);
+	if (!ok) goto error;
+	return true;
+
+error:
+	hb_blob_destroy(blob);
+	hb_face_destroy(face);
+	return false;
+}
+
+static bool skb__font_create_from_data(
+	skb_font_t* font,
+	const char* name,
+	uint8_t font_family,
+	const void* font_data,
+	size_t font_data_length,
+	void* context,
+	skb_destroy_func_t* destroy_func
+)
+{
+	hb_blob_t* blob = NULL;
+	hb_face_t* face = NULL;
+
+	// skb_debug_log("Loading font from data: %s\n", name);
+
+	// Use Harfbuzz to create blob from memory data with read-only mode
+	// Pass the context and destroy function to HarfBuzz so it can manage the lifetime
+	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
+	if (!blob) goto error;
+		
+	face = hb_face_create(blob, 0);
+	hb_blob_destroy(blob);
+	if (!face) goto error;
+	
+	const bool ok = skb__font_create_from_face(font, face, name, font_family);
+	hb_face_destroy(face);
+	if (!ok) goto error;
+	return true;
+
+error:
+	hb_blob_destroy(blob);
+	hb_face_destroy(face);
 	return false;
 }
 
@@ -320,6 +368,50 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
 	return font->handle;
 }
 
+skb_font_handle_t skb_font_collection_add_font_from_data(
+	skb_font_collection_t* font_collection,
+	const char* name,
+	uint8_t font_family,
+	const void* font_data,
+	size_t font_data_length,
+	void* context,
+	skb_destroy_func_t* destroy_func
+)
+{
+	// Try to find free slot.
+	int32_t font_idx = SKB_INVALID_INDEX;
+	uint32_t generation = 1;
+	if (font_collection->empty_fonts_count > 0 ) {
+		// Using linear search as we dont expect to have that many fonts loaded.
+		for (int32_t i = 0; i < font_collection->fonts_count; i++) {
+			if (font_collection->fonts[i].hash == 0) {
+				font_idx = i;
+				font_collection->empty_fonts_count--;
+				generation = font_collection->fonts[i].generation;
+				break;
+			}
+		}
+	} else {
+		SKB_ARRAY_RESERVE(font_collection->fonts, font_collection->fonts_count+1);
+		font_idx = font_collection->fonts_count++;
+	}
+	assert(font_idx != SKB_INVALID_INDEX);
+
+	skb_font_t* font = &font_collection->fonts[font_idx];
+	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length, context, destroy_func)) {
+		// skb__font_create_from_data() has emptied the font struct, indicate that we have one empty to use.
+		font_collection->empty_fonts_count++;
+		font->generation = generation;
+		return false;
+	}
+
+	font->generation = generation;
+	font->handle = skb__make_font_handle(font_idx, generation);
+
+	return font->handle;
+
+}
+
 bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle)
 {
 	skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
@@ -335,7 +427,6 @@ bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb
 
 	return true;
 }
-
 
 static float g_stretch_to_value[] = {
 	1.0f, // SKB_FONT_STRETCH_NORMAL
