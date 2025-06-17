@@ -73,14 +73,14 @@ typedef struct skb_text_attribs_t {
 	float line_spacing_multiplier;
 	/** Color of the text. */
 	skb_color_t color;
-	/** Font weight. If 0, use default 400. */
-	uint16_t font_weight;
-	/** Font stretch, see skb_font_stretch_t. Zero defaults to SKB_FONT_STRETCH_NORMAL. */
+	/** Font weight. see skb_weight_t. Zero defaults to SKB_WEIGHT_NORMAL */
+	uint8_t font_weight;
+	/** Font stretch, see skb_stretch_t. Zero defaults to SKB_STRETCH_NORMAL. */
 	uint8_t font_stretch;
 	/** Font family identifier. */
 	uint8_t font_family;
-	/** Font style, see skb_font_style_t. Zero defaults to SKB_FONT_STYLE_NORMAL. */
-	uint8_t style;
+	/** Font style, see skb_style_t. Zero defaults to SKB_FONT_STYLE_NORMAL. */
+	uint8_t font_style;
 	/** Text direction, see skb_text_dir_t. Zero defaults to SKB_DIR_AUTO. */
 	uint8_t direction;
 } skb_text_attribs_t;

@@ -780,7 +780,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					const bool is_emoji = (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI);
 					const uint8_t font_family = is_emoji ? SKB_FONT_FAMILY_EMOJI : text_attribs->font_family;
 					if (!font_handle || script != prev_script || is_emoji != prev_is_emoji) {
-						if (skb_font_collection_match_fonts(ctx->font_collection, "", script, font_family, text_attribs->style, text_attribs->font_stretch, text_attribs->font_weight, &font_handle, 1) == 0)
+						if (skb_font_collection_match_fonts(ctx->font_collection, "", script, font_family, text_attribs->font_style, text_attribs->font_stretch, text_attribs->font_weight, &font_handle, 1) == 0)
 							font_handle = 0;
 						prev_script = script;
 						prev_is_emoji = is_emoji;

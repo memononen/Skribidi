@@ -113,23 +113,23 @@ void* richtext_create(void)
 
 	skb_text_attribs_t attribs_small = {
 		.font_size = 15.f,
-		.font_weight = 400,
+		.font_weight = SKB_WEIGHT_NORMAL,
 		.line_spacing_multiplier = 1.f, //1.3f,
 		.color = ink_color,
 	};
 
 	skb_text_attribs_t attribs_italic = {
 		.font_size = 64.f,
-		.font_weight = 400,
+		.font_weight = SKB_WEIGHT_NORMAL,
 		.line_spacing_multiplier = 1.f, //1.3f,
-		.style = SKB_FONT_STYLE_ITALIC,
+		.font_style = SKB_STYLE_ITALIC,
 		.letter_spacing = 20.f,
 		.color = ink_color,
 	};
 	skb_text_attribs_t attribs_big = {
 		.font_size = 128.f,
 		.line_spacing_multiplier = 1.f, //1.3f,
-		.font_weight = 700,
+		.font_weight = SKB_WEIGHT_BOLD,
 		.color = skb_rgba(220,40,40,255),
 	};
 
@@ -141,7 +141,7 @@ void* richtext_create(void)
 	skb_text_attribs_t attribs_fracts = {
 		.font_size = 48.f,
 		.line_spacing_multiplier = 1.f, //1.3f,
-		.font_weight = 400,
+		.font_weight = SKB_WEIGHT_NORMAL,
 		.color = skb_rgba(180,110,190,255),
 		.font_features = frac_features,
 		.font_features_count = SKB_COUNTOF(frac_features),

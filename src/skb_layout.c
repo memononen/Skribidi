@@ -80,8 +80,8 @@ uint64_t skb_layout_attribs_hash_append(uint64_t hash, const skb_text_attribs_t*
 	hash = skb_hash64_append_float(hash, attribs->word_spacing);
 	hash = skb_hash64_append_float(hash, attribs->line_spacing_multiplier);
 	hash = skb_hash64_append(hash, &attribs->color, sizeof(attribs->color));
-	hash = skb_hash64_append_uint32(hash, attribs->font_weight);
-	hash = skb_hash64_append_uint8(hash, attribs->style);
+	hash = skb_hash64_append_uint8(hash, attribs->font_weight);
+	hash = skb_hash64_append_uint8(hash, attribs->font_style);
 	hash = skb_hash64_append_uint8(hash, attribs->direction);
 
 	return hash;
@@ -174,10 +174,10 @@ typedef struct skb__shaping_attribute_span_t {
 	hb_language_t lang;
 	int32_t font_features_count;
 	float font_size;
-	uint16_t font_weight;
+	uint8_t font_weight;
 	uint8_t font_stretch;
 	uint8_t font_family;
-	uint8_t style;
+	uint8_t font_style;
 	uint8_t direction;
 	uint8_t has_spacing;
 	skb_range_t source_spans;
@@ -782,7 +782,7 @@ static void skb__set_shaping_span(skb__shaping_attribute_span_t* shaping_span, c
 	shaping_span->font_stretch = span->attribs.font_stretch;
 	shaping_span->lang = hb_language_from_string(span->attribs.lang, -1);
 	shaping_span->font_family = span->attribs.font_family;
-	shaping_span->style = span->attribs.style;
+	shaping_span->font_style = span->attribs.font_style;
 	shaping_span->direction = span->attribs.direction;
 	shaping_span->has_spacing = span->attribs.letter_spacing > 0.01f;
 }
@@ -813,7 +813,7 @@ static bool skb__shaping_spans_equals(const skb__shaping_attribute_span_t* shapi
 {
 	return	shaping_span->direction == span->attribs.direction
 			&& shaping_span->font_family == span->attribs.font_family
-			&& shaping_span->style == span->attribs.style
+			&& shaping_span->font_style == span->attribs.font_style
 			&& shaping_span->font_weight == span->attribs.font_weight
 			&& shaping_span->has_spacing == (span->attribs.letter_spacing > 0.01f)
 			&& skb_equalsf(shaping_span->font_size, span->attribs.font_size, 0.01f)
@@ -834,7 +834,7 @@ static bool skb__lang_equals(const char* lhs, const char* rhs)
 static bool skb__attribs_equals(const skb_text_attribs_t* lhs, const skb_text_attribs_t* rhs)
 {
 	return	lhs->direction == rhs->direction
-			&& lhs->style == rhs->style
+			&& lhs->font_style == rhs->font_style
 			&& lhs->font_weight == rhs->font_weight
 			&& skb_equalsf(lhs->font_size, rhs->font_size, 0.01f)
 			&& skb_equalsf(lhs->letter_spacing, rhs->letter_spacing, 0.01f)
@@ -1284,7 +1284,7 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		skb_font_handle_t fonts[32];
 		int32_t fonts_count = skb_font_collection_match_fonts(
 			layout->params.font_collection, hb_language_to_string(shaping_span->lang), run->script, font_family,
-			shaping_span->style, shaping_span->font_stretch, shaping_span->font_weight,
+			shaping_span->font_style, shaping_span->font_stretch, shaping_span->font_weight,
 			fonts, SKB_COUNTOF(fonts));
 
 		if (fonts_count == 0) {

@@ -40,12 +40,12 @@ typedef struct hb_font_t hb_font_t;
 /** Enum describing font style. */
 typedef enum {
 	/** Normal font */
-	SKB_FONT_STYLE_NORMAL = 0,
+	SKB_STYLE_NORMAL = 0,
 	/** Italic font */
-	SKB_FONT_STYLE_ITALIC,
+	SKB_STYLE_ITALIC,
 	/** Oblique font */
-	SKB_FONT_STYLE_OBLIQUE,
-} skb_font_style_t;
+	SKB_STYLE_OBLIQUE,
+} skb_style_t;
 
 /** Enum describing some generic font families. */
 typedef enum {
@@ -65,16 +65,61 @@ typedef enum {
 
 /** Enum describing font stretch. */
 typedef enum {
-	SKB_FONT_STRETCH_NORMAL = 0,
-	SKB_FONT_STRETCH_ULTRA_CONDENSED,
-	SKB_FONT_STRETCH_EXTRA_CONDENSED,
-	SKB_FONT_STRETCH_CONDENSED,
-	SKB_FONT_STRETCH_SEMI_CONDENSED,
-	SKB_FONT_STRETCH_SEMI_EXPANDED,
-	SKB_FONT_STRETCH_EXPANDED,
-	SKB_FONT_STRETCH_EXTRA_EXPANDED,
-	SKB_FONT_STRETCH_ULTRA_EXPANDED,
-} skb_font_stretch_t;
+	/** Normal (1.0), (Default, when zero initialized) */
+	SKB_STRETCH_NORMAL = 0,
+	/** Ultra condensed (0.5) */
+	SKB_STRETCH_ULTRA_CONDENSED,
+	/** Extra condensed (0.625) */
+	SKB_STRETCH_EXTRA_CONDENSED,
+	/** Condensed (0.75) */
+	SKB_STRETCH_CONDENSED,
+	/** Semi condensed (0.875) */
+	SKB_STRETCH_SEMI_CONDENSED,
+	/** Semi expanded (1.125) */
+	SKB_STRETCH_SEMI_EXPANDED,
+	/** Expanded (1.25) */
+	SKB_STRETCH_EXPANDED,
+	/** Extra expanded (1.5) */
+	SKB_STRETCH_EXTRA_EXPANDED,
+	/** Ultra expanded (2.0) */
+	SKB_STRETCH_ULTRA_EXPANDED,
+} skb_stretch_t;
+
+/** Enum describing for weight. */
+typedef enum {
+	/** Normal (400), (Default, when zero initialized) */
+	SKB_WEIGHT_NORMAL,
+	/** Thin (100) */
+	SKB_WEIGHT_THIN,
+	/** Extra light (200) */
+	SKB_WEIGHT_EXTRALIGHT,
+	/** Ultra light (200) */
+	SKB_WEIGHT_ULTRALIGHT,
+	/** Light (300) */
+	SKB_WEIGHT_LIGHT,
+	/** Regular (400) */
+	SKB_WEIGHT_REGULAR,
+	/** Medium (500) */
+	SKB_WEIGHT_MEDIUM,
+	/** Demibold (600) */
+	SKB_WEIGHT_DEMIBOLD,
+	/** Semibold (600) */
+	SKB_WEIGHT_SEMIBOLD,
+	/** Bold (700) */
+	SKB_WEIGHT_BOLD,
+	/** Extra bold (800) */
+	SKB_WEIGHT_EXTRABOLD,
+	/** Ultra bold (800) */
+	SKB_WEIGHT_ULTRABOLD,
+	/** Black (000) */
+	SKB_WEIGHT_BLACK,
+	/** Heavy (900) */
+	SKB_WEIGHT_HEAVY,
+	/** Extra black (950) */
+	SKB_WEIGHT_EXTRABLACK,
+	/** Ultra black (950) */
+	SKB_WEIGHT_ULTRABLACK,
+} skb_weight_t;
 
 /** Enum describing specific font baseline. */
 typedef enum {
@@ -203,7 +248,7 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 int32_t skb_font_collection_match_fonts(
 	skb_font_collection_t* font_collection,
 	const char* lang, uint8_t script, uint8_t font_family,
-	skb_font_style_t style, skb_font_stretch_t stretch, uint16_t weight,
+	skb_style_t style, skb_stretch_t stretch, skb_weight_t weight,
 	skb_font_handle_t* results, int32_t results_cap);
 
 /**

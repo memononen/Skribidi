@@ -167,11 +167,11 @@ static bool skb__font_create_from_face(skb_font_t* font, hb_face_t* face, const 
 	font->upem_scale = 1.f / (float)upem;
 
 	if (italic > 0.1f)
-		font->style = SKB_FONT_STYLE_ITALIC;
+		font->style = SKB_STYLE_ITALIC;
 	else if (slant > 0.01f)
-		font->style = SKB_FONT_STYLE_OBLIQUE;
+		font->style = SKB_STYLE_OBLIQUE;
 	else
-		font->style = SKB_FONT_STYLE_NORMAL;
+		font->style = SKB_STYLE_NORMAL;
 
 	font->weight = (uint16_t)weight;
 
@@ -240,17 +240,17 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 {
 	hb_blob_t* blob = NULL;
 	hb_face_t* face = NULL;
-	
+
 	// skb_debug_log("Loading font: %s\n", path);
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
 	blob = hb_blob_create_from_file(path);
 	if (!blob) goto error;
-		
+
 	face = hb_face_create(blob, 0);
 	hb_blob_destroy(blob);
 	if (!face) goto error;
-	
+
 	const bool ok = skb__font_create_from_face(font, face, path, font_family);
 	hb_face_destroy(face);
 	if (!ok) goto error;
@@ -281,11 +281,11 @@ static bool skb__font_create_from_data(
 	// Pass the context and destroy function to HarfBuzz so it can manage the lifetime
 	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
 	if (!blob) goto error;
-		
+
 	face = hb_face_create(blob, 0);
 	hb_blob_destroy(blob);
 	if (!face) goto error;
-	
+
 	const bool ok = skb__font_create_from_face(font, face, name, font_family);
 	hb_face_destroy(face);
 	if (!ok) goto error;
@@ -429,15 +429,34 @@ bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb
 }
 
 static float g_stretch_to_value[] = {
-	1.0f, // SKB_FONT_STRETCH_NORMAL
-	0.5f, // SKB_FONT_STRETCH_ULTRA_CONDENSED
-	0.625f, // SKB_FONT_STRETCH_EXTRA_CONDENSED
-	0.75f, // SKB_FONT_STRETCH_CONDENSED
-	0.875f, // SKB_FONT_STRETCH_SEMI_CONDENSED
-	1.125f, // SKB_FONT_STRETCH_SEMI_EXPANDED
-	1.25f, // SKB_FONT_STRETCH_EXPANDED
-	1.5f, // SKB_FONT_STRETCH_EXTRA_EXPANDED
-	2.0f, // SKB_FONT_STRETCH_ULTRA_EXPANDED
+	1.0f, // SKB_STRETCH_NORMAL
+	0.5f, // SKB_STRETCH_ULTRA_CONDENSED
+	0.625f, // SKB_STRETCH_EXTRA_CONDENSED
+	0.75f, // SKB_STRETCH_CONDENSED
+	0.875f, // SKB_STRETCH_SEMI_CONDENSED
+	1.125f, // SKB_STRETCH_SEMI_EXPANDED
+	1.25f, // SKB_STRETCH_EXPANDED
+	1.5f, // SKB_STRETCH_EXTRA_EXPANDED
+	2.0f, // SKB_STRETCH_ULTRA_EXPANDED
+};
+
+static int32_t g_weight_to_value[] = {
+	400, // SKB_WEIGHT_NORMAL
+	100, // SKB_WEIGHT_THIN
+	200, // SKB_WEIGHT_EXTRALIGHT
+	200, // SKB_WEIGHT_ULTRALIGHT
+	300, // SKB_WEIGHT_LIGHT
+	400, // SKB_WEIGHT_REGULAR
+	500, // SKB_WEIGHT_MEDIUM
+	600, // SKB_WEIGHT_DEMIBOLD
+	600, // SKB_WEIGHT_SEMIBOLD
+	700, // SKB_WEIGHT_BOLD
+	800, // SKB_WEIGHT_EXTRABOLD
+	800, // SKB_WEIGHT_ULTRABOLD
+	900, // SKB_WEIGHT_BLACK
+	900, // SKB_WEIGHT_HEAVY
+	950, // SKB_WEIGHT_EXTRABLACK
+	950, // SKB_WEIGHT_ULTRABLACK
 };
 
 static bool skb__supports_script(const skb_font_t* font, uint8_t script)
@@ -452,7 +471,7 @@ static bool skb__supports_script(const skb_font_t* font, uint8_t script)
 int32_t skb__match_fonts(
 	const skb_font_collection_t* font_collection,
 	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
-	skb_font_style_t requested_style, skb_font_stretch_t requested_stretch, uint16_t requested_weight,
+	skb_style_t requested_style, skb_stretch_t requested_stretch, skb_weight_t requested_weight,
 	skb_font_handle_t* results, int32_t results_cap)
 {
 	// Based on https://drafts.csswg.org/css-fonts-3/#font-style-matching
@@ -552,36 +571,36 @@ int32_t skb__match_fonts(
 		for (int32_t i = 0; i < candidates_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			uint8_t style = font->style;
-			if (style == SKB_FONT_STYLE_NORMAL)
+			if (style == SKB_STYLE_NORMAL)
 				normal_count++;
-			if (style == SKB_FONT_STYLE_ITALIC)
+			if (style == SKB_STYLE_ITALIC)
 				italic_count++;
-			if (style == SKB_FONT_STYLE_OBLIQUE)
+			if (style == SKB_STYLE_OBLIQUE)
 				oblique_count++;
 		}
 
-		uint8_t selected_style = SKB_FONT_STYLE_NORMAL;
-		if (requested_style == SKB_FONT_STYLE_ITALIC) {
+		uint8_t selected_style = SKB_STYLE_NORMAL;
+		if (requested_style == SKB_STYLE_ITALIC) {
 			if (italic_count > 0)
-				selected_style = SKB_FONT_STYLE_ITALIC;
+				selected_style = SKB_STYLE_ITALIC;
 			else if (oblique_count > 0)
-				selected_style = SKB_FONT_STYLE_OBLIQUE;
+				selected_style = SKB_STYLE_OBLIQUE;
 			else if (normal_count > 0)
-				selected_style = SKB_FONT_STYLE_NORMAL;
-		} else if (requested_style == SKB_FONT_STYLE_OBLIQUE) {
+				selected_style = SKB_STYLE_NORMAL;
+		} else if (requested_style == SKB_STYLE_OBLIQUE) {
 			if (oblique_count > 0)
-				selected_style = SKB_FONT_STYLE_OBLIQUE;
+				selected_style = SKB_STYLE_OBLIQUE;
 			else if (italic_count > 0)
-				selected_style = SKB_FONT_STYLE_ITALIC;
+				selected_style = SKB_STYLE_ITALIC;
 			else if (normal_count > 0)
-				selected_style = SKB_FONT_STYLE_NORMAL;
+				selected_style = SKB_STYLE_NORMAL;
 		} else {
 			if (normal_count > 0)
-				selected_style = SKB_FONT_STYLE_NORMAL;
+				selected_style = SKB_STYLE_NORMAL;
 			else if (oblique_count > 0)
-				selected_style = SKB_FONT_STYLE_OBLIQUE;
+				selected_style = SKB_STYLE_OBLIQUE;
 			else if (italic_count > 0)
-				selected_style = SKB_FONT_STYLE_ITALIC;
+				selected_style = SKB_STYLE_ITALIC;
 		}
 
 		// Prune out everything but the selected style.
@@ -600,13 +619,15 @@ int32_t skb__match_fonts(
 
 	// Font weight
 	if (multiple_weights) {
+		const int32_t requested_weight_value = g_weight_to_value[skb_clampi((int32_t)requested_weight, 0, SKB_COUNTOF(g_weight_to_value)-1)];
+
 		bool exact_weight_match = false;
 		bool has_400 = false;
 		bool has_500 = false;
 		int32_t nearest_lighter_error = INT32_MAX;
-		uint16_t nearest_lighter = requested_weight;
+		int32_t nearest_lighter = requested_weight_value;
 		int32_t nearest_darker_error = INT32_MAX;
-		uint16_t nearest_darker = requested_weight;
+		int32_t nearest_darker = requested_weight_value;
 
 		for (int32_t i = 0; i < candidates_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
@@ -614,7 +635,7 @@ int32_t skb__match_fonts(
 				exact_weight_match = true;
 				break;
 			}
-			const int32_t error = skb_absi((int32_t)font->weight - (int32_t)requested_weight);
+			const int32_t error = skb_absi(font->weight - requested_weight_value);
 			if (font->weight <= 450) {
 				if (error < nearest_lighter_error) {
 					nearest_lighter_error = error;
@@ -630,17 +651,17 @@ int32_t skb__match_fonts(
 			has_500 |= font->weight == 500;
 		}
 
-		uint16_t selected_weight = 0;
+		int32_t selected_weight = 0;
 		if (exact_weight_match) {
-			selected_weight = requested_weight;
+			selected_weight = requested_weight_value;
 		} else {
-			if (requested_weight >= 400 && requested_weight < 450 && has_500) {
+			if (requested_weight_value >= 400 && requested_weight_value < 450 && has_500) {
 				selected_weight = 500;
-			} else if (requested_weight >= 450 && requested_weight <= 450 && has_400) {
+			} else if (requested_weight_value >= 450 && requested_weight_value <= 450 && has_400) {
 				selected_weight = 400;
 			} else {
 				// Nearest
-				if (requested_weight <= 450) {
+				if (requested_weight_value <= 450) {
 					if (nearest_lighter_error < INT32_MAX)
 						selected_weight = nearest_lighter;
 					else if (nearest_darker_error < INT32_MAX)
@@ -671,7 +692,7 @@ int32_t skb__match_fonts(
 int32_t skb_font_collection_match_fonts(
 	skb_font_collection_t* font_collection,
 	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
-	skb_font_style_t requested_style, skb_font_stretch_t requested_stretch, uint16_t requested_weight,
+	skb_style_t requested_style, skb_stretch_t requested_stretch, skb_weight_t requested_weight,
 	skb_font_handle_t* results, int32_t results_cap)
 {
 	int32_t results_count =  skb__match_fonts(
@@ -697,8 +718,9 @@ skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* fo
 {
 	skb_font_handle_t results[32];
 	int32_t results_count = skb_font_collection_match_fonts(
-		font_collection, "", SBScriptLATN, font_family, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL,
-		400, results, SKB_COUNTOF( results ) );
+		font_collection, "", SBScriptLATN, font_family,
+		SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, SKB_WEIGHT_NORMAL,
+		results, SKB_COUNTOF( results ) );
 	return results_count > 0 ? results[0] : (skb_font_handle_t)0;
 }
 

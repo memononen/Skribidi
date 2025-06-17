@@ -35,7 +35,7 @@ typedef struct skb_font_t {
 	uint8_t font_family;		// font family identifier.
 	uint8_t style;				// Normal, italic, oblique (skb_font_style_t)
 	float stretch;				// From 0.5 (ultra condensed) -> 1.0 (normal) -> 2.0 (ultra wide).
-	uint16_t weight;			// weight of the font (400 = regular).
+	int32_t weight;				// weight of the font (400 = regular).
 	uint32_t generation;		// Generation index used to identify stale handles.
 	skb_font_handle_t handle;	// Unique identifier of the font.
 } skb_font_t;

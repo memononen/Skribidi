@@ -29,7 +29,7 @@ static int test_add_remove(void)
 	uint8_t script = skb_script_from_iso15924_tag(SKB_TAG_STR("Latn"));
 
 	skb_font_handle_t font_handle2 = 0;
-	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL, 400, &font_handle2, 1);
+	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &font_handle2, 1);
 	ENSURE(count == 1);
 	ENSURE(font_handle2);
 
@@ -42,7 +42,7 @@ static int test_add_remove(void)
 
 	// Should not find a font
 	skb_font_handle_t font_handle3 = 0;
-	int32_t count2 = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL, 400, &font_handle3, 1);
+	int32_t count2 = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &font_handle3, 1);
 	ENSURE(count2 == 0);
 	ENSURE(font_handle3 == 0);
 
@@ -109,7 +109,7 @@ static int test_add_font_from_data(void)
 	// Verify font can be found
 	uint8_t script = skb_script_from_iso15924_tag(SKB_TAG_STR("Latn"));
 	skb_font_handle_t found_handle = 0;
-	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_FONT_STYLE_NORMAL, SKB_FONT_STRETCH_NORMAL, 400, &found_handle, 1);
+	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &found_handle, 1);
 	ENSURE(count == 1);
 	ENSURE(found_handle == font_handle);
 	
