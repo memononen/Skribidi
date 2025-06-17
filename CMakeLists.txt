@@ -91,7 +91,7 @@ if(PROJECT_IS_TOP_LEVEL)
 		# default startup project for Visual Studio
 		if(MSVC)
 			set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT skribidi_example)
-			set_property(TARGET skribidi_example PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+			set_property(TARGET skribidi_example PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin/$<CONFIG>")
 		endif()
 
 		if(APPLE)
@@ -103,6 +103,6 @@ if(PROJECT_IS_TOP_LEVEL)
 
 	if(SKRIBIDI_UNIT_TESTS)
 		add_subdirectory(test)
-		set_property(TARGET skribidi_test PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+		set_property(TARGET skribidi_test PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin/$<CONFIG>")
 	endif()
 endif()
