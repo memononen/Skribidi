@@ -54,7 +54,7 @@ Skribidi just got started. There are bugs and the API is very likely to change.
 	- *Linux*: use `cmake --build . -j$(nproc)`
 	- *macOS*: use `cmake --build . -j$(sysctl -n hw.ncpu)`
 
-When running the example or test, the working directory should be the the binary direction (`/build/bin`). On Windows, the example data direction is copied there and on Linux or macOS there's a symlink for the data directory.
+When running the example or test, the working directory should be the configuration binary direction (`/build/bin/Debug` or `/build/bin/Release`). On Windows, the example data direction is copied there and on Linux or macOS there's a symlink for the data directory.
 
 ## Dependencies
 The project uses CMake, but you dont need to. If you handle dependecies yourself you can just add the
