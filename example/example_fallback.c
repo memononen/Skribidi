@@ -92,7 +92,7 @@ static void set_text(fallback_context_t* ctx, const char* text)
 
 	skb_text_attribs_t text_attribs = {
 		.font_size = 32.f,
-		.font_weight = 400,
+		.font_weight = SKB_WEIGHT_NORMAL,
 		.line_spacing_multiplier = 1.f, //1.3f,
 		.color = ink_color,
 	};

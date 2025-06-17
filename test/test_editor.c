@@ -12,7 +12,7 @@ static int test_init(void)
 		 },
 		. text_attribs = {
 		 	.font_size = 15.f,
-		 	.font_weight = 400
+		 	.font_weight = SKB_WEIGHT_NORMAL
 		},
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
