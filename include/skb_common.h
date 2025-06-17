@@ -201,6 +201,12 @@ static inline bool skb_range_overlap(skb_range_t a, skb_range_t b)
 	return skb_maxi(a.start, b.start) < skb_mini(a.end, b.end);
 }
 
+/** @return true if the range contains the index. */
+static inline bool skb_range_contains(skb_range_t r, int32_t idx)
+{
+	return idx >= r.start && idx < r.end;
+}
+
 
 /** 8-bits per component color, sRGB. */
 typedef struct skb_color_t {

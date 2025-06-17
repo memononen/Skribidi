@@ -645,6 +645,81 @@ uint32_t skb_script_to_iso15924_tag(uint8_t script);
  */
 uint8_t skb_script_from_iso15924_tag(uint32_t script_tag);
 
+
+//
+// Glyph run iterator
+//
+
+/** Struct holding the state of the glyph iterator */
+typedef struct skb_glyph_run_iterator_t {
+	const skb_glyph_t* glyphs;
+	int32_t glyphs_count;
+	skb_range_t glyph_range;
+	int32_t pos;
+} skb_glyph_run_iterator_t;
+
+/**
+ * Makes new glyph run iterator.
+ * Glyph iterator can be used to iterate over a contiguous range of glyphs which have the same font and attributes.
+ * Use skb_glyph_run_iterator_next() in a while loop to iterate the ranges.
+ * @param glyphs const pointer to the glyphs to iterate over.
+ * @param glyphs_count Number of glyphs.
+ * @param start Start index of the glyphs to iterate.
+ * @param end One past the end index of the glyphs to iterate (half open range).
+ * @return initialized iterator.
+ */
+static inline skb_glyph_run_iterator_t skb_glyph_run_iterator_make(const skb_glyph_t* glyphs, int32_t glyphs_count, int32_t start, int32_t end)
+{
+	assert(glyphs);
+	assert(end >= start);
+	assert(start >= 0 && start <= glyphs_count);
+	assert(end >= 0 && end <= glyphs_count);
+
+	skb_glyph_run_iterator_t iter = {0};
+	iter.glyphs = glyphs;
+	iter.glyphs_count = glyphs_count;
+	iter.glyph_range.start = start;
+	iter.glyph_range.end = end;
+	iter.pos = start;
+
+	return iter;
+}
+
+/**
+ * Advances to the next glyph range of same font and attributes.
+ * @param iter pointer to iterator to advance.
+ * @param range (out) range of the glyphs with same font and attributes.
+ * @param font_handle (out) the font of the glyph run.
+ * @param span_idx (out) index to the span describing the attributes of the run.
+ * @return true if the return values are valid.
+ */
+static inline bool skb_glyph_run_iterator_next(skb_glyph_run_iterator_t* iter, skb_range_t* range, skb_font_handle_t* font_handle, uint16_t* span_idx)
+{
+	if (iter->pos == iter->glyph_range.end)
+		return false;
+
+	int32_t start_pos = iter->pos;
+
+	// Find continuous range of same font and attribute span.
+	skb_font_handle_t cur_font_handle = iter->glyphs[iter->pos].font_handle;
+	uint16_t cur_span_idx = iter->glyphs[iter->pos].span_idx;
+	iter->pos++;
+
+	while (iter->pos < iter->glyph_range.end) {
+		if (iter->glyphs[iter->pos].font_handle != cur_font_handle || iter->glyphs[iter->pos].span_idx != cur_span_idx)
+			break;
+		iter->pos++;
+	}
+
+	range->start = start_pos;
+	range->end = iter->pos;
+	*font_handle = cur_font_handle;
+	*span_idx = cur_span_idx;
+
+	return true;
+}
+
+
 /** @} */
 
 #ifdef __cplusplus

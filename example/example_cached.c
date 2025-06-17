@@ -228,23 +228,29 @@ void render_text(cached_context_t* ctx, float x, float y, float font_size, int32
 	const skb_text_attribs_span_t* attrib_spans = skb_layout_get_attribute_spans(layout);
 	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
 
-	for (int32_t gi = 0; gi < glyphs_count; gi++) {
-		const skb_glyph_t* glyph = &glyphs[gi];
-		const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
+	skb_glyph_run_iterator_t glyph_iter = skb_glyph_run_iterator_make(glyphs, glyphs_count, 0, glyphs_count);
+	skb_range_t glyph_range;
+	skb_font_handle_t font_handle = 0;
+	uint16_t span_idx = 0;
+	while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
+		const skb_text_attribs_span_t* span = &attrib_spans[span_idx];
+		for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
+			const skb_glyph_t* glyph = &glyphs[gi];
 
-		const float gx = x + glyph->offset_x;
-		const float gy = y + glyph->offset_y;
+			const float gx = x + glyph->offset_x;
+			const float gy = y + glyph->offset_y;
 
-		// Glyph image
-		skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
-			ctx->render_cache,gx, gy, ctx->view.scale,
-			layout_params->font_collection, glyph->font_handle, glyph->gid,
-			span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+			// Glyph image
+			skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
+				ctx->render_cache,gx, gy, ctx->view.scale,
+				layout_params->font_collection, glyph->font_handle, glyph->gid,
+				span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 
-		draw_image_quad_sdf(
-			view_transform_rect(&ctx->view, quad.geom_bounds),
-			quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
-			(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+			draw_image_quad_sdf(
+				view_transform_rect(&ctx->view, quad.geom_bounds),
+				quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
+				(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+		}
 	}
 }
 

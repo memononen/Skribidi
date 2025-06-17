@@ -300,7 +300,7 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
 
 		update_ime_rect(ctx);
-	} else
+	}
 	if (action == GLFW_PRESS) {
 		ctx->allow_char = true;
 		if (key == GLFW_KEY_A && (mods & GLFW_MOD_CONTROL)) {
@@ -503,6 +503,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
+			const int32_t glyphs_count = skb_layout_get_glyphs_count(edit_layout);
 			const skb_text_attribs_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
 			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
 
@@ -531,59 +532,65 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				int32_t run_start_glyph_idx = line->glyph_range.start;
 				skb_rect2_t run_bounds = skb_rect2_make_undefined();
 
-				for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
-					const skb_glyph_t* glyph = &glyphs[gi];
-					const skb_text_attribs_span_t* span = &attrib_spans[glyph->span_idx];
+				skb_glyph_run_iterator_t glyph_iter = skb_glyph_run_iterator_make(glyphs, glyphs_count, line->glyph_range.start, line->glyph_range.end);
+				skb_range_t glyph_range;
+				skb_font_handle_t font_handle = 0;
+				uint16_t span_idx = 0;
+				while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
+					const skb_text_attribs_span_t* span = &attrib_spans[span_idx];
+					for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
+						const skb_glyph_t* glyph = &glyphs[gi];
 
-					float gx = ox + glyph->offset_x;
-					float gy = oy + edit_layout_y + glyph->offset_y;
+						float gx = ox + glyph->offset_x;
+						float gy = oy + edit_layout_y + glyph->offset_y;
 
-					if (ctx->show_glyph_details) {
-						// Glyph pen position
-						draw_tick(gx, gy, 5.f, ink_color_trans);
+						if (ctx->show_glyph_details) {
+							// Glyph pen position
+							draw_tick(gx, gy, 5.f, ink_color_trans);
 
-						// Glyph bounds
-						skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size);
-						draw_rect(gx + bounds.x, gy + bounds.y, bounds.width, bounds.height, ink_color_trans);
+							// Glyph bounds
+							skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size);
+							draw_rect(gx + bounds.x, gy + bounds.y, bounds.width, bounds.height, ink_color_trans);
 
-						// Visual index
-						draw_text(gx + bounds.x +2.f +0.5f, gy + bounds.y-8+0.5f,12, 0, ink_color, "%d", gi);
+							// Visual index
+							draw_text(gx + bounds.x +2.f +0.5f, gy + bounds.y-8+0.5f,12, 0, ink_color, "%d", gi);
 
-						// Keep track of run of glyphs that map to same text range.
-						if (!skb_rect2_is_empty(bounds))
-							run_bounds = skb_rect2_union(run_bounds, skb_rect2_translate(bounds, skb_vec2_make(gx,gy)));
-					}
+							// Keep track of run of glyphs that map to same text range.
+							if (!skb_rect2_is_empty(bounds))
+								run_bounds = skb_rect2_union(run_bounds, skb_rect2_translate(bounds, skb_vec2_make(gx,gy)));
+						}
 
-					// Glyph image
-					skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
-						skb_roundf(gx), skb_roundf(gy), 1.f,
-						layout_params->font_collection, glyph->font_handle, glyph->gid,
-						span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+						// Glyph image
+						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
+							skb_roundf(gx), skb_roundf(gy), 1.f,
+							layout_params->font_collection, glyph->font_handle, glyph->gid,
+							span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
 
-					draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : span->attribs.color,
-						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+						draw_image_quad_sdf(quad.geom_bounds, quad.image_bounds, quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : span->attribs.color,
+							(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 
-					pen_x += glyph->advance_x;
+						pen_x += glyph->advance_x;
 
-					if (ctx->show_glyph_details) {
-						const int32_t next_gi = gi + 1;
-						if (next_gi > line->glyph_range.end || glyphs[next_gi].text_range.start != glyph->text_range.start) {
-							// Glyph run bounds
-							if ((next_gi - run_start_glyph_idx) > 1 && !skb_rect2_is_empty(run_bounds))
-								draw_rect(run_bounds.x - 4.f, run_bounds.y - 4.f, run_bounds.width + 8.f, run_bounds.height + 8.f, ink_color_trans);
+						if (ctx->show_glyph_details) {
+							const int32_t next_gi = gi + 1;
+							if (next_gi > line->glyph_range.end || glyphs[next_gi].text_range.start != glyph->text_range.start) {
+								// Glyph run bounds
+								if ((next_gi - run_start_glyph_idx) > 1 && !skb_rect2_is_empty(run_bounds))
+									draw_rect(run_bounds.x - 4.f, run_bounds.y - 4.f, run_bounds.width + 8.f, run_bounds.height + 8.f, ink_color_trans);
 
-							// Logical id
-							float run_end_x = pen_x;
-							draw_rect(run_start_x + 2.f + 0.5f, bot_y + 0.5f - 18, (run_end_x - run_start_x) - 4.f,  18.f, log_color);
-							if ((glyph->text_range.end - glyph->text_range.start) > 1)
-								draw_text(run_start_x + 5.f, bot_y - 5.f,12,0, log_color, "L%d - L%d", glyph->text_range.start, glyph->text_range.end-1);
-							else
-								draw_text(run_start_x + 5.f, bot_y - 5.f,12,0, log_color, "L%d", glyph->text_range.start);
+								// Logical id
+								float run_end_x = pen_x;
+								draw_rect(run_start_x + 2.f + 0.5f, bot_y + 0.5f - 18, (run_end_x - run_start_x) - 4.f,  18.f, log_color);
+								if ((glyph->text_range.end - glyph->text_range.start) > 1)
+									draw_text(run_start_x + 5.f, bot_y - 5.f,12,0, log_color, "L%d - L%d", glyph->text_range.start, glyph->text_range.end-1);
+								else
+									draw_text(run_start_x + 5.f, bot_y - 5.f,12,0, log_color, "L%d", glyph->text_range.start);
 
-							// Reset
-							run_bounds = skb_rect2_make_undefined();
-							run_start_x = pen_x;
-							run_start_glyph_idx = gi + 1;
+								// Reset
+								run_bounds = skb_rect2_make_undefined();
+								run_start_x = pen_x;
+								run_start_glyph_idx = gi + 1;
+							}
 						}
 					}
 				}

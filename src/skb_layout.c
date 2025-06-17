@@ -23,7 +23,6 @@
 
 #define SB_SCRIPT_COMMON SBScriptZYYY
 #define SB_SCRIPT_INHERITED SBScriptZINH
-#define SB_SCRIPT_UNKNOWN SBScriptZZZZ
 
 typedef struct skb_layout_t {
 	skb_layout_params_t params;
@@ -167,26 +166,7 @@ typedef struct skb__shaping_run_t {
 	bool is_emoji;
 } skb__shaping_run_t;
 
-// Span that affects the shaping
-typedef struct skb__shaping_attribute_span_t {
-	skb_range_t range;
-	skb_font_feature_t* font_features;
-	hb_language_t lang;
-	int32_t font_features_count;
-	float font_size;
-	uint8_t font_weight;
-	uint8_t font_stretch;
-	uint8_t font_family;
-	uint8_t font_style;
-	uint8_t direction;
-	uint8_t has_spacing;
-	skb_range_t source_spans;
-} skb__shaping_attribute_span_t;
-
 typedef struct skb__layout_build_context_t {
-	skb__shaping_attribute_span_t* shaping_spans;
-	int32_t shaping_spans_count;
-
 	skb__shaping_run_t* shaping_runs;
 	int32_t shaping_runs_count;
 	int32_t shaping_runs_cap;
@@ -219,7 +199,7 @@ static void skb__shape_run(
 	skb__layout_build_context_t* build_context,
 	skb_layout_t* layout,
 	const skb__shaping_run_t* run,
-	const skb__shaping_attribute_span_t* shaping_span,
+	const skb_text_attribs_span_t* span,
 	hb_buffer_t* buffer,
 	const skb_font_handle_t* fonts,
 	int32_t fonts_count,
@@ -231,14 +211,16 @@ static void skb__shape_run(
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, run->offset, run->length);
 
+	const hb_language_t lang = span->attribs.lang ? hb_language_from_string(span->attribs.lang, -1) : build_context->lang;
+
 	hb_buffer_set_direction(buffer, skb_is_rtl(run->direction) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
 	hb_buffer_set_script(buffer, skb__sb_script_to_hb(run->script));
-	hb_buffer_set_language(buffer, shaping_span->lang ? shaping_span->lang : build_context->lang);
+	hb_buffer_set_language(buffer, lang);
 
 	hb_feature_t features[SKB_MAX_FEATURES];
 	int32_t features_count = 0;
 
-	if (shaping_span->has_spacing) {
+	if (skb_absf(span->attribs.letter_spacing) > 0.01f) {
 		// Disable ligratures when letter spacing is requested.
 		skb__add_font_feature(features, &features_count, SKB_TAG_STR("clig"), 0); // Contextual ligatures
 		skb__add_font_feature(features, &features_count, SKB_TAG_STR("dlig"), 0); // Discretionary ligatures
@@ -246,8 +228,8 @@ static void skb__shape_run(
 		skb__add_font_feature(features, &features_count, SKB_TAG_STR("liga"), 0); // Standard ligatures
 		skb__add_font_feature(features, &features_count, SKB_TAG_STR("hlig"), 0); // Historical ligatures
 	}
-	for (int32_t i = 0; i < shaping_span->font_features_count; i++)
-		skb__add_font_feature(features, &features_count, shaping_span->font_features[i].tag, shaping_span->font_features[i].value);
+	for (int32_t i = 0; i < span->attribs.font_features_count; i++)
+		skb__add_font_feature(features, &features_count, span->attribs.font_features[i].tag, span->attribs.font_features[i].value);
 
 	hb_buffer_flags_t flags = HB_BUFFER_FLAG_DEFAULT;
 	if (run->offset == 0)
@@ -267,10 +249,12 @@ static void skb__shape_run(
 	hb_font_get_glyph (font->hb_font, 0x20 /*space*/, 0, &space_gid);
 	hb_position_t space_x_advance = hb_font_get_glyph_h_advance(font->hb_font, space_gid);
 
-	const float scale = shaping_span->font_size * font->upem_scale;
+	const float scale = span->attribs.font_size * font->upem_scale;
 
 	// Reserve space for the glyphs.
 	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + glyph_count);
+
+	const uint16_t span_idx = (uint16_t)(span - layout->attribute_spans);
 
 	// Iterate clusters
 	for (int32_t i = 0; i < glyph_count; ) {
@@ -307,7 +291,7 @@ static void skb__shape_run(
 					.is_emoji = run->is_emoji,
 					.script = run->script,
 				};
-				skb__shape_run(build_context, layout, &fallback_run, shaping_span, fallback_buffer, fonts, fonts_count, font_idx+1);
+				skb__shape_run(build_context, layout, &fallback_run, span, fallback_buffer, fonts, fonts_count, font_idx+1);
 
 				hb_buffer_destroy(fallback_buffer);
 				i = glyph_end + 1;
@@ -350,8 +334,8 @@ static void skb__shape_run(
 		for (int32_t j = glyph_start; j <= glyph_end; j++) {
 			skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
 
-			// Replace with space character to avoid showing invalid glyph.
 			if (is_control) {
+				// Replace with space character to avoid showing invalid glyph.
 				glyph->gid = (uint16_t)space_gid;
 				glyph->offset_x = 0.f;
 				glyph->offset_y = 0.f;
@@ -368,20 +352,7 @@ static void skb__shape_run(
 			glyph->text_range.start = text_start;
 			glyph->text_range.end = text_end;
 			glyph->visual_idx = layout->glyphs_count - 1;
-
-			// Find span index
-			glyph->span_idx = UINT16_MAX;
-			for (int32_t span_idx = shaping_span->source_spans.start; span_idx < shaping_span->source_spans.end; span_idx++) {
-				const skb_text_attribs_span_t* span = &layout->attribute_spans[span_idx];
-				if (glyph->text_range.start >= span->text_range.start && glyph->text_range.start < span->text_range.end) {
-					assert(span_idx <= UINT16_MAX);
-					glyph->span_idx = (uint16_t)span_idx;
-					break;
-				}
-			}
-			assert(glyph->span_idx != UINT16_MAX);
-			if (glyph->span_idx == UINT16_MAX)
-				glyph->span_idx = 0;
+			glyph->span_idx = span_idx;
 		}
 
 		i = glyph_end + 1;
@@ -772,32 +743,6 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 	layout->bounds.height = top_y;
 }
 
-static void skb__set_shaping_span(skb__shaping_attribute_span_t* shaping_span, const skb_text_attribs_span_t* span)
-{
-	shaping_span->range = span->text_range;
-	shaping_span->font_features = span->attribs.font_features;
-	shaping_span->font_features_count = span->attribs.font_features_count;
-	shaping_span->font_size = span->attribs.font_size;
-	shaping_span->font_weight = span->attribs.font_weight;
-	shaping_span->font_stretch = span->attribs.font_stretch;
-	shaping_span->lang = hb_language_from_string(span->attribs.lang, -1);
-	shaping_span->font_family = span->attribs.font_family;
-	shaping_span->font_style = span->attribs.font_style;
-	shaping_span->direction = span->attribs.direction;
-	shaping_span->has_spacing = span->attribs.letter_spacing > 0.01f;
-}
-
-static bool skb__shaping_lang_equals(const skb__shaping_attribute_span_t* shaping_span, const skb_text_attribs_span_t* span)
-{
-	if (shaping_span->lang == HB_LANGUAGE_INVALID && !span->attribs.lang)
-		return true;
-	if (shaping_span->lang == HB_LANGUAGE_INVALID || !span->attribs.lang)
-		return false;
-
-	// Not using hb_language_matches(), as we want to check for exact maths.
-	return shaping_span->lang == hb_language_from_string(span->attribs.lang, -1);
-}
-
 static bool skb__font_features_equals(const skb_font_feature_t* lhs, int32_t lhs_count, const skb_font_feature_t* rhs, int32_t rhs_count)
 {
 	if (lhs_count != rhs_count)
@@ -807,18 +752,6 @@ static bool skb__font_features_equals(const skb_font_feature_t* lhs, int32_t lhs
 			return false;
 	}
 	return true;
-}
-
-static bool skb__shaping_spans_equals(const skb__shaping_attribute_span_t* shaping_span, const skb_text_attribs_span_t* span)
-{
-	return	shaping_span->direction == span->attribs.direction
-			&& shaping_span->font_family == span->attribs.font_family
-			&& shaping_span->font_style == span->attribs.font_style
-			&& shaping_span->font_weight == span->attribs.font_weight
-			&& shaping_span->has_spacing == (span->attribs.letter_spacing > 0.01f)
-			&& skb_equalsf(shaping_span->font_size, span->attribs.font_size, 0.01f)
-			&& skb__font_features_equals(shaping_span->font_features, shaping_span->font_features_count, span->attribs.font_features, span->attribs.font_features_count)
-			&& skb__shaping_lang_equals(shaping_span, span);
 }
 
 static bool skb__lang_equals(const char* lhs, const char* rhs)
@@ -844,31 +777,6 @@ static bool skb__attribs_equals(const skb_text_attribs_t* lhs, const skb_text_at
 			&& skb__font_features_equals(lhs->font_features, lhs->font_features_count, rhs->font_features, rhs->font_features_count)
 			&& skb__lang_equals(lhs->lang, rhs->lang);
 }
-
-static void skb__create_shaping_spans(skb__layout_build_context_t* build_context, const skb_layout_t* layout)
-{
-	build_context->shaping_spans = SKB_TEMP_ALLOC(build_context->temp_alloc, skb__shaping_attribute_span_t, layout->attribute_spans_count);
-	build_context->shaping_spans_count = 0;
-
-	skb__shaping_attribute_span_t* cur_span = &build_context->shaping_spans[build_context->shaping_spans_count++];
-	skb__set_shaping_span(cur_span, &layout->attribute_spans[0]);
-	cur_span->source_spans.start = 0;
-	cur_span->source_spans.end = 1;
-
-	for (int32_t i = 1; i < layout->attribute_spans_count; i++) {
-		const skb_text_attribs_span_t* span = &layout->attribute_spans[i];
-		if (!skb__shaping_spans_equals(cur_span, span)) {
-			cur_span = &build_context->shaping_spans[build_context->shaping_spans_count++];
-			skb__set_shaping_span(cur_span, span);
-			cur_span->source_spans.start = i;
-			cur_span->source_spans.end = i+1;
-		} else {
-			cur_span->range.end = span->text_range.end;
-			cur_span->source_spans.end = i+1;
-		}
-	}
-}
-
 
 typedef struct skb__script_run_iter {
 	const skb_text_property_t* text_props;
@@ -915,25 +823,25 @@ typedef struct skb__text_style_run_iter {
 	bool is_rtl;
 	int32_t span_idx;
 	int32_t span_end;
-	const skb__shaping_attribute_span_t* shaping_spans;
-	int32_t shaping_spans_count;
+	const skb_text_attribs_span_t* spans;
+	int32_t spans_count;
 } skb__text_style_run_iter;
 
-static skb__text_style_run_iter skb__text_style_run_iter_make(skb_range_t range, bool is_rtl, const skb__shaping_attribute_span_t* shaping_spans, int32_t shaping_spans_count)
+static skb__text_style_run_iter skb__text_style_run_iter_make(skb_range_t range, bool is_rtl, const skb_text_attribs_span_t* spans, int32_t spans_count)
 {
 	skb__text_style_run_iter iter = {
 		.range = range,
 		.is_rtl = is_rtl,
-		.shaping_spans = shaping_spans,
-		.shaping_spans_count = shaping_spans_count
+		.spans = spans,
+		.spans_count = spans_count
 	};
 
 	if (is_rtl) {
-		iter.span_idx = shaping_spans_count - 1;
+		iter.span_idx = spans_count - 1;
 		iter.span_end = -1;
 	} else {
 		iter.span_idx = 0;
-		iter.span_end = shaping_spans_count;
+		iter.span_end = spans_count;
 	}
 
 	return iter;
@@ -947,14 +855,14 @@ static bool skb__text_style_run_iter_next(skb__text_style_run_iter* iter, skb_ra
 	if (iter->is_rtl) {
 		// Reverse if RTL
 		while (iter->span_idx > iter->span_end) {
-			const skb__shaping_attribute_span_t* shaping_span = &iter->shaping_spans[iter->span_idx];
-			if (shaping_span->range.end <= iter->range.start) {
+			const skb_text_attribs_span_t* span = &iter->spans[iter->span_idx];
+			if (span->text_range.end <= iter->range.start) {
 				iter->span_idx = iter->span_end;
 				return false;
 			}
 			const skb_range_t shaping_range = {
-				.start = skb_maxi(iter->range.start, shaping_span->range.start),
-				.end = skb_mini(iter->range.end, shaping_span->range.end),
+				.start = skb_maxi(iter->range.start, span->text_range.start),
+				.end = skb_mini(iter->range.end, span->text_range.end),
 			};
 			iter->span_idx--;
 			if (shaping_range.start < shaping_range.end) {
@@ -966,14 +874,14 @@ static bool skb__text_style_run_iter_next(skb__text_style_run_iter* iter, skb_ra
 	} else {
 		// Forward if RTL
 		while (iter->span_idx < iter->span_end) {
-			const skb__shaping_attribute_span_t* shaping_span = &iter->shaping_spans[iter->span_idx];
-			if (shaping_span->range.start > iter->range.end) {
+			const skb_text_attribs_span_t* span = &iter->spans[iter->span_idx];
+			if (span->text_range.start > iter->range.end) {
 				iter->span_idx = iter->span_end;
 				return false;
 			}
 			const skb_range_t shaping_range = {
-				.start = skb_maxi(iter->range.start, shaping_span->range.start),
-				.end = skb_mini(iter->range.end, shaping_span->range.end),
+				.start = skb_maxi(iter->range.start, span->text_range.start),
+				.end = skb_mini(iter->range.end, span->text_range.end),
 			};
 			iter->span_idx++;
 			if (shaping_range.start < shaping_range.end) {
@@ -998,9 +906,6 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		base_level = 1;
 	else if (layout->params.base_direction == SKB_DIRECTION_LTR)
 		base_level = 0;
-
-	// Create array of style spans that affect the text shaping.
-	skb__create_shaping_spans(build_context, layout);
 
 	SBCodepointSequence codepoint_seq = { SBStringEncodingUTF32, layout->text, layout->text_count };
 
@@ -1061,13 +966,13 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 			const uint8_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 			// Split bidi runs at shaping style span boundaries.
-			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), build_context->shaping_spans, build_context->shaping_spans_count);
+			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), layout->attribute_spans, layout->attribute_spans_count);
 
 			skb_range_t style_range = {0};
 			int32_t style_span_idx = 0;
 			while (skb__text_style_run_iter_next(&style_iter, &style_range, &style_span_idx)) {
-				const skb__shaping_attribute_span_t* shaping_span = &build_context->shaping_spans[style_span_idx];
-				const uint8_t style_direction = shaping_span->direction != SKB_DIRECTION_AUTO ? shaping_span->direction : bidi_direction;
+				const skb_text_attribs_span_t* span = &layout->attribute_spans[style_span_idx];
+				const uint8_t style_direction = span->attribs.direction != SKB_DIRECTION_AUTO ? span->attribs.direction : bidi_direction;
 
 				// Process the rest of the itemization forward, and reverse the sequence of runs once completed.
 				int32_t first_run = build_context->shaping_runs_count;
@@ -1198,8 +1103,9 @@ static void skb__apply_lang_based_word_breaks(const skb__layout_build_context_t*
 
 	for (int32_t i = 0; i < build_context->shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context->shaping_runs[i];
-		const skb__shaping_attribute_span_t* span = &build_context->shaping_spans[run->shaping_span_idx];
-		hb_language_t run_lang = span->lang ? span->lang : build_context->lang;
+		const skb_text_attribs_span_t* span = &layout->attribute_spans[run->shaping_span_idx];
+		const hb_language_t run_lang = span->attribs.lang ? hb_language_from_string(span->attribs.lang, -1) : build_context->lang;
+
 		if (skb__is_japanese_script(run->script) && hb_language_matches(lang_ja, run_lang)) {
 			// Merge supported runs into one longer one.
 			const int32_t start = run->offset;
@@ -1278,13 +1184,14 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	hb_buffer_t* buffer = hb_buffer_create();
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
-		const skb__shaping_attribute_span_t* shaping_span = &build_context.shaping_spans[run->shaping_span_idx];
-		const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : shaping_span->font_family;
+		const skb_text_attribs_span_t* span = &layout->attribute_spans[run->shaping_span_idx];
+		const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : span->attribs.font_family;
+		const hb_language_t run_lang = span->attribs.lang ? hb_language_from_string(span->attribs.lang, -1) : build_context.lang;
 
 		skb_font_handle_t fonts[32];
 		int32_t fonts_count = skb_font_collection_match_fonts(
-			layout->params.font_collection, hb_language_to_string(shaping_span->lang), run->script, font_family,
-			shaping_span->font_style, shaping_span->font_stretch, shaping_span->font_weight,
+			layout->params.font_collection, hb_language_to_string(run_lang), run->script, font_family,
+			span->attribs.font_style, span->attribs.font_stretch, span->attribs.font_weight,
 			fonts, SKB_COUNTOF(fonts));
 
 		if (fonts_count == 0) {
@@ -1297,13 +1204,12 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		}
 
 		hb_buffer_clear_contents(buffer);
-		skb__shape_run(&build_context, layout, run, shaping_span, buffer, fonts, fonts_count, 0);
+		skb__shape_run(&build_context, layout, run, span, buffer, fonts, fonts_count, 0);
 	}
 	hb_buffer_destroy(buffer);
 
 	// There are freed in the order they are allocated so that the allocations get unwound.
 	SKB_TEMP_FREE(build_context.temp_alloc, build_context.shaping_runs);
-	SKB_TEMP_FREE(build_context.temp_alloc, build_context.shaping_spans);
 	SKB_TEMP_FREE(build_context.temp_alloc, build_context.emoji_types_buffer);
 
 	// Apply letter and word spacing
@@ -2185,17 +2091,6 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 			}
 		}
 	}
-}
-
-static int32_t skb__get_next_glyph_run_end(const skb_layout_t* layout, int32_t text_start, int32_t pos, int32_t end, float* width)
-{
-	skb_range_t text = layout->glyphs[pos].text_range;
-	*width = 0.f;
-	while (pos < layout->glyphs_count && layout->glyphs[pos].text_range.start == text.start) {
-		*width += layout->glyphs[pos].advance_x;
-		pos++;
-	}
-	return pos;
 }
 
 skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t line_idx)
