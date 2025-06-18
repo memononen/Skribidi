@@ -37,6 +37,168 @@ typedef const struct hb_language_impl_t *hb_language_t;
  * @{
  */
 
+//
+// Text attributes
+//
+
+/**
+ * Writing mode text attribute.
+ * If multiple writing attributes are defined, only the first one is used.
+ * Subset of https://drafts.csswg.org/css-writing-modes-4/
+ */
+typedef struct skb_attribute_writing_t {
+	/** BCP 47 language tag, e.g. fi-FI. If NULL, do not override language.  */
+	const char* lang;
+	/** Text writing direction, no change if SKB_DIRECTION_AUTO. */
+	uint8_t direction;
+} skb_attribute_writing_t;
+
+/**
+ * Font text attribute.
+ * If multiple font attributes are defined, only the first one is used.
+ * Subset of https://drafts.csswg.org/css-fonts/
+ */
+typedef struct skb_attribute_font_t {
+	/** Font size (px). Default 16.0 */
+	float size;
+	/** Font family, see skb_font_family_t. Default SKB_FONT_FAMILY_DEFAULT. */
+	uint8_t family;
+	/** Font weight, see skb_weight_t. Default SKB_WEIGHT_NORMAL. */
+	uint8_t weight;
+	/** Font style, see skb_style_t. Default SKB_STYLE_NORMAL. */
+	uint8_t style;
+	/** Font stretch see skb_stretch_t. Default SKB_STRETCH_NORMAL. */
+	uint8_t stretch;
+} skb_attribute_font_t;
+
+/**
+ * Font feature text attribute.
+ * The attribute array can contain multiple font feature attributes.
+ * See https://learn.microsoft.com/en-us/typography/opentype/spec/featuretags
+ */
+typedef struct skb_attribute_font_feature_t {
+	/** OpenType font feature tag */
+	uint32_t tag;
+	/** Taga value, often 1 = on, 0 = off. */
+	uint32_t value;
+} skb_attribute_font_feature_t;
+
+/**
+ * Text spacing attribute.
+ * If multiple spacing attributes are defined, only the first one is used.
+ * Subset of https://drafts.csswg.org/css-text/
+ */
+typedef struct skb_attribute_spacing_t {
+	/** Letter spacing (px)  */
+	float letter;
+	/** Word spacing (px) */
+	float word;
+} skb_attribute_spacing_t;
+
+/**
+ * Line height attribute.
+ * If multiple line height attributes are defined, only the first one is used.
+ */
+typedef struct skb_attribute_line_height_t {
+	/** Line spacing multiplier. */
+	float line_spacing_multiplier;
+} skb_attribute_line_height_t;
+
+/**
+ * Text fill color attribute.
+ * It is up to the client code to decide if multiple fill attributes are supported.
+ */
+typedef struct skb_attribute_fill_t {
+	/** Color of the text */
+	skb_color_t color;
+} skb_attribute_fill_t;
+
+/** Enum describing tags for each of the attributes. */
+typedef enum {
+	/** Tag for skb_attribute_writing_t */
+	SKB_ATTRIBUTE_WRITING = SKB_TAG('w','r','i','t'),
+	/** Tag for skb_attribute_font_t */
+	SKB_ATTRIBUTE_FONT = SKB_TAG('f','o','n','t'),
+	/** Tag for skb_attribute_font_feature_t */
+	SKB_ATTRIBUTE_FONT_FEATURE = SKB_TAG('f','e','a','t'),
+	/** tag for skb_attribute_spacing_t */
+	SKB_ATTRIBUTE_SPACING = SKB_TAG('s','p','c','e'),
+	/** Tag for skb_attribute_line_height_t */
+	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
+	/** Tag for skb_attribute_fill_t */
+	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
+} skb_attribute_type_t;
+
+/**
+ * Tagged union struct which can hold any text attribute.
+ */
+typedef struct skb_attribute_t {
+	uint32_t type;
+	union {
+		skb_attribute_writing_t writing;
+		skb_attribute_font_t font;
+		skb_attribute_font_feature_t font_feature;
+		skb_attribute_spacing_t spacing;
+		skb_attribute_line_height_t line_height;
+		skb_attribute_fill_t fill;
+	};
+} skb_attribute_t;
+
+/** @returns new writing mode text attribute. See skb_attribute_writing_t */
+skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_t direction);
+
+/** @returns new font text attribute. See skb_attribute_font_t */
+skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, skb_weight_t weight, skb_style_t style, skb_stretch_t stretch);
+
+/** @returns new font feature text attribute. See skb_attribute_font_attribute_t */
+skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value);
+
+/** @returns new spacing text attribute. See skb_attribute_spacing_t */
+skb_attribute_t skb_attribute_make_spacing(float letter, float word);
+
+/** @returns new line height text attribute. See skb_attribute_spacing_t */
+skb_attribute_t skb_attribute_make_line_height(float line_spacing_multiplier);
+
+/** @returns new fill color text attribute. See skb_attribute_spacing_t */
+skb_attribute_t skb_attribute_make_fill(skb_color_t color);
+
+/**
+ * Returns first text writing attribute or default value.
+ * The default value is empty, which causes no change.
+ * @return first found attribute or default avalue.
+ */
+skb_attribute_writing_t skb_attributes_get_writing(const skb_attribute_t* attributes, int32_t attributes_count);
+
+/**
+ * Returns first font text attribute or default value.
+ * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
+ * @return first found attribute or default value.
+ */
+skb_attribute_font_t skb_attributes_get_font(const skb_attribute_t* attributes, int32_t attributes_count);
+
+/**
+ * Returns first spacing attribute or default value.
+ * The default value is: letter spacing 0, word spacing 0.
+ * @return first found attribute or default value.
+ */
+skb_attribute_spacing_t skb_attributes_get_spacing(const skb_attribute_t* attributes, int32_t attributes_count);
+
+/**
+ * Returns first line height attribute or default value.
+ * The default value is: line spacing multiplier 1.0.
+ * @return first found attribute or default value.
+ */
+skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_t* attributes, int32_t attributes_count);
+
+/**
+ * Returns first fill attribute or default value.
+ * The default value is opaque black.
+ * @return first found attribute or default value.
+ */
+skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_t* attributes, int32_t attributes_count);
+
+
+
 /** Enum describing horizontal alignment of a line of the text. */
 typedef enum {
 	/** Align to the language specific start. Left for LTR and right for RTL. */
@@ -46,44 +208,6 @@ typedef enum {
 	/** Center align the lines. */
 	SKB_ALIGN_CENTER,
 } skb_align_t;
-
-/** Struct describing a single font feature. */
-typedef struct skb_font_feature_t {
-	/** Four letter tag describing the OpenType feature. See SKB_TAG() macro. */
-	uint32_t tag;
-	/** Value of the features, often 1 means on and 0 means off. */
-	uint32_t value;
-} skb_font_feature_t;
-
-/** Text run attributes. */
-typedef struct skb_text_attribs_t {
-	/** Array of font features to assign to the text. */
-	skb_font_feature_t* font_features;
-	/** Number of font features in font_features array. */
-	int32_t font_features_count;
-	/** BCP 47 language tag, e.g. fi-FI. If NULL, do not override language. */
-	const char* lang;
-	/** Font size (px) */
-	float font_size;
-	/** Letter spacing (px) */
-	float letter_spacing;
-	/** Word spacing (px) */
-	float word_spacing;
-	/** Line spacing multiplier. */
-	float line_spacing_multiplier;
-	/** Color of the text. */
-	skb_color_t color;
-	/** Font weight. see skb_weight_t. Zero defaults to SKB_WEIGHT_NORMAL */
-	uint8_t font_weight;
-	/** Font stretch, see skb_stretch_t. Zero defaults to SKB_STRETCH_NORMAL. */
-	uint8_t font_stretch;
-	/** Font family identifier. */
-	uint8_t font_family;
-	/** Font style, see skb_style_t. Zero defaults to SKB_FONT_STYLE_NORMAL. */
-	uint8_t font_style;
-	/** Text direction, see skb_text_dir_t. Zero defaults to SKB_DIR_AUTO. */
-	uint8_t direction;
-} skb_text_attribs_t;
 
 /** Enum describing flags for skb_layout_params_t. */
 enum skb_layout_params_flags_t {
@@ -116,8 +240,9 @@ typedef struct skb_text_attribs_span_t {
 	/** Range of text the attribues apply to. */
 	skb_range_t text_range;
 	/** The text attributes. */
-	skb_text_attribs_t attribs;
-} skb_text_attribs_span_t;
+	skb_attribute_t* attributes;
+	int32_t attributes_count;
+} skb_text_attributes_span_t;
 
 /** Struct describing a run of utf-8 text with attributes. */
 typedef struct skb_text_run_utf8_t {
@@ -126,7 +251,8 @@ typedef struct skb_text_run_utf8_t {
 	/** Length of the text, or -1 if text is null terminated. */
 	int32_t text_count;
 	/** Pointer to the text attributes. */
-	const skb_text_attribs_t* attribs;
+	const skb_attribute_t* attribs;
+	int32_t attribs_count;
 } skb_text_run_utf8_t;
 
 /** Struct describing a run of utf-32 text with attributes. */
@@ -136,7 +262,8 @@ typedef struct skb_text_run_utf32_t {
 	/** Length of the text, or -1 if text is null terminated. */
 	int32_t text_count;
 	/** Pointer to the text attributes. */
-	const skb_text_attribs_t* attribs;
+	const skb_attribute_t* attributes;
+	int32_t attributes_count;
 } skb_text_run_utf32_t;
 
 /** Struct describing shaped and positioned glyph. */
@@ -220,7 +347,7 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
  * @param attribs pointer to the attributes to hash.
  * @return combined hash.
  */
-uint64_t skb_layout_attribs_hash_append(uint64_t hash, const skb_text_attribs_t* attribs);
+uint64_t skb_attributes_hash_append(uint64_t hash, const skb_attribute_t* attribs, int32_t attribs_count);
 
 /**
  * Creates empty layout with specified parameters.
@@ -238,7 +365,10 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
  * @param attribs attributes to apply for the text.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_text_attribs_t* attribs);
+skb_layout_t* skb_layout_create_utf8(
+	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const char* text, int32_t text_count,
+	const skb_attribute_t* attribs, int32_t attribs_count);
 
 /**
  * Creates new layout from the provided parameters, text and text attributes.
@@ -249,7 +379,10 @@ skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_lay
  * @param attribs attributes to apply for the text.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_text_attribs_t* attribs);
+skb_layout_t* skb_layout_create_utf32(
+	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const uint32_t* text, int32_t text_count,
+	const skb_attribute_t* attribs, int32_t attribs_count);
 
 /**
  * Creates new layout from the provided parameters and text runs.
@@ -260,7 +393,9 @@ skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_la
  * @param runs_count number of runs.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_from_runs_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count);
+skb_layout_t* skb_layout_create_from_runs_utf8(
+	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const skb_text_run_utf8_t* runs, int32_t runs_count);
 
 /**
  * Creates new layout from the provided parameters and text runs.
@@ -271,7 +406,9 @@ skb_layout_t* skb_layout_create_from_runs_utf8(skb_temp_alloc_t* temp_alloc, con
  * @param runs_count number of runs.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_from_runs_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf32_t* runs, int32_t runs_count);
+skb_layout_t* skb_layout_create_from_runs_utf32(
+	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const skb_text_run_utf32_t* runs, int32_t runs_count);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -283,7 +420,10 @@ skb_layout_t* skb_layout_create_from_runs_utf32(skb_temp_alloc_t* temp_alloc, co
  * @param attribs attributes to apply for the text.
  * @return newly create layout.
  */
-void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_text_attribs_t* attribs);
+void skb_layout_set_utf8(
+	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const char* text, int32_t text_count,
+	const skb_attribute_t* attribs, int32_t attribs_count);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -295,7 +435,10 @@ void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, con
  * @param attribs attributes to apply for the text.
  * @return newly create layout.
  */
-void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_text_attribs_t* attribs);
+void skb_layout_set_utf32(
+	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const uint32_t* text, int32_t text_count,
+	const skb_attribute_t* attribs, int32_t attribs_count);
 
 /**
  * Sets the layout from the provided parameters and text runs.
@@ -306,7 +449,9 @@ void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, co
  * @param runs utf-8 text runs to combine into continuous text.
  * @param runs_count number of runs.
  */
-void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count);
+void skb_layout_set_from_runs_utf8(
+	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const skb_text_run_utf8_t* runs, int32_t runs_count);
 
 /**
  * Sets the layout from the provided parameters and text runs.
@@ -317,7 +462,9 @@ void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_
  * @param runs utf-32 text runs to combine into continuous text.
  * @param runs_count number of runs.
  */
-void skb_layout_set_from_runs_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf32_t* runs, int32_t runs_count);
+void skb_layout_set_from_runs_utf32(
+	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const skb_text_run_utf32_t* runs, int32_t runs_count);
 
 /**
  * Empties the specified layout. Keeps the existing allocations.
@@ -363,7 +510,7 @@ const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
 int32_t skb_layout_get_attribute_spans_count(const skb_layout_t* layout);
 
 /** @return const pointer to the attribute spans. See skb_layout_get_attribute_spans_count() to get number of spans. */
-const skb_text_attribs_span_t* skb_layout_get_attribute_spans(const skb_layout_t* layout);
+const skb_text_attributes_span_t* skb_layout_get_attribute_spans(const skb_layout_t* layout);
 
 /** @return typographic bunds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);

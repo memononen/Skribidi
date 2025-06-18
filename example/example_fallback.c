@@ -90,14 +90,12 @@ static void set_text(fallback_context_t* ctx, const char* text)
 		.baseline = SKB_BASELINE_MIDDLE,
 	};
 
-	skb_text_attribs_t text_attribs = {
-		.font_size = 32.f,
-		.font_weight = SKB_WEIGHT_NORMAL,
-		.line_spacing_multiplier = 1.f, //1.3f,
-		.color = ink_color,
+	const skb_attribute_t attributes[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 32.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_fill(ink_color),
 	};
 
-	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, &text_attribs);
+	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, attributes, SKB_COUNTOF(attributes));
 
 }
 
@@ -342,7 +340,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw layout
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
 		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
-		const skb_text_attribs_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
+		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		if (ctx->show_glyph_bounds) {
@@ -357,7 +355,9 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_font_handle_t font_handle = 0;
 		uint16_t span_idx = 0;
 		while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
-			const skb_text_attribs_span_t* span = &attrib_spans[span_idx];
+			const skb_text_attributes_span_t* span = &attrib_spans[span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
 			for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 
@@ -367,7 +367,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				if (ctx->show_glyph_bounds) {
 					draw_tick(view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans);
 
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size);
+					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, attr_font.size);
 					bounds.x += gx;
 					bounds.y += gy;
 					bounds = view_transform_rect(&ctx->view, bounds);
@@ -375,11 +375,13 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				}
 
 				// Glyph image
-				skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,gx, gy, ctx->view.scale, layout_params->font_collection, glyph->font_handle, glyph->gid, span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+				skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
+					ctx->render_cache,gx, gy, ctx->view.scale, layout_params->font_collection,
+					glyph->font_handle, glyph->gid, attr_font.size, SKB_RENDER_ALPHA_SDF);
 
 				draw_image_quad_sdf(
 					view_transform_rect(&ctx->view, quad.geom_bounds),
-					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
+					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
 					(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 			}
 		}

@@ -54,9 +54,13 @@ typedef struct skb_editor_params_t {
 	/** Layout parameters used for each paragraph layout. */
 	skb_layout_params_t layout_params;
 	/** Text attributes for all the text. */
-	skb_text_attribs_t text_attribs;
+	const skb_attribute_t* text_attributes;
+	/** Number of text attributes. */
+	int32_t text_attributes_count;
 	/** Text attributes for the IME composition text. */
-	skb_text_attribs_t composition_text_attribs;
+	const skb_attribute_t* composition_attributes;
+	/** Number of compositoin text attributes. */
+	int32_t composition_attributes_count;
 	/** Base direction of the text editor. */
 	uint8_t base_direction;
 	/** Care movement mode */
@@ -350,7 +354,7 @@ bool skb_editor_can_redo(skb_editor_t* editor);
  * @param temp_alloc temp allocator used to relayout the text.
  */
 void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
-	
+
 /**
  * Sets temporary IME composition text as utf-32. The text will be laid out at the current cursor location.
  * The function can be called multiple times during while the user composes the input.
