@@ -195,13 +195,13 @@ void* testbed_create(void)
 
 	const skb_attribute_t attributes[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(1.3f),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	const skb_attribute_t composition_attributes[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(1.3f),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
 	};
 

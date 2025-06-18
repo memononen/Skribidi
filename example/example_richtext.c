@@ -113,6 +113,7 @@ void* richtext_create(void)
 
 	const skb_attribute_t attributes_small[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.2f),
 		skb_attribute_make_fill(ink_color),
 	};
 
@@ -124,6 +125,7 @@ void* richtext_create(void)
 
 	const skb_attribute_t attributes_big[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 128.f, SKB_WEIGHT_BOLD, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 0.75f),
 		skb_attribute_make_fill(skb_rgba(220,40,40,255)),
 	};
 

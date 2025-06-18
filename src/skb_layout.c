@@ -151,12 +151,13 @@ skb_attribute_t skb_attribute_make_spacing(float letter, float word)
 	};
 }
 
-skb_attribute_t skb_attribute_make_line_height(float line_spacing_multiplier)
+skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height)
 {
 	return (skb_attribute_t) {
 		.type = SKB_ATTRIBUTE_LINE_HEIGHT,
 		.line_height = {
-			.line_spacing_multiplier = line_spacing_multiplier,
+			.type = (uint8_t)type,
+			.height = height,
 		},
 	};
 }
@@ -212,7 +213,7 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_t
 			return attributes[i].line_height;
 	}
 	return (skb_attribute_line_height_t) {
-		.line_spacing_multiplier = 1.f,
+		.type = SKB_LINE_HEIGHT_NORMAL,
 	};
 }
 
@@ -604,6 +605,22 @@ static int skb__glyph_cmp_visual(const void *a, const void *b)
 	return ga->visual_idx - gb->visual_idx;
 }
 
+static float skb_calculate_line_height(skb_attribute_line_height_t attr_line_height, const skb_font_t* font, float font_size)
+{
+	const float ascender = font->metrics.ascender * font_size;
+	const float descender = font->metrics.descender * font_size;
+
+	if (attr_line_height.type == SKB_LINE_HEIGHT_NORMAL)
+		return -ascender + descender;
+	if (attr_line_height.type == SKB_LINE_HEIGHT_METRICS_RELATIVE)
+		return (-ascender + descender) * attr_line_height.height;
+	if (attr_line_height.type == SKB_LINE_HEIGHT_FONT_SIZE_RELATIVE)
+		return font_size * attr_line_height.height;
+	// SKB_LINE_HEIGHT_ABSOLUTE) {
+	return attr_line_height.height;
+}
+
+
 void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_vec2_t origin, float line_break_width, bool ignore_hard_breaks)
 {
 	// Sort glyphs in logical order, word breaks must be done in logical order.
@@ -743,7 +760,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
-		float line_gap = 0.f;
+		float line_height = 0.f;
 
 		if (line->glyph_range.start != line->glyph_range.end) {
 			// The line is still in logical order, grab the text range.
@@ -760,8 +777,6 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			skb_font_handle_t prev_font_handle = 0;
 			int32_t prev_span_idx = -1;
 			float baseline_align_offset = 0.f;
-			skb_attribute_font_t attr_font = {0};
-			skb_attribute_line_height_t attr_line_height = {0};
 
 			// Update line dimensions
 			for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
@@ -771,8 +786,8 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					prev_span_idx = glyph->span_idx;
 
 					const skb_text_attributes_span_t* span = &layout->attribute_spans[glyph->span_idx];
-					attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-					attr_line_height = skb_attributes_get_line_height(span->attributes, span->attributes_count);
+					const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+					const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(span->attributes, span->attributes_count);
 
 					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
 
@@ -781,9 +796,9 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 					baseline_align_offset = -baseline;
 
-					line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size * attr_line_height.line_spacing_multiplier - baseline);
-					line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size * attr_line_height.line_spacing_multiplier - baseline);
-					line_gap = skb_maxf(line_gap, font->metrics.line_gap * attr_font.size * attr_line_height.line_spacing_multiplier);
+					line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
+					line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size - baseline);
+					line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size - baseline);
 				}
 
 				glyph->offset_y += baseline_align_offset;
@@ -807,12 +822,12 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			const skb_font_handle_t default_font_handle = skb_font_collection_get_default_font(layout->params.font_collection, attr_font.family);
 			const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, default_font_handle);
 			if (font) {
-				line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size * attr_line_height.line_spacing_multiplier);
-				line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size * attr_line_height.line_spacing_multiplier);
-				line_gap = skb_maxf(line_gap, font->metrics.line_gap * attr_font.size * attr_line_height.line_spacing_multiplier);
+				line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
+				line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size);
+				line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size);
 			}
 		}
-		line->bounds.height = -line->ascender + line->descender + line_gap;
+		line->bounds.height = line_height;
 		max_line_width = skb_maxf(max_line_width, line->bounds.width);
 	}
 
@@ -872,13 +887,15 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 		line->bounds.y = origin.y + top_y;
 
 		// Update glyph offsets
-		const float baseline_y = line->bounds.y - line->ascender;
+		const float leading = line->bounds.height - (-line->ascender + line->descender);
+		const float leading_above = leading * 0.5f;
+		line->baseline = line->bounds.y + leading_above - line->ascender;
 
 		float cur_x = start_x;
 		for (int32_t j = line->glyph_range.start; j < line->glyph_range.end; j++) {
 			skb_glyph_t* glyph = &layout->glyphs[j];
 			glyph->offset_x += cur_x;
-			glyph->offset_y += baseline_y;
+			glyph->offset_y += line->baseline;
 			cur_x += glyph->advance_x;
 		}
 

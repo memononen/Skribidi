@@ -37,6 +37,28 @@ typedef const struct hb_language_impl_t *hb_language_t;
  * @{
  */
 
+/** Enum describing horizontal alignment of a line of the text. */
+typedef enum {
+	/** Align to the language specific start. Left for LTR and right for RTL. */
+	SKB_ALIGN_START = 0,
+	/** Align to the language specific end. Right for LTR and left for RTL. */
+	SKB_ALIGN_END,
+	/** Center align the lines. */
+	SKB_ALIGN_CENTER,
+} skb_align_t;
+
+/** Enum describing how line height is calculated */
+typedef enum {
+	/** Line height comes from font metrics. No scaling applied. */
+	SKB_LINE_HEIGHT_NORMAL = 0,
+	/** Line height is multiple of line height specified in font metrics. */
+	SKB_LINE_HEIGHT_METRICS_RELATIVE,
+	/** Line height is multiple of font size. */
+	SKB_LINE_HEIGHT_FONT_SIZE_RELATIVE,
+	/** Line height is the specified value.  */
+	SKB_LINE_HEIGHT_ABSOLUTE,
+} skb_line_height_t;
+
 //
 // Text attributes
 //
@@ -100,8 +122,10 @@ typedef struct skb_attribute_spacing_t {
  * If multiple line height attributes are defined, only the first one is used.
  */
 typedef struct skb_attribute_line_height_t {
-	/** Line spacing multiplier. */
-	float line_spacing_multiplier;
+	/** Line height type. See skb_line_height_t for types. */
+	uint8_t type;
+	/** Line height, see line_height_type how the value is interpreted. */
+	float height;
 } skb_attribute_line_height_t;
 
 /**
@@ -157,7 +181,7 @@ skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value);
 skb_attribute_t skb_attribute_make_spacing(float letter, float word);
 
 /** @returns new line height text attribute. See skb_attribute_spacing_t */
-skb_attribute_t skb_attribute_make_line_height(float line_spacing_multiplier);
+skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
 
 /** @returns new fill color text attribute. See skb_attribute_spacing_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
@@ -197,17 +221,6 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_t
  */
 skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_t* attributes, int32_t attributes_count);
 
-
-
-/** Enum describing horizontal alignment of a line of the text. */
-typedef enum {
-	/** Align to the language specific start. Left for LTR and right for RTL. */
-	SKB_ALIGN_START = 0,
-	/** Align to the language specific end. Right for LTR and left for RTL. */
-	SKB_ALIGN_END,
-	/** Center align the lines. */
-	SKB_ALIGN_CENTER,
-} skb_align_t;
 
 /** Enum describing flags for skb_layout_params_t. */
 enum skb_layout_params_flags_t {
@@ -326,6 +339,8 @@ typedef struct skb_layout_line_t {
 	float ascender;
 	/** Combined descender of the line. */
 	float descender;
+	/** Baseline offset from line top. */
+	float baseline;
 	/** Bounding rectangle of the line. */
 	skb_rect2_t bounds;
 } skb_layout_line_t;
