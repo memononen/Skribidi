@@ -69,10 +69,12 @@ typedef enum {
  * Subset of https://drafts.csswg.org/css-writing-modes-4/
  */
 typedef struct skb_attribute_writing_t {
-	/** BCP 47 language tag, e.g. fi-FI. If NULL, do not override language.  */
-	const char* lang;
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** Text writing direction, no change if SKB_DIRECTION_AUTO. */
 	uint8_t direction;
+	/** BCP 47 language tag, e.g. fi-FI. If NULL, do not override language.  */
+	const char* lang;
 } skb_attribute_writing_t;
 
 /**
@@ -81,6 +83,8 @@ typedef struct skb_attribute_writing_t {
  * Subset of https://drafts.csswg.org/css-fonts/
  */
 typedef struct skb_attribute_font_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** Font size (px). Default 16.0 */
 	float size;
 	/** Font family, see skb_font_family_t. Default SKB_FONT_FAMILY_DEFAULT. */
@@ -99,6 +103,8 @@ typedef struct skb_attribute_font_t {
  * See https://learn.microsoft.com/en-us/typography/opentype/spec/featuretags
  */
 typedef struct skb_attribute_font_feature_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** OpenType font feature tag */
 	uint32_t tag;
 	/** Taga value, often 1 = on, 0 = off. */
@@ -111,6 +117,8 @@ typedef struct skb_attribute_font_feature_t {
  * Subset of https://drafts.csswg.org/css-text/
  */
 typedef struct skb_attribute_spacing_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** Letter spacing (px)  */
 	float letter;
 	/** Word spacing (px) */
@@ -122,6 +130,8 @@ typedef struct skb_attribute_spacing_t {
  * If multiple line height attributes are defined, only the first one is used.
  */
 typedef struct skb_attribute_line_height_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** Line height type. See skb_line_height_t for types. */
 	uint8_t type;
 	/** Line height, see line_height_type how the value is interpreted. */
@@ -133,9 +143,12 @@ typedef struct skb_attribute_line_height_t {
  * It is up to the client code to decide if multiple fill attributes are supported.
  */
 typedef struct skb_attribute_fill_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
 	/** Color of the text */
 	skb_color_t color;
 } skb_attribute_fill_t;
+
 
 /** Enum describing tags for each of the attributes. */
 typedef enum {
@@ -154,18 +167,16 @@ typedef enum {
 } skb_attribute_type_t;
 
 /**
- * Tagged union struct which can hold any text attribute.
+ * Tagged union which can hold any text attribute.
  */
-typedef struct skb_attribute_t {
-	uint32_t type;
-	union {
-		skb_attribute_writing_t writing;
-		skb_attribute_font_t font;
-		skb_attribute_font_feature_t font_feature;
-		skb_attribute_spacing_t spacing;
-		skb_attribute_line_height_t line_height;
-		skb_attribute_fill_t fill;
-	};
+typedef union skb_attribute_t {
+	uint32_t kind;
+	skb_attribute_writing_t writing;
+	skb_attribute_font_t font;
+	skb_attribute_font_feature_t font_feature;
+	skb_attribute_spacing_t spacing;
+	skb_attribute_line_height_t line_height;
+	skb_attribute_fill_t fill;
 } skb_attribute_t;
 
 /** @returns new writing mode text attribute. See skb_attribute_writing_t */

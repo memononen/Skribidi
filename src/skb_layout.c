@@ -95,8 +95,8 @@ static const char* skb__make_hb_lang(const char* lang)
 skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_t direction)
 {
 	skb_attribute_t attrib = {
-		.type = SKB_ATTRIBUTE_WRITING,
 		.writing = {
+			.kind = SKB_ATTRIBUTE_WRITING,
 			.direction = (uint8_t)direction,
 			.lang = skb__make_hb_lang(lang),
 		}
@@ -107,8 +107,8 @@ skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_
 skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, skb_weight_t weight, skb_style_t style, skb_stretch_t stretch)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_FONT,
 		.font = {
+			.kind = SKB_ATTRIBUTE_FONT,
 			.size = size,
 			.family = (uint8_t)family,
 			.weight = (uint8_t)weight,
@@ -121,8 +121,8 @@ skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, sk
 skb_attribute_t skb_text_attrib_font_feature_make(uint32_t tag, uint32_t value)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_FONT_FEATURE,
 		.font_feature = {
+			.kind = SKB_ATTRIBUTE_FONT_FEATURE,
 			.tag = tag,
 			.value = value,
 		}
@@ -132,8 +132,8 @@ skb_attribute_t skb_text_attrib_font_feature_make(uint32_t tag, uint32_t value)
 skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_FONT_FEATURE,
 		.font_feature = {
+			.kind = SKB_ATTRIBUTE_FONT_FEATURE,
 			.tag = tag,
 			.value = value,
 		},
@@ -143,8 +143,8 @@ skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value)
 skb_attribute_t skb_attribute_make_spacing(float letter, float word)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_SPACING,
 		.spacing = {
+			.kind = SKB_ATTRIBUTE_SPACING,
 			.letter = letter,
 			.word = word,
 		},
@@ -154,8 +154,8 @@ skb_attribute_t skb_attribute_make_spacing(float letter, float word)
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_LINE_HEIGHT,
 		.line_height = {
+			.kind = SKB_ATTRIBUTE_LINE_HEIGHT,
 			.type = (uint8_t)type,
 			.height = height,
 		},
@@ -165,8 +165,8 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 {
 	return (skb_attribute_t) {
-		.type = SKB_ATTRIBUTE_FILL,
 		.fill = {
+			.kind = SKB_ATTRIBUTE_FILL,
 			.color = color,
 		},
 	};
@@ -176,7 +176,7 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 skb_attribute_writing_t skb_attributes_get_writing(const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	for (int32_t i = 0; i < attributes_count; i++) {
-		if (attributes[i].type == SKB_ATTRIBUTE_WRITING)
+		if (attributes[i].kind == SKB_ATTRIBUTE_WRITING)
 			return attributes[i].writing;
 	}
 	return (skb_attribute_writing_t) {0};
@@ -185,7 +185,7 @@ skb_attribute_writing_t skb_attributes_get_writing(const skb_attribute_t* attrib
 skb_attribute_font_t skb_attributes_get_font(const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	for (int32_t i = 0; i < attributes_count; i++) {
-		if (attributes[i].type == SKB_ATTRIBUTE_FONT)
+		if (attributes[i].kind == SKB_ATTRIBUTE_FONT)
 			return attributes[i].font;
 	}
 	return (skb_attribute_font_t) {
@@ -200,7 +200,7 @@ skb_attribute_font_t skb_attributes_get_font(const skb_attribute_t* attributes, 
 skb_attribute_spacing_t skb_attributes_get_spacing(const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	for (int32_t i = 0; i < attributes_count; i++) {
-		if (attributes[i].type == SKB_ATTRIBUTE_SPACING)
+		if (attributes[i].kind == SKB_ATTRIBUTE_SPACING)
 			return attributes[i].spacing;
 	}
 	return (skb_attribute_spacing_t) {0};
@@ -209,7 +209,7 @@ skb_attribute_spacing_t skb_attributes_get_spacing(const skb_attribute_t* attrib
 skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	for (int32_t i = 0; i < attributes_count; i++) {
-		if (attributes[i].type == SKB_ATTRIBUTE_LINE_HEIGHT)
+		if (attributes[i].kind == SKB_ATTRIBUTE_LINE_HEIGHT)
 			return attributes[i].line_height;
 	}
 	return (skb_attribute_line_height_t) {
@@ -220,7 +220,7 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_t
 skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	for (int32_t i = 0; i < attributes_count; i++) {
-		if (attributes[i].type == SKB_ATTRIBUTE_FILL)
+		if (attributes[i].kind == SKB_ATTRIBUTE_FILL)
 			return attributes[i].fill;
 	}
 	return (skb_attribute_fill_t) {
@@ -366,7 +366,7 @@ static void skb__shape_run(
 		skb__add_font_feature(features, &features_count, SKB_TAG_STR("hlig"), 0); // Historical ligatures
 	}
 	for (int32_t i = 0; i < span->attributes_count; i++) {
-		if (span->attributes[i].type == SKB_ATTRIBUTE_FONT_FEATURE)
+		if (span->attributes[i].kind == SKB_ATTRIBUTE_FONT_FEATURE)
 			skb__add_font_feature(features, &features_count, span->attributes[i].font_feature.tag, span->attributes[i].font_feature.value);
 	}
 
@@ -1405,7 +1405,7 @@ static int skb__attribute_cmp(const void* a, const void* b)
 {
 	const skb_attribute_t* attr_a = a;
 	const skb_attribute_t* attr_b = b;
-	return (int32_t)attr_a->type - (int32_t)attr_b->type;
+	return (int32_t)attr_a->kind - (int32_t)attr_b->kind;
 }
 
 static void skb__append_attributes(skb_layout_t* layout, const skb_attribute_t* attributes, int32_t attribs_count, int32_t text_start, int32_t text_end)
@@ -1529,8 +1529,10 @@ static const char* skb__resolve_lang(const skb_layout_t* layout, const skb_text_
 {
 	const char* lang = NULL;
 	for (int32_t i = 0; i < span->attributes_count; i++) {
-		if (span->attributes[i].type == SKB_ATTRIBUTE_WRITING)
+		if (span->attributes[i].kind == SKB_ATTRIBUTE_WRITING) {
 			lang = span->attributes[i].writing.lang;
+			break;
+		}
 	}
 	return lang ? lang : layout->params.lang;
 }
