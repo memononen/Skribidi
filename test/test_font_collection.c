@@ -29,7 +29,7 @@ static int test_add_remove(void)
 	uint8_t script = skb_script_from_iso15924_tag(SKB_TAG_STR("Latn"));
 
 	skb_font_handle_t font_handle2 = 0;
-	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &font_handle2, 1);
+	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, &font_handle2, 1);
 	ENSURE(count == 1);
 	ENSURE(font_handle2);
 
@@ -42,7 +42,7 @@ static int test_add_remove(void)
 
 	// Should not find a font
 	skb_font_handle_t font_handle3 = 0;
-	int32_t count2 = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &font_handle3, 1);
+	int32_t count2 = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, &font_handle3, 1);
 	ENSURE(count2 == 0);
 	ENSURE(font_handle3 == 0);
 
@@ -76,27 +76,27 @@ static int test_add_font_from_data(void)
 	// Read font file into memory
 	FILE* f = fopen("data/IBMPlexSans-Regular.ttf", "rb");
 	ENSURE(f != NULL);
-	
+
 	fseek(f, 0, SEEK_END);
 	long file_size = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	
+
 	void* font_data = malloc(file_size);
 	ENSURE(font_data != NULL);
-	
+
 	size_t read_size = fread(font_data, 1, file_size, f);
 	ENSURE(read_size == (size_t)file_size);
 	fclose(f);
-	
+
 	// Set up destroy callback tracking
 	bool destroyed = false;
 	test_destroy_context_t* context = malloc(sizeof(test_destroy_context_t));
 	context->destroyed = &destroyed;
 	context->data = font_data;
-	
+
 	// Add font from data
 	skb_font_handle_t font_handle = skb_font_collection_add_font_from_data(
-		font_collection, 
+		font_collection,
 		"IBMPlexSans-Regular",
 		SKB_FONT_FAMILY_DEFAULT,
 		font_data,
@@ -105,28 +105,28 @@ static int test_add_font_from_data(void)
 		test_destroy_callback
 	);
 	ENSURE(font_handle != 0);
-	
+
 	// Verify font can be found
 	uint8_t script = skb_script_from_iso15924_tag(SKB_TAG_STR("Latn"));
 	skb_font_handle_t found_handle = 0;
-	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, 400, &found_handle, 1);
+	int32_t count = skb_font_collection_match_fonts(font_collection, "", script, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, &found_handle, 1);
 	ENSURE(count == 1);
 	ENSURE(found_handle == font_handle);
-	
+
 	// Remove font - this should eventually trigger the destroy callback
 	bool removed = skb_font_collection_remove_font(font_collection, font_handle);
 	ENSURE(removed);
-	
+
 	// Destroy collection - this should ensure all resources are freed
 	skb_font_collection_destroy(font_collection);
-	
+
 	// Verify destroy callback was called
 	ENSURE(destroyed == true);
-	
+
 	// Clean up
 	free(font_data);
 	free(context);
-	
+
 	return 0;
 }
 
