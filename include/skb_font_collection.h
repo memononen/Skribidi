@@ -238,9 +238,9 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
  * @param lang the languages of the requested text.
  * @param script script to match.
  * @param font_family font family to match.
+ * @param weight weight to match.
  * @param style style to match.
  * @param stretch stretch to match.
- * @param weight weight to match.
  * @param results pointer to results array.
  * @param results_cap results array capacity.
  * @return number of fonts matching the parameters.
@@ -248,7 +248,7 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 int32_t skb_font_collection_match_fonts(
 	skb_font_collection_t* font_collection,
 	const char* lang, uint8_t script, uint8_t font_family,
-	skb_style_t style, skb_stretch_t stretch, skb_weight_t weight,
+	skb_weight_t weight, skb_style_t style, skb_stretch_t stretch,
 	skb_font_handle_t* results, int32_t results_cap);
 
 /**

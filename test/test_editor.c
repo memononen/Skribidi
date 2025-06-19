@@ -6,14 +6,16 @@
 
 static int test_init(void)
 {
+	skb_attribute_t attributes[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+	};
+
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = NULL,
 		 },
-		. text_attribs = {
-		 	.font_size = 15.f,
-		 	.font_weight = SKB_WEIGHT_NORMAL
-		},
+		.text_attributes = attributes,
+		.text_attributes_count = SKB_COUNTOF(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 	};

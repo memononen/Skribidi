@@ -471,7 +471,7 @@ static bool skb__supports_script(const skb_font_t* font, uint8_t script)
 int32_t skb__match_fonts(
 	const skb_font_collection_t* font_collection,
 	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
-	skb_style_t requested_style, skb_stretch_t requested_stretch, skb_weight_t requested_weight,
+	skb_weight_t requested_weight, skb_style_t requested_style, skb_stretch_t requested_stretch,
 	skb_font_handle_t* results, int32_t results_cap)
 {
 	// Based on https://drafts.csswg.org/css-fonts-3/#font-style-matching
@@ -692,12 +692,12 @@ int32_t skb__match_fonts(
 int32_t skb_font_collection_match_fonts(
 	skb_font_collection_t* font_collection,
 	const char* requested_lang, const uint8_t requested_script, uint8_t requested_font_family,
-	skb_style_t requested_style, skb_stretch_t requested_stretch, skb_weight_t requested_weight,
+	skb_weight_t requested_weight, skb_style_t requested_style, skb_stretch_t requested_stretch,
 	skb_font_handle_t* results, int32_t results_cap)
 {
 	int32_t results_count =  skb__match_fonts(
 		font_collection, requested_lang, requested_script, requested_font_family,
-		requested_style, requested_stretch, requested_weight, results, results_cap);
+		requested_weight, requested_style, requested_stretch, results, results_cap);
 
 	if (results_count != 0)
 		return results_count;
@@ -707,7 +707,7 @@ int32_t skb_font_collection_match_fonts(
 		if (font_collection->fallback_func(font_collection, requested_lang, requested_script, requested_font_family, font_collection->fallback_context)) {
 			results_count =  skb__match_fonts(
 				font_collection, requested_lang, requested_script, requested_font_family,
-				requested_style, requested_stretch, requested_weight, results, results_cap);
+				requested_weight, requested_style, requested_stretch, results, results_cap);
 		}
 	}
 
@@ -719,7 +719,7 @@ skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* fo
 	skb_font_handle_t results[32];
 	int32_t results_count = skb_font_collection_match_fonts(
 		font_collection, "", SBScriptLATN, font_family,
-		SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL, SKB_WEIGHT_NORMAL,
+		SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL,
 		results, SKB_COUNTOF( results ) );
 	return results_count > 0 ? results[0] : (skb_font_handle_t)0;
 }

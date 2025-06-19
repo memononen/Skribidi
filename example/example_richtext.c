@@ -111,40 +111,30 @@ void* richtext_create(void)
 		.baseline = SKB_BASELINE_MIDDLE,
 	};
 
-	skb_text_attribs_t attribs_small = {
-		.font_size = 15.f,
-		.font_weight = SKB_WEIGHT_NORMAL,
-		.line_spacing_multiplier = 1.f, //1.3f,
-		.color = ink_color,
+	const skb_attribute_t attributes_small[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.2f),
+		skb_attribute_make_fill(ink_color),
 	};
 
-	skb_text_attribs_t attribs_italic = {
-		.font_size = 64.f,
-		.font_weight = SKB_WEIGHT_NORMAL,
-		.line_spacing_multiplier = 1.f, //1.3f,
-		.font_style = SKB_STYLE_ITALIC,
-		.letter_spacing = 20.f,
-		.color = ink_color,
-	};
-	skb_text_attribs_t attribs_big = {
-		.font_size = 128.f,
-		.line_spacing_multiplier = 1.f, //1.3f,
-		.font_weight = SKB_WEIGHT_BOLD,
-		.color = skb_rgba(220,40,40,255),
+	const skb_attribute_t attributes_italic[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 64.f, SKB_WEIGHT_NORMAL, SKB_STYLE_ITALIC, SKB_STRETCH_NORMAL),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_spacing(20.f, 0.f),
 	};
 
-	skb_font_feature_t frac_features[] = {
-		{ .tag =  SKB_TAG_STR("frac"), .value = 1, }, // fractions
-		{ .tag =  SKB_TAG_STR("numr"), .value = 1, }, // numerators
-		{ .tag =  SKB_TAG_STR("dmon"), .value = 1, }, // denominators
+	const skb_attribute_t attributes_big[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 128.f, SKB_WEIGHT_BOLD, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 0.75f),
+		skb_attribute_make_fill(skb_rgba(220,40,40,255)),
 	};
-	skb_text_attribs_t attribs_fracts = {
-		.font_size = 48.f,
-		.line_spacing_multiplier = 1.f, //1.3f,
-		.font_weight = SKB_WEIGHT_NORMAL,
-		.color = skb_rgba(180,110,190,255),
-		.font_features = frac_features,
-		.font_features_count = SKB_COUNTOF(frac_features),
+
+	const skb_attribute_t attributes_fracts[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 48.f, SKB_WEIGHT_BOLD, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_fill(skb_rgba(180,110,190,255)),
+		skb_attribute_make_font_feature(SKB_TAG_STR("frac"), 1),
+		skb_attribute_make_font_feature(SKB_TAG_STR("numr"), 1),
+		skb_attribute_make_font_feature(SKB_TAG_STR("dmon"), 1),
 	};
 
 	const char* ipsum =
@@ -160,14 +150,14 @@ void* richtext_create(void)
 		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.\n";
 
 	skb_text_run_utf8_t runs[] = {
-		{ ipsum, -1, &attribs_small },
-		{ "moikkelis!\n", -1, &attribs_italic },
-		{ "این یک 😬👀🚨 تست است\n", -1, &attribs_small },
-		{ "ہے۔ kofi یہ ایک\n", -1, &attribs_small },
-		{ "POKS! 🧁\n", -1, &attribs_big },
-		{ "11/17\n", -1, &attribs_fracts },
-		{ "शकति शक्ति ", -1, &attribs_italic },
-		{ "今天天气晴朗。 ", -1, &attribs_small },
+		{ ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small) },
+		{ "moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
+		{ "این یک 😬👀🚨 تست است\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
+		{ "ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
+		{ "POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big) },
+		{ "11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts) },
+		{ "शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
+		{ "今天天气晴朗。 ", -1, attributes_small, SKB_COUNTOF(attributes_small) },
 	};
 
 	ctx->layout = skb_layout_create_from_runs_utf8(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -296,7 +286,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw layout
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
 		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
-		const skb_text_attribs_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
+		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		if (ctx->show_glyph_bounds) {
@@ -310,7 +300,9 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_font_handle_t font_handle = 0;
 		uint16_t span_idx = 0;
 		while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
-			const skb_text_attribs_span_t* span = &attrib_spans[span_idx];
+			const skb_text_attributes_span_t* span = &attrib_spans[span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
 			for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 
@@ -320,7 +312,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				if (ctx->show_glyph_bounds) {
 					draw_tick(view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans);
 
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, font_handle, glyph->gid, span->attribs.font_size);
+					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, font_handle, glyph->gid, attr_font.size);
 					bounds.x += gx;
 					bounds.y += gy;
 					bounds = view_transform_rect(&ctx->view, bounds);
@@ -331,11 +323,11 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
 					ctx->render_cache,gx, gy, ctx->view.scale,
 					layout_params->font_collection, font_handle, glyph->gid,
-					span->attribs.font_size, SKB_RENDER_ALPHA_SDF);
+					attr_font.size, SKB_RENDER_ALPHA_SDF);
 
 				draw_image_quad_sdf(
 					view_transform_rect(&ctx->view, quad.geom_bounds),
-					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, span->attribs.color.a) : span->attribs.color,
+					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
 					(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
 			}
 		}

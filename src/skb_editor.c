@@ -143,17 +143,20 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 			// Compose the paragraph from 3 pieces.
 			skb_text_run_utf32_t runs[] = {
 				{ // Before
-					.attribs = &editor->params.text_attribs,
+					.attributes = editor->params.text_attributes,
+					.attributes_count = editor->params.text_attributes_count,
 					.text = paragraph->text,
 					.text_count = ime_position.paragraph_offset,
 				},
 				{ // Composition
-					.attribs = &editor->params.composition_text_attribs,
+					.attributes = editor->params.composition_attributes,
+					.attributes_count = editor->params.composition_attributes_count,
 					.text = editor->composition_text,
 					.text_count = editor->composition_text_count,
 				},
 				{ // After
-					.attribs = &editor->params.text_attribs,
+					.attributes = editor->params.text_attributes,
+					.attributes_count = editor->params.text_attributes_count,
 					.text = paragraph->text + ime_position.paragraph_offset,
 					.text_count = paragraph->text_count - ime_position.paragraph_offset,
 				},
@@ -171,8 +174,11 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 				paragraph->layout = NULL;
 				paragraph->has_ime_layout = false;
 			}
-			if (!paragraph->layout)
-				paragraph->layout = skb_layout_create_utf32(temp_alloc, &layout_params, paragraph->text, paragraph->text_count, &editor->params.text_attribs);
+			if (!paragraph->layout) {
+				paragraph->layout = skb_layout_create_utf32(
+					temp_alloc, &layout_params, paragraph->text, paragraph->text_count,
+					editor->params.text_attributes, editor->params.text_attributes_count);
+			}
 		}
 		assert(paragraph->layout);
 
@@ -235,6 +241,37 @@ static void skb__emit_on_change(skb_editor_t* editor)
 		editor->on_change_callback(editor, editor->on_change_context);
 }
 
+static void skb__copy_params(skb_editor_params_t* target, const skb_editor_params_t* params)
+{
+	assert(target);
+	assert(params);
+
+	if (target->text_attributes_count) {
+		skb_free((skb_attribute_t*)target->text_attributes);
+		target->text_attributes = NULL;
+	}
+	if (target->composition_attributes) {
+		skb_free((skb_attribute_t*)target->composition_attributes);
+		target->composition_attributes = NULL;
+	}
+
+	*target = *params;
+
+	if (params->text_attributes_count > 0) {
+		target->text_attributes = skb_malloc(sizeof(skb_attribute_t) * params->text_attributes_count);
+		memcpy((skb_attribute_t*)target->text_attributes, params->text_attributes, sizeof(skb_attribute_t));
+	} else {
+		target->text_attributes = NULL;
+	}
+
+	if (params->composition_attributes > 0) {
+		target->composition_attributes = skb_malloc(sizeof(skb_attribute_t) * params->composition_attributes_count);
+		memcpy((skb_attribute_t*)target->composition_attributes, params->composition_attributes, sizeof(skb_attribute_t));
+	} else {
+		target->composition_attributes = NULL;
+	}
+}
+
 skb_editor_t* skb_editor_create(const skb_editor_params_t* params)
 {
 	assert(params);
@@ -242,7 +279,8 @@ skb_editor_t* skb_editor_create(const skb_editor_params_t* params)
 	skb_editor_t* editor = skb_malloc(sizeof(skb_editor_t));
 	memset(editor, 0, sizeof(skb_editor_t));
 
-	editor->params = *params;
+	skb__copy_params(&editor->params, params);
+
 	if (editor->params.max_undo_levels == 0)
 		editor->params.max_undo_levels = 50;
 
@@ -271,6 +309,8 @@ void skb_editor_destroy(skb_editor_t* editor)
 	}
 	skb_free(editor->paragraphs);
 	skb_free(editor->composition_text);
+	skb_free((skb_attribute_t*)editor->params.text_attributes);
+	skb_free((skb_attribute_t*)editor->params.composition_attributes);
 
 	memset(editor, 0, sizeof(skb_editor_t));
 
@@ -282,7 +322,7 @@ void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
 	assert(editor);
 
 	if (params)
-		editor->params = *params;
+		skb__copy_params(&editor->params, params);
 
 	for (int32_t i = 0; i < editor->paragraphs_count; i++) {
 		skb_layout_destroy(editor->paragraphs[i].layout);
