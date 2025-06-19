@@ -69,6 +69,7 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
 
 uint64_t skb_attributes_hash_append(uint64_t hash, const skb_attribute_t* attribs, int32_t attribs_count)
 {
+	// Note: The attributes are zero initialized (including padding)
 	for (int32_t i = 0; i < attribs_count; i++)
 		hash = skb_hash64_append(hash, &attribs[i], sizeof(skb_attribute_t));
 	return hash;
@@ -94,82 +95,76 @@ static const char* skb__make_hb_lang(const char* lang)
 
 skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_t direction)
 {
-	skb_attribute_t attrib = {
-		.writing = {
-			.kind = SKB_ATTRIBUTE_WRITING,
-			.direction = (uint8_t)direction,
-			.lang = skb__make_hb_lang(lang),
-		}
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.writing = (skb_attribute_writing_t) {
+		.kind = SKB_ATTRIBUTE_WRITING,
+		.direction = (uint8_t)direction,
+		.lang = skb__make_hb_lang(lang),
 	};
-	return attrib;
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, skb_weight_t weight, skb_style_t style, skb_stretch_t stretch)
 {
-	return (skb_attribute_t) {
-		.font = {
-			.kind = SKB_ATTRIBUTE_FONT,
-			.size = size,
-			.family = (uint8_t)family,
-			.weight = (uint8_t)weight,
-			.style = (uint8_t)style,
-			.stretch = (uint8_t)stretch,
-		}
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.font = (skb_attribute_font_t) {
+		.kind = SKB_ATTRIBUTE_FONT,
+		.size = size,
+		.family = (uint8_t)family,
+		.weight = (uint8_t)weight,
+		.style = (uint8_t)style,
+		.stretch = (uint8_t)stretch,
 	};
-}
-
-skb_attribute_t skb_text_attrib_font_feature_make(uint32_t tag, uint32_t value)
-{
-	return (skb_attribute_t) {
-		.font_feature = {
-			.kind = SKB_ATTRIBUTE_FONT_FEATURE,
-			.tag = tag,
-			.value = value,
-		}
-	};
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value)
 {
-	return (skb_attribute_t) {
-		.font_feature = {
-			.kind = SKB_ATTRIBUTE_FONT_FEATURE,
-			.tag = tag,
-			.value = value,
-		},
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.font_feature = (skb_attribute_font_feature_t) {
+		.kind = SKB_ATTRIBUTE_FONT_FEATURE,
+		.tag = tag,
+		.value = value,
 	};
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_spacing(float letter, float word)
 {
-	return (skb_attribute_t) {
-		.spacing = {
-			.kind = SKB_ATTRIBUTE_SPACING,
-			.letter = letter,
-			.word = word,
-		},
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.spacing = (skb_attribute_spacing_t) {
+		.kind = SKB_ATTRIBUTE_SPACING,
+		.letter = letter,
+		.word = word,
 	};
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height)
 {
-	return (skb_attribute_t) {
-		.line_height = {
-			.kind = SKB_ATTRIBUTE_LINE_HEIGHT,
-			.type = (uint8_t)type,
-			.height = height,
-		},
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.line_height = (skb_attribute_line_height_t) {
+		.kind = SKB_ATTRIBUTE_LINE_HEIGHT,
+		.type = (uint8_t)type,
+		.height = height,
 	};
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 {
-	return (skb_attribute_t) {
-		.fill = {
-			.kind = SKB_ATTRIBUTE_FILL,
-			.color = color,
-		},
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.fill = (skb_attribute_fill_t) {
+		.kind = SKB_ATTRIBUTE_FILL,
+		.color = color,
 	};
+	return attribute;
 }
 
 
@@ -906,32 +901,6 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 	layout->bounds.height = top_y;
 }
 
-static bool skb__lang_equals(const char* lhs, const char* rhs)
-{
-	if (!lhs && !rhs)
-		return true;
-	if (!lhs || !rhs)
-		return false;
-	// Not using hb_language_matches(), as we want to check for exact maths.
-	return hb_language_from_string(lhs, -1) == hb_language_from_string(rhs, -1);
-}
-
-/*
-static bool skb__attribs_equals(const skb_text_attribs_t* lhs, const skb_text_attribs_t* rhs)
-{
-	return	lhs->direction == rhs->direction
-			&& lhs->font_style == rhs->font_style
-			&& lhs->font_weight == rhs->font_weight
-			&& skb_equalsf(lhs->font_size, rhs->font_size, 0.01f)
-			&& skb_equalsf(lhs->letter_spacing, rhs->letter_spacing, 0.01f)
-			&& skb_equalsf(lhs->word_spacing, rhs->word_spacing, 0.01f)
-			&& skb_equalsf(lhs->line_spacing_multiplier, rhs->line_spacing_multiplier, 0.01f)
-			&& skb_color_equals(lhs->color, rhs->color)
-			&& skb__font_features_equals(lhs->font_features, lhs->font_features_count, rhs->font_features, rhs->font_features_count)
-			&& skb__lang_equals(lhs->lang, rhs->lang);
-}
-*/
-
 typedef struct skb__script_run_iter {
 	const skb_text_property_t* text_props;
 	int32_t pos;
@@ -1401,34 +1370,62 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	skb__break_lines(layout, temp_alloc, layout->params.origin, layout->params.line_break_width, layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS);
 }
 
-static int skb__attribute_cmp(const void* a, const void* b)
+
+
+static bool skb__lang_equals(const char* lhs, const char* rhs)
 {
-	const skb_attribute_t* attr_a = a;
-	const skb_attribute_t* attr_b = b;
-	return (int32_t)attr_a->kind - (int32_t)attr_b->kind;
+	if (!lhs && !rhs)
+		return true;
+	if (!lhs || !rhs)
+		return false;
+	// Not using hb_language_matches(), as we want to check for exact maths.
+	return hb_language_from_string(lhs, -1) == hb_language_from_string(rhs, -1);
 }
 
-static void skb__append_attributes(skb_layout_t* layout, const skb_attribute_t* attributes, int32_t attribs_count, int32_t text_start, int32_t text_end)
+static bool skb__attribs_equals(skb_text_attributes_span_t* span, const skb_attribute_t* attributes, int32_t attributes_count)
 {
-	// TODO: fix!
+	if (span->attributes_count != attributes_count)
+		return false;
+
+	// Expect exact match of attributes.
+	for (int32_t i = 0; i < attributes_count; i++) {
+		const skb_attribute_t* lhs = &span->attributes[i];
+		const skb_attribute_t* rhs = &attributes[i];
+		if (lhs->kind != rhs->kind)
+			return false;
+		if (lhs->kind == SKB_ATTRIBUTE_WRITING) {
+			// Language needs special comparison.
+			if (lhs->writing.direction != rhs->writing.direction)
+				return false;
+			if (!skb__lang_equals(lhs->writing.lang, rhs->writing.lang))
+				return false;
+		} else {
+			// Generic compare (Note: the attributes are fully zero initialized, including padding)
+			if (memcmp(lhs, rhs, sizeof(skb_attribute_t)) != 0)
+				return false;
+		}
+	}
+	return true;
+}
+
+static void skb__append_attributes(skb_layout_t* layout, const skb_attribute_t* attributes, int32_t attributes_count, int32_t text_start, int32_t text_end)
+{
 	// If the style is the same as previous span, combine.
-/*	if (layout->attribute_spans_count > 0 && skb__attribs_equals(&layout->attribute_spans[layout->attribute_spans_count - 1].attribs, attribs)) {
+	if (layout->attribute_spans_count > 0 && skb__attribs_equals(&layout->attribute_spans[layout->attribute_spans_count - 1], attributes, attributes_count)) {
 		layout->attribute_spans[layout->attribute_spans_count - 1].text_range.end = layout->text_count;
-	} else*/ {
+	} else {
 		SKB_ARRAY_RESERVE(layout->attribute_spans, layout->attribute_spans_count + 1);
 		skb_text_attributes_span_t* span = &layout->attribute_spans[layout->attribute_spans_count++];
 		span->text_range.start = text_start;
 		span->text_range.end = text_end;
 
-		SKB_ARRAY_RESERVE(layout->attributes, layout->attributes_count + attribs_count);
+		SKB_ARRAY_RESERVE(layout->attributes, layout->attributes_count + attributes_count);
         span->attributes = &layout->attributes[layout->attributes_count];
-        span->attributes_count = attribs_count;
+        span->attributes_count = attributes_count;
 
-        memcpy(span->attributes, attributes, attribs_count * sizeof(skb_attribute_t));
+        memcpy(span->attributes, attributes, attributes_count * sizeof(skb_attribute_t));
 
-        qsort(span->attributes, span->attributes_count, sizeof(skb_attribute_t), skb__attribute_cmp);
-
-        layout->attributes_count += attribs_count;
+        layout->attributes_count += attributes_count;
 	}
 }
 
