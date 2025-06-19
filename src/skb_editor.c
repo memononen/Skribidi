@@ -259,14 +259,14 @@ static void skb__copy_params(skb_editor_params_t* target, const skb_editor_param
 
 	if (params->text_attributes_count > 0) {
 		target->text_attributes = skb_malloc(sizeof(skb_attribute_t) * params->text_attributes_count);
-		memcpy((skb_attribute_t*)target->text_attributes, params->text_attributes, sizeof(skb_attribute_t));
+		memcpy((skb_attribute_t*)target->text_attributes, params->text_attributes, sizeof(skb_attribute_t) * params->text_attributes_count);
 	} else {
 		target->text_attributes = NULL;
 	}
 
 	if (params->composition_attributes > 0) {
 		target->composition_attributes = skb_malloc(sizeof(skb_attribute_t) * params->composition_attributes_count);
-		memcpy((skb_attribute_t*)target->composition_attributes, params->composition_attributes, sizeof(skb_attribute_t));
+		memcpy((skb_attribute_t*)target->composition_attributes, params->composition_attributes, sizeof(skb_attribute_t) * params->composition_attributes_count);
 	} else {
 		target->composition_attributes = NULL;
 	}

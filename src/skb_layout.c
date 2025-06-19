@@ -1382,7 +1382,7 @@ static bool skb__lang_equals(const char* lhs, const char* rhs)
 	return hb_language_from_string(lhs, -1) == hb_language_from_string(rhs, -1);
 }
 
-static bool skb__attribs_equals(skb_text_attributes_span_t* span, const skb_attribute_t* attributes, int32_t attributes_count)
+static bool skb__attribs_equals(const skb_text_attributes_span_t* span, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	if (span->attributes_count != attributes_count)
 		return false;
