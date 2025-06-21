@@ -203,6 +203,7 @@ void* testbed_create(void)
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, skb_rgba(0,128,192,255)),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -512,6 +513,19 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const int32_t glyphs_count = skb_layout_get_glyphs_count(edit_layout);
 			const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
 			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
+			const int32_t decorations_count = skb_layout_get_decorations_count(edit_layout);
+			const skb_decoration_t* decorations = skb_layout_get_decorations(edit_layout);
+
+			// Draw underlines
+			for (int32_t i = 0; i < decorations_count; i++) {
+				const skb_decoration_t* decoration = &decorations[i];
+				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+				if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
+					skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
+					draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
+				}
+			}
 
 			for (int li = 0; li < lines_count; li++) {
 				const skb_layout_line_t* line = &lines[li];
@@ -637,8 +651,19 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						}
 					}
 				}
-
 			}
+
+			// Draw through lines
+			for (int32_t i = 0; i < decorations_count; i++) {
+				const skb_decoration_t* decoration = &decorations[i];
+				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+				if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+					skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
+					draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
+				}
+			}
+
 		}
 
 		// Caret & selection info

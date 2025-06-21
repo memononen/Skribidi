@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include "skb_common.h"
+#include "skb_layout.h"
 
 typedef struct view_t {
 	float cx;
@@ -71,7 +72,7 @@ static inline void view_scroll_zoom(view_t* view, float mouse_x, float mouse_y, 
 	// Calculate view origin relation to mouse pos in unscale space.
 	float old_rel_view_x = (view->cx - mouse_x) / view->scale;
 	float old_rel_view_y = (view->cy - mouse_y) / view->scale;
-	
+
 	view->zoom_level = skb_clampf(view->zoom_level + delta_scroll, -8.f, 8.f);
 	view->scale = powf(1.5f, view->zoom_level);
 
@@ -79,6 +80,22 @@ static inline void view_scroll_zoom(view_t* view, float mouse_x, float mouse_y, 
 	// This centers the zoom around the mouse.
 	view->cx = mouse_x + old_rel_view_x * view->scale;
 	view->cy = mouse_y + old_rel_view_y * view->scale;
+}
+
+static inline skb_rect2_t calc_decoration_rect(const skb_decoration_t* decoration, const skb_attribute_decoration_t attr_decoration)
+{
+	float offset_x = decoration->offset_x;
+	float offset_y = decoration->offset_y;
+	if (attr_decoration.position == SKB_DECORATION_OVERLINE)
+		offset_y -= decoration->thickness; // Above the position.
+	else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE)
+		offset_y -= decoration->thickness * 0.5f; // Center.
+	skb_rect2_t rect = {0};
+	rect.x = offset_x;
+	rect.y = offset_y;
+	rect.width = decoration->length;
+	rect.height = decoration->thickness;
+	return rect;
 }
 
 //

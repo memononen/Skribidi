@@ -205,26 +205,32 @@ static bool skb__font_create_from_face(skb_font_t* font, hb_face_t* face, const 
 	}
 
 	hb_position_t x_height;
-	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_X_HEIGHT, &x_height)) {
-		font->metrics.x_height = -(float)x_height * font->upem_scale;
-	}
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_X_HEIGHT, &x_height);
+	font->metrics.x_height = -(float)x_height * font->upem_scale;
+
+	hb_position_t underline_offset;
+	hb_position_t underline_size;
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_UNDERLINE_OFFSET, &underline_offset);
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_UNDERLINE_SIZE, &underline_size);
+	font->metrics.underline_offset = -(float)underline_offset * font->upem_scale;
+	font->metrics.underline_size = (float)underline_size * font->upem_scale;
+
+	hb_position_t strikeout_offset;
+	hb_position_t strikeout_size;
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_STRIKEOUT_OFFSET, &strikeout_offset);
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_STRIKEOUT_SIZE, &strikeout_size);
+	font->metrics.strikeout_offset = -(float)strikeout_offset * font->upem_scale;
+	font->metrics.strikeout_size = (float)strikeout_size * font->upem_scale;
 
 	// Caret metrics
 	hb_position_t caret_offset;
 	hb_position_t caret_rise;
 	hb_position_t caret_run;
-
-	if (hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_OFFSET, &caret_offset)
-		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &caret_rise)
-		&& hb_ot_metrics_get_position (font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run)) {
-
-		font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
-		font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
-
-	} else {
-		font->caret_metrics.offset = 0.f;
-		font->caret_metrics.slope = 0.f;
-	}
+	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_OFFSET, &caret_offset);
+	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &caret_rise);
+	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run);
+	font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
+	font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
 
 	return true;
 

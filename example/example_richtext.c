@@ -113,8 +113,32 @@ void* richtext_create(void)
 
 	const skb_attribute_t attributes_small[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.2f),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
+	};
+
+	const skb_attribute_t attributes_deco1[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,128)),
+	};
+
+	const skb_attribute_t attributes_deco2[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,192)),
+	};
+
+	const skb_attribute_t attributes_deco3[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 18.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,128)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,192)),
+		skb_attribute_make_decoration(SKB_DECORATION_BOTTOMLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,64,255,192)),
+		skb_attribute_make_decoration(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,192,64,128)),
 	};
 
 	const skb_attribute_t attributes_italic[] = {
@@ -152,7 +176,13 @@ void* richtext_create(void)
 	skb_text_run_utf8_t runs[] = {
 		{ ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small) },
 		{ "moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
-		{ "این یک 😬👀🚨 تست است\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
+
+		{ "این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
+
+		{ "Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1) },
+		{ "vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
+		{ "dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3) },
+
 		{ "ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
 		{ "POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big) },
 		{ "11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts) },
@@ -295,6 +325,22 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			draw_rect(layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128));
 		}
 
+
+		const int32_t decorations_count = skb_layout_get_decorations_count(ctx->layout);
+		const skb_decoration_t* decorations = skb_layout_get_decorations(ctx->layout);
+
+		// Draw underlines
+		for (int32_t i = 0; i < decorations_count; i++) {
+			const skb_decoration_t* decoration = &decorations[i];
+			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+			if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
+				skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
+				draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
+			}
+		}
+
+		// Draw glyphs
 		skb_glyph_run_iterator_t glyph_iter = skb_glyph_run_iterator_make(glyphs, glyphs_count, 0, glyphs_count);
 		skb_range_t glyph_range;
 		skb_font_handle_t font_handle = 0;
@@ -329,6 +375,17 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					view_transform_rect(&ctx->view, quad.geom_bounds),
 					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
 					(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+			}
+		}
+
+		// Draw through lines.
+		for (int32_t i = 0; i < decorations_count; i++) {
+			const skb_decoration_t* decoration = &decorations[i];
+			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+				skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
+				draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
 			}
 		}
 	}

@@ -59,6 +59,30 @@ typedef enum {
 	SKB_LINE_HEIGHT_ABSOLUTE,
 } skb_line_height_t;
 
+/** Enum describing text decoration position. */
+typedef enum {
+	/** Under the alphabetic baseline. */
+	SKB_DECORATION_UNDERLINE = 0,
+	/** Under the descender. */
+	SKB_DECORATION_BOTTOMLINE,
+	/** Over the ascender */
+	SKB_DECORATION_OVERLINE,
+	/** Through the text. */
+	SKB_DECORATION_THROUGHLINE,
+} skb_decoration_position_t;
+
+/** Enum describing how the decoration should be drawn. */
+typedef enum {
+	/** Solid line. */
+	SKB_DECORATION_STYLE_SOLID = 0,
+	/** Double line. */
+	SKB_DECORATION_STYLE_DOUBLE,
+	/** Dotted line. */
+	SKB_DECORATION_STYLE_DOTTED,
+	/** Wave line. */
+	SKB_DECORATION_STYLE_WAVY,
+} skb_decoration_style_t;
+
 //
 // Text attributes
 //
@@ -149,6 +173,26 @@ typedef struct skb_attribute_fill_t {
 	skb_color_t color;
 } skb_attribute_fill_t;
 
+/**
+ * Text line decoration attribute.
+ * It is up to the client code to decide if multiple decoration attributes are supported.
+ * Loosely based on https://drafts.csswg.org/css-text-decor-4/
+ */
+typedef struct skb_attribute_decoration_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Position of the decoration line relative to the text. See skb_decoration_position_t. */
+	uint8_t position;
+	/** Style of the decoration line. See skb_decoration_style_t. */
+	uint8_t style;
+	/** Thickness of the decoration line to draw. If left to 0.0, the thickness will be based on the font. */
+	float thickness;
+	/** Offset of the decoration line relative to the position. For under and bottom the offset grows down, and for through and top line the offset grows up. */
+	float offset;
+	/** Color of the decoration line. */
+	skb_color_t color;
+} skb_attribute_decoration_t;
+
 
 /** Enum describing tags for each of the attributes. */
 typedef enum {
@@ -164,6 +208,8 @@ typedef enum {
 	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
 	/** Tag for skb_attribute_fill_t */
 	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
+	/** Tag for skb_attribute_decoration_t */
+	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
 } skb_attribute_type_t;
 
 /**
@@ -177,6 +223,7 @@ typedef union skb_attribute_t {
 	skb_attribute_spacing_t spacing;
 	skb_attribute_line_height_t line_height;
 	skb_attribute_fill_t fill;
+	skb_attribute_decoration_t decoration;
 } skb_attribute_t;
 
 /** @returns new writing mode text attribute. See skb_attribute_writing_t */
@@ -185,17 +232,21 @@ skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_
 /** @returns new font text attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, skb_weight_t weight, skb_style_t style, skb_stretch_t stretch);
 
-/** @returns new font feature text attribute. See skb_attribute_font_attribute_t */
+/** @returns new font feature text attribute. See skb_attribute_font_feature_t */
 skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value);
 
 /** @returns new spacing text attribute. See skb_attribute_spacing_t */
 skb_attribute_t skb_attribute_make_spacing(float letter, float word);
 
-/** @returns new line height text attribute. See skb_attribute_spacing_t */
+/** @returns new line height text attribute. See skb_attribute_line?height_t */
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
 
-/** @returns new fill color text attribute. See skb_attribute_spacing_t */
+/** @returns new fill color text attribute. See skb_attribute_fill_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
+
+/** @returns new text decoration attribute. See skb_attribute_decoration_t */
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
+
 
 /**
  * Returns first text writing attribute or default value.
@@ -260,7 +311,7 @@ typedef struct skb_layout_params_t {
 } skb_layout_params_t;
 
 /** Struct describing attributes assigned to a range of text. */
-typedef struct skb_text_attribs_span_t {
+typedef struct skb_text_attributes_span_t {
 	/** Range of text the attribues apply to. */
 	skb_range_t text_range;
 	/** The text attributes. */
@@ -310,6 +361,24 @@ typedef struct skb_glyph_t {
 	skb_font_handle_t font_handle;
 } skb_glyph_t;
 
+/** Struct describing text decoration  */
+typedef struct skb_decoration_t {
+	/** X offset of the decoration (including layout origin). */
+	float offset_x;
+	/** Y offset of the decoration (including layout origin). */
+	float offset_y;
+	/** Length of the decoration. */
+	float length;
+	/** Thickness of the decoration. */
+	float thickness;
+	/** Index of the attribute span. */
+	uint16_t span_idx;
+	/** Index to the decoration attribute within the span. */
+	uint16_t attribute_idx;
+	/** Range of glyphs the decoration relates to. */
+	skb_range_t glyph_range;
+} skb_decoration_t;
+
 /** Enum describing flags for skb_text_property_t. */
 enum skb_text_prop_flags_t {
 	/** Grapheme break after the codepoint. */
@@ -344,6 +413,8 @@ typedef struct skb_layout_line_t {
 	skb_range_t glyph_range;
 	/** Range of text (codepoints) that belong to the line. */
 	skb_range_t text_range;
+	/** Range of decorations that belong to the line. */
+	skb_range_t decorations_range;
 	/** Text offset (codepoints) of the start of the last codepoint on the line. */
 	int32_t last_grapheme_offset;
 	/** Combined ascender of the line. */
@@ -525,6 +596,9 @@ int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout);
 
 /** @return const pointer to the glyphs. See skb_layout_get_glyphs_count() to get number of glyphs. */
 const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout);
+
+int32_t skb_layout_get_decorations_count(const skb_layout_t* layout);
+const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout);
 
 /** @return number of lines in the layout. */
 int32_t skb_layout_get_lines_count(const skb_layout_t* layout);

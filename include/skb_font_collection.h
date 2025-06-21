@@ -151,6 +151,14 @@ typedef struct skb_font_metrics_t {
 	float line_gap;
 	/** Height of lower case x. */
 	float x_height;
+	/** Underline offset. */
+	float underline_offset;
+	/** Underline height. */
+	float underline_size;
+	/** Strikeout offset. */
+	float strikeout_offset;
+	/** Strikeout height. */
+	float strikeout_size;
 } skb_font_metrics_t;
 
 /** Caret metrics */

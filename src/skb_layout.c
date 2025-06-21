@@ -48,6 +48,10 @@ typedef struct skb_layout_t {
 	int32_t attributes_count;
 	int32_t attributes_cap;
 
+	skb_decoration_t* decorations;
+	int32_t decorations_count;
+	int32_t decorations_cap;
+
 	skb_rect2_t bounds;
 
 	uint8_t resolved_direction;
@@ -162,6 +166,21 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
 	attribute.fill = (skb_attribute_fill_t) {
 		.kind = SKB_ATTRIBUTE_FILL,
+		.color = color,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.decoration = (skb_attribute_decoration_t) {
+		.kind = SKB_ATTRIBUTE_DECORATION,
+		.position = (uint8_t)position,
+		.style = (uint8_t)style,
+		.thickness = thickness,
+		.offset = offset,
 		.color = color,
 	};
 	return attribute;
@@ -616,6 +635,56 @@ static float skb_calculate_line_height(skb_attribute_line_height_t attr_line_hei
 }
 
 
+
+typedef struct skb__glyphs_span_iter_t {
+	const skb_glyph_t* glyphs;
+	int32_t glyphs_count;
+	skb_range_t glyph_range;
+	int32_t pos;
+} skb__glyphs_span_iter_t;
+
+static skb__glyphs_span_iter_t skb__glyphs_span_iterator_make(const skb_glyph_t* glyphs, int32_t glyphs_count, int32_t start, int32_t end)
+{
+	assert(glyphs);
+	assert(end >= start);
+	assert(start >= 0 && start <= glyphs_count);
+	assert(end >= 0 && end <= glyphs_count);
+
+	skb__glyphs_span_iter_t iter = {0};
+	iter.glyphs = glyphs;
+	iter.glyphs_count = glyphs_count;
+	iter.glyph_range.start = start;
+	iter.glyph_range.end = end;
+	iter.pos = start;
+
+	return iter;
+}
+
+static bool skb__glyphs_span_iterator_next(skb__glyphs_span_iter_t* iter, skb_range_t* range, uint16_t* span_idx)
+{
+	if (iter->pos == iter->glyph_range.end)
+		return false;
+
+	int32_t start_pos = iter->pos;
+
+	// Find continuous range of same attribute span.
+	uint16_t cur_span_idx = iter->glyphs[iter->pos].span_idx;
+	iter->pos++;
+
+	while (iter->pos < iter->glyph_range.end) {
+		if (iter->glyphs[iter->pos].span_idx != cur_span_idx)
+			break;
+		iter->pos++;
+	}
+
+	range->start = start_pos;
+	range->end = iter->pos;
+	*span_idx = cur_span_idx;
+
+	return true;
+}
+
+
 void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_vec2_t origin, float line_break_width, bool ignore_hard_breaks)
 {
 	// Sort glyphs in logical order, word breaks must be done in logical order.
@@ -897,19 +966,132 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 		top_y += line->bounds.height;
 	}
 
+	// Build decorations.
+	layout->decorations_count = 0;
+
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		skb_layout_line_t* line = &layout->lines[li];
+
+		line->decorations_range.start = layout->decorations_count;
+
+		// Iterate over glyphs of same attribute span.
+		skb__glyphs_span_iter_t iter = skb__glyphs_span_iterator_make(layout->glyphs, layout->glyphs_count, line->glyph_range.start, line->glyph_range.end);
+		skb_range_t range = {0};
+		uint16_t span_idx = 0;
+		while (skb__glyphs_span_iterator_next(&iter, &range, &span_idx)) {
+			const skb_text_attributes_span_t* span = &layout->attribute_spans[span_idx];
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+			// For each decoration.
+			for (int32_t attr_idx = 0; attr_idx < span->attributes_count; attr_idx++) {
+				const skb_attribute_t* attribute = &span->attributes[attr_idx];
+				if (attribute->kind != SKB_ATTRIBUTE_DECORATION)
+					continue;
+				const skb_attribute_decoration_t attr_decoration = attribute->decoration;
+
+				// Find line position.
+				float line_position = 0.f; // At baseline
+				float line_position_div = 0.0f;
+				float thickness = 0.f;
+				float thickness_div = 0.f;
+
+				// Skip white space and control characters at the end of the line.
+				if (layout_is_rtl) {
+					if (range.start == line->glyph_range.start) {
+						while (range.start < range.end) {
+							const skb_glyph_t* glyph = &layout->glyphs[range.start];
+							if ((layout->text_props[glyph->text_range.start].flags & (SKB_TEXT_PROP_CONTROL | SKB_TEXT_PROP_WHITESPACE)) == 0)
+								break;
+							range.start++;
+						}
+					}
+				} else {
+					if (range.end == line->glyph_range.end) {
+						while (range.start < range.end) {
+							const skb_glyph_t* glyph = &layout->glyphs[range.end - 1];
+							if ((layout->text_props[glyph->text_range.start].flags & (SKB_TEXT_PROP_CONTROL | SKB_TEXT_PROP_WHITESPACE)) == 0)
+								break;
+							range.end--;
+						}
+					}
+				}
+
+				// Calculate the position of the line.
+				const skb_glyph_t* first_glyph = &layout->glyphs[range.start];
+				const skb_glyph_t* last_glyph = &layout->glyphs[range.end-1];
+				float ref_y = first_glyph->offset_y;
+
+				skb_font_handle_t prev_font_handle = 0;
+				for (int32_t gi = range.start; gi < range.end; gi++) {
+					const skb_glyph_t* glyph = &layout->glyphs[gi];
+					if (glyph->font_handle != prev_font_handle) {
+						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
+						if (font) {
+							const float delta_y = glyph->offset_y - ref_y;
+							if (attr_decoration.position == SKB_DECORATION_UNDERLINE) {
+								line_position = skb_maxf(line_position, delta_y + font->metrics.underline_offset * attr_font.size);
+								thickness += font->metrics.underline_size * attr_font.size;
+							} else if (attr_decoration.position == SKB_DECORATION_BOTTOMLINE) {
+								line_position = skb_maxf(line_position, delta_y + font->metrics.descender * attr_font.size);
+								thickness += font->metrics.underline_size * attr_font.size;
+							} else if (attr_decoration.position == SKB_DECORATION_OVERLINE) {
+								line_position = skb_minf(line_position, delta_y + font->metrics.ascender * attr_font.size);
+								thickness += font->metrics.underline_size * attr_font.size;
+							} else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+								line_position += delta_y + font->metrics.strikeout_offset * attr_font.size;
+								line_position_div += 1.0f;
+								thickness += font->metrics.strikeout_size * attr_font.size;
+							}
+							thickness_div += 1.f;
+						}
+						prev_font_handle = glyph->font_handle;
+					}
+				}
+
+				// Average position if requested.
+				if (line_position_div > 0.f)
+					line_position /= line_position_div;
+
+				// Use thickness from the attribute if specified, or calculate average of thickness based on font data.
+				if (attr_decoration.thickness > 0.f) {
+					thickness = attr_decoration.thickness;
+				} else {
+					if (thickness_div > 0.f)
+						thickness /= thickness_div;
+				}
+
+				// Apply offset.
+				if (attr_decoration.position == SKB_DECORATION_UNDERLINE || attr_decoration.position == SKB_DECORATION_BOTTOMLINE)
+					line_position += attr_decoration.offset;
+				else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE || attr_decoration.position == SKB_DECORATION_OVERLINE)
+					line_position -= attr_decoration.offset;
+
+				SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
+				skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
+				decoration->offset_x = first_glyph->offset_x;
+				decoration->offset_y = ref_y + line_position;
+				decoration->length = last_glyph->offset_x - first_glyph->offset_x + last_glyph->advance_x;
+				decoration->thickness = thickness;
+				decoration->span_idx = span_idx;
+				decoration->attribute_idx = (uint16_t)attr_idx;
+			}
+		}
+
+		line->decorations_range.end = layout->decorations_count;
+	}
+
 	layout->bounds.width = max_line_width;
 	layout->bounds.height = top_y;
 }
 
-typedef struct skb__script_run_iter {
+typedef struct skb__script_run_iter_t {
 	const skb_text_property_t* text_props;
 	int32_t pos;
 	int32_t end;
-} skb__script_run_iter;
+} skb__script_run_iter_t;
 
-static skb__script_run_iter skb__script_run_iter_make(skb_range_t range, const skb_text_property_t* text_attribs)
+static skb__script_run_iter_t skb__script_run_iter_make(skb_range_t range, const skb_text_property_t* text_attribs)
 {
-	skb__script_run_iter iter = {
+	skb__script_run_iter_t iter = {
 		.text_props = text_attribs,
 		.pos = range.start,
 		.end = range.end,
@@ -917,7 +1099,7 @@ static skb__script_run_iter skb__script_run_iter_make(skb_range_t range, const s
 	return iter;
 }
 
-static bool skb__script_run_iter_next(skb__script_run_iter* iter, skb_range_t* run_range, uint8_t* run_script)
+static bool skb__script_run_iter_next(skb__script_run_iter_t* iter, skb_range_t* run_range, uint8_t* run_script)
 {
 	if (iter->pos == iter->end)
 		return false;
@@ -941,18 +1123,18 @@ static bool skb__script_run_iter_next(skb__script_run_iter* iter, skb_range_t* r
 }
 
 
-typedef struct skb__text_style_run_iter {
+typedef struct skb__text_style_run_iter_t {
 	skb_range_t range;
 	bool is_rtl;
 	int32_t span_idx;
 	int32_t span_end;
 	const skb_text_attributes_span_t* spans;
 	int32_t spans_count;
-} skb__text_style_run_iter;
+} skb__text_style_run_iter_t;
 
-static skb__text_style_run_iter skb__text_style_run_iter_make(skb_range_t range, bool is_rtl, const skb_text_attributes_span_t* spans, int32_t spans_count)
+static skb__text_style_run_iter_t skb__text_style_run_iter_make(skb_range_t range, bool is_rtl, const skb_text_attributes_span_t* spans, int32_t spans_count)
 {
-	skb__text_style_run_iter iter = {
+	skb__text_style_run_iter_t iter = {
 		.range = range,
 		.is_rtl = is_rtl,
 		.spans = spans,
@@ -970,7 +1152,7 @@ static skb__text_style_run_iter skb__text_style_run_iter_make(skb_range_t range,
 	return iter;
 }
 
-static bool skb__text_style_run_iter_next(skb__text_style_run_iter* iter, skb_range_t* range, int32_t* range_span_idx)
+static bool skb__text_style_run_iter_next(skb__text_style_run_iter_t* iter, skb_range_t* range, int32_t* range_span_idx)
 {
 	if (iter->span_idx == iter->span_end)
 		return false;
@@ -1089,7 +1271,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 			const uint8_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 			// Split bidi runs at shaping style span boundaries.
-			skb__text_style_run_iter style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), layout->attribute_spans, layout->attribute_spans_count);
+			skb__text_style_run_iter_t style_iter = skb__text_style_run_iter_make(bidi_range, skb_is_rtl(bidi_direction), layout->attribute_spans, layout->attribute_spans_count);
 
 			skb_range_t style_range = {0};
 			int32_t style_span_idx = 0;
@@ -1103,7 +1285,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 				int32_t first_run = build_context->shaping_runs_count;
 
 				// Split the style run into runs of same script.
-				skb__script_run_iter script_iter = skb__script_run_iter_make(style_range, layout->text_props);
+				skb__script_run_iter_t script_iter = skb__script_run_iter_make(style_range, layout->text_props);
 
 				skb_range_t script_range = {0};
 				uint8_t script = 0;
@@ -1636,6 +1818,7 @@ void skb_layout_destroy(skb_layout_t* layout)
 	skb_free(layout->attributes);
 	skb_free(layout->attribute_spans);
 	skb_free(layout->glyphs);
+	skb_free(layout->decorations);
 	skb_free(layout->text);
 	skb_free(layout->text_props);
 	skb_free(layout);
@@ -1645,6 +1828,12 @@ const skb_layout_params_t* skb_layout_get_params(const skb_layout_t* layout)
 {
 	assert(layout);
 	return &layout->params;
+}
+
+int32_t skb_layout_get_text_count(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->text_count;
 }
 
 const uint32_t* skb_layout_get_text(const skb_layout_t* layout)
@@ -1659,10 +1848,10 @@ const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* la
 	return layout->text_props;
 }
 
-int32_t skb_layout_get_text_count(const skb_layout_t* layout)
+int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout)
 {
 	assert(layout);
-	return layout->text_count;
+	return layout->glyphs_count;
 }
 
 const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout)
@@ -1671,16 +1860,16 @@ const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout)
 	return layout->glyphs;
 }
 
-int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout)
+int32_t skb_layout_get_decorations_count(const skb_layout_t* layout)
 {
 	assert(layout);
-	return layout->glyphs_count;
+	return layout->decorations_count;
 }
 
-const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout)
+const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout)
 {
 	assert(layout);
-	return layout->lines;
+	return layout->decorations;
 }
 
 int32_t skb_layout_get_lines_count(const skb_layout_t* layout)
@@ -1689,16 +1878,22 @@ int32_t skb_layout_get_lines_count(const skb_layout_t* layout)
 	return layout->lines_count;
 }
 
-const skb_text_attributes_span_t* skb_layout_get_attribute_spans(const skb_layout_t* layout)
+const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout)
 {
 	assert(layout);
-	return layout->attribute_spans;
+	return layout->lines;
 }
 
 int32_t skb_layout_get_attribute_spans_count(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->attribute_spans_count;
+}
+
+const skb_text_attributes_span_t* skb_layout_get_attribute_spans(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->attribute_spans;
 }
 
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout)
