@@ -1141,6 +1141,32 @@ static skb_text_position_t skb__editor_move_to_word_end(const skb_editor_t* edit
 	
 	return word_end;
 }
+
+// Helper function to get document start position
+static skb_text_position_t skb__editor_get_document_start(const skb_editor_t* editor)
+{
+	skb_text_position_t result = {
+		.offset = 0,
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+	return result;
+}
+
+// Helper function to get document end position
+static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* editor)
+{
+	if (editor->paragraphs_count == 0) {
+		return skb__editor_get_document_start(editor);
+	}
+	
+	const skb__editor_paragraph_t* last_paragraph = &editor->paragraphs[editor->paragraphs_count - 1];
+	skb_text_position_t result = {
+		.offset = last_paragraph->text_start_offset + last_paragraph->text_count,
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+	return result;
+}
+
 int32_t skb_editor_get_selection_text_utf8_count(const skb_editor_t* editor, skb_text_selection_t selection)
 {
 	assert(editor);
@@ -2090,12 +2116,28 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_UP) {
-		if (editor->preferred_x < 0.f) {
-			skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
-			editor->preferred_x = vis.x;
+		if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
+			// macOS mode
+			if (mods & SKB_MOD_COMMAND) {
+				// Command + Up: Move to beginning of document
+				editor->selection.end_pos = skb__editor_get_document_start(editor);
+				editor->preferred_x = -1.f; // reset preferred
+			} else {
+				// Regular up movement
+				if (editor->preferred_x < 0.f) {
+					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					editor->preferred_x = vis.x;
+				}
+				editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
+			}
+		} else {
+			// Default mode
+			if (editor->preferred_x < 0.f) {
+				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				editor->preferred_x = vis.x;
+			}
+			editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
 		}
-
-		editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start_pos = editor->selection.end_pos;
@@ -2103,12 +2145,28 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		editor->allow_append_undo = false;
 	}
 	if (key == SKB_KEY_DOWN) {
-		if (editor->preferred_x < 0.f) {
-			skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
-			editor->preferred_x = vis.x;
+		if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
+			// macOS mode
+			if (mods & SKB_MOD_COMMAND) {
+				// Command + Down: Move to end of document
+				editor->selection.end_pos = skb__editor_get_document_end(editor);
+				editor->preferred_x = -1.f; // reset preferred
+			} else {
+				// Regular down movement
+				if (editor->preferred_x < 0.f) {
+					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					editor->preferred_x = vis.x;
+				}
+				editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
+			}
+		} else {
+			// Default mode
+			if (editor->preferred_x < 0.f) {
+				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				editor->preferred_x = vis.x;
+			}
+			editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
 		}
-
-		editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start_pos = editor->selection.end_pos;
