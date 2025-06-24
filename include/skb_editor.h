@@ -49,6 +49,14 @@ typedef enum {
 	SKB_CARET_MODE_SIMPLE,
 } skb_editor_caret_mode_t;
 
+/** Enum describing the jump mode for word navigation. */
+typedef enum {
+	/** Default mode, standard word jumping behavior. */
+	SKB_JUMP_MODE_DEFAULT = 0,
+	/** MacOS mode, option+arrow and command+arrow follow MacOS text editing conventions. */
+	SKB_JUMP_MODE_MACOS,
+} skb_editor_jump_mode_t;
+
 /** Struct describing parameters for the text editor. */
 typedef struct skb_editor_params_t {
 	/** Layout parameters used for each paragraph layout. */
@@ -65,6 +73,8 @@ typedef struct skb_editor_params_t {
 	uint8_t base_direction;
 	/** Care movement mode */
 	skb_editor_caret_mode_t caret_mode;
+	/** Jump mode for word navigation (default vs macOS style) */
+	skb_editor_jump_mode_t jump_mode;
 	/** Maximum number of undo levels, if zero, set to default undo levels, if < 0 undo is disabled. */
 	int32_t max_undo_levels;
 } skb_editor_params_t;
@@ -97,6 +107,8 @@ typedef enum {
 	SKB_MOD_NONE = 0,
 	SKB_MOD_SHIFT = 0x01,
 	SKB_MOD_CONTROL = 0x02,
+	SKB_MOD_OPTION = 0x04,
+	SKB_MOD_COMMAND = 0x08,
 } skb_editor_key_mod_t;
 
 /**
