@@ -25,7 +25,7 @@ jobs:
         Write-Host "Found $cores logical processors. Building with -j$cores"
         cmake --build . --config Debug -j"$cores"
     - name: Unit Tests
-      shell: cmd
+      shell: powershell
       run: |
-        cd build/bin/Debug
-        skribidi_test.exe
+        cd build/bin
+        ./Debug/skribidi_test.exe
