@@ -26,5 +26,6 @@ jobs:
         cmake --build . --config Debug -j"$cores"
     - name: Unit Tests
       shell: cmd
-      working-directory: ${{github.workspace}}/build
-      run: ./bin/Debug/skribidi_test.exe
+      run: |
+        cd build/bin
+        Debug/skribidi_test.exe
