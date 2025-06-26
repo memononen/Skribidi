@@ -22,6 +22,5 @@ jobs:
         cmake ..
         cmake --build . -j$(nproc)
     - name: Unit Tests
-      run: |
-        cd build/bin/
-        ./skribidi_test
+      working-directory: ${{github.workspace}}/build
+      run: ./bin/skribidi_test

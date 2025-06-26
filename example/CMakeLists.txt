@@ -74,16 +74,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         collect_data_files(DATA_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data")
 
         # Create a stamp file to mark the copy operation, placed in the config-specific output directory
-        set(DATA_STAMP "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data_copied.stamp")
+        set(DATA_STAMP "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data_copied.stamp")
 
         add_custom_command(
             OUTPUT ${DATA_STAMP}
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     ${CMAKE_CURRENT_SOURCE_DIR}/data
-                    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data
+                    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
             COMMAND ${CMAKE_COMMAND} -E touch ${DATA_STAMP}
             DEPENDS ${DATA_FILES}
-            COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/data"
+            COMMENT "Copying data folder to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
         )
 
         # Add a custom target to depend on the stamp file
@@ -114,5 +114,6 @@ else()
 
     add_custom_target(data_target ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 endif()
+
 
 add_dependencies(skribidi_example data_target)
