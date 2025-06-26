@@ -10,7 +10,7 @@ Skribidi is nimble bidirectional text stack for building UIs.
 - color emojis
 - line breaking
 - text attributes
-    - size, weight, style, streatch, letter spacing, word spacing, line spacing, baseling align, horizontal aling)
+    - size, weight, style, stretch, letter spacing, word spacing, line spacing, baseline align, horizontal align)
 - icons
     - [PicoSVG](https://github.com/googlefonts/picosvg) or procedural
 - glyph, emoji and icon rasterization
