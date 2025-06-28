@@ -1147,7 +1147,7 @@ static skb_text_position_t skb__editor_get_document_start(const skb_editor_t* ed
 {
 	skb_text_position_t result = {
 		.offset = 0,
-		.affinity = SKB_AFFINITY_TRAILING
+		.affinity = SKB_AFFINITY_SOL
 	};
 	return result;
 }
@@ -1162,7 +1162,7 @@ static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* edit
 	const skb__editor_paragraph_t* last_paragraph = &editor->paragraphs[editor->paragraphs_count - 1];
 	skb_text_position_t result = {
 		.offset = last_paragraph->text_start_offset + last_paragraph->text_count,
-		.affinity = SKB_AFFINITY_TRAILING
+		.affinity = SKB_AFFINITY_EOL
 	};
 	return result;
 }
@@ -1999,26 +1999,18 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	assert(editor);
 
 	if (key == SKB_KEY_RIGHT) {
-		if (mods & SKB_MOD_SHIFT) {
-			if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
-				// MacOS mode
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			if (mods & SKB_MOD_SHIFT) {
+				// MacOS mode with shift
 				if (mods & SKB_MOD_COMMAND)
 					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
 				else if (mods & SKB_MOD_OPTION)
 					editor->selection.end_pos = skb__editor_move_to_word_end(editor, editor->selection.end_pos);
 				else
 					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
-				// Default mode
-				if (mods & SKB_MOD_CONTROL)
-					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
-				else
-					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
-			}
-			// Do not move g_selection_start_caret, to allow the selection to grow.
-		} else {
-			if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
-				// macOS mode
+				// MacOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
 					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
 				} else if (mods & SKB_MOD_OPTION) {
@@ -2030,8 +2022,18 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					else
 						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
 				}
+				editor->selection.start_pos = editor->selection.end_pos;
+			}
+		} else {
+			if (mods & SKB_MOD_SHIFT) {
+				// Default mode with shift
+				if (mods & SKB_MOD_CONTROL)
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+				else
+					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
-				// Default mode
+				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
 					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
 				} else {
@@ -2041,34 +2043,26 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					else
 						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
 				}
+				editor->selection.start_pos = editor->selection.end_pos;
 			}
-			editor->selection.start_pos = editor->selection.end_pos;
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_LEFT) {
-		if (mods & SKB_MOD_SHIFT) {
-			if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
-				// macOS mode
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			if (mods & SKB_MOD_SHIFT) {
+				// MacOS mode with shift
 				if (mods & SKB_MOD_COMMAND)
 					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
 				else if (mods & SKB_MOD_OPTION)
 					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
 				else
 					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
-				// Default mode
-				if (mods & SKB_MOD_CONTROL)
-					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
-				else
-					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
-			}
-			// Do not move g_selection_start_caret, to allow the selection to grow.
-		} else {
-			if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
-				// macOS mode
+				// macOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
 					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
 				} else if (mods & SKB_MOD_OPTION) {
@@ -2080,8 +2074,18 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					else
 						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
 				}
+				editor->selection.start_pos = editor->selection.end_pos;
+			}
+		} else {
+			if (mods & SKB_MOD_SHIFT) {
+				// Default mode with shift
+				if (mods & SKB_MOD_CONTROL)
+					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+				else
+					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
-				// Default mode
+				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
 					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
 				} else {
@@ -2090,8 +2094,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					else
 						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
 				}
+				editor->selection.start_pos = editor->selection.end_pos;
 			}
-			editor->selection.start_pos = editor->selection.end_pos;
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 		editor->allow_append_undo = false;
@@ -2116,7 +2120,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_UP) {
-		if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
 			// macOS mode
 			if (mods & SKB_MOD_COMMAND) {
 				// Command + Up: Move to beginning of document
@@ -2145,7 +2149,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		editor->allow_append_undo = false;
 	}
 	if (key == SKB_KEY_DOWN) {
-		if (editor->params.jump_mode == SKB_JUMP_MODE_MACOS) {
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
 			// macOS mode
 			if (mods & SKB_MOD_COMMAND) {
 				// Command + Down: Move to end of document

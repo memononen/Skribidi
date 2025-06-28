@@ -52,7 +52,7 @@ static int test_command_line_navigation_macos(void)
 		.text_attributes_count = SKB_COUNTOF(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
-		.jump_mode = SKB_JUMP_MODE_MACOS,
+		.editor_behavior = SKB_BEHAVIOR_MACOS,
 	};
 
 	skb_editor_t* editor = skb_editor_create(&params);
@@ -114,7 +114,7 @@ static int test_command_document_navigation_macos(void)
 		.text_attributes_count = SKB_COUNTOF(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
-		.jump_mode = SKB_JUMP_MODE_MACOS,
+		.editor_behavior = SKB_BEHAVIOR_MACOS,
 	};
 
 	skb_editor_t* editor = skb_editor_create(&params);
@@ -203,7 +203,7 @@ static int test_shift_command_text_selection_macos(void)
 		.text_attributes_count = SKB_COUNTOF(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
-		.jump_mode = SKB_JUMP_MODE_MACOS,
+		.editor_behavior = SKB_BEHAVIOR_MACOS,
 	};
 
 	skb_editor_t* editor = skb_editor_create(&params);
@@ -309,7 +309,7 @@ static int test_option_word_navigation_macos(void)
 		.text_attributes_count = SKB_COUNTOF(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
-		.jump_mode = SKB_JUMP_MODE_MACOS,
+		.editor_behavior = SKB_BEHAVIOR_MACOS,
 	};
 
 	skb_editor_t* editor = skb_editor_create(&params);
