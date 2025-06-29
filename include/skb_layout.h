@@ -919,7 +919,6 @@ typedef struct skb_glyph_run_iterator_t {
  */
 static inline skb_glyph_run_iterator_t skb_glyph_run_iterator_make(const skb_glyph_t* glyphs, int32_t glyphs_count, int32_t start, int32_t end)
 {
-	assert(glyphs);
 	assert(end >= start);
 	assert(start >= 0 && start <= glyphs_count);
 	assert(end >= 0 && end <= glyphs_count);

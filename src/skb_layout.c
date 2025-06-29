@@ -655,7 +655,6 @@ typedef struct skb__glyphs_span_iter_t {
 
 static skb__glyphs_span_iter_t skb__glyphs_span_iterator_make(const skb_glyph_t* glyphs, int32_t glyphs_count, int32_t start, int32_t end)
 {
-	assert(glyphs);
 	assert(end >= start);
 	assert(start >= 0 && start <= glyphs_count);
 	assert(end >= 0 && end <= glyphs_count);
@@ -2420,7 +2419,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 						if (skb_absf(rect_end_x - rect_start_x) > 0.01f) {
 							skb_rect2_t rect = {
 								.x = rect_start_x,
-								.y = offset_y + line->bounds.y,
+								.y = offset_y + line->baseline + line->ascender,
 								.width = rect_end_x - rect_start_x,
 								.height = -line->ascender + line->descender,
 							};
@@ -2444,7 +2443,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 				// Output rect.
 				skb_rect2_t rect = {
 					.x = rect_start_x,
-					.y = offset_y + line->bounds.y,
+					.y = offset_y + line->baseline + line->ascender,
 					.width = rect_end_x - rect_start_x,
 					.height = -line->ascender + line->descender,
 				};

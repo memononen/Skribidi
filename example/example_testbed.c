@@ -531,11 +531,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const skb_layout_line_t* line = &lines[li];
 
 				float rox = ox + line->bounds.x;
-				float roy = oy + edit_layout_y + line->bounds.y;
+				float roy = oy + edit_layout_y + line->baseline;
 
-				float top_y = roy;
-				float bot_y = roy - line->ascender + line->descender;
-				float baseline_y = roy - line->ascender;
+				float top_y = roy + line->ascender;
+				float bot_y = roy + line->descender;
+				float baseline_y = roy;
 
 				// Line info
 				draw_line(rox - 25, baseline_y,rox,baseline_y, ink_color);
@@ -630,7 +630,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
 						float cx = ox + caret_x;
-						draw_line(cx, bot_y - 20, cx, top_y + 5, caret_color);
+						draw_line(cx, bot_y, cx, top_y + 5, caret_color);
 
 						if (left.direction != right.direction) {
 							draw_tri(cx, top_y+5, cx-5, top_y+5, cx, top_y+5+5, caret2_color);
