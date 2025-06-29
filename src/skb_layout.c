@@ -594,12 +594,22 @@ static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang,
 	for (int i = 0; i < text_count; i++) {
 		const hb_unicode_general_category_t category = hb_unicode_general_category(unicode_funcs, text[i]);
 		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_CONTROL, category == HB_UNICODE_GENERAL_CATEGORY_CONTROL);
-		const bool is_whitespace = (
+
+		const bool is_whitespace =
 			category == HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR
 			|| category == HB_UNICODE_GENERAL_CATEGORY_PARAGRAPH_SEPARATOR
-			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR
-		);
+			|| category == HB_UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR;
 		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_WHITESPACE, is_whitespace);
+
+		const bool is_punctuation =
+			category == HB_UNICODE_GENERAL_CATEGORY_CONNECT_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_DASH_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_FINAL_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_INITIAL_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_OTHER_PUNCTUATION
+			|| category == HB_UNICODE_GENERAL_CATEGORY_OPEN_PUNCTUATION;
+		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_PUNCTUATION, is_punctuation);
 	}
 
 	SKB_TEMP_FREE(temp_alloc, breaks);

@@ -965,15 +965,32 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 	const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
 	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
-	while (offset < text_count) {
-		if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
-			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
-			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+	if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+		// skip whitespace and punctuation at start.
+		while (offset < text_count && text_props[offset].flags & (SKB_TEXT_PROP_WHITESPACE | SKB_TEXT_PROP_PUNCTUATION))
+			offset++;
+
+		// Stop at the end of the word.
+		while (offset < text_count) {
+			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
 				offset = next_offset;
 				break;
 			}
+			offset++;
 		}
-		offset++;
+	} else {
+		// Stop after the white space at the end of the word.
+		while (offset < text_count) {
+			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
+				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+					offset = next_offset;
+					break;
+				}
+			}
+			offset++;
+		}
 	}
 
 	if (offset == text_count) {
@@ -1023,17 +1040,33 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 		};
 	}
 
-	offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
-
-	while (offset > 0) {
-		if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
-			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
-			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+	if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+		// skip whitespace and punctuation at start.
+		while (offset > 0 && text_props[offset-1].flags & (SKB_TEXT_PROP_WHITESPACE | SKB_TEXT_PROP_PUNCTUATION))
+			offset--;
+		// Stop at the beginning of the word.
+		offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
+		while (offset > 0) {
+			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
 				offset = next_offset;
 				break;
 			}
+			offset--;
 		}
-		offset--;
+	} else {
+		// Stop at the beginning of a word (the exact same logic as moving forward).
+		offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
+		while (offset > 0) {
+			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
+				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+					offset = next_offset;
+					break;
+				}
+			}
+			offset--;
+		}
 	}
 
 	return (skb_text_position_t) {
@@ -1122,6 +1155,31 @@ skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb
 	hit_pos.offset += paragraph->text_start_offset;
 
 	return hit_pos;
+}
+
+// Helper function to get document start position
+static skb_text_position_t skb__editor_get_document_start(const skb_editor_t* editor)
+{
+	skb_text_position_t result = {
+		.offset = 0,
+		.affinity = SKB_AFFINITY_SOL
+	};
+	return result;
+}
+
+// Helper function to get document end position
+static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* editor)
+{
+	if (editor->paragraphs_count == 0) {
+		return skb__editor_get_document_start(editor);
+	}
+	
+	const skb__editor_paragraph_t* last_paragraph = &editor->paragraphs[editor->paragraphs_count - 1];
+	skb_text_position_t result = {
+		.offset = last_paragraph->text_start_offset + last_paragraph->text_count,
+		.affinity = SKB_AFFINITY_EOL
+	};
+	return result;
 }
 
 int32_t skb_editor_get_selection_text_utf8_count(const skb_editor_t* editor, skb_text_selection_t selection)
@@ -1956,46 +2014,103 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	assert(editor);
 
 	if (key == SKB_KEY_RIGHT) {
-		if (mods & SKB_MOD_SHIFT) {
-			if (mods & SKB_MOD_CONTROL)
-				editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
-			else
-				editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
-			// Do not move g_selection_start_caret, to allow the selection to grow.
-		} else {
-			if (mods & SKB_MOD_CONTROL) {
-				editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
-			} else {
-				// Reset selection, choose left-most caret position.
-				if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-					editor->selection.end_pos = skb_editor_get_selection_ordered_end(editor, editor->selection);
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			if (mods & SKB_MOD_SHIFT) {
+				// MacOS mode with shift
+				if (mods & SKB_MOD_COMMAND)
+					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
+				else if (mods & SKB_MOD_OPTION)
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
 				else
 					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
+			} else {
+				// MacOS mode without shift
+				if (mods & SKB_MOD_COMMAND) {
+					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
+				} else if (mods & SKB_MOD_OPTION) {
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+				} else {
+					// Reset selection, choose left-most caret position.
+					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
+						editor->selection.end_pos = skb_editor_get_selection_ordered_end(editor, editor->selection);
+					else
+						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				}
+				editor->selection.start_pos = editor->selection.end_pos;
 			}
-			editor->selection.start_pos = editor->selection.end_pos;
+		} else {
+			if (mods & SKB_MOD_SHIFT) {
+				// Default mode with shift
+				if (mods & SKB_MOD_CONTROL)
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+				else
+					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
+			} else {
+				// Default mode without shift
+				if (mods & SKB_MOD_CONTROL) {
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+				} else {
+					// Reset selection, choose left-most caret position.
+					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
+						editor->selection.end_pos = skb_editor_get_selection_ordered_end(editor, editor->selection);
+					else
+						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+				}
+				editor->selection.start_pos = editor->selection.end_pos;
+			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_LEFT) {
-		if (mods & SKB_MOD_SHIFT) {
-			if (mods & SKB_MOD_CONTROL)
-				editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
-			else
-				editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
-			// Do not move g_selection_start_caret, to allow the selection to grow.
-		} else {
-			// Reset selection, choose right-most caret position.
-			if (mods & SKB_MOD_CONTROL) {
-				editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
-			} else {
-				if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-					editor->selection.end_pos = skb_editor_get_selection_ordered_start(editor, editor->selection);
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			if (mods & SKB_MOD_SHIFT) {
+				// MacOS mode with shift
+				if (mods & SKB_MOD_COMMAND)
+					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
+				else if (mods & SKB_MOD_OPTION)
+					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
 				else
 					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
+			} else {
+				// macOS mode without shift
+				if (mods & SKB_MOD_COMMAND) {
+					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
+				} else if (mods & SKB_MOD_OPTION) {
+					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+				} else {
+					// Reset selection, choose right-most caret position.
+					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
+						editor->selection.end_pos = skb_editor_get_selection_ordered_start(editor, editor->selection);
+					else
+						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				}
+				editor->selection.start_pos = editor->selection.end_pos;
 			}
-			editor->selection.start_pos = editor->selection.end_pos;
+		} else {
+			if (mods & SKB_MOD_SHIFT) {
+				// Default mode with shift
+				if (mods & SKB_MOD_CONTROL)
+					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+				else
+					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				// Do not move g_selection_start_caret, to allow the selection to grow.
+			} else {
+				// Default mode without shift
+				if (mods & SKB_MOD_CONTROL) {
+					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+				} else {
+					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
+						editor->selection.end_pos = skb_editor_get_selection_ordered_start(editor, editor->selection);
+					else
+						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+				}
+				editor->selection.start_pos = editor->selection.end_pos;
+			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 		editor->allow_append_undo = false;
@@ -2020,12 +2135,28 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_UP) {
-		if (editor->preferred_x < 0.f) {
-			skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
-			editor->preferred_x = vis.x;
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			// macOS mode
+			if (mods & SKB_MOD_COMMAND) {
+				// Command + Up: Move to beginning of document
+				editor->selection.end_pos = skb__editor_get_document_start(editor);
+				editor->preferred_x = -1.f; // reset preferred
+			} else {
+				// Regular up movement
+				if (editor->preferred_x < 0.f) {
+					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					editor->preferred_x = vis.x;
+				}
+				editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
+			}
+		} else {
+			// Default mode
+			if (editor->preferred_x < 0.f) {
+				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				editor->preferred_x = vis.x;
+			}
+			editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
 		}
-
-		editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start_pos = editor->selection.end_pos;
@@ -2033,12 +2164,28 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		editor->allow_append_undo = false;
 	}
 	if (key == SKB_KEY_DOWN) {
-		if (editor->preferred_x < 0.f) {
-			skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
-			editor->preferred_x = vis.x;
+		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+			// macOS mode
+			if (mods & SKB_MOD_COMMAND) {
+				// Command + Down: Move to end of document
+				editor->selection.end_pos = skb__editor_get_document_end(editor);
+				editor->preferred_x = -1.f; // reset preferred
+			} else {
+				// Regular down movement
+				if (editor->preferred_x < 0.f) {
+					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					editor->preferred_x = vis.x;
+				}
+				editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
+			}
+		} else {
+			// Default mode
+			if (editor->preferred_x < 0.f) {
+				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				editor->preferred_x = vis.x;
+			}
+			editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
 		}
-
-		editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start_pos = editor->selection.end_pos;
