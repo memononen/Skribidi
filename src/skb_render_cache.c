@@ -83,46 +83,39 @@ static void skb__atlas_destroy(skb__atlas_t* atlas);
 
 
 typedef enum {
-	SKB_RENDER_CACHE_ITEM_REMOVED = 0,
-	SKB_RENDER_CACHE_ITEM_INITIALIZED,
-	SKB_RENDER_CACHE_ITEM_RASTERIZED,
-} skb__render_cache_item_state_t;
+	SKB__ITEM_STATE_REMOVED = 0,
+	SKB__ITEM_STATE_INITIALIZED,
+	SKB__ITEM_STATE_RASTERIZED,
+} skb__item_state_t;
+
+typedef enum {
+	SKB__ITEM_TYPE_GLYPH = 0,
+	SKB__ITEM_TYPE_ICON,
+} skb__item_type_t;
 
 // Cached glyph flags
-enum skb__cached_glyph_flags_t {
-	SKB__CACHED_GLYPH_IS_COLOR = 1 << 0,
-	SKB__CACHED_GLYPH_IS_SDF   = 1 << 1,
-};
+typedef enum {
+	SKB__ITEM_IS_COLOR = 1 << 0,
+	SKB__ITEM_IS_SDF   = 1 << 1,
+} skb__item_flags_t;
 
 typedef struct skb__cached_glyph_t {
 	const skb_font_t* font;
-	uint64_t hash_id;
 	uint32_t gid;
 	float clamped_font_size;
-	skb__atlas_handle_t atlas_handle;
-	int32_t last_access_stamp;
-	skb_list_item_t lru;
-	int16_t width;
-	int16_t height;
-	int16_t pen_offset_x;
-	int16_t pen_offset_y;
-	int16_t atlas_offset_x;
-	int16_t atlas_offset_y;
-	uint8_t state;
-	uint8_t flags;
-	uint8_t texture_idx;
 } skb__cached_glyph_t;
-
-// Cached icon flags
-enum skb__cached_icon_flags_t {
-	SKB__CACHED_ICON_IS_COLOR = 1 << 0,
-	SKB__CACHED_ICON_IS_SDF   = 1 << 1,
-};
 
 typedef struct skb__cached_icon_t {
 	const skb_icon_t* icon;
-	uint64_t hash_id;
 	skb_vec2_t icon_scale;
+} skb__cached_icon_t;
+
+typedef struct skb__cached_item_t {
+	union {
+		skb__cached_glyph_t glyph;
+		skb__cached_icon_t icon;
+	};
+	uint64_t hash_id;
 	skb__atlas_handle_t atlas_handle;
 	int32_t last_access_stamp;
 	skb_list_item_t lru;
@@ -135,7 +128,8 @@ typedef struct skb__cached_icon_t {
 	uint8_t state;
 	uint8_t flags;
 	uint8_t texture_idx;
-} skb__cached_icon_t;
+	uint8_t type;
+} skb__cached_item_t;
 
 // Note: atlas size is always up to date, image gets resized during rasterization.
 typedef struct skb_atlas_image_t {
@@ -155,21 +149,13 @@ typedef struct skb_render_cache_t {
 	int32_t images_count;
 	int32_t images_cap;
 
-	skb_hash_table_t* glyphs_lookup;
-	skb__cached_glyph_t* glyphs;
-	int32_t glyphs_count;
-	int32_t glyphs_cap;
-	int32_t glyphs_freelist;
-	skb_list_t glyphs_lru;
-	bool has_new_glyphs;
-
-	skb_hash_table_t* icons_lookup;
-	skb__cached_icon_t* icons;
-	int32_t icons_count;
-	int32_t icons_cap;
-	int32_t icons_freelist;
-	skb_list_t icons_lru;
-	bool has_new_icons;
+	skb_hash_table_t* items_lookup;
+	skb__cached_item_t* items;
+	int32_t items_count;
+	int32_t items_cap;
+	int32_t items_freelist;
+	skb_list_t items_lru;
+	bool has_new_items;
 
 	int32_t now_stamp;
 	int32_t last_evicted_stamp;
@@ -180,16 +166,10 @@ typedef struct skb_render_cache_t {
 
 } skb_render_cache_t;
 
-static skb_list_item_t* skb__get_glyph(int32_t item_idx, void* context)
+static skb_list_item_t* skb__get_item(int32_t item_idx, void* context)
 {
 	skb_render_cache_t* cache = (skb_render_cache_t*)context;
-	return &cache->glyphs[item_idx].lru;
-}
-
-static skb_list_item_t* skb__get_icon(int32_t item_idx, void* context)
-{
-	skb_render_cache_t* cache = (skb_render_cache_t*)context;
-	return &cache->icons[item_idx].lru;
+	return &cache->items[item_idx].lru;
 }
 
 static void skb__image_resize(skb_image_t* image, int32_t new_width, int32_t new_height, uint8_t new_bpp)
@@ -249,14 +229,9 @@ skb_render_cache_t* skb_render_cache_create(const skb_render_cache_config_t* con
 	skb_render_cache_t* cache = skb_malloc(sizeof(skb_render_cache_t));
 	memset(cache, 0, sizeof(skb_render_cache_t));
 
-	cache->glyphs_lookup = skb_hash_table_create();
-	cache->icons_lookup = skb_hash_table_create();
-
-	cache->glyphs_freelist = SKB_INVALID_INDEX;
-	cache->glyphs_lru = skb_list_make();
-
-	cache->icons_freelist = SKB_INVALID_INDEX;
-	cache->icons_lru = skb_list_make();
+	cache->items_lookup = skb_hash_table_create();
+	cache->items_freelist = SKB_INVALID_INDEX;
+	cache->items_lru = skb_list_make();
 
 	if (config)
 		cache->config = *config;
@@ -274,10 +249,8 @@ void skb_render_cache_destroy(skb_render_cache_t* cache)
 		skb__atlas_image_destroy(&cache->images[i]);
 	skb_free(cache->images);
 
-	skb_hash_table_destroy(cache->glyphs_lookup);
-	skb_free(cache->glyphs);
-	skb_hash_table_destroy(cache->icons_lookup);
-	skb_free(cache->icons);
+	skb_hash_table_destroy(cache->items_lookup);
+	skb_free(cache->items);
 
 	memset(cache, 0, sizeof(skb_render_cache_t));
 
@@ -438,20 +411,11 @@ void skb_render_cache_debug_iterate_used_rects(skb_render_cache_t* cache, int32_
 	assert(cache);
 	assert(index >= 0 && index < cache->images_count);
 
-	for (int32_t i = 0; i < cache->glyphs_count; i++) {
-		skb__cached_glyph_t* cached_glyph = &cache->glyphs[i];
-		if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
-			if (cached_glyph->texture_idx == index) {
-				callback(cached_glyph->atlas_offset_x, cached_glyph->atlas_offset_y, cached_glyph->width, cached_glyph->height, context);
-			}
-		}
-	}
-
-	for (int32_t i = 0; i < cache->icons_count; i++) {
-		skb__cached_icon_t* cached_icon = &cache->icons[i];
-		if (cached_icon->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
-			if (cached_icon->texture_idx == index) {
-				callback(cached_icon->atlas_offset_x, cached_icon->atlas_offset_y, cached_icon->width, cached_icon->height, context);
+	for (int32_t i = 0; i < cache->items_count; i++) {
+		skb__cached_item_t* item = &cache->items[i];
+		if (item->state == SKB__ITEM_STATE_RASTERIZED) {
+			if (item->texture_idx == index) {
+				callback(item->atlas_offset_x, item->atlas_offset_y, item->width, item->height, context);
 			}
 		}
 	}
@@ -1009,7 +973,8 @@ static int32_t skb__add_rect_or_grow_atlas(skb_render_cache_t* cache, int32_t re
 
 static uint64_t skb__render_get_glyph_hash(uint32_t gid, const skb_font_t* font, float font_size, skb_render_alpha_mode_t alpha_mode)
 {
-	uint64_t hash = font->hash;
+	uint64_t hash = skb_hash64_append_uint8(skb_hash64_empty(), SKB__ITEM_TYPE_GLYPH);
+	hash = skb_hash64_append_uint64(hash, font->hash);
 	hash = skb_hash64_append_uint32(hash, gid);
 	hash = skb_hash64_append_float(hash, font_size);
 	hash = skb_hash64_append_uint8(hash, (uint8_t)alpha_mode);
@@ -1033,12 +998,13 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 	const uint64_t hash_id = skb__render_get_glyph_hash(glyph_id, font, clamped_font_size, alpha_mode);
 
-	skb__cached_glyph_t* cached_glyph = NULL;
+	skb__cached_item_t* cached_glyph = NULL;
 	int32_t glyph_idx = SKB_INVALID_INDEX;
 
-	if (skb_hash_table_find(cache->glyphs_lookup, hash_id, &glyph_idx)) {
+	if (skb_hash_table_find(cache->items_lookup, hash_id, &glyph_idx)) {
 		// Use existing.
-		cached_glyph = &cache->glyphs[glyph_idx];
+		cached_glyph = &cache->items[glyph_idx];
+		assert(cached_glyph->type == SKB__ITEM_TYPE_GLYPH);
 	} else {
 
 		// Calc size
@@ -1060,19 +1026,20 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 			return (skb_render_quad_t){0};
 
 		// Alloc and init the new glyph
-		if (cache->glyphs_freelist != SKB_INVALID_INDEX) {
-			glyph_idx = cache->glyphs_freelist;
-			cache->glyphs_freelist = cache->glyphs[glyph_idx].lru.next;
+		if (cache->items_freelist != SKB_INVALID_INDEX) {
+			glyph_idx = cache->items_freelist;
+			cache->items_freelist = cache->items[glyph_idx].lru.next;
 		} else {
-			SKB_ARRAY_RESERVE(cache->glyphs, cache->glyphs_count + 1);
-			glyph_idx = cache->glyphs_count++;
+			SKB_ARRAY_RESERVE(cache->items, cache->items_count + 1);
+			glyph_idx = cache->items_count++;
 		}
-		skb_hash_table_add(cache->glyphs_lookup, hash_id, glyph_idx);
+		skb_hash_table_add(cache->items_lookup, hash_id, glyph_idx);
 
-		cached_glyph = &cache->glyphs[glyph_idx];
-		cached_glyph->font = font;
-		cached_glyph->gid = glyph_id;
-		cached_glyph->clamped_font_size = clamped_font_size;
+		cached_glyph = &cache->items[glyph_idx];
+		cached_glyph->type = SKB__ITEM_TYPE_GLYPH;
+		cached_glyph->glyph.font = font;
+		cached_glyph->glyph.gid = glyph_id;
+		cached_glyph->glyph.clamped_font_size = clamped_font_size;
 		cached_glyph->width = (int16_t)requested_atlas_width;
 		cached_glyph->height = (int16_t)requested_atlas_height;
 		cached_glyph->atlas_offset_x = (int16_t)atlas_offset_x;
@@ -1080,25 +1047,25 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 		cached_glyph->atlas_handle = atlas_handle;
 		cached_glyph->pen_offset_x = (int16_t)bounds.x;
 		cached_glyph->pen_offset_y = (int16_t)bounds.y;
-		SKB_SET_FLAG(cached_glyph->flags, SKB__CACHED_GLYPH_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
-		SKB_SET_FLAG(cached_glyph->flags, SKB__CACHED_GLYPH_IS_COLOR, is_color);
-		cached_glyph->state = SKB_RENDER_CACHE_ITEM_INITIALIZED;
+		SKB_SET_FLAG(cached_glyph->flags, SKB__ITEM_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
+		SKB_SET_FLAG(cached_glyph->flags, SKB__ITEM_IS_COLOR, is_color);
+		cached_glyph->state = SKB__ITEM_STATE_INITIALIZED;
 		cached_glyph->texture_idx = (uint8_t)image_idx;
 		cached_glyph->hash_id = hash_id;
 		cached_glyph->atlas_handle = atlas_handle;
 		cached_glyph->lru = skb_list_item_make();
 
-		cache->has_new_glyphs = true;
+		cache->has_new_items = true;
 	}
 
 	assert(cached_glyph);
 	assert(glyph_idx != SKB_INVALID_INDEX);
 
 	// Move glyph to front of the LRU list.
-	skb_list_move_to_front(&cache->glyphs_lru, glyph_idx, skb__get_glyph, cache);
+	skb_list_move_to_front(&cache->items_lru, glyph_idx, skb__get_item, cache);
 	cached_glyph->last_access_stamp = cache->now_stamp;
 
-	const float scale = (font_size / cached_glyph->clamped_font_size);
+	const float scale = (font_size / cached_glyph->glyph.clamped_font_size);
 
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
 
@@ -1113,8 +1080,8 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * scale;
 	quad.scale = scale * pixel_scale;
 	quad.image_idx = cached_glyph->texture_idx;
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->flags & SKB__CACHED_GLYPH_IS_COLOR);
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->flags & SKB__CACHED_GLYPH_IS_SDF);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->flags & SKB__ITEM_IS_COLOR);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->flags & SKB__ITEM_IS_SDF);
 
 	return quad;
 }
@@ -1122,7 +1089,8 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 static uint64_t skb__render_get_icon_hash(const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode)
 {
-	uint64_t hash = icon ? icon->hash : skb_hash64_empty();
+	uint64_t hash = skb_hash64_append_uint8(skb_hash64_empty(), SKB__ITEM_TYPE_ICON);
+	hash = skb_hash64_append_uint64(hash, icon->hash);
 	hash = skb_hash64_append_float(hash, icon_scale.x);
 	hash = skb_hash64_append_float(hash, icon_scale.y);
 	hash = skb_hash64_append_uint8(hash, (uint8_t)alpha_mode);
@@ -1161,12 +1129,12 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	const uint64_t hash_id = skb__render_get_icon_hash(icon, scale, alpha_mode);
 
-	skb__cached_icon_t* cached_icon = NULL;
+	skb__cached_item_t* cached_icon = NULL;
 	int32_t icon_idx = SKB_INVALID_INDEX;
 
-	if (skb_hash_table_find(cache->icons_lookup, hash_id, &icon_idx)) {
+	if (skb_hash_table_find(cache->items_lookup, hash_id, &icon_idx)) {
 		// Use existing.
-		cached_icon = &cache->icons[icon_idx];
+		cached_icon = &cache->items[icon_idx];
 	} else {
 		// Not found, create new.
 
@@ -1187,18 +1155,19 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 			return (skb_render_quad_t){0};
 
 		// Alloc and init the new icon
-		if (cache->icons_freelist != SKB_INVALID_INDEX) {
-			icon_idx = cache->icons_freelist;
-			cache->icons_freelist = cache->icons[icon_idx].lru.next;
+		if (cache->items_freelist != SKB_INVALID_INDEX) {
+			icon_idx = cache->items_freelist;
+			cache->items_freelist = cache->items[icon_idx].lru.next;
 		} else {
-			SKB_ARRAY_RESERVE(cache->icons, cache->icons_count + 1);
-			icon_idx = cache->icons_count++;
+			SKB_ARRAY_RESERVE(cache->items, cache->items_count + 1);
+			icon_idx = cache->items_count++;
 		}
-		skb_hash_table_add(cache->icons_lookup, hash_id, icon_idx);
+		skb_hash_table_add(cache->items_lookup, hash_id, icon_idx);
 
-		cached_icon = &cache->icons[icon_idx];
-		cached_icon->icon = icon;
-		cached_icon->icon_scale = scale;
+		cached_icon = &cache->items[icon_idx];
+		cached_icon->type = SKB__ITEM_TYPE_ICON;
+		cached_icon->icon.icon = icon;
+		cached_icon->icon.icon_scale = scale;
 		cached_icon->width = (int16_t)requested_atlas_width;
 		cached_icon->height = (int16_t)requested_atlas_height;
 		cached_icon->atlas_offset_x = (int16_t)atlas_offset_x;
@@ -1206,21 +1175,21 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 		cached_icon->atlas_handle = atlas_handle;
 		cached_icon->pen_offset_x = (int16_t)bounds.x;
 		cached_icon->pen_offset_y = (int16_t)bounds.y;
-		SKB_SET_FLAG(cached_icon->flags, SKB__CACHED_ICON_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
-		cached_icon->flags |= SKB__CACHED_ICON_IS_COLOR;
-		cached_icon->state = SKB_RENDER_CACHE_ITEM_INITIALIZED;
+		SKB_SET_FLAG(cached_icon->flags, SKB__ITEM_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
+		cached_icon->flags |= SKB__ITEM_IS_COLOR;
+		cached_icon->state = SKB__ITEM_STATE_INITIALIZED;
 		cached_icon->texture_idx = (uint8_t)image_idx;
 		cached_icon->hash_id = hash_id;
 		cached_icon->lru = skb_list_item_make();
 
-		cache->has_new_icons = true;
+		cache->has_new_items = true;
 	}
 
 	assert(cached_icon);
 	assert(icon_idx != SKB_INVALID_INDEX);
 
 	// Move glyph to front of the LRU list.
-	skb_list_move_to_front(&cache->icons_lru, icon_idx, skb__get_icon, cache);
+	skb_list_move_to_front(&cache->items_lru, icon_idx, skb__get_item, cache);
 
 	cached_icon->last_access_stamp = cache->now_stamp;
 
@@ -1241,7 +1210,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.image_idx = cached_icon->texture_idx;
 	quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
-	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_icon->flags & SKB__CACHED_ICON_IS_SDF);
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_icon->flags & SKB__ITEM_IS_SDF);
 
 	return quad;
 }
@@ -1262,98 +1231,51 @@ static bool skb__try_evict_from_cache(skb_render_cache_t* cache, int32_t evict_a
 
 	// Try to evict unused glyphs.
 
-	int32_t glyph_idx = cache->glyphs_lru.tail; // Tail has least used items.
-	while (glyph_idx != SKB_INVALID_INDEX) {
-		skb__cached_glyph_t* cached_glyph = &cache->glyphs[glyph_idx];
+	int32_t item_idx = cache->items_lru.tail; // Tail has least used items.
+	while (item_idx != SKB_INVALID_INDEX) {
+		skb__cached_item_t* item = &cache->items[item_idx];
 
-		const int32_t inactive_duration = cache->now_stamp - cached_glyph->last_access_stamp;
+		const int32_t inactive_duration = cache->now_stamp - item->last_access_stamp;
 		if (inactive_duration <= evict_after_duration)
 			break;
 
-		int32_t prev_glyph_idx = cached_glyph->lru.prev;
+		int32_t prev_item_idx = item->lru.prev;
 
-		if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
+		if (item->state == SKB__ITEM_STATE_RASTERIZED) {
 
-			skb_atlas_image_t* atlas_image = &cache->images[cached_glyph->texture_idx];
+			skb_atlas_image_t* atlas_image = &cache->images[item->texture_idx];
 			skb__atlas_t* atlas = &atlas_image->atlas;
 
 			// Remove from lookup.
-			skb_hash_table_remove(cache->glyphs_lookup, cached_glyph->hash_id);
+			skb_hash_table_remove(cache->items_lookup, item->hash_id);
 
 			// Remove from atlas
-			skb__atlas_free_rect(atlas, cached_glyph->atlas_handle);
+			skb__atlas_free_rect(atlas, item->atlas_handle);
 
 			// Remove from LRU
-			skb_list_remove(&cache->glyphs_lru, glyph_idx, skb__get_glyph, cache);
+			skb_list_remove(&cache->items_lru, item_idx, skb__get_item, cache);
 
 			if (cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED) {
 				const skb_rect2i_t dirty = {
-					.x = cached_glyph->atlas_offset_x,
-					.y = cached_glyph->atlas_offset_y,
-					.width = cached_glyph->width,
-					.height = cached_glyph->height,
+					.x = item->atlas_offset_x,
+					.y = item->atlas_offset_y,
+					.width = item->width,
+					.height = item->height,
 				};
 				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, dirty);
-				skb__image_clear(&atlas_image->image, cached_glyph->atlas_offset_x, cached_glyph->atlas_offset_y, cached_glyph->width, cached_glyph->height);
+				skb__image_clear(&atlas_image->image, item->atlas_offset_x, item->atlas_offset_y, item->width, item->height);
 			}
 
 			// Returns glyph to freelist.
-			memset(cached_glyph, 0, sizeof(skb__cached_glyph_t));
-			cached_glyph->state = SKB_RENDER_CACHE_ITEM_REMOVED;
-			cached_glyph->lru.next = cache->glyphs_freelist;
-			cache->glyphs_freelist = glyph_idx;
+			memset(item, 0, sizeof(skb__cached_item_t));
+			item->state = SKB__ITEM_STATE_REMOVED;
+			item->lru.next = cache->items_freelist;
+			cache->items_freelist = item_idx;
 
 			evicted_count++;
 		}
 
-		glyph_idx = prev_glyph_idx;
-	}
-
-	// Try to evict unused icons.
-	int32_t icon_idx = cache->icons_lru.tail; // Tail has least used items.
-	while (icon_idx != SKB_INVALID_INDEX) {
-		skb__cached_icon_t* cached_icon = &cache->icons[icon_idx];
-
-		const int32_t inactive_duration = cache->now_stamp - cached_icon->last_access_stamp;
-		if (inactive_duration <= evict_after_duration)
-			break;
-
-		int32_t prev_icon_idx = cached_icon->lru.prev;
-
-		if (cached_icon->state == SKB_RENDER_CACHE_ITEM_RASTERIZED) {
-			skb_atlas_image_t* atlas_image = &cache->images[cached_icon->texture_idx];
-			skb__atlas_t* atlas = &atlas_image->atlas;
-
-			// Remove from lookup.
-			skb_hash_table_remove(cache->icons_lookup, cached_icon->hash_id);
-
-			// Remove from atlas
-			skb__atlas_free_rect(atlas, cached_icon->atlas_handle);
-
-			// Remove from LRU
-			skb_list_remove(&cache->icons_lru, icon_idx, skb__get_icon, cache);
-
-			if (cache->config.flags & SKB_RENDER_CACHE_CONFIG_DEBUG_CLEAR_REMOVED) {
-				const skb_rect2i_t dirty = {
-					.x = cached_icon->atlas_offset_x,
-					.y = cached_icon->atlas_offset_y,
-					.width = cached_icon->width,
-					.height = cached_icon->height,
-				};
-				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, dirty);
-				skb__image_clear(&atlas_image->image, cached_icon->atlas_offset_x, cached_icon->atlas_offset_y, cached_icon->width, cached_icon->height);
-			}
-
-			// Returns icon to freelist.
-			memset(cached_icon, 0, sizeof(skb__cached_glyph_t));
-			cached_icon->state = SKB_RENDER_CACHE_ITEM_REMOVED;
-			cached_icon->lru.next = cache->icons_freelist;
-			cache->icons_freelist = icon_idx;
-
-			evicted_count++;
-		}
-
-		icon_idx = prev_icon_idx;
+		item_idx = prev_item_idx;
 	}
 
 	return evicted_count > 0;
@@ -1408,82 +1330,52 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 	}
 
 	// Glyphs
-	if (cache->has_new_glyphs) {
-		for (int32_t i = 0; i < cache->glyphs_count; i++) {
-			skb__cached_glyph_t* cached_glyph = &cache->glyphs[i];
-			if (cached_glyph->state == SKB_RENDER_CACHE_ITEM_INITIALIZED) {
+	if (cache->has_new_items) {
+		for (int32_t i = 0; i < cache->items_count; i++) {
+			skb__cached_item_t* item = &cache->items[i];
+			if (item->state == SKB__ITEM_STATE_INITIALIZED) {
 
 				skb_rect2i_t atlas_bounds = {
-					.x = cached_glyph->atlas_offset_x,
-					.y = cached_glyph->atlas_offset_y,
-					.width = cached_glyph->width,
-					.height = cached_glyph->height,
+					.x = item->atlas_offset_x,
+					.y = item->atlas_offset_y,
+					.width = item->width,
+					.height = item->height,
 				};
 
-				const skb_render_alpha_mode_t alpha_mode = (cached_glyph->flags & SKB__CACHED_GLYPH_IS_SDF) ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
-				skb_atlas_image_t* atlas_image = &cache->images[cached_glyph->texture_idx];
+				const skb_render_alpha_mode_t alpha_mode = (item->flags & SKB__ITEM_IS_SDF) ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
+				skb_atlas_image_t* atlas_image = &cache->images[item->texture_idx];
 
 				skb_image_t target = {0};
-				target.width = cached_glyph->width;
-				target.height = cached_glyph->height;
+				target.width = item->width;
+				target.height = item->height;
 				target.bpp = atlas_image->image.bpp;
-				target.buffer = &atlas_image->image.buffer[cached_glyph->atlas_offset_x * atlas_image->image.bpp + cached_glyph->atlas_offset_y * atlas_image->image.stride_bytes];
+				target.buffer = &atlas_image->image.buffer[item->atlas_offset_x * atlas_image->image.bpp + item->atlas_offset_y * atlas_image->image.stride_bytes];
 				target.stride_bytes = atlas_image->image.stride_bytes;
 
 				assert(atlas_image->image.stride_bytes == atlas_image->image.width * atlas_image->image.bpp);
 
-				if (cached_glyph->flags & SKB__CACHED_GLYPH_IS_COLOR) {
-					skb_render_rasterize_color_glyph(renderer, temp_alloc, cached_glyph->gid, cached_glyph->font, cached_glyph->clamped_font_size, alpha_mode,
-						cached_glyph->pen_offset_x, cached_glyph->pen_offset_y, &target);
-				} else {
-					skb_render_rasterize_alpha_glyph(renderer, temp_alloc, cached_glyph->gid, cached_glyph->font, cached_glyph->clamped_font_size, alpha_mode,
-						cached_glyph->pen_offset_x, cached_glyph->pen_offset_y, &target);
+				if (item->type == SKB__ITEM_TYPE_GLYPH) {
+					// Rasterize glyph
+					if (item->flags & SKB__ITEM_IS_COLOR) {
+						skb_render_rasterize_color_glyph(renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
+							item->pen_offset_x, item->pen_offset_y, &target);
+					} else {
+						skb_render_rasterize_alpha_glyph(renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
+							item->pen_offset_x, item->pen_offset_y, &target);
+					}
+				} else if (item->type == SKB__ITEM_TYPE_ICON) {
+					// Rasterize icon
+					skb_render_rasterize_icon(renderer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
 				}
 
 				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, atlas_bounds);
 
-				cached_glyph->state = SKB_RENDER_CACHE_ITEM_RASTERIZED;
+				item->state = SKB__ITEM_STATE_RASTERIZED;
 
 				updated = true;
 			}
 		}
-		cache->has_new_glyphs = false;
-	}
-
-	// Icons
-	if (cache->has_new_icons) {
-		for (int32_t i = 0; i < cache->icons_count; i++) {
-			skb__cached_icon_t* cached_icon = &cache->icons[i];
-			if (cached_icon->state == SKB_RENDER_CACHE_ITEM_INITIALIZED) {
-
-				skb_rect2i_t atlas_bounds = {
-					.x = cached_icon->atlas_offset_x,
-					.y = cached_icon->atlas_offset_y,
-					.width = cached_icon->width,
-					.height = cached_icon->height,
-				};
-
-				const skb_render_alpha_mode_t alpha_mode = (cached_icon->flags & SKB__CACHED_ICON_IS_SDF) ? SKB_RENDER_ALPHA_SDF : SKB_RENDER_ALPHA_MASK;
-
-				skb_atlas_image_t* atlas_image = &cache->images[cached_icon->texture_idx];
-
-				skb_image_t target = {0};
-				target.width = cached_icon->width;
-				target.height = cached_icon->height;
-				target.bpp = atlas_image->image.bpp;
-				target.buffer = &atlas_image->image.buffer[cached_icon->atlas_offset_x * atlas_image->image.bpp + cached_icon->atlas_offset_y * atlas_image->image.stride_bytes];
-				target.stride_bytes = atlas_image->image.stride_bytes;
-
-				skb_render_rasterize_icon(renderer, temp_alloc, cached_icon->icon, cached_icon->icon_scale, alpha_mode, cached_icon->pen_offset_x, cached_icon->pen_offset_y, &target);
-
-				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, atlas_bounds);
-
-				cached_icon->state = SKB_RENDER_CACHE_ITEM_RASTERIZED;
-
-				updated = true;
-			}
-		}
-		cache->has_new_icons = false;
+		cache->has_new_items = false;
 	}
 
 	return updated;

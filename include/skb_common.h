@@ -697,6 +697,11 @@ static inline uint64_t skb_hash64_append_uint32(uint64_t hash, uint32_t value)
 	return skb_hash64_append(hash, &value, sizeof(value));
 }
 
+static inline uint64_t skb_hash64_append_uint64(uint64_t hash, uint64_t value)
+{
+	return skb_hash64_append(hash, &value, sizeof(value));
+}
+
 static inline uint64_t skb_hash64_append_uint8(uint64_t hash, uint8_t value)
 {
 	return skb_hash64_append(hash, &value, sizeof(value));
