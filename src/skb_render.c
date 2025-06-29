@@ -1036,7 +1036,7 @@ bool skb_render_rasterize_alpha_glyph(
 	int64_t t_end = skb_perf_timer_get();
 	int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
-	skb_debug_log("Rasterize %s glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", alpha_mode == SKB_RENDER_ALPHA_SDF ? "SDF" : "mask", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
+	// skb_debug_log("Rasterize %s glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", alpha_mode == SKB_RENDER_ALPHA_SDF ? "SDF" : "mask", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
 
 	return true;
 }
@@ -1112,7 +1112,7 @@ bool skb_render_rasterize_color_glyph(
 	int64_t t_end = skb_perf_timer_get();
     int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
-    skb_debug_log("Rasterize color glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
+    // skb_debug_log("Rasterize color glyph %s [%d], size: %.1f, canvas: (%d x %d), time: %dus\n", font->name, glyph_id, font_size, target->width, target->height, (int32_t)elapsed_us);
 
 	return true;
 }
@@ -1251,7 +1251,7 @@ bool skb_render_rasterize_icon(
 	int64_t t_end = skb_perf_timer_get();
 	int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
 
-	skb_debug_log("Rasterize color icon %s, scale: (%.1f, %.1f), canvas: (%d x %d), time: %dus\n", icon->name, icon_scale.x, icon_scale.y, target->width, target->height, (int32_t)elapsed_us);
+	// skb_debug_log("Rasterize color icon %s, scale: (%.1f, %.1f), canvas: (%d x %d), time: %dus\n", icon->name, icon_scale.x, icon_scale.y, target->width, target->height, (int32_t)elapsed_us);
 
 	return true;
 }
