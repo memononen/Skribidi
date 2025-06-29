@@ -394,7 +394,9 @@ enum skb_text_prop_flags_t {
 	/** The codepoint is a control character. */
 	SKB_TEXT_PROP_CONTROL          = 1 << 5,
 	/** The codepoint is a white space character. */
-	SKB_TEXT_PROP_WHITESPACE       = 1 << 6
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 6,
+	/** The codepoint is a punctuation character. */
+	SKB_TEXT_PROP_PUNCTUATION      = 1 << 7,
 };
 
 /** Struct describing properties if a single codepoint. */

@@ -965,15 +965,32 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 	const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
 	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
-	while (offset < text_count) {
-		if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
-			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
-			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+	if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+		// skip whitespace and punctuation at start.
+		while (offset < text_count && text_props[offset].flags & (SKB_TEXT_PROP_WHITESPACE | SKB_TEXT_PROP_PUNCTUATION))
+			offset++;
+
+		// Stop at the end of the word.
+		while (offset < text_count) {
+			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
 				offset = next_offset;
 				break;
 			}
+			offset++;
 		}
-		offset++;
+	} else {
+		// Stop after the white space at the end of the word.
+		while (offset < text_count) {
+			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset);
+				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+					offset = next_offset;
+					break;
+				}
+			}
+			offset++;
+		}
 	}
 
 	if (offset == text_count) {
@@ -1023,17 +1040,33 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 		};
 	}
 
-	offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
-
-	while (offset > 0) {
-		if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
-			int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
-			if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+	if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
+		// skip whitespace and punctuation at start.
+		while (offset > 0 && text_props[offset-1].flags & (SKB_TEXT_PROP_WHITESPACE | SKB_TEXT_PROP_PUNCTUATION))
+			offset--;
+		// Stop at the beginning of the word.
+		offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
+		while (offset > 0) {
+			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
 				offset = next_offset;
 				break;
 			}
+			offset--;
 		}
-		offset--;
+	} else {
+		// Stop at the beginning of a word (the exact same logic as moving forward).
+		offset = skb_layout_prev_grapheme_offset(paragraph->layout, offset);
+		while (offset > 0) {
+			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
+				int32_t next_offset = skb_layout_next_grapheme_offset(paragraph->layout, offset-1);
+				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
+					offset = next_offset;
+					break;
+				}
+			}
+			offset--;
+		}
 	}
 
 	return (skb_text_position_t) {
@@ -1122,24 +1155,6 @@ skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb
 	hit_pos.offset += paragraph->text_start_offset;
 
 	return hit_pos;
-}
-
-// Helper function for macOS-style word end movement
-// If already at word end, moves to the end of the next word
-static skb_text_position_t skb__editor_move_to_word_end(const skb_editor_t* editor, skb_text_position_t pos)
-{
-	skb_text_position_t word_end = skb_editor_get_word_end_at(editor, pos);
-	
-	// If we're already at the word end, move to the next word's end
-	if (word_end.offset == pos.offset) {
-		// Move to next word start first, then to its end
-		skb_text_position_t next_word = skb_editor_move_to_next_word(editor, pos);
-		if (next_word.offset > pos.offset) {
-			word_end = skb_editor_get_word_end_at(editor, next_word);
-		}
-	}
-	
-	return word_end;
 }
 
 // Helper function to get document start position
@@ -2005,7 +2020,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				if (mods & SKB_MOD_COMMAND)
 					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
 				else if (mods & SKB_MOD_OPTION)
-					editor->selection.end_pos = skb__editor_move_to_word_end(editor, editor->selection.end_pos);
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
 				else
 					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
@@ -2014,7 +2029,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				if (mods & SKB_MOD_COMMAND) {
 					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
 				} else if (mods & SKB_MOD_OPTION) {
-					editor->selection.end_pos = skb__editor_move_to_word_end(editor, editor->selection.end_pos);
+					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
 				} else {
 					// Reset selection, choose left-most caret position.
 					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
