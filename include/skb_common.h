@@ -20,6 +20,21 @@ extern "C" {
  * @{
  */
 
+// TODO: this feels out of place here, but it is needed in multiple places.
+/** Enum describing how the decoration should be drawn. */
+typedef enum {
+	/** Solid line. */
+	SKB_DECORATION_STYLE_SOLID = 0,
+	/** Double line. */
+	SKB_DECORATION_STYLE_DOUBLE,
+	/** Dotted line. */
+	SKB_DECORATION_STYLE_DOTTED,
+	/** Dashed line. */
+	SKB_DECORATION_STYLE_DASHED,
+	/** Wave line. */
+	SKB_DECORATION_STYLE_WAVY,
+} skb_decoration_style_t;
+
 /**
  * Logs a debug message.
  * @param format printf style format string.

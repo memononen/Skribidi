@@ -951,6 +951,68 @@ void draw_image_quad_sdf(skb_rect2_t geom, skb_rect2_t image, float scale, skb_c
 	g_context.sdf_id = 0;
 }
 
+
+static float skb__wrap_offset(float x)
+{
+	// Wrap the offset so that it is always between -1..0
+	const float mx = fmodf(x, 1.f);
+	return mx > 0.f ? mx - 1.f : mx;
+}
+
+void draw_image_pattern_quad_sdf(skb_rect2_t geom, skb_rect2_t pattern, skb_rect2_t image, float scale, skb_color_t tint, uint32_t tex_id)
+{
+	// In order to draw the pattern, we need to tile the part of the textture described by "image" rectangle.
+	// This could be done on the shader, but will require us to pass the mapping to the shader (e.g. via vertex attribs).
+	// In order to keep the vertex format and pixel shader simple, here we instead slice quad into smaller pieces which can be rendered with the simpler px shader.
+
+	//
+	// sx  [==================] geom
+	//  +-----+-----+-----+-----+  repeat_x
+	//     |--+-----+-----+---|	(ux,uwidth)
+	//        [====] image
+
+	const float sx = skb__wrap_offset(pattern.x);
+	const float sy = skb__wrap_offset(pattern.y);
+	const int32_t repeat_x = (int32_t)skb_ceilf(skb_absf(sx) + pattern.width);
+	const int32_t repeat_y = (int32_t)skb_ceilf(skb_absf(sy) + pattern.height);
+
+	// Size of the image to repeat.
+	const float unit_pat_width = geom.width / pattern.width;
+	const float unit_pat_height	= geom.height / pattern.height;
+
+	for (int32_t y = 0; y < repeat_y; y++) {
+		for (int32_t x = 0; x < repeat_x; x++) {
+			// Start position in normalized coordinates
+			const float cx = sx + (float)x;
+			const float cy = sy + (float)y;
+			// Position and size of the current tile on normalized coordinates.
+			const float ux = skb_maxf(0.f, cx);
+			const float uy = skb_maxf(0.f, cy);
+			const float uwidth = skb_minf(cx + 1.f, pattern.width) - ux;
+			const float uheight = skb_minf(cy + 1.f, pattern.height) - uy;
+
+			// Quad to draw
+			skb_rect2_t sub_geom = {
+				.x = geom.x + ux * unit_pat_width,
+				.y = geom.y + uy * unit_pat_height,
+				.width = uwidth * unit_pat_width,
+				.height = uheight * unit_pat_height,
+			};
+
+			// Portion of image to map to the quad.
+			// The first tile of row or col may be truncated from the start edge, otherwise we always truncate from end.
+			skb_rect2_t sub_image = {
+				.x = image.x + skb_maxf(0.f, -cx) * image.width,
+				.y = image.y + skb_maxf(0.f, -cy) * image.height,
+				.width = uwidth * image.width,
+				.height = uheight * image.height,
+			};
+
+			draw_image_quad_sdf(sub_geom, sub_image, scale, tint, tex_id);
+		}
+	}
+}
+
 static void draw__poly_bounds_pt(float x, float y)
 {
 	g_context.poly_bounds = skb_rect2_union_point(g_context.poly_bounds, (skb_vec2_t){x,y});

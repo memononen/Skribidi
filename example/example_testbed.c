@@ -203,7 +203,7 @@ void* testbed_create(void)
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, skb_rgba(0,128,192,255)),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -522,8 +522,14 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
 				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 				if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
-					skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
-					draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
+					skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
+					skb_render_pattern_quad_t pat_quad = skb_render_cache_get_decoration_quad(
+						ctx->render_cache, rect.x, rect.y, rect.width, decoration->pattern_offset, ctx->view.scale,
+						attr_decoration.style, decoration->thickness, SKB_RENDER_ALPHA_SDF);
+					draw_image_pattern_quad_sdf(
+						view_transform_rect(&ctx->view, pat_quad.geom_bounds),
+						pat_quad.pattern_bounds, pat_quad.image_bounds, 1.f / pat_quad.scale, attr_decoration.color,
+						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, pat_quad.image_idx));
 				}
 			}
 
@@ -659,8 +665,14 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
 				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 				if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
-					skb_rect2_t rect = view_transform_rect(&ctx->view, calc_decoration_rect(decoration, attr_decoration));
-					draw_filled_rect(rect.x, rect.y, rect.width, rect.height, attr_decoration.color);
+					skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
+					skb_render_pattern_quad_t pat_quad = skb_render_cache_get_decoration_quad(
+						ctx->render_cache, rect.x, rect.y, rect.width, decoration->pattern_offset, ctx->view.scale,
+						attr_decoration.style, decoration->thickness, SKB_RENDER_ALPHA_SDF);
+					draw_image_pattern_quad_sdf(
+						view_transform_rect(&ctx->view, pat_quad.geom_bounds),
+						pat_quad.pattern_bounds, pat_quad.image_bounds, 1.f / pat_quad.scale, attr_decoration.color,
+						(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, pat_quad.image_idx));
 				}
 			}
 

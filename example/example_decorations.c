@@ -20,7 +20,7 @@
 #include "skb_render_cache.h"
 
 
-typedef struct richtext_context_t {
+typedef struct decorations_context_t {
 	example_t base;
 
 	skb_font_collection_t* font_collection;
@@ -34,10 +34,9 @@ typedef struct richtext_context_t {
 	bool drag_view;
 	bool drag_text;
 
-	bool show_glyph_bounds;
 	float atlas_scale;
 
-} richtext_context_t;
+} decorations_context_t;
 
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
@@ -55,27 +54,27 @@ static void on_create_texture(skb_render_cache_t* cache, uint8_t image_idx, void
 	}
 }
 
-void richtext_destroy(void* ctx_ptr);
-void richtext_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
-void richtext_on_char(void* ctx_ptr, unsigned int codepoint);
-void richtext_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods);
-void richtext_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
-void richtext_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
-void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
+void decorations_destroy(void* ctx_ptr);
+void decorations_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
+void decorations_on_char(void* ctx_ptr, unsigned int codepoint);
+void decorations_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods);
+void decorations_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
+void decorations_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
+void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* richtext_create(void)
+void* decorations_create(void)
 {
-	richtext_context_t* ctx = skb_malloc(sizeof(richtext_context_t));
-	memset(ctx, 0, sizeof(richtext_context_t));
+	decorations_context_t* ctx = skb_malloc(sizeof(decorations_context_t));
+	memset(ctx, 0, sizeof(decorations_context_t));
 
-	ctx->base.create = richtext_create;
-	ctx->base.destroy = richtext_destroy;
-	ctx->base.on_key = richtext_on_key;
-	ctx->base.on_char = richtext_on_char;
-	ctx->base.on_mouse_button = richtext_on_mouse_button;
-	ctx->base.on_mouse_move = richtext_on_mouse_move;
-	ctx->base.on_mouse_scroll = richtext_on_mouse_scroll;
-	ctx->base.on_update = richtext_on_update;
+	ctx->base.create = decorations_create;
+	ctx->base.destroy = decorations_destroy;
+	ctx->base.on_key = decorations_on_key;
+	ctx->base.on_char = decorations_on_char;
+	ctx->base.on_mouse_button = decorations_on_mouse_button;
+	ctx->base.on_mouse_move = decorations_on_mouse_move;
+	ctx->base.on_mouse_scroll = decorations_on_mouse_scroll;
+	ctx->base.on_update = decorations_on_update;
 
 	ctx->atlas_scale = 0.25f;
 
@@ -111,83 +110,48 @@ void* richtext_create(void)
 		.baseline = SKB_BASELINE_MIDDLE,
 	};
 
-	const skb_attribute_t attributes_small[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-	};
-
-	const skb_attribute_t attributes_deco1[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,128)),
-	};
-
-	const skb_attribute_t attributes_deco2[] = {
+	const skb_attribute_t attributes_deco_solid[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,192)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_deco3[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 18.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+	const skb_attribute_t attributes_deco_double[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_BOTTOMLINE, SKB_DECORATION_STYLE_DASHED, 0.f, 0.f, skb_rgba(0,64,255,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, skb_rgba(0,192,64,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_italic[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 64.f, SKB_WEIGHT_NORMAL, SKB_STYLE_ITALIC, SKB_STRETCH_NORMAL),
+	const skb_attribute_t attributes_deco_dotted[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_spacing(20.f, 0.f),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_big[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 128.f, SKB_WEIGHT_BOLD, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 0.75f),
-		skb_attribute_make_fill(skb_rgba(220,40,40,255)),
+	const skb_attribute_t attributes_deco_dashed[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_fracts[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 48.f, SKB_WEIGHT_BOLD, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
-		skb_attribute_make_fill(skb_rgba(180,110,190,255)),
-		skb_attribute_make_font_feature(SKB_TAG_STR("frac"), 1),
-		skb_attribute_make_font_feature(SKB_TAG_STR("numr"), 1),
-		skb_attribute_make_font_feature(SKB_TAG_STR("dmon"), 1),
+	const skb_attribute_t attributes_deco_wavy[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const char* ipsum =
-		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam eget blandit purus, sit amet faucibus quam. Morbi vulputate tellus in nulla fermentum feugiat id eu diam. Sed id orci sapien. "
-		"Donec sodales vitae odio dapibus pulvinar. Maecenas molestie lorem vulputate, gravida ex sed, dignissim erat. Suspendisse vel magna sed libero fringilla tincidunt id eget nisl. "
-		"Suspendisse potenti. Maecenas fringilla magna sollicitudin, porta ipsum sed, rutrum magna. Sed ac semper magna. Phasellus porta nunc nulla, non dignissim magna pretium a. "
-		"Aenean condimentum, nisi vitae sollicitudin ullamcorper, tellus elit suscipit risus, aliquet hendrerit sem velit in leo. Sed ut est pellentesque, vehicula ligula consectetur, tincidunt tellus. "
-		"Aliquam erat volutpat. Etiam efficitur consequat turpis, vitae faucibus erat porta sed.\n"
-		"Aenean euismod ante sed mi pellentesque dictum. Ut dapibus, nisl at dapibus egestas, enim metus semper lectus, ut dictum sapien leo et ligula. In et lorem quis nunc rutrum aliquet eget non velit. "
-		"Ut a luctus metus. Morbi vestibulum sapien vitae velit feugiat feugiat. Interdum et malesuada fames ac ante ipsum primis in faucibus. Donec sit amet sapien quam.\n"
-		"Donec at sodales est, sit amet rutrum ante. Cras tincidunt auctor nunc, id ullamcorper ligula facilisis non. Curabitur auctor mi at feugiat porta. Vestibulum aliquet molestie velit vehicula cursus. "
-		"Donec vitae tristique libero. Etiam eget pellentesque nisi, in porta lectus. Donec accumsan ligula mauris. Nulla consectetur tortor at sem rutrum, non dapibus libero interdum. "
-		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.\n";
 
 	skb_text_run_utf8_t runs[] = {
-		{ ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small) },
-		{ "moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
-
-		{ "این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
-
-		{ "Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1) },
-		{ "vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
-		{ "dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3) },
-
-		{ "ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
-		{ "POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big) },
-		{ "11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts) },
-		{ "शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
-		{ "今天天气晴朗。 ", -1, attributes_small, SKB_COUNTOF(attributes_small) },
+		{ "Quick fox jumps over lazy dog.\n", -1, attributes_deco_solid, SKB_COUNTOF(attributes_deco_solid) },
+		{ "Quick fox jumps over lazy dog.\n", -1, attributes_deco_double, SKB_COUNTOF(attributes_deco_double) },
+		{ "Quick fox jumps over lazy dog.\n", -1, attributes_deco_dotted, SKB_COUNTOF(attributes_deco_dotted) },
+		{ "Quick fox jumps over lazy dog.\n", -1, attributes_deco_dashed, SKB_COUNTOF(attributes_deco_dashed) },
+		{ "Quick fox jumps over lazy dog.\n", -1, attributes_deco_wavy, SKB_COUNTOF(attributes_deco_wavy) },
 	};
 
 	ctx->layout = skb_layout_create_from_runs_utf8(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -206,13 +170,13 @@ void* richtext_create(void)
 	return ctx;
 
 error:
-	richtext_destroy(ctx);
+	decorations_destroy(ctx);
 	return NULL;
 }
 
-void richtext_destroy(void* ctx_ptr)
+void decorations_destroy(void* ctx_ptr)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	skb_layout_destroy(ctx->layout);
@@ -222,20 +186,17 @@ void richtext_destroy(void* ctx_ptr)
 	skb_renderer_destroy(ctx->renderer);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
-	memset(ctx, 0, sizeof(richtext_context_t));
+	memset(ctx, 0, sizeof(decorations_context_t));
 
 	skb_free(ctx);
 }
 
-void richtext_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
+void decorations_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_F9) {
-			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
-		}
 		if (key == GLFW_KEY_F10) {
 			ctx->atlas_scale += 0.25f;
 			if (ctx->atlas_scale > 1.01f)
@@ -250,15 +211,15 @@ void richtext_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int
 	}
 }
 
-void richtext_on_char(void* ctx_ptr, unsigned int codepoint)
+void decorations_on_char(void* ctx_ptr, unsigned int codepoint)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 }
 
-void richtext_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods)
+void decorations_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
@@ -276,9 +237,9 @@ void richtext_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int b
 	}
 }
 
-void richtext_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
+void decorations_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (ctx->drag_view) {
@@ -286,18 +247,18 @@ void richtext_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 	}
 }
 
-void richtext_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods)
+void decorations_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	const float zoom_speed = 0.2f;
 	view_scroll_zoom(&ctx->view, mouse_x, mouse_y, delta_y * zoom_speed);
 }
 
-void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
+void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
-	richtext_context_t* ctx = ctx_ptr;
+	decorations_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	draw_line_width(1.f);
@@ -318,13 +279,6 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
 		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
-
-		if (ctx->show_glyph_bounds) {
-			skb_rect2_t layout_bounds = skb_layout_get_bounds(ctx->layout);
-			layout_bounds = view_transform_rect(&ctx->view, layout_bounds);
-			draw_rect(layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128));
-		}
-
 
 		const int32_t decorations_count = skb_layout_get_decorations_count(ctx->layout);
 		const skb_decoration_t* decorations = skb_layout_get_decorations(ctx->layout);
@@ -361,16 +315,6 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const float gx = glyph->offset_x;
 				const float gy = glyph->offset_y;
 
-				if (ctx->show_glyph_bounds) {
-					draw_tick(view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans);
-
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, font_handle, glyph->gid, attr_font.size);
-					bounds.x += gx;
-					bounds.y += gy;
-					bounds = view_transform_rect(&ctx->view, bounds);
-					draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(255,128,64,128));
-				}
-
 				// Glyph image
 				skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
 					ctx->render_cache,gx, gy, ctx->view.scale,
@@ -402,6 +346,38 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 	}
 
+	// Draw examples of the decoration patterns.
+	{
+		for (int32_t i = 0; i < 5; i++) {
+			float ax = 500.f;
+			float ay = i * 50.f;
+
+			const float thickness = 5.f;
+
+			skb_vec2_t size = skb_render_get_decoration_pattern_size(i, thickness);
+			{
+				skb_rect2_t pat_bounds = { .x = ax, .y = ay, .width = size.x, .height = size.y };
+				pat_bounds = view_transform_rect(&ctx->view, pat_bounds);
+				draw_rect(pat_bounds.x, pat_bounds.y, pat_bounds.width, pat_bounds.height, skb_rgba(255,128,64,255));
+			}
+
+			// Offset based on view center to test offsetting.
+			const float offset_x = ctx->view.cx;
+
+			skb_render_pattern_quad_t pat_quad = skb_render_cache_get_decoration_quad(ctx->render_cache, ax, ay, 250.f, offset_x, ctx->view.scale, i, thickness, SKB_RENDER_ALPHA_SDF);
+			draw_image_pattern_quad_sdf(
+				view_transform_rect(&ctx->view, pat_quad.geom_bounds),
+				pat_quad.pattern_bounds, pat_quad.image_bounds, 1.f / pat_quad.scale, skb_rgba(0,0,0, 128),
+				(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, pat_quad.image_idx));
+
+			{
+				skb_rect2_t bounds = view_transform_rect(&ctx->view, pat_quad.geom_bounds);
+				draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,128));
+			}
+		}
+	}
+
+
 	// Update atlas and textures
 	if (skb_render_cache_rasterize_missing_items(ctx->render_cache, ctx->temp_alloc, ctx->renderer)) {
 		for (int32_t i = 0; i < skb_render_cache_get_image_count(ctx->render_cache); i++) {
@@ -428,7 +404,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),
-		"RMB: Pan view   Wheel: Zoom View   F9: Glyph details %s   F10: Atlas %.1f%%",
-		ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
+		"RMB: Pan view   Wheel: Zoom View   F10: Atlas %.1f%%",
+		ctx->atlas_scale * 100.f);
 
 }

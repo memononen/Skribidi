@@ -1079,6 +1079,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 				decoration->offset_x = first_glyph->offset_x;
 				decoration->offset_y = ref_y + line_position;
 				decoration->length = last_glyph->offset_x - first_glyph->offset_x + last_glyph->advance_x;
+				decoration->pattern_offset = first_glyph->offset_x - origin.x;
 				decoration->thickness = thickness;
 				decoration->span_idx = span_idx;
 				decoration->attribute_idx = (uint16_t)attr_idx;

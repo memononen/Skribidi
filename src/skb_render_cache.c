@@ -91,6 +91,7 @@ typedef enum {
 typedef enum {
 	SKB__ITEM_TYPE_GLYPH = 0,
 	SKB__ITEM_TYPE_ICON,
+	SKB__ITEM_TYPE_PATTERN,
 } skb__item_type_t;
 
 // Cached glyph flags
@@ -110,10 +111,16 @@ typedef struct skb__cached_icon_t {
 	skb_vec2_t icon_scale;
 } skb__cached_icon_t;
 
+typedef struct skb__cached_pattern_t {
+	float thickness;
+	uint8_t style;
+} skb__cached_pattern_t;
+
 typedef struct skb__cached_item_t {
 	union {
 		skb__cached_glyph_t glyph;
 		skb__cached_icon_t icon;
+		skb__cached_pattern_t pattern;
 	};
 	uint64_t hash_id;
 	skb__atlas_handle_t atlas_handle;
@@ -316,6 +323,18 @@ skb_render_cache_config_t skb_render_cache_get_default_config(void)
 			.rounding = 1.f,
 			.min_size = 8.f,
 			.max_size = 256.f,
+		},
+		.pattern_sdf = {
+			.padding = 8,
+			.rounding = 4.f,
+			.min_size = 1.f,
+			.max_size = 64.f,
+		},
+		.pattern_alpha = {
+			.padding = 2,
+			.rounding = 1.f,
+			.min_size = 1.f,
+			.max_size = 64.f,
 		},
 	};
 }
@@ -1065,7 +1084,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	skb_list_move_to_front(&cache->items_lru, glyph_idx, skb__get_item, cache);
 	cached_glyph->last_access_stamp = cache->now_stamp;
 
-	const float scale = (font_size / cached_glyph->glyph.clamped_font_size);
+	const float render_scale = (font_size / cached_glyph->glyph.clamped_font_size);
 
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
 
@@ -1074,11 +1093,11 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 	quad.image_bounds.y = (float)(cached_glyph->atlas_offset_y + inset);
 	quad.image_bounds.width = (float)(cached_glyph->width - inset*2);
 	quad.image_bounds.height = (float)(cached_glyph->height - inset*2);
-	quad.geom_bounds.x = x + (float)(cached_glyph->pen_offset_x + inset) * scale;
-	quad.geom_bounds.y = y + (float)(cached_glyph->pen_offset_y + inset) * scale;
-	quad.geom_bounds.width = (float)(cached_glyph->width - inset*2) * scale;
-	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * scale;
-	quad.scale = scale * pixel_scale;
+	quad.geom_bounds.x = x + (float)(cached_glyph->pen_offset_x + inset) * render_scale;
+	quad.geom_bounds.y = y + (float)(cached_glyph->pen_offset_y + inset) * render_scale;
+	quad.geom_bounds.width = (float)(cached_glyph->width - inset*2) * render_scale;
+	quad.geom_bounds.height = (float)(cached_glyph->height - inset*2) * render_scale;
+	quad.scale = render_scale * pixel_scale;
 	quad.image_idx = cached_glyph->texture_idx;
 	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_COLOR, cached_glyph->flags & SKB__ITEM_IS_COLOR);
 	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_glyph->flags & SKB__ITEM_IS_SDF);
@@ -1109,7 +1128,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 	const skb_icon_t* icon = skb_icon_collection_get_icon(icon_collection, icon_handle);
 	if (!icon) return (skb_render_quad_t) {0};
 
-	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.glyph_sdf : &cache->config.glyph_alpha;
+	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.icon_sdf : &cache->config.icon_alpha;
 
 	const float requested_width = icon->view.width * icon_scale.x;
 	const float requested_height = icon->view.height * icon_scale.y;
@@ -1214,6 +1233,128 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	return quad;
 }
+
+
+static uint64_t skb__render_get_pattern_hash(uint8_t style, float thickness, skb_render_alpha_mode_t alpha_mode)
+{
+	uint64_t hash = skb_hash64_append_uint8(skb_hash64_empty(), SKB__ITEM_TYPE_ICON);
+	hash = skb_hash64_append_float(hash, thickness);
+	hash = skb_hash64_append_uint8(hash, style);
+	hash = skb_hash64_append_uint8(hash, (uint8_t)alpha_mode);
+
+	return hash;
+}
+
+skb_render_pattern_quad_t skb_render_cache_get_decoration_quad(
+	skb_render_cache_t* cache,
+	float x, float y, float width, float offset_x, float pixel_scale,
+	uint8_t style, float thickness,
+	skb_render_alpha_mode_t alpha_mode)
+{
+	assert(cache);
+
+	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.pattern_sdf : &cache->config.pattern_alpha;
+
+	const float rounded_thickness = skb_ceilf(thickness * pixel_scale / img_config->rounding) * img_config->rounding;
+	const float clamped_thickness = skb_clampf(rounded_thickness, img_config->min_size, img_config->max_size);
+
+	const uint64_t hash_id = skb__render_get_pattern_hash(style, clamped_thickness, alpha_mode);
+
+	skb__cached_item_t* cached_pattern = NULL;
+	int32_t pattern_idx = SKB_INVALID_INDEX;
+
+	if (skb_hash_table_find(cache->items_lookup, hash_id, &pattern_idx)) {
+		// Use existing.
+		cached_pattern = &cache->items[pattern_idx];
+	} else {
+		// Not found, create new.
+
+		// Calc size
+		skb_rect2i_t bounds = skb_render_get_decoration_pattern_dimensions(style, clamped_thickness, img_config->padding);
+		int32_t requested_atlas_width = bounds.width;
+		int32_t requested_atlas_height = bounds.height;
+
+		// Add to atlas
+		int32_t atlas_offset_x = 0;
+		int32_t atlas_offset_y = 0;
+		skb__atlas_handle_t atlas_handle = {0};
+
+		const uint8_t requested_bpp = 1;
+
+		const int32_t image_idx = skb__add_rect_or_grow_atlas(cache, requested_atlas_width, requested_atlas_height, requested_bpp, &atlas_offset_x, &atlas_offset_y, &atlas_handle);
+		if (image_idx == SKB_INVALID_INDEX)
+			return (skb_render_pattern_quad_t){0};
+
+		// Alloc and init the new icon
+		if (cache->items_freelist != SKB_INVALID_INDEX) {
+			pattern_idx = cache->items_freelist;
+			cache->items_freelist = cache->items[pattern_idx].lru.next;
+		} else {
+			SKB_ARRAY_RESERVE(cache->items, cache->items_count + 1);
+			pattern_idx = cache->items_count++;
+		}
+		skb_hash_table_add(cache->items_lookup, hash_id, pattern_idx);
+
+		cached_pattern = &cache->items[pattern_idx];
+		cached_pattern->type = SKB__ITEM_TYPE_PATTERN;
+		cached_pattern->pattern.style = style;
+		cached_pattern->pattern.thickness = clamped_thickness;
+		cached_pattern->width = (int16_t)requested_atlas_width;
+		cached_pattern->height = (int16_t)requested_atlas_height;
+		cached_pattern->atlas_offset_x = (int16_t)atlas_offset_x;
+		cached_pattern->atlas_offset_y = (int16_t)atlas_offset_y;
+		cached_pattern->atlas_handle = atlas_handle;
+		cached_pattern->pen_offset_x = (int16_t)bounds.x;
+		cached_pattern->pen_offset_y = (int16_t)bounds.y;
+		SKB_SET_FLAG(cached_pattern->flags, SKB__ITEM_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
+		cached_pattern->state = SKB__ITEM_STATE_INITIALIZED;
+		cached_pattern->texture_idx = (uint8_t)image_idx;
+		cached_pattern->hash_id = hash_id;
+		cached_pattern->lru = skb_list_item_make();
+
+		cache->has_new_items = true;
+	}
+
+	assert(cached_pattern);
+	assert(pattern_idx != SKB_INVALID_INDEX);
+
+	// Move glyph to front of the LRU list.
+	skb_list_move_to_front(&cache->items_lru, pattern_idx, skb__get_item, cache);
+
+	cached_pattern->last_access_stamp = cache->now_stamp;
+
+	const float render_scale = thickness / cached_pattern->pattern.thickness;
+
+	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
+
+	const float pattern_width = (float)(cached_pattern->width - inset*2) * render_scale;
+
+	// Note: x is missing inset intentionally since the quad is tiling.
+	skb_render_pattern_quad_t quad = {0};
+	quad.image_bounds.x = (float)(cached_pattern->atlas_offset_x + inset);
+	quad.image_bounds.y = (float)(cached_pattern->atlas_offset_y + inset);
+	quad.image_bounds.width = (float)(cached_pattern->width - inset*2);
+	quad.image_bounds.height = (float)(cached_pattern->height - inset*2);
+	quad.geom_bounds.x = x + (float)(cached_pattern->pen_offset_x + inset) * render_scale;
+	quad.geom_bounds.y = y + (float)(cached_pattern->pen_offset_y + inset) * render_scale;
+	quad.geom_bounds.width = width;
+	quad.geom_bounds.height = (float)(cached_pattern->height - inset*2) * render_scale;
+
+	// Calculate mapping between the image and geom
+	quad.pattern_bounds.x = -offset_x / pattern_width;
+	quad.pattern_bounds.y = 0.f;
+	quad.pattern_bounds.width = width / pattern_width;
+	quad.pattern_bounds.height = 1.f;
+
+	quad.scale = render_scale * pixel_scale;
+	quad.image_idx = cached_pattern->texture_idx;
+	quad.flags |= SKB_RENDER_QUAD_IS_COLOR;
+	SKB_SET_FLAG(quad.flags, SKB_RENDER_QUAD_IS_SDF, cached_pattern->flags & SKB__ITEM_IS_SDF);
+
+	return quad;
+}
+
+
 
 void skb__image_clear(skb_image_t* image, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height)
 {
@@ -1366,6 +1507,8 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 				} else if (item->type == SKB__ITEM_TYPE_ICON) {
 					// Rasterize icon
 					skb_render_rasterize_icon(renderer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
+				} else if (item->type == SKB__ITEM_TYPE_PATTERN) {
+					skb_render_rasterize_decoration_pattern(renderer, temp_alloc, item->pattern.style, item->pattern.thickness, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
 				}
 
 				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, atlas_bounds);

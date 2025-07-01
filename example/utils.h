@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "skb_common.h"
 #include "skb_layout.h"
+#include "skb_render.h"
 
 typedef struct view_t {
 	float cx;
@@ -86,10 +87,11 @@ static inline skb_rect2_t calc_decoration_rect(const skb_decoration_t* decoratio
 {
 	float offset_x = decoration->offset_x;
 	float offset_y = decoration->offset_y;
+	skb_vec2_t size = skb_render_get_decoration_pattern_size(attr_decoration.style, decoration->thickness);
 	if (attr_decoration.position == SKB_DECORATION_OVERLINE)
-		offset_y -= decoration->thickness; // Above the position.
+		offset_y -= size.y; // Above the position.
 	else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE)
-		offset_y -= decoration->thickness * 0.5f; // Center.
+		offset_y -= size.y * 0.5f; // Center.
 	skb_rect2_t rect = {0};
 	rect.x = offset_x;
 	rect.y = offset_y;

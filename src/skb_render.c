@@ -1255,3 +1255,133 @@ bool skb_render_rasterize_icon(
 
 	return true;
 }
+
+skb_vec2_t skb_render_get_decoration_pattern_size(skb_decoration_style_t style, float thickness)
+{
+	skb_vec2_t res = {0};
+
+	// Width of the pattern is rounded so that we can create repeating texture from the pattern.
+
+	if (style == SKB_DECORATION_STYLE_SOLID) {
+		// Solid
+		res.x = skb_ceilf(thickness * 10.f);
+		res.y = thickness;
+	} else if (style == SKB_DECORATION_STYLE_DOUBLE) {
+		// Double
+		res.x = skb_ceilf(thickness * 10.f);
+		res.y = thickness * 2.5f; // 2 lines of same thickess, and half the thickness space in-between.
+	} else if (style == SKB_DECORATION_STYLE_DOTTED) {
+		// Dotted
+		res.x = skb_ceilf(thickness * 10.f); // 5 dot per 10 units.
+		res.y = thickness;
+	} else if (style == SKB_DECORATION_STYLE_DASHED) {
+		// Dashed
+		res.x = skb_ceilf(thickness * 10.f);	// 2 dashes per 10 units.
+		res.y = thickness;
+	} else {
+		// Wavy
+		res.x = skb_ceilf(thickness * 10.f);	// 2 waves per 10 units.
+		res.y = thickness * 3.0f;
+	}
+	return res;
+}
+
+skb_rect2i_t skb_render_get_decoration_pattern_dimensions(skb_decoration_style_t style, float thickness, int32_t padding)
+{
+	skb_vec2_t size = skb_render_get_decoration_pattern_size(style, thickness);
+
+	int32_t width = skb_round_to_int(size.x);
+	int32_t height = (int32_t)skb_ceilf(size.y);
+
+	// Only 1 padding on X since we assume that the pattern tiles horizontally. Render cache will inset the 1px padding to avoid interpolation bleeding.
+	return (skb_rect2i_t) {
+		.x = -1,
+		.y = -padding,
+		.width = width + 2,
+		.height = height + padding * 2,
+	};
+}
+
+static void skb__canvas_rect(skb_canvas_t* canvas, float x, float y, float width, float height)
+{
+	skb_canvas_move_to(canvas, skb_vec2_make(x, y));
+	skb_canvas_line_to(canvas, skb_vec2_make(x + width, y));
+	skb_canvas_line_to(canvas, skb_vec2_make(x + width, y + height));
+	skb_canvas_line_to(canvas, skb_vec2_make(x, y + height));
+	skb_canvas_close(canvas);
+}
+
+bool skb_render_rasterize_decoration_pattern(
+	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
+	skb_decoration_style_t style, float thickness, skb_render_alpha_mode_t alpha_mode,
+	int32_t offset_x, int32_t offset_y, skb_image_t* target)
+{
+
+	assert(renderer);
+	assert(temp_alloc);
+	assert(target);
+
+	if (!target->buffer || target->width <= 0 || target->height <= 0 || target->bpp != 1)
+		return false;
+
+	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
+
+	skb_vec2_t size = skb_render_get_decoration_pattern_size(style, thickness);
+
+	const skb_mat2_t trans_xform = skb_mat2_make_translation(-(float)offset_x, -(float)offset_y);
+	skb_canvas_push_transform(canvas, trans_xform);
+
+	if (style == SKB_DECORATION_STYLE_SOLID) {
+		// Solid
+		skb__canvas_rect(canvas, -1.f, 0.f, size.x+2.f, size.y);
+	} else if (style == SKB_DECORATION_STYLE_DOUBLE) {
+		// Double
+		const float line_h = size.y / 2.5f;
+		skb__canvas_rect(canvas, -1.f, 0.f, size.x+2.f, line_h);
+		skb__canvas_rect(canvas, -1.f, size.y - line_h, size.x+2.f, line_h);
+	} else if (style == SKB_DECORATION_STYLE_DOTTED) {
+		// Dotted
+		const float dot_spacing = size.x / 5.f;
+		const float dot_width = size.x / 10.f;
+		for (int32_t i = 0; i < 5; i++)
+			skb__canvas_rect(canvas, (float)i * dot_spacing, 0.f, dot_width, size.y);
+	} else if (style == SKB_DECORATION_STYLE_DASHED) {
+		// Dashed
+		float dash_spacing = size.x / 2.f;
+		float dash_width = size.x / 2.f * (3.f / 5.f); // dash is 3 thickesses wide, gap is 2.
+		for (int32_t i = 0; i < 2; i++)
+			skb__canvas_rect(canvas, (float)i * dash_spacing, 0.f, dash_width, size.y);
+	} else {
+		// Wavy
+		float unit_x = size.x / 10.f; // wave is 5 thicknesses wide, 3 high.
+		float unit_y = size.y / 3.f;
+
+		// The pattern can hold 2 waves, but we render one before and one after to have valid data on the padding area too.
+		for (int32_t i = -1; i <= 3; i++) {
+			const skb_mat2_t offset_xform = skb_mat2_make_translation((float)i * unit_x * 5.f, 0.f);
+			skb_canvas_push_transform(canvas, offset_xform);
+			// Wave top
+			skb_canvas_move_to(canvas, skb_vec2_make(0.f, unit_y * 2.f));
+			skb_canvas_cubic_to(canvas, skb_vec2_make(unit_x * 1.f, unit_y * 2.f), skb_vec2_make(unit_x * 1.f, 0.f), skb_vec2_make(unit_x * 2.5f, 0.f));
+			skb_canvas_cubic_to(canvas, skb_vec2_make(unit_x * 4.f, 0.f), skb_vec2_make(unit_x * 4.f, unit_y * 2.f), skb_vec2_make(unit_x * 5.f, unit_y * 2.f));
+			// Wave bottom
+			skb_canvas_line_to(canvas, skb_vec2_make(unit_x * 5.f, unit_y * 3.f));
+			skb_canvas_cubic_to(canvas, skb_vec2_make(unit_x * 3.5f, unit_y * 3.f), skb_vec2_make(unit_x * 3.5f, unit_y * 1.f), skb_vec2_make(unit_x * 2.5f, unit_y * 1.f));
+			skb_canvas_cubic_to(canvas, skb_vec2_make(unit_x * 1.5f, unit_y * 1.f), skb_vec2_make(unit_x * 1.5f, unit_y * 3.f), skb_vec2_make(0.f, unit_y * 3.f));
+
+			skb_canvas_pop_transform(canvas);
+		}
+		skb_canvas_close(canvas);
+	}
+
+	skb_canvas_fill_mask(canvas);
+
+	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+		// SDF
+		skb__mask_to_sdf(temp_alloc, target, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+	}
+
+	skb_canvas_destroy(canvas);
+
+	return true;
+}

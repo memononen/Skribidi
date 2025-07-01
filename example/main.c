@@ -28,6 +28,7 @@ void* testbed_create(void);
 void* icons_create(void);
 void* cached_create(void);
 void* fallback_create(void);
+void* decorations_create(void);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -35,6 +36,7 @@ static example_stub_t g_examples[] = {
 	{ .create = icons_create, .name = "Icons" },
 	{ .create = cached_create, .name = "Cached" },
 	{ .create = fallback_create, .name = "Font Fallback" },
+	{ .create = decorations_create, .name = "Text Decorations" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;

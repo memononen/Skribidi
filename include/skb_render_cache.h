@@ -56,13 +56,30 @@ typedef struct skb_render_quad_t {
 	skb_rect2_t geom_bounds;
 	/** Portion of the image to map to the render bounds. */
 	skb_rect2_t image_bounds;
-	/** Scaling factor between bounds and image bounds. Can be used to adjust the width of the anti-alising gradient. */
+	/** Scaling factor between bounds and image bounds. Can be used to adjust the width of the anti-aliasing gradient. */
 	float scale;
 	/** Cache image index of the image to draw. */
 	uint8_t image_idx;
 	/** Render quad flags (see skb_render_quad_flags_t). */
 	uint8_t flags;
 } skb_render_quad_t;
+
+/** Quad representing a repeating pattern. */
+typedef struct skb_render_pattern_quad_t {
+	/** Geometry of the quad to render */
+	skb_rect2_t geom_bounds;
+	/** Describes how the geometry bounds maps to the image bounds, in normalized coordinates.
+	 * Rect (0,0,1,1), will map the image to geom 1:1, rect (-0.25,0,2,1) will repeat the image twice horizontally, starting at 1/4 of the image.  */
+	skb_rect2_t pattern_bounds;
+	/** Portion of the image to render. */
+	skb_rect2_t image_bounds;
+	/** Scaling factor between geom bounds and image bounds. Can be used to adjust the width of the anti-aliasing gradient. */
+	float scale;
+	/** Cache image index of the image to draw. */
+	uint8_t image_idx;
+	/** Render quad flags (see skb_render_quad_flags_t). */
+	uint8_t flags;
+} skb_render_pattern_quad_t;
 
 /**
  * Signature of the texture create callback.
@@ -124,8 +141,12 @@ typedef struct skb_render_cache_config_t {
 	skb_render_image_config_t glyph_alpha;
 	/** Image config for SDF icons */
 	skb_render_image_config_t icon_sdf;
-	/** Image config for alpha glyphs */
+	/** Image config for alpha icons */
 	skb_render_image_config_t icon_alpha;
+	/** Image config for SDF patterns (e.g decoration patterns) */
+	skb_render_image_config_t pattern_sdf;
+	/** Image config for alpha patterns (e.g decoration patterns) */
+	skb_render_image_config_t pattern_alpha;
 } skb_render_cache_config_t;
 
 /**
@@ -291,6 +312,30 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 skb_render_quad_t skb_render_cache_get_icon_quad(
 	skb_render_cache_t* cache, float x, float y, float pixel_scale,
 	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode);
+
+/**
+ * Get a quad representing the geometry and image portion of the specified decoration pattern.
+ *
+ * The pixel scale is used to control the ratio between icon geometry size and image size.
+ * For example, if icon of size 20 is requested, and pixel_scale is 2, then the geometry of the quad is based on the 20 units, but the requested image will be twice the size.
+ * This is useful for cases where geometry will later go through a separate transformation process, and we want to match the pixel density.
+ *
+ * The function will return an existing pattern or request a new pattern to be rendered if one does not exist.
+ *
+ * @param cache render cache to use.
+ * @param x position x to render the glyph at.
+ * @param y position y to render the glyph at.
+ * @param width width of the decoration line to render (in same units as x and y).
+ * @param offset_x offset of the pattern (in same units as x and y).
+ * @param pixel_scale the size of a pixel compared to the geometry.
+ * @param style style of the decoration to render.
+ * @param thickness thickness of the decoration to render.
+ * @param alpha_mode whether to render the pattern as SDF or alpha mask.
+ * @return quad representing the geometry to render, and portion of an image to use.
+ */
+skb_render_pattern_quad_t skb_render_cache_get_decoration_quad(
+	skb_render_cache_t* cache, float x, float y, float width, float offset_x, float pixel_scale,
+	uint8_t style, float thickness, skb_render_alpha_mode_t alpha_mode);
 
 /**
  * Compacts the render cache based on usage.

@@ -156,6 +156,43 @@ bool skb_render_rasterize_icon(
 	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target);
 
+/**
+ * Calculates the size of the decoration pattern at specified thickness.
+ * The thickness of the line is consistent on all patterns, but some patterns like wavy, can be higher due to the geometry.
+ * Note: The width the pattern is clamped to an integer size, so that it is possible to create repeating texture out of the pattern.
+ * @param style style of the decoration.
+ * @param thickness thickness of the decoration line.
+ * @return size of the pattern.
+ */
+skb_vec2_t skb_render_get_decoration_pattern_size(skb_decoration_style_t style, float thickness);
+
+/**
+ * Calculates the dimensions of a canvas needed to render specified pattern.
+ * @param style style of the decoration.
+ * @param thickness thickness of the decoration line.
+ * @param padding vertical padding to leave around the pattern. Note: horizontal padding is always 1, so that the pattern can be repeated horizontally.
+ * @return dimensions and render offset offset of canvas to render.
+ */
+skb_rect2i_t skb_render_get_decoration_pattern_dimensions(skb_decoration_style_t style, float thickness, int32_t padding);
+
+/**
+ * Rasterizes specified repeatable decoration pattern as alpha image.
+ * The offset and render target size can be obtained using skb_render_get_pattern_dimensions().
+ * @param renderer pointer to renderer.
+ * @param temp_alloc pointer to temp alloc used during the rendering.
+ * @param style style of the decoration.
+ * @param thickness thickness of the decoration line.
+ * @param alpha_mode alpha mode, defines if the alpha channel of the result is SDF or alpha mask.
+ * @param offset_x offset x where to render the icon.
+ * @param offset_y offset y where to render the icon.
+ * @param target target image to render to. The image must be 4 bytes-per-pixel.
+ * @return true of the rasterization succeeded.
+ */
+bool skb_render_rasterize_decoration_pattern(
+	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
+	skb_decoration_style_t style, float thickness, skb_render_alpha_mode_t alpha_mode,
+	int32_t offset_x, int32_t offset_y, skb_image_t* target);
+
 /** @} */
 
 #ifdef __cplusplus

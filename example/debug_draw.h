@@ -29,6 +29,7 @@ void draw_update_texture(uint32_t tex_id, int32_t offset_x, int32_t offset_y, in
 
 void draw_image_quad(skb_rect2_t geom, skb_rect2_t image, skb_color_t tint, uint32_t tex_id);
 void draw_image_quad_sdf(skb_rect2_t geom, skb_rect2_t image, float scale, skb_color_t tint, uint32_t tex_id);
+void draw_image_pattern_quad_sdf(skb_rect2_t geom, skb_rect2_t pattern, skb_rect2_t image, float scale, skb_color_t tint, uint32_t tex_id);
 
 void draw_path_begin();
 void draw_path_move_to(float x, float y);

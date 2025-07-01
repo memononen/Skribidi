@@ -71,18 +71,6 @@ typedef enum {
 	SKB_DECORATION_THROUGHLINE,
 } skb_decoration_position_t;
 
-/** Enum describing how the decoration should be drawn. */
-typedef enum {
-	/** Solid line. */
-	SKB_DECORATION_STYLE_SOLID = 0,
-	/** Double line. */
-	SKB_DECORATION_STYLE_DOUBLE,
-	/** Dotted line. */
-	SKB_DECORATION_STYLE_DOTTED,
-	/** Wave line. */
-	SKB_DECORATION_STYLE_WAVY,
-} skb_decoration_style_t;
-
 //
 // Text attributes
 //
@@ -369,6 +357,8 @@ typedef struct skb_decoration_t {
 	float offset_y;
 	/** Length of the decoration. */
 	float length;
+	/** Offset of the start of the pattern. */
+	float pattern_offset;
 	/** Thickness of the decoration. */
 	float thickness;
 	/** Index of the attribute span. */

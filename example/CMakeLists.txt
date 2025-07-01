@@ -24,6 +24,7 @@ set(SKRIBIDI_EXAMPLE_FILES
 	debug_draw.c
 	debug_draw.h
 	example_cached.c
+	example_decorations.c
 	example_fallback.c
 	example_icons.c
 	example_richtext.c
