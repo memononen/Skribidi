@@ -973,8 +973,8 @@ void draw_image_pattern_quad_sdf(skb_rect2_t geom, skb_rect2_t pattern, skb_rect
 
 	const float sx = skb__wrap_offset(pattern.x);
 	const float sy = skb__wrap_offset(pattern.y);
-	const int32_t repeat_x = (int32_t)skb_ceilf(skb_absf(sx) + pattern.width);
-	const int32_t repeat_y = (int32_t)skb_ceilf(skb_absf(sy) + pattern.height);
+	const int32_t repeat_x = (int32_t)ceilf(skb_absf(sx) + pattern.width);
+	const int32_t repeat_y = (int32_t)ceilf(skb_absf(sy) + pattern.height);
 
 	// Size of the image to repeat.
 	const float unit_pat_width = geom.width / pattern.width;

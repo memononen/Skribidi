@@ -126,34 +126,6 @@ static inline uint32_t skb_minu(uint32_t a, uint32_t b) { return a < b ? a : b; 
 static inline uint32_t skb_maxu(uint32_t a, uint32_t b) { return a > b ? a : b; }
 static inline uint32_t skb_clampu(uint32_t a, uint32_t mn, uint32_t mx) { return skb_minu(skb_maxu(a, mn), mx); }
 
-static inline float skb_roundf(float x)
-{
-	x -= 0.5f;
-	const int32_t ix = (int32_t)x;
-	return x < 0.f ? (float)ix : (float)(ix+1);
-}
-
-static inline int32_t skb_round_to_int(float x)
-{
-	x -= 0.5f;
-	const int32_t ix = (int32_t)x;
-	return x < 0.f ? ix : (ix+1);
-}
-
-static inline float skb_ceilf(float x)
-{
-	x -= 0.000001f; // To break the even-odd rounding
-	const int32_t ix = (int32_t)x;
-	return x < 0.f ? (float)ix : (float)(ix+1);
-}
-
-static inline float skb_floorf(float x)
-{
-	x -= 0.999999f; // To break the even-odd rounding
-	const int32_t ix = (int32_t)x;
-	return x < 0.f ? (float)ix : (float)(ix+1);
-}
-
 static inline int32_t skb_mul255(int32_t a, int32_t b)
 {
 	a *= b;

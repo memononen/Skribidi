@@ -590,7 +590,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 						// Glyph image
 						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
-							skb_roundf(gx), skb_roundf(gy), 1.f,
+							roundf(gx), roundf(gy), 1.f,
 							layout_params->font_collection, glyph->font_handle, glyph->gid,
 							attr_font.size, SKB_RENDER_ALPHA_SDF);
 
@@ -684,7 +684,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Caret
 			cx = draw_text(cx + 5,oy + layout_height + 30,12,0,caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
-			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
 
 			// Caret location
 			int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
@@ -696,17 +696,17 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			int32_t col_idx = skb_editor_get_column_index_at(ctx->editor, insert_pos);
 
 			cx = draw_text(cx,oy + layout_height + 30,12,0,log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
-			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
 
 			// Selection count
 			const int32_t selection_count = skb_editor_get_selection_count(ctx->editor, edit_selection);
 			if (selection_count > 0) {
 				cx = draw_text(cx,oy + layout_height + 30,12,0,ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
-				cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
+				cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
 			}
 
 			cx = draw_text(cx,oy + layout_height + 30,12,0,ink_color, "text_offset %d", edit_selection.end_pos.offset);
-			cx = ox + skb_ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -859,7 +859,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						float gy = base_line+0.5f;
 
 						skb_render_quad_t quad = skb_render_cache_get_glyph_quad(ctx->render_cache,
-							skb_roundf(gx), skb_roundf(gy), 1.f,
+							roundf(gx), roundf(gy), 1.f,
 							ctx->font_collection,  font_handle, gid, attr_font.size * font_scale, SKB_RENDER_ALPHA_MASK);
 
 						draw_image_quad(quad.geom_bounds, quad.image_bounds, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : ink_color,

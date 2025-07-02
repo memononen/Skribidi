@@ -1012,7 +1012,7 @@ skb_render_quad_t skb_render_cache_get_glyph_quad(
 
 	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.glyph_sdf : &cache->config.glyph_alpha;
 
-	const float rounded_font_size = skb_ceilf(font_size * pixel_scale / img_config->rounding) * img_config->rounding;
+	const float rounded_font_size = ceilf(font_size * pixel_scale / img_config->rounding) * img_config->rounding;
 	const float clamped_font_size = skb_clampf(rounded_font_size, img_config->min_size, img_config->max_size);
 
 	const uint64_t hash_id = skb__render_get_glyph_hash(glyph_id, font, clamped_font_size, alpha_mode);
@@ -1135,7 +1135,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 
 	// Scale proportionally when image is clamped or rounded
 	const float max_dim = skb_maxf(requested_width, requested_height);
-	const float rounded_max_dim = skb_ceilf(max_dim * pixel_scale / img_config->rounding) * img_config->rounding;
+	const float rounded_max_dim = ceilf(max_dim * pixel_scale / img_config->rounding) * img_config->rounding;
 	const float clamped_max_dim = skb_clampf(rounded_max_dim, img_config->min_size, img_config->max_size);
 	const float clamp_scale = clamped_max_dim / max_dim;
 
@@ -1255,7 +1255,7 @@ skb_render_pattern_quad_t skb_render_cache_get_decoration_quad(
 
 	const skb_render_image_config_t* img_config = alpha_mode == SKB_RENDER_ALPHA_SDF ? &cache->config.pattern_sdf : &cache->config.pattern_alpha;
 
-	const float rounded_thickness = skb_ceilf(thickness * pixel_scale / img_config->rounding) * img_config->rounding;
+	const float rounded_thickness = ceilf(thickness * pixel_scale / img_config->rounding) * img_config->rounding;
 	const float clamped_thickness = skb_clampf(rounded_thickness, img_config->min_size, img_config->max_size);
 
 	const uint64_t hash_id = skb__render_get_pattern_hash(style, clamped_thickness, alpha_mode);

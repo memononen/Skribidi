@@ -261,6 +261,13 @@ void skb_canvas_close(skb_canvas_t* c)
 	skb_path_add_point_(c, (skb_vec2_t){ c->start_pt.x, c->start_pt.y });
 }
 
+static inline int32_t skb__round_to_int(float x)
+{
+	x -= 0.5f;
+	const int32_t ix = (int32_t)x;
+	return x < 0.f ? ix : (ix+1);
+}
+
 static skb_active_edge_t* skb_add_active_edge_(skb_canvas_t* c, const skb_edge_t* e, float start_y)
 {
 	skb_active_edge_t* z = NULL;
@@ -279,11 +286,11 @@ static skb_active_edge_t* skb_add_active_edge_(skb_canvas_t* c, const skb_edge_t
 
 	// round dx down to avoid going too far
 	if (dxdy < 0)
-		z->dx = -skb_round_to_int(SKB_FIX * -dxdy);
+		z->dx = -skb__round_to_int(SKB_FIX * -dxdy);
 	else
-		z->dx = skb_round_to_int(SKB_FIX * dxdy);
+		z->dx = skb__round_to_int(SKB_FIX * dxdy);
 
-	z->x = skb_round_to_int(SKB_FIX * (e->x0 + dxdy * (start_y - e->y0)));
+	z->x = skb__round_to_int(SKB_FIX * (e->x0 + dxdy * (start_y - e->y0)));
 
 	z->ey = e->y1;
 	z->next = 0;
@@ -484,10 +491,10 @@ void skb_canvas_fill_mask(skb_canvas_t* c)
 
 		// The mask is intersection of the existing masking area and new path to render to the mask.
 		skb_rect2i_t shape_bounds;
-		shape_bounds.x = (int32_t)skb_floorf(c->points_bounds.x);
-		shape_bounds.y = (int32_t)skb_floorf(c->points_bounds.y);
-		shape_bounds.width = (int32_t)skb_ceilf(c->points_bounds.x + c->points_bounds.width) - shape_bounds.x;
-		shape_bounds.height = (int32_t)skb_ceilf(c->points_bounds.y + c->points_bounds.height) - shape_bounds.y;
+		shape_bounds.x = (int32_t)floorf(c->points_bounds.x);
+		shape_bounds.y = (int32_t)floorf(c->points_bounds.y);
+		shape_bounds.width = (int32_t)ceilf(c->points_bounds.x + c->points_bounds.width) - shape_bounds.x;
+		shape_bounds.height = (int32_t)ceilf(c->points_bounds.y + c->points_bounds.height) - shape_bounds.y;
 
 		mask->region = skb_rect2i_intersection(mask->region, shape_bounds);
 

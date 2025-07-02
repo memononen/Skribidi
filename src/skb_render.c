@@ -1191,8 +1191,8 @@ static void skb__icon_draw_shape_alpha(skb_canvas_t* c, const skb_icon_t* icon, 
 skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
 {
 	assert(icon);
-	const int32_t width = (int32_t)skb_ceilf(icon->view.width * icon_scale.x);
-	const int32_t height = (int32_t)skb_ceilf(icon->view.height * icon_scale.y);
+	const int32_t width = (int32_t)ceilf(icon->view.width * icon_scale.x);
+	const int32_t height = (int32_t)ceilf(icon->view.height * icon_scale.y);
 
 	return (skb_rect2i_t) {
 		.x = -padding,
@@ -1320,23 +1320,23 @@ skb_vec2_t skb_render_get_decoration_pattern_size(skb_decoration_style_t style, 
 
 	if (style == SKB_DECORATION_STYLE_SOLID) {
 		// Solid
-		res.x = skb_ceilf(thickness * 10.f);
+		res.x = ceilf(thickness * 10.f);
 		res.y = thickness;
 	} else if (style == SKB_DECORATION_STYLE_DOUBLE) {
 		// Double
-		res.x = skb_ceilf(thickness * 10.f);
+		res.x = ceilf(thickness * 10.f);
 		res.y = thickness * 2.5f; // 2 lines of same thickess, and half the thickness space in-between.
 	} else if (style == SKB_DECORATION_STYLE_DOTTED) {
 		// Dotted
-		res.x = skb_ceilf(thickness * 10.f); // 5 dot per 10 units.
+		res.x = ceilf(thickness * 10.f); // 5 dot per 10 units.
 		res.y = thickness;
 	} else if (style == SKB_DECORATION_STYLE_DASHED) {
 		// Dashed
-		res.x = skb_ceilf(thickness * 10.f);	// 2 dashes per 10 units.
+		res.x = ceilf(thickness * 10.f);	// 2 dashes per 10 units.
 		res.y = thickness;
 	} else {
 		// Wavy
-		res.x = skb_ceilf(thickness * 10.f);	// 2 waves per 10 units.
+		res.x = ceilf(thickness * 10.f);	// 2 waves per 10 units.
 		res.y = thickness * 3.0f;
 	}
 	return res;
@@ -1346,8 +1346,8 @@ skb_rect2i_t skb_render_get_decoration_pattern_dimensions(skb_decoration_style_t
 {
 	skb_vec2_t size = skb_render_get_decoration_pattern_size(style, thickness);
 
-	int32_t width = skb_round_to_int(size.x);
-	int32_t height = (int32_t)skb_ceilf(size.y);
+	int32_t width = (int32_t)ceilf(size.x);
+	int32_t height = (int32_t)ceilf(size.y);
 
 	// Only 1 padding on X since we assume that the pattern tiles horizontally. Render cache will inset the 1px padding to avoid interpolation bleeding.
 	return (skb_rect2i_t) {
