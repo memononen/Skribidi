@@ -91,7 +91,7 @@ void skb_renderer_destroy(skb_renderer_t* renderer);
 skb_rect2i_t skb_render_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t* font, float font_size, int32_t padding);
 
 /**
- * Rasterizes a glyph as alpha.
+ * Rasterizes a glyph as alpha mask.
  * The offset and render target size can be obtained using skb_render_get_glyph_dimensions().
  * @param renderer pointer to renderer.
  * @param temp_alloc pointer to temp alloc used during the rendering.
@@ -139,6 +139,24 @@ bool skb_render_rasterize_color_glyph(
 skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding);
 
 /**
+ * Rasterizes an icon as alpha mask.
+ * The offset and render target size can be obtained using skb_render_get_glyph_dimensions().
+ * @param renderer pointer to renderer.
+ * @param temp_alloc pointer to temp alloc used during the rendering.
+ * @param icon icon to render.
+ * @param icon_scale scale of the icon.
+ * @param alpha_mode alpha mode, defines if the alpha channel of the result is SDF or alpha mask.
+ * @param offset_x offset x where to render the icon.
+ * @param offset_y offset y where to render the icon.
+ * @param target target image to render to. The image must be 4 bytes-per-pixel.
+ * @return true of the rasterization succeeded.
+ */
+bool skb_render_rasterize_alpha_icon(
+	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
+	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
+	int32_t offset_x, int32_t offset_y, skb_image_t* target);
+
+/**
  * Rasterizes an icon as RGBA.
  * The offset and render target size can be obtained using skb_render_get_glyph_dimensions().
  * @param renderer pointer to renderer.
@@ -151,7 +169,7 @@ skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t i
  * @param target target image to render to. The image must be 4 bytes-per-pixel.
  * @return true of the rasterization succeeded.
  */
-bool skb_render_rasterize_icon(
+bool skb_render_rasterize_color_icon(
 	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
 	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target);

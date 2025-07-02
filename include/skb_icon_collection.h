@@ -34,7 +34,6 @@ typedef struct skb_icon_shape_t skb_icon_shape_t;
 /** Handle to an icon. */
 typedef uint32_t skb_icon_handle_t;
 
-
 /**
  * Create new icon collection.
  * @return create icon collection.
@@ -67,6 +66,12 @@ skb_icon_handle_t skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* ic
  */
 skb_icon_handle_t skb_icon_collection_add_icon(skb_icon_collection_t* icon_collection, const char* name, float width, float height);
 
+/**
+ * Removes icons from collection.
+ * @param icon_collection icon collection to use.
+ * @param icon_handle handle to icon to remove.
+ * @return true if the icon was removes.
+ */
 bool skb_icon_collection_remove_icon(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle);
 
 /**
@@ -77,6 +82,14 @@ bool skb_icon_collection_remove_icon(skb_icon_collection_t* icon_collection, skb
  */
 skb_icon_handle_t skb_icon_collection_find_icon(const skb_icon_collection_t* icon_collection, const char* name);
 
+/**
+ * Set whether the icon should be rendered as RGBA or alpha mask.
+ * Icons are created as color icons.
+ * @param icon_collection icon collection to use.
+ * @param icon_handle handle to icon to modify.
+ * @param is_color if true, the icon will be rendered as RGBA, if false, the icon will be rendered as alpha mask.
+ */
+void skb_icon_collection_set_is_color(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, bool is_color);
 
 /**
  * Calculates propertional scale to render icon at specific size.

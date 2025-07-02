@@ -147,7 +147,7 @@ skb_icon_handle_t skb_icon_collection_add_icon(skb_icon_collection_t* icon_colle
 
 	skb_icon_t* icon = &icon_collection->icons[icon_idx];
 	skb__icon_create(icon);
-
+	icon->is_color = true;
 	icon->hash = skb_hash64_append_str(skb_hash64_empty(), name);
 
 	int32_t name_len = strlen(name);
@@ -211,6 +211,7 @@ skb_icon_shape_t* skb_icon_shape_add_child(skb_icon_shape_t* parent_shape)
 	memset(shape, 0, sizeof(skb_icon_shape_t));
 	shape->gradient_idx = SKB_INVALID_INDEX;
 	shape->opacity = 1.f;
+	shape->color = skb_rgba(0, 0, 0, 255);
 	return shape;
 }
 
@@ -1347,6 +1348,14 @@ skb_icon_handle_t skb_icon_collection_find_icon(const skb_icon_collection_t* ico
 	if (skb_hash_table_find(icon_collection->icons_lookup, hash, &icon_index))
 		return icon_collection->icons[icon_index].handle;
 	return (skb_icon_handle_t)0;
+}
+
+void skb_icon_collection_set_is_color(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, bool is_color)
+{
+	assert(icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_collection, icon_handle);
+	if (icon)
+		icon->is_color = is_color;
 }
 
 

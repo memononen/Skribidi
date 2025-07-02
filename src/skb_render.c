@@ -1122,7 +1122,7 @@ bool skb_render_rasterize_color_glyph(
 // Icon
 //
 
-static void skb_icon_draw_shape_(skb_canvas_t* c, const skb_icon_t* icon, const skb_icon_shape_t* shape, float opacity)
+static void skb__icon_draw_shape(skb_canvas_t* c, const skb_icon_t* icon, const skb_icon_shape_t* shape, float opacity)
 {
 	opacity *= shape->opacity;
 
@@ -1163,12 +1163,29 @@ static void skb_icon_draw_shape_(skb_canvas_t* c, const skb_icon_t* icon, const 
 	}
 
 	for (int32_t i = 0; i < shape->children_count; i++)
-		skb_icon_draw_shape_(c, icon, &shape->children[i], opacity);
+		skb__icon_draw_shape(c, icon, &shape->children[i], opacity);
 }
 
-static void skb_icon_draw_(skb_canvas_t* canvas, const skb_icon_t* svg)
+static void skb__icon_draw_shape_alpha(skb_canvas_t* c, const skb_icon_t* icon, const skb_icon_shape_t* shape)
 {
-	skb_icon_draw_shape_(canvas, svg, &svg->root, 1.f);
+	if (shape->path_count > 0) {
+		for (int32_t i = 0; i < shape->path_count; i++) {
+			skb_icon_path_command_t cmd = shape->path[i];
+			if (cmd.type == SKB_SVG_MOVE_TO)
+				skb_canvas_move_to(c, cmd.pt);
+			else if (cmd.type == SKB_SVG_LINE_TO)
+				skb_canvas_line_to(c, cmd.pt);
+			else if (cmd.type == SKB_SVG_QUAD_TO)
+				skb_canvas_quad_to(c, cmd.cp0, cmd.pt);
+			else if (cmd.type == SKB_SVG_CUBIC_TO)
+				skb_canvas_cubic_to(c, cmd.cp0, cmd.cp1, cmd.pt);
+			else if (cmd.type == SKB_SVG_CLOSE_PATH)
+				skb_canvas_close(c);
+		}
+	}
+
+	for (int32_t i = 0; i < shape->children_count; i++)
+		skb__icon_draw_shape_alpha(c, icon, &shape->children[i]);
 }
 
 skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
@@ -1185,7 +1202,7 @@ skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t i
 	};
 }
 
-bool skb_render_rasterize_icon(
+bool skb_render_rasterize_alpha_icon(
 	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
 	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target)
@@ -1205,7 +1222,46 @@ bool skb_render_rasterize_icon(
 	const skb_mat2_t xform = skb_mat2_multiply(scale_xfrorm, trans_xform);
 	skb_canvas_push_transform(canvas, xform);
 
-	skb_icon_draw_(canvas, icon);
+	skb__icon_draw_shape_alpha(canvas, icon, &icon->root);
+
+	skb_canvas_fill_mask(canvas);
+
+	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+		// SDF
+		skb__mask_to_sdf(temp_alloc, target, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+	}
+
+	skb_canvas_destroy(canvas);
+
+	int64_t t_end = skb_perf_timer_get();
+	int64_t elapsed_us = skb_perf_timer_elapsed_us(t_start, t_end);
+
+	// skb_debug_log("Rasterize alpha icon %s, scale: (%.1f, %.1f), canvas: (%d x %d), time: %dus\n", icon->name, icon_scale.x, icon_scale.y, target->width, target->height, (int32_t)elapsed_us);
+
+	return true;
+}
+
+bool skb_render_rasterize_color_icon(
+	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
+	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
+	int32_t offset_x, int32_t offset_y, skb_image_t* target)
+{
+	assert(renderer);
+	assert(temp_alloc);
+
+	if (!target) return false;
+
+	int64_t t_start = skb_perf_timer_get();
+
+	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
+
+	// Create transform to convert from the font coordinates to the canvas.
+	const skb_mat2_t scale_xfrorm = skb_mat2_make_scale(icon_scale.x, icon_scale.y);
+	const skb_mat2_t trans_xform = skb_mat2_make_translation(-icon->view.x * icon_scale.x - (float)offset_x, -icon->view.y * icon_scale.y - (float)offset_y);
+	const skb_mat2_t xform = skb_mat2_multiply(scale_xfrorm, trans_xform);
+	skb_canvas_push_transform(canvas, xform);
+
+	skb__icon_draw_shape(canvas, icon, &icon->root, 1.f);
 
 	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
 		uint8_t* mask_buffer = SKB_TEMP_ALLOC(temp_alloc, uint8_t, target->width * target->height);

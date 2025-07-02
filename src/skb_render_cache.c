@@ -1167,7 +1167,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 		int32_t atlas_offset_y = 0;
 		skb__atlas_handle_t atlas_handle = {0};
 
-		const uint8_t requested_bpp = 4;
+		const uint8_t requested_bpp = icon->is_color ? 4 : 1;
 
 		const int32_t image_idx = skb__add_rect_or_grow_atlas(cache, requested_atlas_width, requested_atlas_height, requested_bpp, &atlas_offset_x, &atlas_offset_y, &atlas_handle);
 		if (image_idx == SKB_INVALID_INDEX)
@@ -1195,7 +1195,7 @@ skb_render_quad_t skb_render_cache_get_icon_quad(
 		cached_icon->pen_offset_x = (int16_t)bounds.x;
 		cached_icon->pen_offset_y = (int16_t)bounds.y;
 		SKB_SET_FLAG(cached_icon->flags, SKB__ITEM_IS_SDF, alpha_mode == SKB_RENDER_ALPHA_SDF);
-		cached_icon->flags |= SKB__ITEM_IS_COLOR;
+		SKB_SET_FLAG(cached_icon->flags, SKB__ITEM_IS_COLOR, icon->is_color);
 		cached_icon->state = SKB__ITEM_STATE_INITIALIZED;
 		cached_icon->texture_idx = (uint8_t)image_idx;
 		cached_icon->hash_id = hash_id;
@@ -1498,17 +1498,23 @@ bool skb_render_cache_rasterize_missing_items(skb_render_cache_t* cache, skb_tem
 				if (item->type == SKB__ITEM_TYPE_GLYPH) {
 					// Rasterize glyph
 					if (item->flags & SKB__ITEM_IS_COLOR) {
-						skb_render_rasterize_color_glyph(renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
+						skb_render_rasterize_color_glyph(
+							renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
 							item->pen_offset_x, item->pen_offset_y, &target);
 					} else {
-						skb_render_rasterize_alpha_glyph(renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
+						skb_render_rasterize_alpha_glyph(
+							renderer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
 							item->pen_offset_x, item->pen_offset_y, &target);
 					}
 				} else if (item->type == SKB__ITEM_TYPE_ICON) {
 					// Rasterize icon
-					skb_render_rasterize_icon(renderer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
+					if (item->flags & SKB__ITEM_IS_COLOR) {
+						skb_render_rasterize_color_icon( renderer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
+					} else {
+						skb_render_rasterize_alpha_icon( renderer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
+					}
 				} else if (item->type == SKB__ITEM_TYPE_PATTERN) {
-					skb_render_rasterize_decoration_pattern(renderer, temp_alloc, item->pattern.style, item->pattern.thickness, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
+					skb_render_rasterize_decoration_pattern( renderer, temp_alloc, item->pattern.style, item->pattern.thickness, alpha_mode, item->pen_offset_x, item->pen_offset_y, &target);
 				}
 
 				atlas_image->dirty_bounds = skb_rect2i_union(atlas_image->dirty_bounds, atlas_bounds);

@@ -59,9 +59,10 @@ typedef struct skb_icon_t {
 	skb_icon_shape_t root;			// Root shape
 	skb_rect2_t view;				// View rectangle, which defines size and origin offset of the icon.
 	uint64_t hash;					// Hash used to identify the icon.
-	char* name;
-	skb_icon_handle_t handle;
-	uint32_t generation;
+	bool is_color;			// If true, render the icon as alpha mask only.
+	char* name;						// Icon name string.
+	skb_icon_handle_t handle;		// Icon handle
+	uint32_t generation;			// Icon generation, bumped when icon is deleted.
 } skb_icon_t;
 
 typedef struct skb_icon_collection_t {
@@ -70,7 +71,7 @@ typedef struct skb_icon_collection_t {
 	skb_icon_t* icons;				// Array of icons in the collection.
 	int32_t icons_count;			// Number of icons in the collection.
 	int32_t icons_cap;				// Capacity of the icons array.
-	int32_t empty_icons_count;
+	int32_t empty_icons_count;		// Number of empty icons, used to try to find empty icon slot.
 } skb_icon_collection_t;
 
 #endif // SKB_ICON_COLLECTION_INTERNAL_H

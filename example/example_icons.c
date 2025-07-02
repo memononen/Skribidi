@@ -86,15 +86,22 @@ void* icons_create(void)
 		goto error;
 	}
 
+	skb_icon_handle_t icon3 = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "pen", "data/pen_pico.svg");
+	if (!icon3) {
+		skb_debug_log("Failed to load icon3\n");
+		goto error;
+	}
+	skb_icon_collection_set_is_color(ctx->icon_collection, icon3, false); // render as alpha.
+
 	// Procedural icon
 	{
-		skb_icon_handle_t icon3 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
-		if (!icon3) {
+		skb_icon_handle_t icon4 = skb_icon_collection_add_icon(ctx->icon_collection, "arrow", 20,20);
+		if (!icon4) {
 			skb_debug_log("Failed to make icon3\n");
 			goto error;
 		}
 
-		skb_icon_builder_t builder = skb_icon_builder_make(ctx->icon_collection, icon3);
+		skb_icon_builder_t builder = skb_icon_builder_make(ctx->icon_collection, icon4);
 
 		skb_icon_builder_begin_shape(&builder);
 
@@ -320,6 +327,7 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		draw_text(view_transform_x(&ctx->view, ox), view_transform_y(&ctx->view, oy) - 10.f, 12, 0.f, skb_rgba(0,0,0,255), "SDF");
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
@@ -333,6 +341,7 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		draw_text(view_transform_x(&ctx->view, ox), view_transform_y(&ctx->view, oy) - 10.f, 12, 0.f, skb_rgba(0,0,0,255), "Alpha");
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
 		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
