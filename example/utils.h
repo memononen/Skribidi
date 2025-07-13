@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include "skb_common.h"
 #include "skb_layout.h"
-#include "skb_render.h"
+#include "skb_rasterizer.h"
 
 typedef struct view_t {
 	float cx;
@@ -87,7 +87,7 @@ static inline skb_rect2_t calc_decoration_rect(const skb_decoration_t* decoratio
 {
 	float offset_x = decoration->offset_x;
 	float offset_y = decoration->offset_y;
-	skb_vec2_t size = skb_render_get_decoration_pattern_size(attr_decoration.style, decoration->thickness);
+	skb_vec2_t size = skb_rasterizer_get_decoration_pattern_size(attr_decoration.style, decoration->thickness);
 	if (attr_decoration.position == SKB_DECORATION_OVERLINE)
 		offset_y -= size.y; // Above the position.
 	else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE)
@@ -103,8 +103,8 @@ static inline skb_rect2_t calc_decoration_rect(const skb_decoration_t* decoratio
 //
 // Atlas draw helpers
 //
-typedef struct skb_render_cache_t skb_render_cache_t;
-void debug_draw_atlas(skb_render_cache_t* render_cache, float sx, float sy, float scale, int32_t columns);
+typedef struct skb_image_atlas_t skb_image_atlas_t;
+void debug_draw_atlas(skb_image_atlas_t* atlas, float sx, float sy, float scale, int32_t columns);
 
 
 typedef struct GLFWwindow GLFWwindow;

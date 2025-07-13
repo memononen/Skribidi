@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_render.h"
+#include "skb_rasterizer.h"
 
 static int test_init(void)
 {
-	skb_renderer_t* renderer = skb_renderer_create(NULL);
-	ENSURE(renderer != NULL);
+	skb_rasterizer_t* rasterizer = skb_rasterizer_create(NULL);
+	ENSURE(rasterizer != NULL);
 
-	skb_renderer_destroy(renderer);
+	skb_rasterizer_destroy(rasterizer);
 
 	return 0;
 }
 
-int render_tests(void)
+int rasterizer_tests(void)
 {
 	RUN_SUBTEST(test_init);
 	return 0;

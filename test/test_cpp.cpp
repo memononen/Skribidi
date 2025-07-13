@@ -11,8 +11,8 @@
 #include "skb_icon_collection.h"
 #include "skb_layout.h"
 #include "skb_layout_cache.h"
-#include "skb_render.h"
-#include "skb_render_cache.h"
+#include "skb_rasterizer.h"
+#include "skb_image_atlas.h"
 
 extern "C" int cpp_tests(void)
 {

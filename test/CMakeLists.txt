@@ -10,8 +10,8 @@ set(SKRIBIDI_TEST_FILES
 	test_icon_collection.c
 	test_layout.c
 	test_layout_cache.c
-	test_render.c
-	test_render_cache.c
+	test_rasterizer.c
+	test_image_atlas.c
 	test_tempalloc.c
     test_macros.h
     tester.c

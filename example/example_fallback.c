@@ -15,9 +15,9 @@
 
 #include "skb_common.h"
 #include "skb_font_collection.h"
-#include "skb_render.h"
+#include "skb_rasterizer.h"
 #include "skb_layout.h"
-#include "skb_render_cache.h"
+#include "skb_image_atlas.h"
 
 
 typedef struct fallback_context_t {
@@ -25,8 +25,8 @@ typedef struct fallback_context_t {
 
 	skb_font_collection_t* font_collection;
 	skb_temp_alloc_t* temp_alloc;
-	skb_render_cache_t* render_cache;
-	skb_renderer_t* renderer;
+	skb_image_atlas_t* atlas;
+	skb_rasterizer_t* rasterizer;
 
 	skb_layout_t* layout;
 
@@ -59,12 +59,12 @@ static const int32_t g_snippets_count = SKB_COUNTOF(g_snippets);
 		goto error; \
 	}
 
-static void on_create_texture(skb_render_cache_t* cache, uint8_t image_idx, void* context)
+static void on_create_texture(skb_image_atlas_t* atlas, uint8_t texture_idx, void* context)
 {
-	const skb_image_t* image = skb_render_cache_get_image(cache, image_idx);
-	if (image) {
-		uint32_t tex_id = draw_create_texture(image->width, image->height, image->stride_bytes, NULL, image->bpp);
-		skb_render_cache_set_image_user_data(cache, image_idx, tex_id);
+	const skb_image_t* texture = skb_image_atlas_get_texture(atlas, texture_idx);
+	if (texture) {
+		uint32_t tex_id = draw_create_texture(texture->width, texture->height, texture->stride_bytes, NULL, texture->bpp);
+		skb_image_atlas_set_texture_user_data(atlas, texture_idx, tex_id);
 	}
 }
 
@@ -209,12 +209,12 @@ void* fallback_create(void)
 	ctx->snippet_idx = 0;
 	set_text(ctx, g_snippets[ctx->snippet_idx]);
 
-	ctx->render_cache = skb_render_cache_create(NULL);
-	assert(ctx->render_cache);
-	skb_render_cache_set_create_texture_callback(ctx->render_cache, &on_create_texture, NULL);
+	ctx->atlas = skb_image_atlas_create(NULL);
+	assert(ctx->atlas);
+	skb_image_atlas_set_create_texture_callback(ctx->atlas, &on_create_texture, NULL);
 
-	ctx->renderer = skb_renderer_create(NULL);
-	assert(ctx->renderer);
+	ctx->rasterizer = skb_rasterizer_create(NULL);
+	assert(ctx->rasterizer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
@@ -233,8 +233,8 @@ void fallback_destroy(void* ctx_ptr)
 	skb_layout_destroy(ctx->layout);
 	skb_font_collection_destroy(ctx->font_collection);
 
-	skb_render_cache_destroy(ctx->render_cache);
-	skb_renderer_destroy(ctx->renderer);
+	skb_image_atlas_destroy(ctx->atlas);
+	skb_rasterizer_destroy(ctx->rasterizer);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(fallback_context_t));
@@ -321,7 +321,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	draw_line_width(1.f);
 
-	skb_render_cache_compact(ctx->render_cache);
+	skb_image_atlas_compact(ctx->atlas);
 
 	{
 		skb_temp_alloc_stats_t stats = skb_temp_alloc_stats(ctx->temp_alloc);
@@ -375,30 +375,30 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				}
 
 				// Glyph image
-				skb_render_quad_t quad = skb_render_cache_get_glyph_quad(
-					ctx->render_cache,gx, gy, ctx->view.scale, layout_params->font_collection,
-					glyph->font_handle, glyph->gid, attr_font.size, SKB_RENDER_ALPHA_SDF);
+				skb_quad_t quad = skb_image_atlas_get_glyph_quad(
+					ctx->atlas,gx, gy, ctx->view.scale, layout_params->font_collection,
+					glyph->font_handle, glyph->gid, attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
 
 				draw_image_quad_sdf(
-					view_transform_rect(&ctx->view, quad.geom_bounds),
-					quad.image_bounds, 1.f / quad.scale, (quad.flags & SKB_RENDER_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
-					(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+					view_transform_rect(&ctx->view, quad.geom),
+					quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
+					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 			}
 		}
 	}
 
 	// Update atlas and textures
-	if (skb_render_cache_rasterize_missing_items(ctx->render_cache, ctx->temp_alloc, ctx->renderer)) {
-		for (int32_t i = 0; i < skb_render_cache_get_image_count(ctx->render_cache); i++) {
-			skb_rect2i_t dirty_bounds = skb_render_cache_get_and_reset_image_dirty_bounds(ctx->render_cache, i);
+	if (skb_image_atlas_rasterize_missing_items(ctx->atlas, ctx->temp_alloc, ctx->rasterizer)) {
+		for (int32_t i = 0; i < skb_image_atlas_get_texture_count(ctx->atlas); i++) {
+			skb_rect2i_t dirty_bounds = skb_image_atlas_get_and_reset_texture_dirty_bounds(ctx->atlas, i);
 			if (!skb_rect2i_is_empty(dirty_bounds)) {
-				const skb_image_t* image = skb_render_cache_get_image(ctx->render_cache, i);
+				const skb_image_t* image = skb_image_atlas_get_texture(ctx->atlas, i);
 				assert(image);
-				uint32_t tex_id = (uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, i);
+				uint32_t tex_id = (uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, i);
 				if (tex_id == 0) {
 					tex_id = draw_create_texture(image->width, image->height, image->stride_bytes, image->buffer, image->bpp);
 					assert(tex_id);
-					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
+					skb_image_atlas_set_texture_user_data(ctx->atlas, i, tex_id);
 				} else {
 					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
@@ -409,7 +409,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	}
 
 	// Draw atlas
-	debug_draw_atlas(ctx->render_cache, 20.f, 50.f, ctx->atlas_scale, 1);
+	debug_draw_atlas(ctx->atlas, 20.f, 50.f, ctx->atlas_scale, 1);
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),

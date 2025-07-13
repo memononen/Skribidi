@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_render.h"
+#include "skb_rasterizer.h"
 
 #include "skb_common.h"
 #include "skb_canvas.h"
@@ -16,11 +16,11 @@
 
 #include "hb.h"
 
-typedef struct skb_renderer_t {
+typedef struct skb_rasterizer_t {
 	hb_paint_funcs_t* paint_funcs;
 	hb_draw_funcs_t* draw_funcs;
-	skb_renderer_config_t config;
-} skb_renderer_t;
+	skb_rasterizer_config_t config;
+} skb_rasterizer_t;
 
 
 static void skb__hb_move_to(hb_draw_funcs_t* dfuncs, void* draw_data, hb_draw_state_t* st, float to_x, float to_y, void* user_data);
@@ -41,60 +41,60 @@ static void skb__hb_paint_linear_gradient(hb_paint_funcs_t* pfuncs, void* paint_
 static void skb__hb_paint_radial_gradient(hb_paint_funcs_t* pfuncs, void* paint_data, hb_color_line_t* color_line, float x0, float y0, float r0, float x1, float y1, float r1, void* user_data);
 static void skb__hb_paint_sweep_gradient(hb_paint_funcs_t* pfuncs, void* paint_data, hb_color_line_t* color_line, float x0, float y0, float start_angle, float end_angle, void *user_data);
 
-skb_renderer_t* skb_renderer_create(skb_renderer_config_t* config)
+skb_rasterizer_t* skb_rasterizer_create(skb_rasterizer_config_t* config)
 {
-	skb_renderer_t* renderer = skb_malloc(sizeof(skb_renderer_t));
-	memset(renderer, 0, sizeof(skb_renderer_t));
+	skb_rasterizer_t* rasterizer = skb_malloc(sizeof(skb_rasterizer_t));
+	memset(rasterizer, 0, sizeof(skb_rasterizer_t));
 
-	renderer->draw_funcs = hb_draw_funcs_create ();
-	hb_draw_funcs_set_move_to_func (renderer->draw_funcs, skb__hb_move_to, renderer, NULL);
-	hb_draw_funcs_set_line_to_func (renderer->draw_funcs, skb__hb_line_to, renderer, NULL);
-	hb_draw_funcs_set_cubic_to_func (renderer->draw_funcs, skb__hb_cubic_to, renderer, NULL);
-	hb_draw_funcs_set_close_path_func (renderer->draw_funcs, skb__hb_close_path, renderer, NULL);
-	hb_draw_funcs_make_immutable (renderer->draw_funcs);
+	rasterizer->draw_funcs = hb_draw_funcs_create ();
+	hb_draw_funcs_set_move_to_func (rasterizer->draw_funcs, skb__hb_move_to, rasterizer, NULL);
+	hb_draw_funcs_set_line_to_func (rasterizer->draw_funcs, skb__hb_line_to, rasterizer, NULL);
+	hb_draw_funcs_set_cubic_to_func (rasterizer->draw_funcs, skb__hb_cubic_to, rasterizer, NULL);
+	hb_draw_funcs_set_close_path_func (rasterizer->draw_funcs, skb__hb_close_path, rasterizer, NULL);
+	hb_draw_funcs_make_immutable (rasterizer->draw_funcs);
 
-	renderer->paint_funcs = hb_paint_funcs_create ();
-	hb_paint_funcs_set_push_transform_func(renderer->paint_funcs, skb__hb_push_transform, renderer, NULL);
-	hb_paint_funcs_set_pop_transform_func(renderer->paint_funcs, skb__hb_pop_transform, renderer, NULL);
-	hb_paint_funcs_set_push_clip_glyph_func(renderer->paint_funcs, skb__hb_push_clip_glyph, renderer, NULL);
-	hb_paint_funcs_set_push_clip_rectangle_func(renderer->paint_funcs, skb__hb_push_clip_rectangle, renderer, NULL);
-	hb_paint_funcs_set_pop_clip_func(renderer->paint_funcs, skb__hb_pop_clip, renderer, NULL);
-	hb_paint_funcs_set_push_group_func(renderer->paint_funcs, skb__hb_push_group, renderer, NULL);
-	hb_paint_funcs_set_pop_group_func(renderer->paint_funcs, skb__hb_pop_group, renderer, NULL);
-	hb_paint_funcs_set_color_func(renderer->paint_funcs, skb__hb_paint_color, renderer, NULL);
-	hb_paint_funcs_set_image_func(renderer->paint_funcs, skb__hb_paint_image, renderer, NULL);
-	hb_paint_funcs_set_linear_gradient_func(renderer->paint_funcs, skb__hb_paint_linear_gradient, renderer, NULL);
-	hb_paint_funcs_set_radial_gradient_func(renderer->paint_funcs, skb__hb_paint_radial_gradient, renderer, NULL);
-	hb_paint_funcs_set_sweep_gradient_func(renderer->paint_funcs, skb__hb_paint_sweep_gradient, renderer, NULL);
-	hb_paint_funcs_make_immutable(renderer->paint_funcs);
+	rasterizer->paint_funcs = hb_paint_funcs_create ();
+	hb_paint_funcs_set_push_transform_func(rasterizer->paint_funcs, skb__hb_push_transform, rasterizer, NULL);
+	hb_paint_funcs_set_pop_transform_func(rasterizer->paint_funcs, skb__hb_pop_transform, rasterizer, NULL);
+	hb_paint_funcs_set_push_clip_glyph_func(rasterizer->paint_funcs, skb__hb_push_clip_glyph, rasterizer, NULL);
+	hb_paint_funcs_set_push_clip_rectangle_func(rasterizer->paint_funcs, skb__hb_push_clip_rectangle, rasterizer, NULL);
+	hb_paint_funcs_set_pop_clip_func(rasterizer->paint_funcs, skb__hb_pop_clip, rasterizer, NULL);
+	hb_paint_funcs_set_push_group_func(rasterizer->paint_funcs, skb__hb_push_group, rasterizer, NULL);
+	hb_paint_funcs_set_pop_group_func(rasterizer->paint_funcs, skb__hb_pop_group, rasterizer, NULL);
+	hb_paint_funcs_set_color_func(rasterizer->paint_funcs, skb__hb_paint_color, rasterizer, NULL);
+	hb_paint_funcs_set_image_func(rasterizer->paint_funcs, skb__hb_paint_image, rasterizer, NULL);
+	hb_paint_funcs_set_linear_gradient_func(rasterizer->paint_funcs, skb__hb_paint_linear_gradient, rasterizer, NULL);
+	hb_paint_funcs_set_radial_gradient_func(rasterizer->paint_funcs, skb__hb_paint_radial_gradient, rasterizer, NULL);
+	hb_paint_funcs_set_sweep_gradient_func(rasterizer->paint_funcs, skb__hb_paint_sweep_gradient, rasterizer, NULL);
+	hb_paint_funcs_make_immutable(rasterizer->paint_funcs);
 
-	renderer->config = config ? *config : skb_renderer_get_default_config();
+	rasterizer->config = config ? *config : skb_rasterizer_get_default_config();
 
-	return renderer;
+	return rasterizer;
 }
 
-skb_renderer_config_t skb_renderer_get_default_config(void)
+skb_rasterizer_config_t skb_rasterizer_get_default_config(void)
 {
-	return (skb_renderer_config_t) {
+	return (skb_rasterizer_config_t) {
 		.on_edge_value = 128,
 		.pixel_dist_scale = 32.f,
 	};
 }
 
-skb_renderer_config_t skb_renderer_get_config(const skb_renderer_t* renderer)
+skb_rasterizer_config_t skb_rasterizer_get_config(const skb_rasterizer_t* rasterizer)
 {
-	return renderer->config;
+	return rasterizer->config;
 }
 
-void skb_renderer_destroy(skb_renderer_t* renderer)
+void skb_rasterizer_destroy(skb_rasterizer_t* rasterizer)
 {
-	if (!renderer) return;
-	hb_draw_funcs_destroy(renderer->draw_funcs);
-	hb_paint_funcs_destroy(renderer->paint_funcs);
+	if (!rasterizer) return;
+	hb_draw_funcs_destroy(rasterizer->draw_funcs);
+	hb_paint_funcs_destroy(rasterizer->paint_funcs);
 
-	memset(renderer, 0, sizeof(skb_renderer_t));
+	memset(rasterizer, 0, sizeof(skb_rasterizer_t));
 
-	skb_free(renderer);
+	skb_free(rasterizer);
 }
 
 
@@ -694,11 +694,11 @@ static void skb__hb_push_clip_glyph (
 	SKB_UNUSED(user_data);
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
-	skb_renderer_t* renderer = (skb_renderer_t*)user_data;
+	skb_rasterizer_t* rasterizer = (skb_rasterizer_t*)user_data;
 
 	skb_canvas_push_mask(c);
 
-	hb_font_draw_glyph(font, glyph, renderer->draw_funcs, c);
+	hb_font_draw_glyph(font, glyph, rasterizer->draw_funcs, c);
 	skb_canvas_fill_mask(c);
 }
 
@@ -972,7 +972,7 @@ static void skb__hb_paint_sweep_gradient(
 }
 
 
-skb_rect2i_t skb_render_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t* font, float font_size, int32_t padding)
+skb_rect2i_t skb_rasterizer_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t* font, float font_size, int32_t padding)
 {
 	// Calc size
 	hb_glyph_extents_t extents;
@@ -998,12 +998,12 @@ skb_rect2i_t skb_render_get_glyph_dimensions(uint32_t glyph_id, const skb_font_t
 }
 
 
-bool skb_render_rasterize_alpha_glyph(
-	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
-	uint32_t glyph_id, const skb_font_t* font, float font_size, skb_render_alpha_mode_t alpha_mode,
+bool skb_rasterizer_draw_alpha_glyph(
+	skb_rasterizer_t* rasterizer, skb_temp_alloc_t* temp_alloc,
+	uint32_t glyph_id, const skb_font_t* font, float font_size, skb_rasterize_alpha_mode_t alpha_mode,
 	float offset_x, float offset_y, skb_image_t* target)
 {
-	assert(renderer);
+	assert(rasterizer);
 	assert(temp_alloc);
 	assert(target);
 
@@ -1022,13 +1022,13 @@ bool skb_render_rasterize_alpha_glyph(
 	const skb_mat2_t xform = skb_mat2_multiply(scale_xfrorm, trans_xform);
 	skb_canvas_push_transform(canvas, xform);
 
-	hb_font_draw_glyph(font->hb_font, glyph_id, renderer->draw_funcs, canvas);
+	hb_font_draw_glyph(font->hb_font, glyph_id, rasterizer->draw_funcs, canvas);
 
 	skb_canvas_fill_mask(canvas);
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		// SDF
-		skb__mask_to_sdf(temp_alloc, target, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+		skb__mask_to_sdf(temp_alloc, target, rasterizer->config.on_edge_value, rasterizer->config.pixel_dist_scale);
 	}
 
 	skb_canvas_destroy(canvas);
@@ -1041,12 +1041,12 @@ bool skb_render_rasterize_alpha_glyph(
 	return true;
 }
 
-bool skb_render_rasterize_color_glyph(
-	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
-	uint32_t glyph_id, const skb_font_t* font, float font_size, skb_render_alpha_mode_t alpha_mode,
+bool skb_rasterizer_draw_color_glyph(
+	skb_rasterizer_t* rasterizer, skb_temp_alloc_t* temp_alloc,
+	uint32_t glyph_id, const skb_font_t* font, float font_size, skb_rasterize_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target)
 {
-	assert(renderer);
+	assert(rasterizer);
 	assert(temp_alloc);
 
 	if (!target->buffer || target->width <= 0 || target->height <= 0 || target->bpp != 4)
@@ -1064,9 +1064,9 @@ bool skb_render_rasterize_color_glyph(
 	const skb_mat2_t xform = skb_mat2_multiply(scale_xfrorm, trans_xform);
 	skb_canvas_push_transform(canvas, xform);
 
-	hb_font_paint_glyph(font->hb_font, glyph_id, renderer->paint_funcs, canvas, 0, HB_COLOR(255,255,255,255)); // BGRA
+	hb_font_paint_glyph(font->hb_font, glyph_id, rasterizer->paint_funcs, canvas, 0, HB_COLOR(255,255,255,255)); // BGRA
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		// SDF
 		uint8_t* mask_buffer = SKB_TEMP_ALLOC(temp_alloc, uint8_t, target->width * target->height);
 		const int32_t mask_stride = target->width;
@@ -1090,7 +1090,7 @@ bool skb_render_rasterize_color_glyph(
 			}
 		}
 
-		skb__mask_to_sdf(temp_alloc, &mask, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+		skb__mask_to_sdf(temp_alloc, &mask, rasterizer->config.on_edge_value, rasterizer->config.pixel_dist_scale);
 		skb__unpremultiply_and_dilate(temp_alloc, target);
 
 		// Copy SDF to alpha channel
@@ -1188,7 +1188,7 @@ static void skb__icon_draw_shape_alpha(skb_canvas_t* c, const skb_icon_t* icon, 
 		skb__icon_draw_shape_alpha(c, icon, &shape->children[i]);
 }
 
-skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
+skb_rect2i_t skb_rasterizer_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t icon_scale, int32_t padding)
 {
 	assert(icon);
 	const int32_t width = (int32_t)ceilf(icon->view.width * icon_scale.x);
@@ -1202,12 +1202,12 @@ skb_rect2i_t skb_render_get_icon_dimensions(const skb_icon_t* icon, skb_vec2_t i
 	};
 }
 
-bool skb_render_rasterize_alpha_icon(
-	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
-	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
+bool skb_rasterizer_draw_alpha_icon(
+	skb_rasterizer_t* rasterizer, skb_temp_alloc_t* temp_alloc,
+	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_rasterize_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target)
 {
-	assert(renderer);
+	assert(rasterizer);
 	assert(temp_alloc);
 
 	if (!target) return false;
@@ -1226,9 +1226,9 @@ bool skb_render_rasterize_alpha_icon(
 
 	skb_canvas_fill_mask(canvas);
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		// SDF
-		skb__mask_to_sdf(temp_alloc, target, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+		skb__mask_to_sdf(temp_alloc, target, rasterizer->config.on_edge_value, rasterizer->config.pixel_dist_scale);
 	}
 
 	skb_canvas_destroy(canvas);
@@ -1241,12 +1241,12 @@ bool skb_render_rasterize_alpha_icon(
 	return true;
 }
 
-bool skb_render_rasterize_color_icon(
-	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
-	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_render_alpha_mode_t alpha_mode,
+bool skb_rasterizer_draw_color_icon(
+	skb_rasterizer_t* rasterizer, skb_temp_alloc_t* temp_alloc,
+	const skb_icon_t* icon, skb_vec2_t icon_scale, skb_rasterize_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target)
 {
-	assert(renderer);
+	assert(rasterizer);
 	assert(temp_alloc);
 
 	if (!target) return false;
@@ -1263,7 +1263,7 @@ bool skb_render_rasterize_color_icon(
 
 	skb__icon_draw_shape(canvas, icon, &icon->root, 1.f);
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		uint8_t* mask_buffer = SKB_TEMP_ALLOC(temp_alloc, uint8_t, target->width * target->height);
 		const int32_t mask_stride = target->width;
 		skb_image_t mask = {
@@ -1285,7 +1285,7 @@ bool skb_render_rasterize_color_icon(
 			}
 		}
 
-		skb__mask_to_sdf(temp_alloc, &mask, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+		skb__mask_to_sdf(temp_alloc, &mask, rasterizer->config.on_edge_value, rasterizer->config.pixel_dist_scale);
 		skb__unpremultiply_and_dilate(temp_alloc, target);
 
 		// Copy SDF to alpha channel
@@ -1312,7 +1312,7 @@ bool skb_render_rasterize_color_icon(
 	return true;
 }
 
-skb_vec2_t skb_render_get_decoration_pattern_size(skb_decoration_style_t style, float thickness)
+skb_vec2_t skb_rasterizer_get_decoration_pattern_size(skb_decoration_style_t style, float thickness)
 {
 	skb_vec2_t res = {0};
 
@@ -1342,14 +1342,14 @@ skb_vec2_t skb_render_get_decoration_pattern_size(skb_decoration_style_t style, 
 	return res;
 }
 
-skb_rect2i_t skb_render_get_decoration_pattern_dimensions(skb_decoration_style_t style, float thickness, int32_t padding)
+skb_rect2i_t skb_rasterizer_get_decoration_pattern_dimensions(skb_decoration_style_t style, float thickness, int32_t padding)
 {
-	skb_vec2_t size = skb_render_get_decoration_pattern_size(style, thickness);
+	skb_vec2_t size = skb_rasterizer_get_decoration_pattern_size(style, thickness);
 
 	int32_t width = (int32_t)ceilf(size.x);
 	int32_t height = (int32_t)ceilf(size.y);
 
-	// Only 1 padding on X since we assume that the pattern tiles horizontally. Render cache will inset the 1px padding to avoid interpolation bleeding.
+	// Only 1 padding on X since we assume that the pattern tiles horizontally. Image cache will inset the 1px padding to avoid interpolation bleeding.
 	return (skb_rect2i_t) {
 		.x = -1,
 		.y = -padding,
@@ -1367,13 +1367,13 @@ static void skb__canvas_rect(skb_canvas_t* canvas, float x, float y, float width
 	skb_canvas_close(canvas);
 }
 
-bool skb_render_rasterize_decoration_pattern(
-	skb_renderer_t* renderer, skb_temp_alloc_t* temp_alloc,
-	skb_decoration_style_t style, float thickness, skb_render_alpha_mode_t alpha_mode,
+bool skb_rasterizer_draw_decoration_pattern(
+	skb_rasterizer_t* rasterizer, skb_temp_alloc_t* temp_alloc,
+	skb_decoration_style_t style, float thickness, skb_rasterize_alpha_mode_t alpha_mode,
 	int32_t offset_x, int32_t offset_y, skb_image_t* target)
 {
 
-	assert(renderer);
+	assert(rasterizer);
 	assert(temp_alloc);
 	assert(target);
 
@@ -1382,7 +1382,7 @@ bool skb_render_rasterize_decoration_pattern(
 
 	skb_canvas_t* canvas = skb_canvas_create(temp_alloc, target);
 
-	skb_vec2_t size = skb_render_get_decoration_pattern_size(style, thickness);
+	skb_vec2_t size = skb_rasterizer_get_decoration_pattern_size(style, thickness);
 
 	const skb_mat2_t trans_xform = skb_mat2_make_translation(-(float)offset_x, -(float)offset_y);
 	skb_canvas_push_transform(canvas, trans_xform);
@@ -1412,7 +1412,7 @@ bool skb_render_rasterize_decoration_pattern(
 		float unit_x = size.x / 10.f; // wave is 5 thicknesses wide, 3 high.
 		float unit_y = size.y / 3.f;
 
-		// The pattern can hold 2 waves, but we render one before and one after to have valid data on the padding area too.
+		// The pattern can hold 2 waves, but we draw one before and one after to have valid data on the padding area too.
 		for (int32_t i = -1; i <= 3; i++) {
 			const skb_mat2_t offset_xform = skb_mat2_make_translation((float)i * unit_x * 5.f, 0.f);
 			skb_canvas_push_transform(canvas, offset_xform);
@@ -1432,9 +1432,9 @@ bool skb_render_rasterize_decoration_pattern(
 
 	skb_canvas_fill_mask(canvas);
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		// SDF
-		skb__mask_to_sdf(temp_alloc, target, renderer->config.on_edge_value, renderer->config.pixel_dist_scale);
+		skb__mask_to_sdf(temp_alloc, target, rasterizer->config.on_edge_value, rasterizer->config.pixel_dist_scale);
 	}
 
 	skb_canvas_destroy(canvas);

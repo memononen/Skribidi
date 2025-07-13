@@ -12,8 +12,8 @@ int icon_collection_tests(void);
 int editor_tests(void);
 int layout_tests(void);
 int layout_cache_tests(void);
-int render_tests(void);
-int render_cache_tests(void);
+int rasterizer_tests(void);
+int image_atlas_tests(void);
 int cpp_tests(void);
 
 int main( void )
@@ -31,8 +31,8 @@ int main( void )
 	RUN_TEST(editor_tests);
 	RUN_TEST(layout_tests);
 	RUN_TEST(layout_cache_tests);
-	RUN_TEST(render_tests);
-	RUN_TEST(render_cache_tests);
+	RUN_TEST(rasterizer_tests);
+	RUN_TEST(image_atlas_tests);
 	RUN_TEST(cpp_tests);
 
 	printf( "======================================\n" );

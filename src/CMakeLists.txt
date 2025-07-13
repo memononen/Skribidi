@@ -96,30 +96,30 @@ FetchContent_MakeAvailable(budouxc)
 #
 set(SKRIBIDI_SOURCE_FILES
 	emoji_data.h
+	skb_canvas.c
 	skb_common.c
 	skb_common_internal.h
-	skb_canvas.c
+	skb_editor.c
 	skb_font_collection.c
 	skb_font_collection_internal.h
 	skb_icon_collection.c
 	skb_icon_collection_internal.h
+	skb_image_atlas.c
 	skb_layout.c
 	skb_layout_cache.c
-	skb_render.c
-	skb_render_cache.c
-	skb_editor.c
+	skb_rasterizer.c
 )
 
 set(SKRIBIDI_API_FILES
-	../include/skb_common.h
 	../include/skb_canvas.h
+	../include/skb_common.h
+	../include/skb_editor.h
 	../include/skb_font_collection.h
 	../include/skb_icon_collection.h
+	../include/skb_image_atlas.h
 	../include/skb_layout.h
 	../include/skb_layout_cache.h
-	../include/skb_render.h
-	../include/skb_render_cache.h
-	../include/skb_editor.h
+	../include/skb_rasterizer.h
 )
 
 

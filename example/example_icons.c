@@ -15,8 +15,8 @@
 
 #include "skb_common.h"
 #include "skb_icon_collection.h"
-#include "skb_render.h"
-#include "skb_render_cache.h"
+#include "skb_rasterizer.h"
+#include "skb_image_atlas.h"
 
 
 typedef struct icons_context_t {
@@ -24,8 +24,8 @@ typedef struct icons_context_t {
 
 	skb_icon_collection_t* icon_collection;
 	skb_temp_alloc_t* temp_alloc;
-	skb_render_cache_t* render_cache;
-	skb_renderer_t* renderer;
+	skb_image_atlas_t* atlas;
+	skb_rasterizer_t* rasterizer;
 
 	view_t view;
 	bool drag_view;
@@ -37,12 +37,12 @@ typedef struct icons_context_t {
 } icons_context_t;
 
 
-static void on_create_texture(skb_render_cache_t* cache, uint8_t image_idx, void* context)
+static void on_create_texture(skb_image_atlas_t* atlas, uint8_t texture_idx, void* context)
 {
-	const skb_image_t* image = skb_render_cache_get_image(cache, image_idx);
-	if (image) {
-		uint32_t tex_id = draw_create_texture(image->width, image->height, image->stride_bytes, NULL, image->bpp);
-		skb_render_cache_set_image_user_data(cache, image_idx, tex_id);
+	const skb_image_t* texture = skb_image_atlas_get_texture(atlas, texture_idx);
+	if (texture) {
+		uint32_t tex_id = draw_create_texture(texture->width, texture->height, texture->stride_bytes, NULL, texture->bpp);
+		skb_image_atlas_set_texture_user_data(atlas, texture_idx, tex_id);
 	}
 }
 
@@ -156,19 +156,19 @@ void* icons_create(void)
 	assert(ctx->temp_alloc);
 
 
-	skb_render_cache_config_t render_cache_config = skb_render_cache_get_default_config();
-	render_cache_config.atlas_init_width = 512;
-	render_cache_config.atlas_init_height = 1024;
-	render_cache_config.atlas_max_width = 1024;
-	render_cache_config.atlas_max_height = 4096;
+	skb_image_atlas_config_t atlas_config = skb_image_atlas_get_default_config();
+	atlas_config.init_width = 512;
+	atlas_config.init_height = 1024;
+	atlas_config.max_width = 1024;
+	atlas_config.max_height = 4096;
 
-	ctx->render_cache = skb_render_cache_create(&render_cache_config);
-	assert(ctx->render_cache);
-	skb_render_cache_set_create_texture_callback(ctx->render_cache, &on_create_texture, NULL);
+	ctx->atlas = skb_image_atlas_create(&atlas_config);
+	assert(ctx->atlas);
+	skb_image_atlas_set_create_texture_callback(ctx->atlas, &on_create_texture, NULL);
 
-	skb_renderer_config_t renderer_config = skb_renderer_get_default_config();
-	ctx->renderer = skb_renderer_create(&renderer_config);
-	assert(ctx->renderer);
+	skb_rasterizer_config_t renderer_config = skb_rasterizer_get_default_config();
+	ctx->rasterizer = skb_rasterizer_create(&renderer_config);
+	assert(ctx->rasterizer);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
@@ -186,8 +186,8 @@ void icons_destroy(void* ctx_ptr)
 
 	skb_icon_collection_destroy(ctx->icon_collection);
 
-	skb_render_cache_destroy(ctx->render_cache);
-	skb_renderer_destroy(ctx->renderer);
+	skb_image_atlas_destroy(ctx->atlas);
+	skb_rasterizer_destroy(ctx->rasterizer);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(icons_context_t));
@@ -283,22 +283,22 @@ static float draw_icon(icons_context_t* ctx, skb_icon_handle_t icon_handle, floa
 
 	float view_scale = use_view_scale ? ctx->view.scale : 1.f;
 
-	skb_render_quad_t quad = skb_render_cache_get_icon_quad(
-		ctx->render_cache,ox, oy, view_scale,
+	skb_quad_t quad = skb_image_atlas_get_icon_quad(
+		ctx->atlas,ox, oy, view_scale,
 		ctx->icon_collection, icon_handle, icon_scale, alpha_mode);
 
 	float render_scale = use_view_scale ? quad.scale : quad.scale * ctx->view.scale;
 
-	if (alpha_mode == SKB_RENDER_ALPHA_SDF) {
+	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		draw_image_quad_sdf(
-			view_transform_rect(&ctx->view, quad.geom_bounds),
-			quad.image_bounds, 1.f / render_scale, skb_rgba(255,255,255,255),
-			(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+			view_transform_rect(&ctx->view, quad.geom),
+			quad.texture, 1.f / render_scale, skb_rgba(255,255,255,255),
+			(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 	} else {
 		draw_image_quad(
-			view_transform_rect(&ctx->view, quad.geom_bounds),
-			quad.image_bounds, skb_rgba(255,255,255,255),
-			(uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, quad.image_idx));
+			view_transform_rect(&ctx->view, quad.geom),
+			quad.texture, skb_rgba(255,255,255,255),
+			(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 	}
 
 	return icon_base_size.x * icon_scale.x + 10.f;
@@ -311,7 +311,7 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	draw_line_width(1.f);
 
-	skb_render_cache_compact(ctx->render_cache);
+	skb_image_atlas_compact(ctx->atlas);
 
 	{
 		skb_temp_alloc_stats_t stats = skb_temp_alloc_stats(ctx->temp_alloc);
@@ -325,13 +325,13 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	{
 		ox = 20.f;
 		draw_text(view_transform_x(&ctx->view, ox), view_transform_y(&ctx->view, oy) - 10.f, 12, 0.f, skb_rgba(0,0,0,255), "SDF");
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RENDER_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_SDF, ctx->use_view_scale);
 
 	}
 	oy += 180.f;
@@ -339,27 +339,27 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	{
 		ox = 20.f;
 		draw_text(view_transform_x(&ctx->view, ox), view_transform_y(&ctx->view, oy) - 10.f, 12, 0.f, skb_rgba(0,0,0,255), "Alpha");
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
-		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RENDER_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "icon"), ox, oy, 128.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "astro"), ox, oy, 128.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "pen"), ox, oy, 40.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "arrow"), ox, oy, 40.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_0"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_1"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
+		ox += draw_icon(ctx, skb_icon_collection_find_icon(ctx->icon_collection, "grad_2"), ox, oy, 100.f, SKB_RASTERIZE_ALPHA_MASK, ctx->use_view_scale);
 	}
 
 	// Update atlas and textures
-	if (skb_render_cache_rasterize_missing_items(ctx->render_cache, ctx->temp_alloc, ctx->renderer)) {
-		for (int32_t i = 0; i < skb_render_cache_get_image_count(ctx->render_cache); i++) {
-			skb_rect2i_t dirty_bounds = skb_render_cache_get_and_reset_image_dirty_bounds(ctx->render_cache, i);
+	if (skb_image_atlas_rasterize_missing_items(ctx->atlas, ctx->temp_alloc, ctx->rasterizer)) {
+		for (int32_t i = 0; i < skb_image_atlas_get_texture_count(ctx->atlas); i++) {
+			skb_rect2i_t dirty_bounds = skb_image_atlas_get_and_reset_texture_dirty_bounds(ctx->atlas, i);
 			if (!skb_rect2i_is_empty(dirty_bounds)) {
-				const skb_image_t* image = skb_render_cache_get_image(ctx->render_cache, i);
+				const skb_image_t* image = skb_image_atlas_get_texture(ctx->atlas, i);
 				assert(image);
-				uint32_t tex_id = (uint32_t)skb_render_cache_get_image_user_data(ctx->render_cache, i);
+				uint32_t tex_id = (uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, i);
 				if (tex_id == 0) {
 					tex_id = draw_create_texture(image->width, image->height, image->stride_bytes, image->buffer, image->bpp);
 					assert(tex_id);
-					skb_render_cache_set_image_user_data(ctx->render_cache, i, tex_id);
+					skb_image_atlas_set_texture_user_data(ctx->atlas, i, tex_id);
 				} else {
 					draw_update_texture(tex_id,
 							dirty_bounds.x, dirty_bounds.y, dirty_bounds.width, dirty_bounds.height,
@@ -370,7 +370,7 @@ void icons_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	}
 
 	// Draw atlas
-	debug_draw_atlas(ctx->render_cache, 20.f, 50.f, ctx->atlas_scale, 1);
+	debug_draw_atlas(ctx->atlas, 20.f, 50.f, ctx->atlas_scale, 1);
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),
