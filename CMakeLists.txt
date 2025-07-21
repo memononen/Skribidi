@@ -57,6 +57,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+# harfbuzz
+set(HB_BUILD_SUBSET OFF)
+add_subdirectory(harfbuzz)
+
+# sheenbidi
+add_subdirectory(SheenBidi)
+
+# libunibreak
+set(libunibreak_SOURCE_DIR ${CMAKE_SOURCE_DIR}/libunibreak)
+
+# budouxc
+add_subdirectory(budouxc)
+
 add_subdirectory(src)
 
 # This hides samples, test, and doxygen from apps that use skribidi via FetchContent

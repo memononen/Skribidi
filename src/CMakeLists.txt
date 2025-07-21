@@ -1,37 +1,8 @@
-include(FetchContent)
-
 if(POLICY CMP0135)
 	cmake_policy(SET CMP0135 NEW) # avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24+
 endif()
 
-# harfbuzz
-FetchContent_Declare(
-	harfbuzz
-	GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
-	GIT_TAG 11.0.0
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
-)
-set(HB_BUILD_SUBSET OFF)
-FetchContent_MakeAvailable(harfbuzz)
-
-# sheenbidi
-FetchContent_Declare(
-	SheenBidi
-	GIT_REPOSITORY https://github.com/Tehreer/SheenBidi.git
-	GIT_TAG 83f77108a2873600283f6da4b326a2dca7a3a7a6 # Jun 6, 2025
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(SheenBidi)
-
 # libunibreak
-FetchContent_Declare(
-	libunibreak
-	URL https://github.com/adah1972/libunibreak/archive/refs/tags/libunibreak_6_1.zip
-)
-FetchContent_MakeAvailable(libunibreak)
-
 # build manually
 add_library(libunibreak STATIC)
 if(MSVC)
@@ -80,16 +51,6 @@ install(
   NAMESPACE libunibreak::
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libunibreak"
 )
-
-# budouxc
-FetchContent_Declare(
-	budouxc
-	GIT_REPOSITORY https://github.com/memononen/budouxc.git
-	GIT_TAG a044d49afc654117fac7623fff15bec15943270c
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(budouxc)
 
 #
 # Project files

@@ -1,0 +1,12 @@
+[submodule "harfbuzz"]
+	path = harfbuzz
+	url = https://github.com/harfbuzz/harfbuzz.git
+[submodule "SheenBidi"]
+	path = SheenBidi
+	url = https://github.com/Tehreer/SheenBidi.git
+[submodule "libunibreak"]
+	path = libunibreak
+	url = https://github.com/adah1972/libunibreak.git
+[submodule "budouxc"]
+	path = budouxc
+	url = https://github.com/memononen/budouxc.git
