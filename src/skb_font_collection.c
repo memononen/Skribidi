@@ -250,10 +250,10 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 	// skb_debug_log("Loading font: %s\n", path);
 
 	// Use Harfbuzz to load the font data, it uses mmap when possible.
-	blob = hb_blob_create_from_file(path);
+	blob = hb_blob_create_from_file_or_fail(path);
 	if (!blob) goto error;
 
-	face = hb_face_create(blob, 0);
+	face = hb_face_create_or_fail(blob, 0);
 	hb_blob_destroy(blob);
 	if (!face) goto error;
 
@@ -285,10 +285,10 @@ static bool skb__font_create_from_data(
 
 	// Use Harfbuzz to create blob from memory data with read-only mode
 	// Pass the context and destroy function to HarfBuzz so it can manage the lifetime
-	blob = hb_blob_create((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
+	blob = hb_blob_create_or_fail((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
 	if (!blob) goto error;
 
-	face = hb_face_create(blob, 0);
+	face = hb_face_create_or_fail(blob, 0);
 	hb_blob_destroy(blob);
 	if (!face) goto error;
 
