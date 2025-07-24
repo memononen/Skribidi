@@ -178,7 +178,16 @@ typedef struct skb_font_collection_t skb_font_collection_t;
 /** Opaque type for the font. Use skb_font_collection_add*() to create. */
 typedef struct skb_font_t skb_font_t;
 
-/** Signature font fallback function callback. */
+/**
+ * Signature font fallback function callback.
+ * The font fallback function is called when font selection fails. Use skb_font_collection_set_on_font_fallback() to set the callback.
+ * @param font_collection font collection to use.
+ * @param lang language of the failed font selection.
+ * @param script script of the failed font selection, use skb_script_to_iso15924_tag() to get ISO-15924 tag of the script.
+ * @param font_family font family of the failed font selection
+ * @param context context pointer, which was passed to skb_font_collection_set_on_font_fallback() when the callback was set up.
+ * @return true if we should retry font selection after the callback.
+ */
 typedef bool skb_font_fallback_func_t(skb_font_collection_t* font_collection, const char* lang, uint8_t script, uint8_t font_family, void* context);
 
 /**
@@ -194,6 +203,12 @@ skb_font_collection_t* skb_font_collection_create(void);
  */
 void skb_font_collection_destroy(skb_font_collection_t* font_collection);
 
+/**
+ * Sets callback function that is called when we cannot match font. The callback allows the user to either collect missing fonts, or to load them.
+ * @param font_collection font collection to use
+ * @param fallback_func function to call when font selection fails.
+ * @param context Pointer passed to the callback function.
+ */
 void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context);
 
 /**

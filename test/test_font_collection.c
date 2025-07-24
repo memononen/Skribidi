@@ -102,8 +102,7 @@ static int test_add_font_from_data(void)
 		font_data,
 		file_size,
 		context,
-		test_destroy_callback
-	);
+		test_destroy_callback);
 	ENSURE(font_handle != 0);
 
 	// Verify font can be found
@@ -130,10 +129,46 @@ static int test_add_font_from_data(void)
 	return 0;
 }
 
+static int test_add_font_failures(void)
+{
+	skb_font_collection_t* font_collection = skb_font_collection_create();
+	ENSURE(font_collection != NULL);
+
+	{
+		// This should fail, since the font does not exists.
+		skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/TsippaDui.ttf", SKB_FONT_FAMILY_DEFAULT);
+		ENSURE(font_handle == 0);
+	}
+
+	{
+		// This should fail, since the file is not a font.
+		skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/astronaut_pico.svg", SKB_FONT_FAMILY_DEFAULT);
+		ENSURE(font_handle == 0);
+	}
+
+	{
+		// Null data, should fail.
+		skb_font_handle_t font_handle = skb_font_collection_add_font_from_data(font_collection, "Missing", SKB_FONT_FAMILY_DEFAULT, NULL,0, NULL, NULL);
+		ENSURE(font_handle == 0);
+	}
+
+	{
+		// Invalid font data, should fail.
+		uint8_t dummy_data[] = { 0, 1, 2, 3, 4, 5, 6 };
+		skb_font_handle_t font_handle = skb_font_collection_add_font_from_data(font_collection, "Failing", SKB_FONT_FAMILY_DEFAULT, dummy_data, SKB_COUNTOF(dummy_data), NULL, NULL);
+		ENSURE(font_handle == 0);
+	}
+
+	skb_font_collection_destroy(font_collection);
+
+	return 0;
+}
+
 int font_collection_tests(void)
 {
 	RUN_SUBTEST(test_init);
 	RUN_SUBTEST(test_add_remove);
 	RUN_SUBTEST(test_add_font_from_data);
+	RUN_SUBTEST(test_add_font_failures);
 	return 0;
 }
