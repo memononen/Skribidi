@@ -54,9 +54,20 @@ endif()
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SKRIBIDI_EXAMPLE_FILES})
 
-# Copy font files, etc
-add_custom_command(
-	TARGET skribidi_example POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
-			${CMAKE_SOURCE_DIR}/example/data/
-			${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/)
+# Data files
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Copy files on windows, as symlink creation requires special privileges.
+    add_custom_command(
+        TARGET skribidi_example POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                ${CMAKE_SOURCE_DIR}/example/data/
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/)
+else()
+    # Create symlink on non-windows
+    add_custom_command(
+        TARGET skribidi_example POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+                ${CMAKE_SOURCE_DIR}/example/data/
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+    )
+endif()
