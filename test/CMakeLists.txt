@@ -33,4 +33,20 @@ target_link_libraries(skribidi_test PRIVATE skribidi)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "" FILES ${SKRIBIDI_TEST_FILES})
 
-add_dependencies(skribidi_test data_target)
+# Data files
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Copy files on windows, as symlink creation requires special privileges.
+    add_custom_command(
+        TARGET skribidi_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                ${CMAKE_SOURCE_DIR}/example/data/
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/)
+else()
+    # Create symlink on non-windows
+    add_custom_command(
+        TARGET skribidi_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+                ${CMAKE_SOURCE_DIR}/example/data/
+                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+    )
+endif()
