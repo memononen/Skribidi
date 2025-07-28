@@ -283,6 +283,8 @@ static bool skb__font_create_from_data(
 
 	// skb_debug_log("Loading font from data: %s\n", name);
 
+	if (!font_data) goto error;
+
 	// Use Harfbuzz to create blob from memory data with read-only mode
 	// Pass the context and destroy function to HarfBuzz so it can manage the lifetime
 	blob = hb_blob_create_or_fail((const char*)font_data, (unsigned int)font_data_length, HB_MEMORY_MODE_READONLY, context, (hb_destroy_func_t)destroy_func);
