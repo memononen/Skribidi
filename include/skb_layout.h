@@ -37,15 +37,43 @@ typedef const struct hb_language_impl_t *hb_language_t;
  * @{
  */
 
-/** Enum describing horizontal alignment of a line of the text. */
+/** Enum describing alignment of text relative to the layout box. */
 typedef enum {
-	/** Align to the language specific start. Left for LTR and right for RTL. */
+	/** Horizontal: Align to the language specific start. Left for LTR and right for RTL. Vertical: align to top. */
 	SKB_ALIGN_START = 0,
-	/** Align to the language specific end. Right for LTR and left for RTL. */
-	SKB_ALIGN_END,
-	/** Center align the lines. */
+	/** Horizontal & Vertical: align to center. */
 	SKB_ALIGN_CENTER,
+	/** Horizontal: Align to the language specific end. Right for LTR and left for RTL. Vertical: align to bottom. */
+	SKB_ALIGN_END,
 } skb_align_t;
+
+/** Enum describing how text is wrapped to layout box. */
+typedef enum {
+	/** No text wrapping. */
+	SKB_WRAP_NONE = 0,
+	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will overflow. */
+	SKB_WRAP_WORD,
+	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will be wrapped at a character. */
+	SKB_WRAP_WORD_CHAR,
+} skb_text_wrap_t;
+
+/** Enum describing how the text overflowing the layout box is handled. */
+typedef enum {
+	/** Overflowing text is visible. */
+	SKB_OVERFLOW_NONE = 0,
+	/** Overflowing text is clipped. */
+	SKB_OVERFLOW_CLIP,
+	/** Overflowing text is clipped and ellipsis is placed at the end of clipped text. */
+	SKB_OVERFLOW_ELLIPSIS,
+} skb_text_overflow_t;
+
+/** Enum describing which font metrics is used to describe the line height. Used for aligning. */
+typedef enum {
+	/** Line height is from ascender to descender. */
+	SKB_VERTICAL_TRIM_DEFAULT = 0,
+	/** Line height is from cap height to baseline. This option is best suited for aligning text to UI widget bounds, it gives more visually centered result. */
+	SKB_VERTICAL_TRIM_CAP_TO_BASELINE,
+} skb_vertical_trim_t;
 
 /** Enum describing how line height is calculated */
 typedef enum {
@@ -284,23 +312,33 @@ typedef struct skb_layout_params_t {
 	skb_font_collection_t* font_collection;
 	/** BCP 47 language tag, e.g. fi-FI. */
 	const char* lang;
-	/** Line break width. If 0.0, line width is unbounded. */
-	float line_break_width;
-	/** Origin of the text layout. */
+	/** Origin of the layout. */
 	skb_vec2_t origin;
-	/** base writing direction. */
+	/** Layout box width. Used for alignment, wrapping, and overflow */
+	float layout_width;
+	/** Layout box height. Used for alignment, wrapping, and overflow */
+	float layout_height;
+	/** Base writing direction. */
 	uint8_t base_direction;
-	/** Horizontal alignment. */
-	uint8_t align;
+	/** Text wrapping. Used together with layout box to wrap the text to lines. See skb_text_wrap_t */
+	uint8_t text_wrap;
+	/** Text overflow. Used together with layout box to trim glyphs outside the layout bounds. See skb_text_overflow_t */
+	uint8_t text_overflow;
+	/** Vertical trim controls which part of the text is used to align the text. See skb_vertical_trim_t */
+	uint8_t vertical_trim;
+	/** Horizontal alignment relative to layout box. See skb_align_t. */
+	uint8_t horizontal_align;
+	/** Vertical alignment relative to layout box. See skb_align_t. */
+	uint8_t vertical_align;
 	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
-	uint8_t baseline;
+	uint8_t baseline_align;
 	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
 } skb_layout_params_t;
 
 /** Struct describing attributes assigned to a range of text. */
 typedef struct skb_text_attributes_span_t {
-	/** Range of text the attribues apply to. */
+	/** Range of text the attributes apply to. */
 	skb_range_t text_range;
 	/** The text attributes. */
 	skb_attribute_t* attributes;

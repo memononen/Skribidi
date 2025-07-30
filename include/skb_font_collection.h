@@ -149,6 +149,8 @@ typedef struct skb_font_metrics_t {
 	float descender;
 	/** Extra space between lines. */
 	float line_gap;
+	/** Height of upper case letter. */
+	float cap_height;
 	/** Height of lower case x. */
 	float x_height;
 	/** Underline offset. */

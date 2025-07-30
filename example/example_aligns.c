@@ -21,7 +21,7 @@
 #include "skb_image_atlas.h"
 
 
-typedef struct cached_context_t {
+typedef struct aligns_context_t {
 	example_t base;
 
 	skb_font_collection_t* font_collection;
@@ -35,10 +35,16 @@ typedef struct cached_context_t {
 	bool drag_view;
 	bool drag_text;
 
+	uint8_t wrap;
+	uint8_t overflow;
+	uint8_t vert_trim;
+	uint8_t layout_size_idx;
+	uint8_t example_text_idx;
+
 	bool show_glyph_bounds;
 	float atlas_scale;
 
-} cached_context_t;
+} aligns_context_t;
 
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
@@ -56,27 +62,33 @@ static void on_create_texture(skb_image_atlas_t* atlas, uint8_t texture_idx, voi
 	}
 }
 
-void cached_destroy(void* ctx_ptr);
-void cached_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
-void cached_on_char(void* ctx_ptr, unsigned int codepoint);
-void cached_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods);
-void cached_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
-void cached_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
-void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
+void aligns_destroy(void* ctx_ptr);
+void aligns_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
+void aligns_on_char(void* ctx_ptr, unsigned int codepoint);
+void aligns_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods);
+void aligns_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
+void aligns_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
+void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* cached_create(void)
+void* aligns_create(void)
 {
-	cached_context_t* ctx = skb_malloc(sizeof(cached_context_t));
-	memset(ctx, 0, sizeof(cached_context_t));
+	aligns_context_t* ctx = skb_malloc(sizeof(aligns_context_t));
+	memset(ctx, 0, sizeof(aligns_context_t));
 
-	ctx->base.create = cached_create;
-	ctx->base.destroy = cached_destroy;
-	ctx->base.on_key = cached_on_key;
-	ctx->base.on_char = cached_on_char;
-	ctx->base.on_mouse_button = cached_on_mouse_button;
-	ctx->base.on_mouse_move = cached_on_mouse_move;
-	ctx->base.on_mouse_scroll = cached_on_mouse_scroll;
-	ctx->base.on_update = cached_on_update;
+	ctx->base.create = aligns_create;
+	ctx->base.destroy = aligns_destroy;
+	ctx->base.on_key = aligns_on_key;
+	ctx->base.on_char = aligns_on_char;
+	ctx->base.on_mouse_button = aligns_on_mouse_button;
+	ctx->base.on_mouse_move = aligns_on_mouse_move;
+	ctx->base.on_mouse_scroll = aligns_on_mouse_scroll;
+	ctx->base.on_update = aligns_on_update;
+
+	ctx->wrap = SKB_WRAP_WORD;
+	ctx->overflow = SKB_OVERFLOW_ELLIPSIS;
+	ctx->vert_trim = SKB_VERTICAL_TRIM_DEFAULT;
+	ctx->example_text_idx = 1;
+	ctx->layout_size_idx = 1;
 
 	ctx->atlas_scale = 0.0f;
 
@@ -115,13 +127,13 @@ void* cached_create(void)
 	return ctx;
 
 error:
-	cached_destroy(ctx);
+	aligns_destroy(ctx);
 	return NULL;
 }
 
-void cached_destroy(void* ctx_ptr)
+void aligns_destroy(void* ctx_ptr)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	skb_layout_cache_destroy(ctx->layout_cache);
@@ -130,17 +142,35 @@ void cached_destroy(void* ctx_ptr)
 	skb_font_collection_destroy(ctx->font_collection);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
-	memset(ctx, 0, sizeof(cached_context_t));
+	memset(ctx, 0, sizeof(aligns_context_t));
 
 	skb_free(ctx);
 }
 
-void cached_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
+static uint8_t inc_wrap(uint8_t n, uint8_t max)
 {
-	cached_context_t* ctx = ctx_ptr;
+	if ((n+1) >= max) return 0;
+	return n + 1;
+}
+
+void aligns_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
+{
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (action == GLFW_PRESS) {
+
+		if (key == GLFW_KEY_F4)
+			ctx->layout_size_idx = inc_wrap(ctx->layout_size_idx, 3);
+		if (key == GLFW_KEY_F5)
+			ctx->example_text_idx = inc_wrap(ctx->example_text_idx, 3);
+		if (key == GLFW_KEY_F6)
+			ctx->wrap = inc_wrap(ctx->wrap, 3);
+		if (key == GLFW_KEY_F7)
+			ctx->overflow = inc_wrap(ctx->overflow, 3);
+		if (key == GLFW_KEY_F8)
+			ctx->vert_trim = inc_wrap(ctx->vert_trim, 2);
+
 		if (key == GLFW_KEY_F9) {
 			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
 		}
@@ -158,15 +188,15 @@ void cached_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int m
 	}
 }
 
-void cached_on_char(void* ctx_ptr, unsigned int codepoint)
+void aligns_on_char(void* ctx_ptr, unsigned int codepoint)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 }
 
-void cached_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods)
+void aligns_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int button, int action, int mods)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
@@ -184,9 +214,9 @@ void cached_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int but
 	}
 }
 
-void cached_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
+void aligns_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	if (ctx->drag_view) {
@@ -194,22 +224,33 @@ void cached_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 	}
 }
 
-void cached_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods)
+void aligns_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	const float zoom_speed = 0.2f;
 	view_scroll_zoom(&ctx->view, mouse_x, mouse_y, delta_y * zoom_speed);
 }
 
-static void render_text(cached_context_t* ctx, float x, float y, float font_size, skb_weight_t font_weight, skb_color_t color, const char* text)
+static void render_text(
+	aligns_context_t* ctx,
+	float x, float y, float width, float height,
+	skb_align_t h_align, skb_align_t v_align, skb_baseline_t baseline_align,
+	skb_text_wrap_t text_wrap, skb_text_overflow_t text_overflow, skb_vertical_trim_t vertical_trim,
+	float font_size, skb_weight_t font_weight, skb_color_t color, const char* text)
 {
 	skb_layout_params_t params = {
 		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+		.layout_width = width,
+		.layout_height = height,
+		.horizontal_align = (uint8_t)h_align,
+		.vertical_align =  (uint8_t)v_align,
+		.text_wrap = (uint8_t)text_wrap,
+		.text_overflow = (uint8_t)text_overflow,
+		.baseline_align = (uint8_t)baseline_align,
+		.vertical_trim = (uint8_t)vertical_trim,
 	};
 
 	const skb_attribute_t attributes[] = {
@@ -219,6 +260,12 @@ static void render_text(cached_context_t* ctx, float x, float y, float font_size
 
 	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, attributes, SKB_COUNTOF(attributes));
 	assert(layout);
+
+	skb_rect2_t bounds = skb_layout_get_bounds(layout);
+	bounds.x += x;
+	bounds.y += y;
+	bounds = view_transform_rect(&ctx->view, bounds);
+	draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,64));
 
 	// Draw layout
 	const skb_layout_line_t* lines = skb_layout_get_lines(layout);
@@ -259,9 +306,9 @@ static void render_text(cached_context_t* ctx, float x, float y, float font_size
 	}
 }
 
-void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
+void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
-	cached_context_t* ctx = ctx_ptr;
+	aligns_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
 	draw_line_width(1.f);
@@ -277,10 +324,69 @@ void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	// Draw visual result
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	render_text(ctx, 0.f, 0.f, 15.f, SKB_WEIGHT_NORMAL, ink_color_trans, "Moikka");
-	render_text(ctx, 0.f, 20.f, 35.f, SKB_WEIGHT_BOLD, skb_rgba(255,0,0,255), "Tsuiba! 123");
-	render_text(ctx, 0.f, 70.f, 15.f, SKB_WEIGHT_NORMAL, skb_rgba(255,0,0,255), "😬👀🚨");
 
+	const float layout_sizes[] = {
+		200.f, 40.f,
+		100.f, 100.f,
+		300.f, 200.f,
+	};
+
+	float x = 0.f;
+	float y = 0.f;
+
+	float layout_width = layout_sizes[ctx->layout_size_idx * 2 + 0];
+	float layout_height = layout_sizes[ctx->layout_size_idx * 2 + 1];
+
+	const char* align_labels[] = { "Start", "Center", "End" };
+	const char* wrap_labels[] = { "None", "Word", "Word & Char" };
+	const char* overflow_labels[] = { "None", "Clip", "Ellipsis" };
+	const char* vert_trim_labels[] = { "Ascender to Descender", "Cap Height to Baseline" };
+
+	const char* example_text[] = { "Halló fjörður!", "Quick brown hamburgerfontstiv with aïoli.", "أَفَإِستَسقَينَاكُمُوها این یک" };
+
+	{
+		{
+			skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){x, y});
+			draw_text(p.x,p.y, 12 * ctx->view.scale, 0.f, skb_rgba(0,0,0,255), "Wrap (F6): %s   Overflow (F7): %s   Vert trim (F8): %s",
+				wrap_labels[ctx->wrap], overflow_labels[ctx->overflow], vert_trim_labels[ctx->vert_trim]);
+			y += 50.f;
+		}
+
+		for (uint8_t valign = 0; valign < 3; valign++) {
+
+			{
+				skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){x - 10.f, y + layout_height * 0.5f + 6});
+				draw_text(p.x,p.y, 12 * ctx->view.scale, 1.f, skb_rgba(0,0,0,128), align_labels[valign]);
+			}
+
+			for (uint8_t halign = 0; halign < 3; halign++) {
+				float tx = x + halign * (layout_width + 120.f);
+				float ty = y;
+
+				if (valign == 0) {
+					skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){tx + layout_width * 0.5f, ty - 10.f});
+					draw_text(p.x,p.y, 12 * ctx->view.scale, 0.5f, skb_rgba(0,0,0,128), align_labels[halign]);
+				}
+
+				skb_rect2_t rect = {
+					.x = tx,
+					.y = ty,
+					.width = layout_width,
+					.height = layout_height,
+				};
+				rect = view_transform_rect(&ctx->view, rect);
+
+				draw_rect(rect.x, rect.y, rect.width, rect.height, skb_rgba(255,192,0,255));
+
+				render_text(ctx, tx, ty, layout_width, layout_height,
+					(skb_align_t)halign, (skb_align_t)valign, SKB_BASELINE_ALPHABETIC,
+					(skb_text_wrap_t)ctx->wrap, (skb_text_overflow_t)ctx->overflow, (skb_vertical_trim_t)ctx->vert_trim,
+					24.f, SKB_WEIGHT_REGULAR, skb_rgba(0,0,0,255), example_text[ctx->example_text_idx]);
+
+			}
+			y += layout_height + 120.f;
+		}
+	}
 
 	// Update atlas and textures
 	if (skb_image_atlas_rasterize_missing_items(ctx->atlas, ctx->temp_alloc, ctx->rasterizer)) {
@@ -308,7 +414,7 @@ void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),
-		"RMB: Pan view   Wheel: Zoom View   F9: Glyph details %s   F10: Atlas %.1f%%",
+		"RMB: Pan view   Wheel: Zoom View   F4: Change layout size   F5: Change example text   F9: Glyph details %s   F10: Atlas %.1f%%",
 		ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
 
 }

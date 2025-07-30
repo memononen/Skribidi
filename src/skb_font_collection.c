@@ -208,6 +208,10 @@ static bool skb__font_create_from_face(skb_font_t* font, hb_face_t* face, const 
 	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_X_HEIGHT, &x_height);
 	font->metrics.x_height = -(float)x_height * font->upem_scale;
 
+	hb_position_t cap_height;
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_CAP_HEIGHT, &cap_height);
+	font->metrics.cap_height = -(float)cap_height * font->upem_scale;
+
 	hb_position_t underline_offset;
 	hb_position_t underline_size;
 	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_UNDERLINE_OFFSET, &underline_offset);

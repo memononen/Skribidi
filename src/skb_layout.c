@@ -57,16 +57,22 @@ typedef struct skb_layout_t {
 	uint8_t resolved_direction;
 } skb_layout_t;
 
-
 uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t* params)
 {
 	hash = skb_hash64_append_uint32(hash, params->font_collection ? skb_font_collection_get_id(params->font_collection) : 0);
 	hash = skb_hash64_append_str(hash, params->lang);
-	hash = skb_hash64_append_float(hash, params->line_break_width);
 	hash = skb_hash64_append_float(hash, params->origin.x);
 	hash = skb_hash64_append_float(hash, params->origin.y);
-	hash = skb_hash64_append_uint8(hash, params->flags);
+	hash = skb_hash64_append_float(hash, params->layout_width);
+	hash = skb_hash64_append_float(hash, params->layout_height);
 	hash = skb_hash64_append_uint8(hash, params->base_direction);
+	hash = skb_hash64_append_uint8(hash, params->text_wrap);
+	hash = skb_hash64_append_uint8(hash, params->text_overflow);
+	hash = skb_hash64_append_uint8(hash, params->vertical_trim);
+	hash = skb_hash64_append_uint8(hash, params->horizontal_align);
+	hash = skb_hash64_append_uint8(hash, params->vertical_align);
+	hash = skb_hash64_append_uint8(hash, params->baseline_align);
+	hash = skb_hash64_append_uint8(hash, params->flags);
 
 	return hash;
 }
@@ -678,15 +684,35 @@ static bool skb__glyphs_span_iterator_next(skb__glyphs_span_iter_t* iter, skb_ra
 	return true;
 }
 
+static float skb__calc_align(skb_align_t align, float size, float container_size)
+{
+	if (align == SKB_ALIGN_START)
+		return 0.f;
+	if (align == SKB_ALIGN_END)
+		return container_size - size;
+	if (align == SKB_ALIGN_CENTER)
+		return (container_size - size) / 2.f;
+	return 0.f;
+}
 
-void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_vec2_t origin, float line_break_width, bool ignore_hard_breaks)
+static skb_align_t skb_get_directional_align(bool is_rtl, skb_align_t align)
+{
+	if (is_rtl) {
+		if (align == SKB_ALIGN_START)
+			return SKB_ALIGN_END;
+		if (align == SKB_ALIGN_END)
+			return SKB_ALIGN_START;
+	}
+	return align;
+}
+
+void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 {
 	// Sort glyphs in logical order, word breaks must be done in logical order.
 	qsort(layout->glyphs, layout->glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_logical);
 
-	// Threat zero is not set.
-	if (line_break_width < 0.001f)
-		line_break_width = FLT_MAX;
+	skb_vec2_t origin = layout->params.origin;
+	const bool ignore_must_breaks = layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
 
 	layout->bounds.x = origin.x;
 	layout->bounds.y = origin.y;
@@ -700,137 +726,151 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 	cur_line->glyph_range.start = 0;
 	cur_line->glyph_range.end = 0;
 
-	int32_t glyph_idx = 0;
-	while (glyph_idx < layout->glyphs_count) {
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+	const float line_break_width = layout->params.layout_width;
+	const skb_text_wrap_t text_wrap = layout->params.text_wrap;
+	const skb_text_overflow_t text_overflow = layout->params.text_overflow;
 
-		// Calc run up to the next line break.
-		int32_t glyph_run_start = glyph_idx;
-		int32_t glyph_run_end = glyph_idx;
+	if (text_wrap == SKB_WRAP_NONE) {
+		// No wrapping, all glyphs in one line.
+		cur_line->glyph_range.start = 0;
+		cur_line->glyph_range.end = layout->glyphs_count;
 
-		float run_end_whitespace_width = 0.f;
-		float run_width = 0.f;
+		// Update bounds
+		for (int32_t i = 0; i < layout->glyphs_count; i++)
+			cur_line->bounds.width += layout->glyphs[i].advance_x;
 
-		bool must_break = false;
-		while (glyph_run_end < layout->glyphs_count) {
+	} else {
+		// Wrapping
+		int32_t glyph_idx = 0;
+		while (glyph_idx < layout->glyphs_count) {
 
-			// Advance whole glyph cluster, cannot split in between.
-			float cluster_width = layout->glyphs[glyph_run_end].advance_x;
-			const int32_t cluster_start = layout->glyphs[glyph_run_end].text_range.start;
-			while ((glyph_run_end+1) < layout->glyphs_count && layout->glyphs[glyph_run_end+1].text_range.start == cluster_start) {
-				glyph_run_end++;
-				cluster_width += layout->glyphs[glyph_run_end].advance_x;
-			}
+			// Calc run up to the next line break.
+			int32_t glyph_run_start = glyph_idx;
+			int32_t glyph_run_end = glyph_idx;
 
-			const int cp_offset = layout->glyphs[glyph_run_end].text_range.end - 1;
+			float run_end_whitespace_width = 0.f;
+			float run_width = 0.f;
 
-			glyph_run_end++;
+			bool must_break = false;
+			while (glyph_run_end < layout->glyphs_count) {
 
-			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
-			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-			const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
-			const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
-			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
-			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
-			if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control)) {
-				run_end_whitespace_width += cluster_width;
-			} else {
-				if (run_end_whitespace_width > 0.f) {
-					run_width += run_end_whitespace_width;
-					run_end_whitespace_width = 0.f;
+				// Advance whole glyph cluster, cannot split in between.
+				float cluster_width = layout->glyphs[glyph_run_end].advance_x;
+				const int32_t cluster_start = layout->glyphs[glyph_run_end].text_range.start;
+				while ((glyph_run_end+1) < layout->glyphs_count && layout->glyphs[glyph_run_end+1].text_range.start == cluster_start) {
+					glyph_run_end++;
+					cluster_width += layout->glyphs[glyph_run_end].advance_x;
 				}
-				run_width += cluster_width;
-			}
 
-			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
-				must_break = true;
-				break;
-			}
-			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK)
-				break;
-		}
+				const int cp_offset = layout->glyphs[glyph_run_end].text_range.end - 1;
 
-		if (run_width > line_break_width) {
-			// The run is longer than the whole line, split it into pieces.
+				glyph_run_end++;
 
-			// If the line is almost full, start from new line.
-			if (cur_line->bounds.width > line_break_width*0.75f) {
-				// New line
-				SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
-				cur_line = &layout->lines[layout->lines_count++];
-				memset(cur_line, 0, sizeof(skb_layout_line_t));
-				cur_line->bounds.width = 0.f;
-				cur_line->glyph_range.start = glyph_run_start;
-				cur_line->glyph_range.end = glyph_run_start;
-			}
+				// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
+				// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
+				const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
+				const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+				const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
+				if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control)) {
+					run_end_whitespace_width += cluster_width;
+				} else {
+					if (run_end_whitespace_width > 0.f) {
+						run_width += run_end_whitespace_width;
+						run_end_whitespace_width = 0.f;
+					}
+					run_width += cluster_width;
+				}
 
-			// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
-			// TODO: we should use the info from harfbuzz to see where we can cut the glyph sequence.
-			run_width = 0.f;
-			for (int i = glyph_run_start; i < glyph_run_end; i++) {
-				if ((cur_line->bounds.width + run_width + layout->glyphs[i].advance_x) > line_break_width) {
-					// This glyph would overflow, stop here. run_end exclusive, so one past the last valid index.
-					glyph_run_end = i;
+				if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
+					must_break = true;
 					break;
 				}
-				run_width += layout->glyphs[i].advance_x;
-			}
-			// Consume at least one character so that we don't get stuck.
-			if (glyph_run_start == glyph_run_end) {
-				run_width = layout->glyphs[glyph_run_start].advance_x;
-				glyph_run_end = glyph_run_start + 1;
+				if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK)
+					break;
 			}
 
-			// Update width so far.
-			cur_line->bounds.width += run_width;
-			cur_line->glyph_range.end = glyph_run_end;
-		} else {
-			// If the word does not fit, start a new line
-			if ((cur_line->bounds.width + run_width) > line_break_width) {
-				SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
-				cur_line = &layout->lines[layout->lines_count++];
-				memset(cur_line, 0, sizeof(skb_layout_line_t));
-				cur_line->bounds.width = 0.f;
-				cur_line->glyph_range.start = glyph_run_start;
-				cur_line->glyph_range.end = glyph_run_start;
-			}
+			if (text_wrap == SKB_WRAP_WORD_CHAR && run_width > line_break_width) {
+				// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
 
-			// Update width so far.
-			cur_line->bounds.width += run_width + run_end_whitespace_width;
-			cur_line->glyph_range.end = glyph_run_end;
+				// Start a  new line
+				if (cur_line->glyph_range.start != cur_line->glyph_range.end) {
+					SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
+					cur_line = &layout->lines[layout->lines_count++];
+					memset(cur_line, 0, sizeof(skb_layout_line_t));
+					cur_line->bounds.width = 0.f;
+					cur_line->glyph_range.start = glyph_run_start;
+					cur_line->glyph_range.end = glyph_run_start;
+				}
 
-			if (must_break && !ignore_hard_breaks) {
-				// Line break character start a new line.
-				SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
-				cur_line = &layout->lines[layout->lines_count++];
-				memset(cur_line, 0, sizeof(skb_layout_line_t));
-				cur_line->bounds.width = 0.f;
-				cur_line->glyph_range.start = glyph_run_end; // Using run end here, since we have already committed the start-end to the current line.
+				// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
+				// TODO: we should use the info from harfbuzz to see where we can cut the glyph sequence.
+				run_width = 0.f;
+				for (int i = glyph_run_start; i < glyph_run_end; i++) {
+					if ((cur_line->bounds.width + run_width + layout->glyphs[i].advance_x) > line_break_width) {
+						// This glyph would overflow, stop here. run_end is exclusive, so one past the last valid index.
+						glyph_run_end = i;
+						break;
+					}
+					run_width += layout->glyphs[i].advance_x;
+				}
+				// Consume at least one character so that we don't get stuck.
+				if (glyph_run_start == glyph_run_end) {
+					run_width = layout->glyphs[glyph_run_start].advance_x;
+					glyph_run_end = glyph_run_start + 1;
+				}
+
+				// Update width so far.
+				cur_line->bounds.width += run_width;
 				cur_line->glyph_range.end = glyph_run_end;
-			}
-		}
+			} else {
+				// If the word does not fit, start a new line (unless it's an empty line).
+				if (cur_line->glyph_range.start != cur_line->glyph_range.end && (cur_line->bounds.width + run_width) > line_break_width) {
+					SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
+					cur_line = &layout->lines[layout->lines_count++];
+					memset(cur_line, 0, sizeof(skb_layout_line_t));
+					cur_line->bounds.width = 0.f;
+					cur_line->glyph_range.start = glyph_run_start;
+					cur_line->glyph_range.end = glyph_run_start;
+				}
 
-		glyph_idx = glyph_run_end;
+				// Update width so far.
+				cur_line->bounds.width += run_width + run_end_whitespace_width;
+				cur_line->glyph_range.end = glyph_run_end;
+
+				if (must_break && !ignore_must_breaks) {
+					// Line break character start a new line.
+					SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
+					cur_line = &layout->lines[layout->lines_count++];
+					memset(cur_line, 0, sizeof(skb_layout_line_t));
+					cur_line->bounds.width = 0.f;
+					cur_line->glyph_range.start = glyph_run_end; // Using run end here, since we have already committed the start-end to the current line.
+					cur_line->glyph_range.end = glyph_run_end;
+				}
+			}
+
+			glyph_idx = glyph_run_end;
+		}
 	}
 
-	float max_line_width = 0.f;
+	// Update line heights
+	float calculated_height = 0.f;
+	float first_line_cap_height = 0.f;
 
-	// Update lines
+	const float max_height = layout->params.layout_height;
+	bool last_line_ellipsis = false;
+
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
 		float line_height = 0.f;
 
 		if (line->glyph_range.start != line->glyph_range.end) {
-			// The line is still in logical order, grab the text range.
+			// The line is still in logical order and not truncated for overflow, grab the text range.
 			line->text_range.start = layout->glyphs[line->glyph_range.start].text_range.start;
 			line->text_range.end = layout->glyphs[line->glyph_range.end - 1].text_range.end;
-
 			// Find beginning of the last grapheme on the line (needed or caret positioning, etc).
 			line->last_grapheme_offset = skb_layout_align_grapheme_offset(layout, line->text_range.end - 1);
-
-			// Sort back to visual order.
-			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
-			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
 
 			skb_font_handle_t prev_font_handle = 0;
 			int32_t prev_span_idx = -1;
@@ -850,13 +890,15 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
 
 					skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
-					const float baseline = skb_font_get_baseline(layout->params.font_collection, glyph->font_handle, layout->params.baseline, text_prop.direction, text_prop.script, attr_font.size);
+					const float baseline = skb_font_get_baseline(layout->params.font_collection, glyph->font_handle, layout->params.baseline_align, text_prop.direction, text_prop.script, attr_font.size);
 
 					baseline_align_offset = -baseline;
 
 					line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
 					line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size - baseline);
 					line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size - baseline);
+					if (li == 0)
+						first_line_cap_height = skb_minf(first_line_cap_height, font->metrics.cap_height * attr_font.size - baseline);
 				}
 
 				glyph->offset_y += baseline_align_offset;
@@ -883,21 +925,178 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 				line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
 				line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size);
 				line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size);
+				if (li == 0)
+					first_line_cap_height = font->metrics.cap_height * attr_font.size;
 			}
 		}
+
+		if (text_overflow != SKB_OVERFLOW_NONE) {
+			if (li > 0 && (calculated_height + line_height) > max_height) {
+				// The line will overflow the max height for the layout, trim this and any following lines.
+				layout->lines_count = li;
+				// Force to ellipsize the last visible line, if overflow is ellipsis.
+				last_line_ellipsis = text_overflow == SKB_OVERFLOW_ELLIPSIS;
+				break;
+			}
+		}
+
 		line->bounds.height = line_height;
-		max_line_width = skb_maxf(max_line_width, line->bounds.width);
+		calculated_height += line_height;
 	}
 
-	if (line_break_width < FLT_MAX)
-		max_line_width = skb_maxf(max_line_width, line_break_width);
-
-	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
-	float top_y = 0.f;
+	// Handle overflow and calculate line widths
+	float calculated_width = 0.f;
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
-		// Update line bounds
+		const bool is_last_line = li == (layout->lines_count-1);
+		const bool force_ellipsis = is_last_line && last_line_ellipsis;
+		if (text_overflow != SKB_OVERFLOW_NONE || force_ellipsis) {
+			if (line->bounds.width > line_break_width || force_ellipsis) {
+				if (text_overflow == SKB_OVERFLOW_ELLIPSIS || force_ellipsis) {
+					// Prune the glyphs that overflow the max line width.
+					const int32_t start_glyph_range_end = line->glyph_range.end;
+					int32_t last_pruned_glyph_idx = line->glyph_range.end - 1;
+					while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > line_break_width) {
+						const int32_t glyph_idx = line->glyph_range.end - 1;
+						last_pruned_glyph_idx = glyph_idx;
+						line->bounds.width -= layout->glyphs[glyph_idx].advance_x;
+						line->glyph_range.end--;
+					}
+
+					// Prune any trailing spaces
+					while (line->glyph_range.end > line->glyph_range.start) {
+						const int32_t glyph_idx = line->glyph_range.end - 1;
+						const int cp_offset = layout->glyphs[glyph_idx].text_range.end - 1;
+						const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+						if (!codepoint_is_whitespace)
+							break;
+						last_pruned_glyph_idx = glyph_idx;
+						line->bounds.width -= layout->glyphs[glyph_idx].advance_x;
+						line->glyph_range.end--;
+					}
+
+					if (last_pruned_glyph_idx != SKB_INVALID_INDEX) {
+						// Get out text attributes for the ellipsis from the last pruned glyph.
+						const uint16_t span_idx = layout->glyphs[last_pruned_glyph_idx].span_idx;
+						const skb_font_handle_t font_handle = layout->glyphs[last_pruned_glyph_idx].font_handle;
+
+						// We expect these to exist, since they were calculated earlier.
+						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, font_handle);
+						const skb_text_attributes_span_t* span = &layout->attribute_spans[span_idx];
+						assert(font);
+						assert(span);
+
+						// Figure out ellipsis size.
+						const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+
+						// Try to use the actual ellipsis character, but fall back to 3 periods.
+						int32_t ellipsis_glyph_count = 0;
+						hb_codepoint_t ellipsis_gid = 0;
+						if (hb_font_get_glyph(font->hb_font, 0x2026 /*ellipsis*/, 0, &ellipsis_gid)) {
+							ellipsis_glyph_count = 1;
+						}
+						else if (hb_font_get_glyph(font->hb_font, 0x2e /*period*/, 0, &ellipsis_gid)) {
+							ellipsis_glyph_count = 3;
+						}
+
+						if (ellipsis_glyph_count > 0) {
+							const float scale = attr_font.size * font->upem_scale;
+							const float ellipsis_x_advance = (float)hb_font_get_glyph_h_advance(font->hb_font, ellipsis_gid) * scale;
+							const float ellipsis_width = ellipsis_x_advance * (float)ellipsis_glyph_count;
+
+							// Prune until the ellipsis fits.
+							const float max_line_width = line_break_width - ellipsis_width;
+							while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > max_line_width) {
+								line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
+								line->glyph_range.end--;
+							}
+
+							// Prune glyphs to fit all the ellipsis characters, but always keep at least one glyph from the text.
+							// This should not generally happen, but makes the worst case ellipsis is as good as it can get, without having to realloc the glyphs.
+							const int32_t min_req_glyph_count = skb_maxi(line->glyph_range.start + 1, start_glyph_range_end - ellipsis_glyph_count);
+							while (line->glyph_range.end > min_req_glyph_count) {
+								line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
+								line->glyph_range.end--;
+							}
+
+							// Find out the visual index range, so that we can place the ellipsis chars at right place.
+							int32_t min_visual_idx = INT32_MAX;
+							int32_t max_visual_idx = -1;
+							for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
+								min_visual_idx = skb_mini(min_visual_idx, layout->glyphs[gi].visual_idx);
+								max_visual_idx = skb_maxi(max_visual_idx, layout->glyphs[gi].visual_idx);
+							}
+							int32_t visual_idx = layout_is_rtl ? (min_visual_idx - ellipsis_glyph_count - 1) : (max_visual_idx + 1);
+
+							// Add ellipsis glyphs
+							for (int32_t i = 0; i < ellipsis_glyph_count && line->glyph_range.end < start_glyph_range_end; i++) {
+								skb_glyph_t glyph = {0};
+								glyph.offset_x = 0.f;
+								glyph.offset_y = 0.f;
+								glyph.advance_x = ellipsis_x_advance;
+								glyph.visual_idx = visual_idx++;
+								glyph.text_range = (skb_range_t){0}; // TODO: should this be the trimmed text?
+								glyph.gid = (uint16_t)ellipsis_gid;
+								glyph.span_idx = span_idx;
+								glyph.font_handle = font_handle;
+								layout->glyphs[line->glyph_range.end++] = glyph;
+
+								line->bounds.width += ellipsis_x_advance;
+							}
+						}
+					}
+				} else if (text_overflow == SKB_OVERFLOW_CLIP) {
+					// Prune the glyphs that overflow the max line width.
+					while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > line_break_width) {
+						line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
+						line->glyph_range.end--;
+					}
+				}
+			}
+		}
+
+		calculated_width = skb_maxf(calculated_width, line->bounds.width);
+	}
+
+	// Sort the glyphs back to visual order
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		skb_layout_line_t* line = &layout->lines[li];
+		if (line->glyph_range.start != line->glyph_range.end) {
+			// Sort back to visual order.
+			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
+			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
+		}
+	}
+
+	if (layout->params.vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
+		// Adjust the calculated_height so that first line only accounts for cap height (not all the way to ascender), and last line does not count descender.
+		const float first_line_ascender = layout->lines[0].ascender;
+		const float height_diff = first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
+		calculated_height -= height_diff;
+		const float last_line_descender = layout->lines[layout->lines_count-1].descender;
+		calculated_height -= last_line_descender;
+	}
+
+	// Align layout
+	layout->bounds.x = origin.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, layout->params.horizontal_align), calculated_width, layout->params.layout_width);
+	layout->bounds.y = origin.y + skb__calc_align(layout->params.vertical_align, calculated_height, layout->params.layout_height);
+	layout->bounds.width = calculated_width;
+	layout->bounds.height = calculated_height;
+
+	float start_y = layout->bounds.y;
+
+	if (layout->params.vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
+		// Adjust start position so that the top is aligned to cap height.
+		const float first_line_ascender = layout->lines[0].ascender;
+		const float height_diff = first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
+		start_y -= height_diff;
+	}
+
+	// Align lines
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		skb_layout_line_t* line = &layout->lines[li];
+
 		float start_x = 0.f;
 		if (layout_is_rtl) {
 			// Prune space used by whitespace or control characters.
@@ -910,14 +1109,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					break;
 			}
 			line->bounds.width -= whitespace_width;
-
-			if (layout->params.align == SKB_ALIGN_START)
-				line->bounds.x = origin.x + (max_line_width - line->bounds.width);
-			else if (layout->params.align == SKB_ALIGN_END)
-				line->bounds.x = origin.x;
-			else if (layout->params.align == SKB_ALIGN_CENTER)
-				line->bounds.x = origin.x + (max_line_width - line->bounds.width) / 2.f;
-
+			line->bounds.x = layout->bounds.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, layout->params.horizontal_align), line->bounds.width, calculated_width);
 			start_x = line->bounds.x - whitespace_width;
 
 		} else {
@@ -931,18 +1123,11 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 					break;
 			}
 			line->bounds.width -= whitespace_width;
-
-			if (layout->params.align == SKB_ALIGN_START)
-				line->bounds.x = origin.x;
-			else if (layout->params.align == SKB_ALIGN_END)
-				line->bounds.x = origin.x + (max_line_width - line->bounds.width);
-			else if (layout->params.align == SKB_ALIGN_CENTER)
-				line->bounds.x = origin.x + (max_line_width - line->bounds.width) / 2.f;
-
+			line->bounds.x = layout->bounds.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, layout->params.horizontal_align), line->bounds.width, calculated_width);
 			start_x = line->bounds.x;
 		}
 
-		line->bounds.y = origin.y + top_y;
+		line->bounds.y = start_y;
 
 		// Update glyph offsets
 		const float leading = line->bounds.height - (-line->ascender + line->descender);
@@ -957,7 +1142,7 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 			cur_x += glyph->advance_x;
 		}
 
-		top_y += line->bounds.height;
+		start_y += line->bounds.height;
 	}
 
 	// Build decorations.
@@ -1073,9 +1258,6 @@ void skb__break_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, skb_ve
 
 		line->decorations_range.end = layout->decorations_count;
 	}
-
-	layout->bounds.width = max_line_width;
-	layout->bounds.height = top_y;
 }
 
 typedef struct skb__script_run_iter_t {
@@ -1544,7 +1726,7 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	}
 
 	// Break layout to lines.
-	skb__break_lines(layout, temp_alloc, layout->params.origin, layout->params.line_break_width, layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS);
+	skb__layout_lines(layout, temp_alloc);
 }
 
 

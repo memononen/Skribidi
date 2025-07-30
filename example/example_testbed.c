@@ -211,7 +211,8 @@ void* testbed_create(void)
 			.lang = "zh-hans",
 			.base_direction = SKB_DIRECTION_AUTO,
 			.font_collection = ctx->font_collection,
-			.line_break_width = 1200.f,
+			.layout_width = 1200.f,
+			.text_wrap = SKB_WRAP_WORD_CHAR,
 		},
 		.text_attributes = attributes,
 		.text_attributes_count = SKB_COUNTOF(attributes),
@@ -495,7 +496,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		float oy = ctx->view.cy;
 
 		// line break boundaries
-		const float line_break_width = skb_editor_get_params(ctx->editor)->layout_params.line_break_width;
+		const float line_break_width = skb_editor_get_params(ctx->editor)->layout_params.layout_width;
 		draw_dashed_line(ox, oy-50, ox, oy+layout_height+50, 6, ink_color_trans);
 		draw_dashed_line(ox+line_break_width, oy+50, ox+line_break_width, oy+layout_height+50, 6, ink_color_trans);
 
@@ -751,7 +752,6 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	{
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
 		const skb_attribute_font_t attr_font = skb_attributes_get_font(edit_params->text_attributes, edit_params->text_attributes_count);
-//		const skb_text_attribs_t* text_attribs = &edit_params->text_attributes;
 		float ox = ctx->view.cx;
 		float oy = ctx->view.cy + 30.f + layout_height + 80.f;
 		float sz = 80.f;
