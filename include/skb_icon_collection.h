@@ -47,6 +47,18 @@ skb_icon_collection_t* skb_icon_collection_create(void);
 void skb_icon_collection_destroy(skb_icon_collection_t* icon_collection);
 
 /**
+ * Adds PicoSVG to the icon collection from memory.
+ * Note: the icon is parsed during the function and icon_data is not stored for later use.
+ * @param icon_collection icon collection to use.
+ * @param name name of the icon (used for querying).
+ * @param icon_data pointer to the icon data to add.
+ * @param icon_data_length length of the data in icon_data in bytes.
+ * @return pointer to the added icon, or NULL if failed.
+ */
+skb_icon_handle_t skb_icon_collection_add_picosvg_icon_from_data(skb_icon_collection_t* icon_collection, const char* name, const char* icon_data, const int32_t icon_data_length);
+
+#if !defined(SKB_NO_OPEN)
+/**
  * Adds PicoSVG to the icon collection.
  * @param icon_collection icon collection to use.
  * @param name name of the icon (used for querying).
@@ -54,6 +66,7 @@ void skb_icon_collection_destroy(skb_icon_collection_t* icon_collection);
  * @return pointer to the added icon, or NULL if failed.
  */
 skb_icon_handle_t skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_collection, const char* name, const char* file_name);
+#endif // !defined(SKB_NO_OPEN)
 
 /**
  * Adds an empty icon of specified name and size.

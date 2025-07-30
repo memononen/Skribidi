@@ -90,6 +90,9 @@ void* skb_realloc(void* ptr, size_t new_size);
  */
 void skb_free(void* ptr);
 
+/** Signature of destroy function */
+typedef void skb_destroy_func_t(void *context);
+
 /**
  * Helper macro to reserve space in an allocated array.
  * The macro relies on naming convention, if your array is called 'apples', then it is expected

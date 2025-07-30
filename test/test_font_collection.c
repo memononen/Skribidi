@@ -4,7 +4,6 @@
 #include "test_macros.h"
 #include "skb_font_collection.h"
 #include "skb_layout.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
