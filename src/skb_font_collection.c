@@ -246,6 +246,7 @@ error:
 	return false;
 }
 
+#if !defined(SKB_NO_OPEN)
 static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
 {
 	hb_blob_t* blob = NULL;
@@ -272,6 +273,7 @@ error:
 	hb_face_destroy(face);
 	return false;
 }
+#endif // !defined(SKB_NO_OPEN)
 
 static bool skb__font_create_from_data(
 	skb_font_t* font,
@@ -344,6 +346,7 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
 	font_collection->fallback_context = context;
 }
 
+#if !defined(SKB_NO_OPEN)
 skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
 {
 	// Try to find free slot.
@@ -378,6 +381,7 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
 
 	return font->handle;
 }
+#endif // !defined SKB_NO_OPEN
 
 skb_font_handle_t skb_font_collection_add_font_from_data(
 	skb_font_collection_t* font_collection,
