@@ -294,7 +294,10 @@ static bool skb__font_create_from_data(
 	face = hb_face_create_or_fail(blob, 0);
 	if (!face) goto cleanup;
 
-	ok = skb__font_create_from_font(font, face, name, font_family);
+	hb_font = hb_font_create(face);
+	if (!hb_font) goto cleanup;
+
+	ok = skb__font_create_from_font(font, hb_font, name, font_family);
 
 cleanup:
 	hb_blob_destroy(blob);
@@ -425,6 +428,9 @@ skb_font_handle_t skb_font_collection_add_hb_font(
 		font->generation = generation;
 		return false;
 	}
+
+	font->generation = generation;
+	font->handle = skb__make_font_handle(font_idx, generation);
 
 	return font->handle;
 }
