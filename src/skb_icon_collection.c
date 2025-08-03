@@ -6,9 +6,12 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if !defined(SKB_NO_OPEN)
+#include <stdio.h>
+#endif // !defined(SKB_NO_OPEN)
 
 typedef struct skb__picosvg_gradient_name_t {
 	char id[32];
@@ -1290,14 +1293,31 @@ void skb_icon_collection_destroy(skb_icon_collection_t* icon_collection)
 	skb_free(icon_collection);
 }
 
+skb_icon_handle_t skb_icon_collection_add_picosvg_icon_from_data(skb_icon_collection_t* icon_collection, const char* name, const char* icon_data, const int32_t icon_data_length)
+{
+	skb_icon_handle_t icon_handle = skb_icon_collection_add_icon(icon_collection, name, 0.f, 0.f);
+	if (!icon_handle) return (skb_icon_handle_t)0;
 
+	skb__picosvg_parser_t svg;
+	skb__picosvg_init(&svg, skb__get_icon_by_handle(icon_collection, icon_handle));
+
+	if (!skb__xml_parse((skb__xml_str_t){ icon_data, icon_data + icon_data_length }, &skb__picosvg_start_element, &skb__picosvg_end_element, NULL, &svg)) {
+		skb_icon_collection_remove_icon(icon_collection, icon_handle);
+		icon_handle = 0;
+	}
+
+	skb__picosvg_destroy(&svg);
+
+	return icon_handle;
+}
+
+#if !defined(SKB_NO_OPEN)
 skb_icon_handle_t skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* icon_collection, const char* name, const char* file_name)
 {
-	skb_icon_t* result = NULL;
 	FILE* file = NULL;
-	uint8_t* buffer = NULL;
+	char* buffer = NULL;
 
-	int32_t name_len = strlen(name);
+	const int32_t name_len = strlen(name);
 	if (name_len <= 0) goto error;
 
 	file = fopen(file_name, "rb");
@@ -1305,31 +1325,22 @@ skb_icon_handle_t skb_icon_collection_add_picosvg_icon(skb_icon_collection_t* ic
 
 	// Get file size
 	fseek(file, 0, SEEK_END);
-	size_t buffer_size = ftell(file);
+	size_t buffer_length = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
 	// Allocate and read
-	buffer = skb_malloc(buffer_size);
+	buffer = skb_malloc(buffer_length);
 	if (!buffer) goto error;
 
-	if (fread(buffer, 1, buffer_size, file) != buffer_size)
+	if (fread(buffer, 1, buffer_length, file) != buffer_length)
 		goto error;
 
 	fclose(file);
 	file = NULL;
 
-	skb_icon_handle_t icon_handle = skb_icon_collection_add_icon(icon_collection, name, 0.f, 0.f);
+	skb_icon_handle_t icon_handle = skb_icon_collection_add_picosvg_icon_from_data(icon_collection, name, buffer, (int32_t)buffer_length);
 	if (!icon_handle) goto error;
 
-	skb__picosvg_parser_t svg;
-	skb__picosvg_init(&svg, skb__get_icon_by_handle(icon_collection, icon_handle));
-
-	if (!skb__xml_parse((skb__xml_str_t){ (char*)buffer, (char*)buffer + buffer_size }, &skb__picosvg_start_element, &skb__picosvg_end_element, NULL, &svg)) {
-		skb_icon_collection_remove_icon(icon_collection, icon_handle);
-		icon_handle = 0;
-	}
-
-	skb__picosvg_destroy(&svg);
 	skb_free(buffer);
 
 	return icon_handle;
@@ -1340,6 +1351,7 @@ error:
 
 	return (skb_icon_handle_t)0;
 }
+#endif // !defined(SKB_NO_OPEN)
 
 skb_icon_handle_t skb_icon_collection_find_icon(const skb_icon_collection_t* icon_collection, const char* name)
 {
