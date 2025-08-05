@@ -111,6 +111,7 @@ static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t*
 
 static void skb__reset_font(skb_font_t* font)
 {
+	// We must keep the generation even when the font is cleared, it is used to detect stale handles.
 	uint32_t generation = font->generation;
 	memset(font, 0, sizeof(skb_font_t));
 	font->generation = generation;
