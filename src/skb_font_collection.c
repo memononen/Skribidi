@@ -109,7 +109,14 @@ static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t*
 	hb_set_destroy(unicodes);
 }
 
-skb_font_handle_t skb__make_font_handle(int32_t index, uint32_t generation)
+static void skb__reset_font(skb_font_t* font)
+{
+	uint32_t generation = font->generation;
+	memset(font, 0, sizeof(skb_font_t));
+	font->generation = generation;
+}
+
+static skb_font_handle_t skb__make_font_handle(int32_t index, uint32_t generation)
 {
 	assert(index >= 0 && index <= 0xffff);
 	assert(generation >= 0 && generation <= 0xffff);
@@ -131,7 +138,7 @@ static inline skb_font_t* skb__get_font_unchecked(const skb_font_collection_t* f
 	return &font_collection->fonts[index];
 }
 
-static bool skb__font_create_from_font(skb_font_t* font, hb_font_t* hb_font, const char* name, uint8_t font_family)
+static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, const char* name, uint8_t font_family)
 {
 	skb__sb_tag_array_t scripts = {0};
 
@@ -158,8 +165,6 @@ static bool skb__font_create_from_font(skb_font_t* font, hb_font_t* hb_font, con
 	if (!hb_font) goto error;
 
 	// Initialize font.
-	memset(font, 0, sizeof(skb_font_t));
-
 	font->upem = (int)upem;
 	font->upem_scale = 1.f / (float)upem;
 
@@ -237,8 +242,7 @@ static bool skb__font_create_from_font(skb_font_t* font, hb_font_t* hb_font, con
 
 error:
 	skb_free(scripts.tags);
-
-	memset(font, 0, sizeof(skb_font_t));
+	skb__reset_font(font);
 
 	return false;
 }
@@ -262,7 +266,7 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 	hb_font = hb_font_create(face);
 	if (!hb_font) goto cleanup;
 
-	ok = skb__font_create_from_font(font, hb_font, path, font_family);
+	ok = skb__font_create_from_hb_font(font, hb_font, path, font_family);
 
 cleanup:
 	hb_blob_destroy(blob);
@@ -297,7 +301,7 @@ static bool skb__font_create_from_data(
 	hb_font = hb_font_create(face);
 	if (!hb_font) goto cleanup;
 
-	ok = skb__font_create_from_font(font, hb_font, name, font_family);
+	ok = skb__font_create_from_hb_font(font, hb_font, name, font_family);
 
 cleanup:
 	hb_blob_destroy(blob);
@@ -341,17 +345,17 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
 	font_collection->fallback_context = context;
 }
 
-static int32_t skb__font_alloc_free_idx(skb_font_collection_t* font_collection, uint32_t* generation)
+static skb_font_handle_t skb__alloc_font_handle(skb_font_collection_t* font_collection)
 {
 	int32_t font_idx = SKB_INVALID_INDEX;
-	*generation = 1;
+	uint32_t generation = 1;
 	if (font_collection->empty_fonts_count > 0 ) {
 		// Using linear search as we dont expect to have that many fonts loaded.
 		for (int32_t i = 0; i < font_collection->fonts_count; i++) {
 			if (font_collection->fonts[i].hash == 0) {
 				font_idx = i;
 				font_collection->empty_fonts_count--;
-				*generation = font_collection->fonts[i].generation;
+				generation = font_collection->fonts[i].generation;
 				break;
 			}
 		}
@@ -361,24 +365,24 @@ static int32_t skb__font_alloc_free_idx(skb_font_collection_t* font_collection, 
 	}
 	assert(font_idx != SKB_INVALID_INDEX);
 
-	return font_idx;
+	skb_font_t* font = &font_collection->fonts[font_idx];
+	memset(font, 0, sizeof(skb_font_t));
+
+	font->generation = generation;
+	font->handle = skb__make_font_handle(font_idx, generation);
+	return font->handle;
 }
 
 skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
 {
-	uint32_t generation;
-	int32_t font_idx = skb__font_alloc_free_idx(font_collection, &generation);
+	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
+	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
 
-	skb_font_t* font = &font_collection->fonts[font_idx];
 	if (!skb__font_create(font, file_name, font_family)) {
 		// skb__font_create() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
-		font->generation = generation;
 		return false;
 	}
-
-	font->generation = generation;
-	font->handle = skb__make_font_handle(font_idx, generation);
 
 	return font->handle;
 }
@@ -392,19 +396,14 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 	void* context,
 	skb_destroy_func_t* destroy_func)
 {
-	uint32_t generation;
-	int32_t font_idx = skb__font_alloc_free_idx(font_collection, &generation);
+	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
+	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
 
-	skb_font_t* font = &font_collection->fonts[font_idx];
 	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length, context, destroy_func)) {
 		// skb__font_create_from_data() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
-		font->generation = generation;
 		return false;
 	}
-
-	font->generation = generation;
-	font->handle = skb__make_font_handle(font_idx, generation);
 
 	return font->handle;
 }
@@ -415,22 +414,17 @@ skb_font_handle_t skb_font_collection_add_hb_font(
 	const char* name,
 	uint8_t font_family)
 {
-	uint32_t generation;
-	int32_t font_idx = skb__font_alloc_free_idx(font_collection, &generation);
+	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
+	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
 
 	// Increase the reference count
 	hb_font = hb_font_reference(hb_font);
 
-	skb_font_t* font = &font_collection->fonts[font_idx];
-	if (!skb__font_create_from_font(font, hb_font, name, font_family)) {
-		// skb__font_create_from_font() has emptied the font struct, indicate that we have one empty to use.
+	if (!skb__font_create_from_hb_font(font, hb_font, name, font_family)) {
+		// skb__font_create_from_hb_font() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
-		font->generation = generation;
 		return false;
 	}
-
-	font->generation = generation;
-	font->handle = skb__make_font_handle(font_idx, generation);
 
 	return font->handle;
 }
@@ -441,12 +435,9 @@ bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb
 	if (!font)
 		return false;
 
-	uint32_t generation = font->generation + 1;
-
+	font->generation++;
 	skb__font_destroy(font);
-	memset(font, 0, sizeof(skb_font_t));
-
-	font->generation = generation;
+	skb__reset_font(font);
 
 	return true;
 }
