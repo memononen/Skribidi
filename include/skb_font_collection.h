@@ -254,11 +254,11 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
  * Adds OTF or TTF font to the collection.
  * @param font_collection font collection to use.
  * @param hb_font a harfbuzz font instance. will be incref'd
- * @param file_name file name of the font to add.
+ * @param name used to uniquely identify the font.
  * @param font_family font family identifier.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, hb_font_t* hb_font, const char* file_name, uint8_t font_family);
+skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, hb_font_t* hb_font, const char* name, uint8_t font_family);
 
 /**
  * Removes font from the collection.
