@@ -247,6 +247,7 @@ error:
 	return false;
 }
 
+#if !defined(SKB_NO_OPEN)
 static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
 {
 	hb_blob_t* blob = NULL;
@@ -273,6 +274,7 @@ cleanup:
 	hb_face_destroy(face);
 	return ok;
 }
+#endif // !defined(SKB_NO_OPEN)
 
 static bool skb__font_create_from_data(
 	skb_font_t* font,
@@ -373,6 +375,7 @@ static skb_font_handle_t skb__alloc_font_handle(skb_font_collection_t* font_coll
 	return font->handle;
 }
 
+#if !defined(SKB_NO_OPEN)
 skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
 {
 	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
@@ -386,6 +389,7 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
 
 	return font->handle;
 }
+#endif // !defined SKB_NO_OPEN
 
 skb_font_handle_t skb_font_collection_add_font_from_data(
 	skb_font_collection_t* font_collection,

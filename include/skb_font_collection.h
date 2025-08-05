@@ -213,38 +213,13 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection);
  */
 void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context);
 
-/**
- * Adds OTF or TTF font to the collection.
- * @param font_collection font collection to use.
- * @param file_name file name of the font to add.
- * @param font_family font family identifier.
- * @return pointer to the added font, on NULL if failed to load the font.
- */
-skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family);
-
-/**
- * Adds OTF or TTF font to the collection.
- * @param font_collection font collection to use.
- * @param hb_font a harfbuzz font instance. will be incref'd
- * @param file_name file name of the font to add.
- * @param font_family font family identifier.
- * @return pointer to the added font, on NULL if failed to load the font.
- */
-skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, hb_font_t* hb_font, const char* file_name, uint8_t font_family);
-
-/**
- * Removes font from the collection.
- * @param font_collection font collection to change.
- * @param font_handle handle to the font to remove.
- * @return true if the remove succeeded.
- */
-bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
-
 /** Signature of destroy function */
 typedef void skb_destroy_func_t(void *context);
 
 /**
  * Adds OTF or TTF font to the collection from memory.
+ * The font collection retains a reference to the data until skb_font_collection_remove_font() or skb_font_collection_destroy is called.
+ * The destroy_func() is called with the provided context pointer when the data is destroyed.
  * @param font_collection font collection to use.
  * @param name used to uniquely identify the font.
  * @param font_family font family identifier.
@@ -263,6 +238,35 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 	void* context,
 	skb_destroy_func_t* destroy_func
 );
+
+#if !defined(SKB_NO_OPEN)
+/**
+ * Adds OTF or TTF font to the collection.
+ * @param font_collection font collection to use.
+ * @param file_name file name of the font to add.
+ * @param font_family font family identifier.
+ * @return pointer to the added font, on NULL if failed to load the font.
+ */
+skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family);
+#endif
+
+/**
+ * Adds OTF or TTF font to the collection.
+ * @param font_collection font collection to use.
+ * @param hb_font a harfbuzz font instance. will be incref'd
+ * @param file_name file name of the font to add.
+ * @param font_family font family identifier.
+ * @return pointer to the added font, on NULL if failed to load the font.
+ */
+skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, hb_font_t* hb_font, const char* file_name, uint8_t font_family);
+
+/**
+ * Removes font from the collection.
+ * @param font_collection font collection to change.
+ * @param font_handle handle to the font to remove.
+ * @return true if the remove succeeded.
+ */
+bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /**
  * Returns fonts matching specific font properties.
