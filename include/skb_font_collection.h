@@ -213,9 +213,6 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection);
  */
 void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context);
 
-/** Signature of destroy function */
-typedef void skb_destroy_func_t(void *context);
-
 /**
  * Adds OTF or TTF font to the collection from memory.
  * The font collection retains a reference to the data until skb_font_collection_remove_font() or skb_font_collection_destroy is called.
