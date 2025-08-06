@@ -36,6 +36,10 @@ typedef struct skb_layout_t {
 	int32_t glyphs_count;
 	int32_t glyphs_cap;
 
+	skb_glyph_run_t* glyph_runs;
+	int32_t glyph_runs_count;
+	int32_t glyph_runs_cap;
+
 	skb_layout_line_t* lines;
 	int32_t lines_count;
 	int32_t lines_cap;
@@ -636,54 +640,6 @@ static float skb_calculate_line_height(skb_attribute_line_height_t attr_line_hei
 }
 
 
-
-typedef struct skb__glyphs_span_iter_t {
-	const skb_glyph_t* glyphs;
-	int32_t glyphs_count;
-	skb_range_t glyph_range;
-	int32_t pos;
-} skb__glyphs_span_iter_t;
-
-static skb__glyphs_span_iter_t skb__glyphs_span_iterator_make(const skb_glyph_t* glyphs, int32_t glyphs_count, int32_t start, int32_t end)
-{
-	assert(end >= start);
-	assert(start >= 0 && start <= glyphs_count);
-	assert(end >= 0 && end <= glyphs_count);
-
-	skb__glyphs_span_iter_t iter = {0};
-	iter.glyphs = glyphs;
-	iter.glyphs_count = glyphs_count;
-	iter.glyph_range.start = start;
-	iter.glyph_range.end = end;
-	iter.pos = start;
-
-	return iter;
-}
-
-static bool skb__glyphs_span_iterator_next(skb__glyphs_span_iter_t* iter, skb_range_t* range, uint16_t* span_idx)
-{
-	if (iter->pos == iter->glyph_range.end)
-		return false;
-
-	int32_t start_pos = iter->pos;
-
-	// Find continuous range of same attribute span.
-	uint16_t cur_span_idx = iter->glyphs[iter->pos].span_idx;
-	iter->pos++;
-
-	while (iter->pos < iter->glyph_range.end) {
-		if (iter->glyphs[iter->pos].span_idx != cur_span_idx)
-			break;
-		iter->pos++;
-	}
-
-	range->start = start_pos;
-	range->end = iter->pos;
-	*span_idx = cur_span_idx;
-
-	return true;
-}
-
 static float skb__calc_align(skb_align_t align, float size, float container_size)
 {
 	if (align == SKB_ALIGN_START)
@@ -704,6 +660,65 @@ static skb_align_t skb_get_directional_align(bool is_rtl, skb_align_t align)
 			return SKB_ALIGN_START;
 	}
 	return align;
+}
+
+static void skb__prune_line_end_whitespace(const skb_layout_t* layout, skb_range_t* glyph_range, float* width)
+{
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+
+	float trimmed_width = width ? *width : 0.f;
+	if (layout_is_rtl) {
+		// Prune any trailing spaces
+		while (glyph_range->end > glyph_range->start) {
+			const int32_t glyph_idx = glyph_range->start;
+			const int cp_offset = layout->glyphs[glyph_idx].text_range.end - 1;
+			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+			if (!codepoint_is_whitespace)
+				break;
+			trimmed_width -= layout->glyphs[glyph_idx].advance_x;
+			glyph_range->start++;
+		}
+	} else {
+		// Prune any trailing spaces
+		while (glyph_range->end > glyph_range->start) {
+			const int32_t glyph_idx = glyph_range->end - 1;
+			const int cp_offset = layout->glyphs[glyph_idx].text_range.end - 1;
+			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+			if (!codepoint_is_whitespace)
+				break;
+			trimmed_width -= layout->glyphs[glyph_idx].advance_x;
+			glyph_range->end--;
+		}
+	}
+	if (width)
+		*width = trimmed_width;
+}
+
+static int32_t skb__prune_line_width(const skb_layout_t* layout, skb_range_t* glyph_range, float* width, const float line_break_width)
+{
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+	int32_t last_pruned_glyph_idx = SKB_INVALID_INDEX;
+
+	if (layout_is_rtl) {
+		// Prune the glyphs that overflow the max line width.
+		while (glyph_range->end > glyph_range->start && *width > line_break_width) {
+			const int32_t glyph_idx = glyph_range->start;
+			last_pruned_glyph_idx = glyph_idx;
+			*width -= layout->glyphs[glyph_idx].advance_x;
+			glyph_range->start++;
+		}
+
+	} else {
+		// Prune the glyphs that overflow the max line width.
+		while (glyph_range->end > glyph_range->start && *width > line_break_width) {
+			const int32_t glyph_idx = glyph_range->end - 1;
+			last_pruned_glyph_idx = glyph_idx;
+			*width -= layout->glyphs[glyph_idx].advance_x;
+			glyph_range->end--;
+		}
+	}
+
+	return last_pruned_glyph_idx;
 }
 
 void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
@@ -944,42 +959,50 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		calculated_height += line_height;
 	}
 
-	// Handle overflow and calculate line widths
+	// Sort the glyphs back to visual order
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		skb_layout_line_t* line = &layout->lines[li];
+		if (line->glyph_range.start != line->glyph_range.end) {
+			// Sort back to visual order.
+			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
+			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
+		}
+	}
+
+
+	// Calculate glyph runs, line width, and handle overflow.
+	// Similar to CSS, the overflow is calculated in visual runs of glyphs, truncated based on dominant reading direction.
+	layout->glyph_runs_count = 0;
 	float calculated_width = 0.f;
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
 		const bool is_last_line = li == (layout->lines_count-1);
 		const bool force_ellipsis = is_last_line && last_line_ellipsis;
+
+		skb_glyph_run_t ellipsis_run = {0};
+
+		skb_range_t glyph_range = line->glyph_range;
+
 		if (text_overflow != SKB_OVERFLOW_NONE || force_ellipsis) {
 			if (line->bounds.width > line_break_width || force_ellipsis) {
-				if (text_overflow == SKB_OVERFLOW_ELLIPSIS || force_ellipsis) {
-					// Prune the glyphs that overflow the max line width.
-					const int32_t start_glyph_range_end = line->glyph_range.end;
-					int32_t last_pruned_glyph_idx = line->glyph_range.end - 1;
-					while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > line_break_width) {
-						const int32_t glyph_idx = line->glyph_range.end - 1;
-						last_pruned_glyph_idx = glyph_idx;
-						line->bounds.width -= layout->glyphs[glyph_idx].advance_x;
-						line->glyph_range.end--;
-					}
 
-					// Prune any trailing spaces
-					while (line->glyph_range.end > line->glyph_range.start) {
-						const int32_t glyph_idx = line->glyph_range.end - 1;
-						const int cp_offset = layout->glyphs[glyph_idx].text_range.end - 1;
-						const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
-						if (!codepoint_is_whitespace)
-							break;
-						last_pruned_glyph_idx = glyph_idx;
-						line->bounds.width -= layout->glyphs[glyph_idx].advance_x;
-						line->glyph_range.end--;
-					}
+				SKB_SET_FLAG(line->flags, SKB_LAYOUT_LINE_IS_TRUNCATED, true);
+
+				// Prune characters to fit the line (this is common with clip and ellipsis).
+				int32_t last_pruned_glyph_idx = skb__prune_line_width(layout, &glyph_range, &line->bounds.width, line_break_width);
+				if (force_ellipsis)
+					last_pruned_glyph_idx = layout_is_rtl ? glyph_range.start : (glyph_range.end - 1);
+
+				if (text_overflow == SKB_OVERFLOW_ELLIPSIS || force_ellipsis) {
+
+					skb__prune_line_end_whitespace(layout, &glyph_range, &line->bounds.width);
 
 					if (last_pruned_glyph_idx != SKB_INVALID_INDEX) {
 						// Get out text attributes for the ellipsis from the last pruned glyph.
 						const uint16_t span_idx = layout->glyphs[last_pruned_glyph_idx].span_idx;
 						const skb_font_handle_t font_handle = layout->glyphs[last_pruned_glyph_idx].font_handle;
+						const float offset_y = layout->glyphs[last_pruned_glyph_idx].offset_y;
 
 						// We expect these to exist, since they were calculated earlier.
 						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, font_handle);
@@ -995,8 +1018,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 						hb_codepoint_t ellipsis_gid = 0;
 						if (hb_font_get_glyph(font->hb_font, 0x2026 /*ellipsis*/, 0, &ellipsis_gid)) {
 							ellipsis_glyph_count = 1;
-						}
-						else if (hb_font_get_glyph(font->hb_font, 0x2e /*period*/, 0, &ellipsis_gid)) {
+						} else if (hb_font_get_glyph(font->hb_font, 0x2e /*period*/, 0, &ellipsis_gid)) {
 							ellipsis_glyph_count = 3;
 						}
 
@@ -1005,68 +1027,82 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 							const float ellipsis_x_advance = (float)hb_font_get_glyph_h_advance(font->hb_font, ellipsis_gid) * scale;
 							const float ellipsis_width = ellipsis_x_advance * (float)ellipsis_glyph_count;
 
-							// Prune until the ellipsis fits.
+							// Prune further until the ellipsis fits.
 							const float max_line_width = line_break_width - ellipsis_width;
-							while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > max_line_width) {
-								line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
-								line->glyph_range.end--;
-							}
+							skb__prune_line_width(layout, &glyph_range, &line->bounds.width, max_line_width);
 
-							// Prune glyphs to fit all the ellipsis characters, but always keep at least one glyph from the text.
-							// This should not generally happen, but makes the worst case ellipsis is as good as it can get, without having to realloc the glyphs.
-							const int32_t min_req_glyph_count = skb_maxi(line->glyph_range.start + 1, start_glyph_range_end - ellipsis_glyph_count);
-							while (line->glyph_range.end > min_req_glyph_count) {
-								line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
-								line->glyph_range.end--;
-							}
+							// Place the ellipsis characters.
+							ellipsis_run.font_handle = font_handle;
+							ellipsis_run.span_idx = span_idx;
+							ellipsis_run.glyph_range.start = layout->glyphs_count;
+							ellipsis_run.glyph_range.end = layout->glyphs_count + ellipsis_glyph_count;
 
-							// Find out the visual index range, so that we can place the ellipsis chars at right place.
-							int32_t min_visual_idx = INT32_MAX;
-							int32_t max_visual_idx = -1;
-							for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
-								min_visual_idx = skb_mini(min_visual_idx, layout->glyphs[gi].visual_idx);
-								max_visual_idx = skb_maxi(max_visual_idx, layout->glyphs[gi].visual_idx);
-							}
-							int32_t visual_idx = layout_is_rtl ? (min_visual_idx - ellipsis_glyph_count - 1) : (max_visual_idx + 1);
+							SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + ellipsis_glyph_count);
 
-							// Add ellipsis glyphs
-							for (int32_t i = 0; i < ellipsis_glyph_count && line->glyph_range.end < start_glyph_range_end; i++) {
-								skb_glyph_t glyph = {0};
-								glyph.offset_x = 0.f;
-								glyph.offset_y = 0.f;
-								glyph.advance_x = ellipsis_x_advance;
-								glyph.visual_idx = visual_idx++;
-								glyph.text_range = (skb_range_t){0}; // TODO: should this be the trimmed text?
-								glyph.gid = (uint16_t)ellipsis_gid;
-								glyph.span_idx = span_idx;
-								glyph.font_handle = font_handle;
-								layout->glyphs[line->glyph_range.end++] = glyph;
+							for (int32_t ei = 0; ei < ellipsis_glyph_count; ei++) {
+								skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
+								glyph->offset_x = 0.f;
+								glyph->offset_y = offset_y;
+								glyph->advance_x = ellipsis_x_advance;
+								glyph->text_range = (skb_range_t){0};
+								glyph->gid = (uint16_t)ellipsis_gid;
+								glyph->span_idx = span_idx;
+								glyph->font_handle = font_handle;
 
 								line->bounds.width += ellipsis_x_advance;
 							}
 						}
 					}
-				} else if (text_overflow == SKB_OVERFLOW_CLIP) {
-					// Prune the glyphs that overflow the max line width.
-					while (line->glyph_range.end > line->glyph_range.start && line->bounds.width > line_break_width) {
-						line->bounds.width -= layout->glyphs[line->glyph_range.end - 1].advance_x;
-						line->glyph_range.end--;
-					}
 				}
 			}
 		}
 
-		calculated_width = skb_maxf(calculated_width, line->bounds.width);
-	}
+		line->glyph_run_range.start = layout->glyph_runs_count;
 
-	// Sort the glyphs back to visual order
-	for (int32_t li = 0; li < layout->lines_count; li++) {
-		skb_layout_line_t* line = &layout->lines[li];
-		if (line->glyph_range.start != line->glyph_range.end) {
-			// Sort back to visual order.
-			const int32_t glyphs_count = line->glyph_range.end - line->glyph_range.start;
-			qsort(&layout->glyphs[line->glyph_range.start], glyphs_count, sizeof(skb_glyph_t), skb__glyph_cmp_visual);
+		// Create glyph runs.
+		// Each glyph run has same attributes and font (same attributes may lead to different font due to script).
+
+		if (layout_is_rtl) {
+			SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
+			layout->glyph_runs[layout->glyph_runs_count++] = ellipsis_run;
 		}
+
+		if (glyph_range.start != glyph_range.end) {
+
+			SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
+			skb_glyph_run_t* glyph_run = &layout->glyph_runs[layout->glyph_runs_count++];
+			glyph_run->font_handle = layout->glyphs[glyph_range.start].font_handle;
+			glyph_run->span_idx = layout->glyphs[glyph_range.start].span_idx;
+			glyph_run->glyph_range.start = glyph_range.start;
+			glyph_run->glyph_range.end = glyph_run->glyph_range.start;
+			glyph_run->baseline = layout->glyphs[glyph_range.start].offset_y;
+
+			for (int32_t gi = glyph_range.start + 1; gi < glyph_range.end; gi++) {
+				const skb_glyph_t* glyph = &layout->glyphs[gi];
+				if (glyph->font_handle != glyph_run->font_handle || glyph->span_idx != glyph_run->span_idx) {
+					// Close current run
+					glyph_run->glyph_range.end = gi;
+					// Start new run
+					SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
+					glyph_run = &layout->glyph_runs[layout->glyph_runs_count++];
+					glyph_run->font_handle = glyph->font_handle;
+					glyph_run->span_idx = glyph->span_idx;
+					glyph_run->glyph_range.start = gi;
+					glyph_run->glyph_range.end = gi;
+					glyph_run->baseline = glyph->offset_y;
+				}
+			}
+			glyph_run->glyph_range.end = glyph_range.end;
+		}
+
+		if (!layout_is_rtl) {
+			SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
+			layout->glyph_runs[layout->glyph_runs_count++] = ellipsis_run;
+		}
+
+		line->glyph_run_range.end = layout->glyph_runs_count;
+
+		calculated_width = skb_maxf(calculated_width, line->bounds.width);
 	}
 
 	if (layout->params.vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
@@ -1101,12 +1137,15 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		if (layout_is_rtl) {
 			// Prune space used by whitespace or control characters.
 			float whitespace_width = 0.f;
-			for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
-				skb_glyph_t* glyph = &layout->glyphs[gi];
-				if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
-					whitespace_width += glyph->advance_x;
-				else
-					break;
+			if (line->glyph_run_range.start != line->glyph_run_range.end) {
+				const skb_glyph_run_t* glyph_run = &layout->glyph_runs[line->glyph_run_range.start];
+				for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+					skb_glyph_t* glyph = &layout->glyphs[gi];
+					if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
+						whitespace_width += glyph->advance_x;
+					else
+						break;
+				}
 			}
 			line->bounds.width -= whitespace_width;
 			line->bounds.x = layout->bounds.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, layout->params.horizontal_align), line->bounds.width, calculated_width);
@@ -1115,12 +1154,15 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		} else {
 			// Prune space used by whitespace or control characters.
 			float whitespace_width = 0.f;
-			for (int32_t gi = line->glyph_range.end-1; gi >= line->glyph_range.start; gi--) {
-				skb_glyph_t* glyph = &layout->glyphs[gi];
-				if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
-					whitespace_width += glyph->advance_x;
-				else
-					break;
+			if (line->glyph_run_range.start != line->glyph_run_range.end) {
+				const skb_glyph_run_t* glyph_run = &layout->glyph_runs[line->glyph_run_range.end - 1];
+				for (int32_t gi = glyph_run->glyph_range.end-1; gi >= glyph_run->glyph_range.start; gi--) {
+					skb_glyph_t* glyph = &layout->glyphs[gi];
+					if ((layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[glyph->text_range.start].flags & SKB_TEXT_PROP_CONTROL))
+						whitespace_width += glyph->advance_x;
+					else
+						break;
+				}
 			}
 			line->bounds.width -= whitespace_width;
 			line->bounds.x = layout->bounds.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, layout->params.horizontal_align), line->bounds.width, calculated_width);
@@ -1135,11 +1177,15 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		line->baseline = line->bounds.y + leading_above - line->ascender;
 
 		float cur_x = start_x;
-		for (int32_t j = line->glyph_range.start; j < line->glyph_range.end; j++) {
-			skb_glyph_t* glyph = &layout->glyphs[j];
-			glyph->offset_x += cur_x;
-			glyph->offset_y += line->baseline;
-			cur_x += glyph->advance_x;
+		for (int32_t ri = line->glyph_run_range.start; ri < line->glyph_run_range.end; ri++) {
+			skb_glyph_run_t* glyph_run = &layout->glyph_runs[ri];
+			glyph_run->baseline += line->baseline;
+			for (int32_t j = glyph_run->glyph_range.start; j < glyph_run->glyph_range.end; j++) {
+				skb_glyph_t* glyph = &layout->glyphs[j];
+				glyph->offset_x += cur_x;
+				glyph->offset_y += line->baseline;
+				cur_x += glyph->advance_x;
+			}
 		}
 
 		start_y += line->bounds.height;
@@ -1154,13 +1200,20 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		line->decorations_range.start = layout->decorations_count;
 
 		// Iterate over glyphs of same attribute span.
-		skb__glyphs_span_iter_t iter = skb__glyphs_span_iterator_make(layout->glyphs, layout->glyphs_count, line->glyph_range.start, line->glyph_range.end);
-		skb_range_t range = {0};
-		uint16_t span_idx = 0;
-		while (skb__glyphs_span_iterator_next(&iter, &range, &span_idx)) {
+		for (int32_t ri = line->glyph_run_range.start; ri < line->glyph_run_range.end; ri++) {
+
+			// Find range of glyphs runs that share same attribute span.
+			int32_t first_run = ri;
+			int32_t last_run = ri;
+			const uint16_t span_idx = layout->glyph_runs[first_run].span_idx;
+			while (last_run+1 < line->glyph_run_range.end && layout->glyph_runs[last_run+1].span_idx == span_idx)
+				last_run++;
+			ri = last_run;
+
+			// For each decoration.
 			const skb_text_attributes_span_t* span = &layout->attribute_spans[span_idx];
 			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-			// For each decoration.
+
 			for (int32_t attr_idx = 0; attr_idx < span->attributes_count; attr_idx++) {
 				const skb_attribute_t* attribute = &span->attributes[attr_idx];
 				if (attribute->kind != SKB_ATTRIBUTE_DECORATION)
@@ -1173,39 +1226,16 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 				float thickness = 0.f;
 				float thickness_div = 0.f;
 
-				// Skip white space and control characters at the end of the line.
-				if (layout_is_rtl) {
-					if (range.start == line->glyph_range.start) {
-						while (range.start < range.end) {
-							const skb_glyph_t* glyph = &layout->glyphs[range.start];
-							if ((layout->text_props[glyph->text_range.start].flags & (SKB_TEXT_PROP_CONTROL | SKB_TEXT_PROP_WHITESPACE)) == 0)
-								break;
-							range.start++;
-						}
-					}
-				} else {
-					if (range.end == line->glyph_range.end) {
-						while (range.start < range.end) {
-							const skb_glyph_t* glyph = &layout->glyphs[range.end - 1];
-							if ((layout->text_props[glyph->text_range.start].flags & (SKB_TEXT_PROP_CONTROL | SKB_TEXT_PROP_WHITESPACE)) == 0)
-								break;
-							range.end--;
-						}
-					}
-				}
-
 				// Calculate the position of the line.
-				const skb_glyph_t* first_glyph = &layout->glyphs[range.start];
-				const skb_glyph_t* last_glyph = &layout->glyphs[range.end-1];
-				float ref_y = first_glyph->offset_y;
-
+				const float ref_baseline = layout->glyph_runs[first_run].baseline;
 				skb_font_handle_t prev_font_handle = 0;
-				for (int32_t gi = range.start; gi < range.end; gi++) {
-					const skb_glyph_t* glyph = &layout->glyphs[gi];
-					if (glyph->font_handle != prev_font_handle) {
-						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
+				for (int32_t sri = first_run; sri <= last_run; sri++) {
+					const skb_glyph_run_t* glyph_run = &layout->glyph_runs[sri];
+
+					if (glyph_run->font_handle != prev_font_handle) {
+						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph_run->font_handle);
 						if (font) {
-							const float delta_y = glyph->offset_y - ref_y;
+							const float delta_y = glyph_run->baseline - ref_baseline;
 							if (attr_decoration.position == SKB_DECORATION_UNDERLINE) {
 								line_position = skb_maxf(line_position, delta_y + font->metrics.underline_offset * attr_font.size);
 								thickness += font->metrics.underline_size * attr_font.size;
@@ -1222,7 +1252,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 							}
 							thickness_div += 1.f;
 						}
-						prev_font_handle = glyph->font_handle;
+						prev_font_handle = glyph_run->font_handle;
 					}
 				}
 
@@ -1244,10 +1274,21 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 				else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE || attr_decoration.position == SKB_DECORATION_OVERLINE)
 					line_position -= attr_decoration.offset;
 
+				// Find first and last glyph, omit white space at the end of the line.
+				skb_range_t first_run_range = layout->glyph_runs[first_run].glyph_range;
+				skb_range_t last_run_range = layout->glyph_runs[last_run].glyph_range;
+				if (layout_is_rtl)
+					skb__prune_line_end_whitespace(layout, &first_run_range, NULL);
+				else
+					skb__prune_line_end_whitespace(layout, &last_run_range, NULL);
+				const skb_glyph_t* first_glyph = &layout->glyphs[first_run_range.start];
+				const skb_glyph_t* last_glyph = &layout->glyphs[last_run_range.end-1];
+
+				// Add decoration
 				SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
 				skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
 				decoration->offset_x = first_glyph->offset_x;
-				decoration->offset_y = ref_y + line_position;
+				decoration->offset_y = ref_baseline + line_position;
 				decoration->length = last_glyph->offset_x - first_glyph->offset_x + last_glyph->advance_x;
 				decoration->pattern_offset = first_glyph->offset_x - origin.x;
 				decoration->thickness = thickness;
@@ -1995,6 +2036,7 @@ void skb_layout_destroy(skb_layout_t* layout)
 	skb_free(layout->attributes);
 	skb_free(layout->attribute_spans);
 	skb_free(layout->glyphs);
+	skb_free(layout->glyph_runs);
 	skb_free(layout->decorations);
 	skb_free(layout->text);
 	skb_free(layout->text_props);
@@ -2023,6 +2065,18 @@ const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* la
 {
 	assert(layout);
 	return layout->text_props;
+}
+
+int32_t skb_layout_get_glyph_runs_count(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->glyph_runs_count;
+}
+
+const skb_glyph_run_t* skb_layout_get_glyph_runs(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->glyph_runs;
 }
 
 int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout)

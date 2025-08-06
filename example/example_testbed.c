@@ -510,6 +510,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
+			const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(edit_layout);
+			const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(edit_layout);
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
 			const int32_t glyphs_count = skb_layout_get_glyphs_count(edit_layout);
 			const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
@@ -559,15 +561,13 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				int32_t run_start_glyph_idx = line->glyph_range.start;
 				skb_rect2_t run_bounds = skb_rect2_make_undefined();
 
-				skb_glyph_run_iterator_t glyph_iter = skb_glyph_run_iterator_make(glyphs, glyphs_count, line->glyph_range.start, line->glyph_range.end);
-				skb_range_t glyph_range;
-				skb_font_handle_t font_handle = 0;
-				uint16_t span_idx = 0;
-				while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
-					const skb_text_attributes_span_t* span = &attrib_spans[span_idx];
+
+				for (int32_t ri = line->glyph_run_range.start; ri < line->glyph_run_range.end; ri++) {
+					const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
+					const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
 					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
 					const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-					for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
+					for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
 
 						float gx = ox + glyph->offset_x;

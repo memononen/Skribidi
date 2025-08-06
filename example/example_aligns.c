@@ -268,40 +268,34 @@ static void render_text(
 	draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,64));
 
 	// Draw layout
-	const skb_layout_line_t* lines = skb_layout_get_lines(layout);
-	const int32_t lines_count = skb_layout_get_lines_count(layout);
+	const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(layout);
+	const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(layout);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
 	const int32_t glyphs_count = skb_layout_get_glyphs_count(layout);
 	const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(layout);
 	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
 
-	for (int32_t li = 0; li < lines_count; li++) {
-		const skb_layout_line_t* line = &lines[li];
-		skb_glyph_run_iterator_t glyph_iter = skb_glyph_run_iterator_make(glyphs, glyphs_count, line->glyph_range.start, line->glyph_range.end);
-		skb_range_t glyph_range;
-		skb_font_handle_t font_handle = 0;
-		uint16_t span_idx = 0;
-		while (skb_glyph_run_iterator_next(&glyph_iter, &glyph_range, &font_handle, &span_idx)) {
-			const skb_text_attributes_span_t* span = &attrib_spans[span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
-			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-			for (int32_t gi = glyph_range.start; gi < glyph_range.end; gi++) {
-				const skb_glyph_t* glyph = &glyphs[gi];
+	for (int32_t ri = 0; ri < glyph_runs_count; ri++) {
+		const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
+		const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
+		const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+		for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+			const skb_glyph_t* glyph = &glyphs[gi];
 
-				const float gx = x + glyph->offset_x;
-				const float gy = y + glyph->offset_y;
+			const float gx = x + glyph->offset_x;
+			const float gy = y + glyph->offset_y;
 
-				// Glyph image
-				skb_quad_t quad = skb_image_atlas_get_glyph_quad(
-					ctx->atlas,gx, gy, ctx->view.scale,
-					layout_params->font_collection, glyph->font_handle, glyph->gid,
-					attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
+			// Glyph image
+			skb_quad_t quad = skb_image_atlas_get_glyph_quad(
+				ctx->atlas,gx, gy, ctx->view.scale,
+				layout_params->font_collection, glyph_run->font_handle, glyph->gid,
+				attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
 
-				draw_image_quad_sdf(
-					view_transform_rect(&ctx->view, quad.geom),
-					quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
-					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
-			}
+			draw_image_quad_sdf(
+				view_transform_rect(&ctx->view, quad.geom),
+				quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
+				(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 		}
 	}
 }
