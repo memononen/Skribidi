@@ -348,7 +348,7 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
 	font_collection->fallback_context = context;
 }
 
-static skb_font_handle_t skb__alloc_font_handle(skb_font_collection_t* font_collection)
+static skb_font_t* skb__alloc_font(skb_font_collection_t* font_collection)
 {
 	int32_t font_idx = SKB_INVALID_INDEX;
 	uint32_t generation = 1;
@@ -373,14 +373,13 @@ static skb_font_handle_t skb__alloc_font_handle(skb_font_collection_t* font_coll
 
 	font->generation = generation;
 	font->handle = skb__make_font_handle(font_idx, generation);
-	return font->handle;
+	return font;
 }
 
 #if !defined(SKB_NO_OPEN)
 skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
 {
-	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
-	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
+	skb_font_t* font = skb__alloc_font(font_collection);
 
 	if (!skb__font_create(font, file_name, font_family)) {
 		// skb__font_create() has emptied the font struct, indicate that we have one empty to use.
@@ -401,8 +400,7 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 	void* context,
 	skb_destroy_func_t* destroy_func)
 {
-	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
-	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
+	skb_font_t* font = skb__alloc_font(font_collection);
 
 	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length, context, destroy_func)) {
 		// skb__font_create_from_data() has emptied the font struct, indicate that we have one empty to use.
@@ -419,8 +417,7 @@ skb_font_handle_t skb_font_collection_add_hb_font(
 	const char* name,
 	uint8_t font_family)
 {
-	skb_font_handle_t handle = skb__alloc_font_handle(font_collection);
-	skb_font_t* font = skb__get_font_unchecked(font_collection, handle);
+	skb_font_t* font = skb__alloc_font(font_collection);
 
 	// Increase the reference count
 	hb_font = hb_font_reference(hb_font);
