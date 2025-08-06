@@ -30,6 +30,7 @@ void* cached_create(void);
 void* fallback_create(void);
 void* decorations_create(void);
 void* aligns_create(void);
+void* inlineobj_create(void);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -39,6 +40,7 @@ static example_stub_t g_examples[] = {
 	{ .create = fallback_create, .name = "Font Fallback" },
 	{ .create = decorations_create, .name = "Text Decorations" },
 	{ .create = aligns_create, .name = "Layout Align" },
+	{ .create = inlineobj_create, .name = "Inline Objects" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;

@@ -317,6 +317,7 @@ static void skb__font_destroy(skb_font_t* font)
 	if (!font) return;
 	skb_free(font->name);
 	skb_free(font->scripts);
+	skb_free(font->baseline_sets);
 	hb_font_destroy(font->hb_font);
 }
 
@@ -789,7 +790,6 @@ skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_collection_t* font
 	return font->caret_metrics;
 }
 
-
 hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle)
 {
 	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
@@ -804,48 +804,77 @@ static float skb__get_baseline_normalized(const skb_font_t* font, hb_ot_layout_b
 	return -(float)coord * font->upem_scale;
 }
 
-float skb_font_get_baseline(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction , uint8_t script, float font_size)
+static void skb__init_baseline_set(const skb_font_t* font, skb_baseline_set_t* baseline_set, skb_text_direction_t direction, uint8_t script)
 {
-	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
-	if (!font) return 0.f;
+	const uint32_t unicode_tag = SBScriptGetUnicodeTag(script);
+	const hb_script_t hb_script = hb_script_from_iso15924_tag(unicode_tag);
+	baseline_set->direction = (uint8_t)direction;
+	baseline_set->script = script;
+	baseline_set->alphabetic = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, direction, hb_script);
 
-	hb_ot_layout_baseline_tag_t baseline_tag = HB_OT_LAYOUT_BASELINE_TAG_ROMAN;
-
-	uint32_t unicode_tag = SBScriptGetUnicodeTag(script);
-	hb_script_t hb_script = hb_script_from_iso15924_tag(unicode_tag);
-
-	const float alphabetic_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, direction, hb_script);
-	float baseline_value = 0.f;
-
-	switch (baseline) {
-	case SKB_BASELINE_ALPHABETIC:
-		baseline_value = alphabetic_value;
-		break;
-	case SKB_BASELINE_IDEOGRAPHIC:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, direction, hb_script);
-		break;
-	case SKB_BASELINE_CENTRAL:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL, direction, hb_script);
-		break;
-	case SKB_BASELINE_HANGING:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_HANGING, direction, hb_script);
-		break;
-	case SKB_BASELINE_MATHEMATICAL:
-		baseline_value = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_MATH, direction, hb_script);
-		break;
-	case SKB_BASELINE_MIDDLE:
-		baseline_value = font->metrics.x_height * 0.5f;
-		break;
-	case SKB_BASELINE_TEXT_BOTTOM:
-		baseline_value = font->metrics.descender;
-		break;
-	case SKB_BASELINE_TEXT_TOP:
-		baseline_value = font->metrics.ascender;
-		break;
-	default:
-		baseline_value = alphabetic_value;
-		break;
+	{
+		// Harfbuzz uses descender as synthesized value for ideographic, which seems often too low.
+		// Using the CSS algorithm here, which is descender scaled to (ascender + descender) normalized to em-square.
+		// If value exists in the tables, use it.
+		hb_position_t coord;
+		if (hb_ot_layout_get_baseline(font->hb_font, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, skb_is_rtl(direction) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR, script, HB_OT_TAG_DEFAULT_LANGUAGE, &coord)) {
+			baseline_set->ideographic = -(float)coord * font->upem_scale;
+		} else {
+			// Synthesize as per https://www.w3.org/TR/css-inline-3/#baseline-synthesis-em
+			const float sum = -font->metrics.ascender + font->metrics.descender;
+			baseline_set->ideographic = font->metrics.descender / sum;
+		}
 	}
 
-	return (baseline_value - alphabetic_value) * font_size;
+	baseline_set->central = font->metrics.cap_height * 0.5f; // This is deviating from the CSS, but results nicer center alignment.
+	baseline_set->hanging = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_HANGING, direction, hb_script);
+	baseline_set->mathematical = skb__get_baseline_normalized(font, HB_OT_LAYOUT_BASELINE_TAG_MATH, direction, hb_script);
+	baseline_set->middle = font->metrics.x_height * 0.5f;
+	baseline_set->text_bottom = font->metrics.descender;
+	baseline_set->text_top = font->metrics.ascender;
+}
+
+const skb_baseline_set_t* skb__font_get_normalzed_baseline_set(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_text_direction_t direction, uint8_t script)
+{
+	skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	if (!font) return NULL;
+
+	skb_baseline_set_t* baseline_set = NULL;
+	for (int32_t i = 0; i < font->baseline_sets_count; i++) {
+		if (font->baseline_sets[i].direction == (uint8_t)direction && font->baseline_sets[i].script == script) {
+			baseline_set = &font->baseline_sets[i];
+			break;
+		}
+	}
+	if (!baseline_set) {
+		SKB_ARRAY_RESERVE(font->baseline_sets, font->baseline_sets_count + 1);
+		baseline_set = &font->baseline_sets[font->baseline_sets_count++];
+		skb__init_baseline_set(font, baseline_set, direction, script);
+	}
+
+	return baseline_set;
+}
+
+skb_baseline_set_t skb_font_get_baseline_set(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_text_direction_t direction, uint8_t script, float font_size)
+{
+	const skb_baseline_set_t* baseline_set = skb__font_get_normalzed_baseline_set(font_collection, font_handle, direction, script);
+	if (!baseline_set) return (skb_baseline_set_t){0};
+
+	return (skb_baseline_set_t) {
+		.alphabetic = baseline_set->alphabetic * font_size,
+		.ideographic = baseline_set->ideographic * font_size,
+		.central = baseline_set->central * font_size,
+		.hanging = baseline_set->hanging * font_size,
+		.mathematical = baseline_set->mathematical * font_size,
+		.middle = baseline_set->middle * font_size,
+		.text_bottom = baseline_set->text_bottom * font_size,
+		.text_top = baseline_set->text_top * font_size,
+	};
+}
+
+float skb_font_get_baseline(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size)
+{
+	const skb_baseline_set_t* baseline_set = skb__font_get_normalzed_baseline_set(font_collection, font_handle, direction, script);
+	if (!baseline_set) return 0.f;
+	return baseline_set->baselines[baseline] * font_size;
 }

@@ -40,6 +40,7 @@ typedef struct testbed_context_t {
 	float atlas_scale;
 	bool show_glyph_details;
 	bool show_caret_details;
+	bool show_baseline_details;
 
 } testbed_context_t;
 
@@ -110,6 +111,7 @@ void* testbed_create(void)
 	ctx->atlas_scale = 0.0f;
 	ctx->show_glyph_details = false;
 	ctx->show_caret_details = true;
+	ctx->show_baseline_details = false;
 
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
@@ -350,6 +352,9 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 
 		update_ime_rect(ctx);
 
+		if (key == GLFW_KEY_F7) {
+			ctx->show_baseline_details = !ctx->show_baseline_details;
+		}
 		if (key == GLFW_KEY_F8) {
 			ctx->show_caret_details = !ctx->show_caret_details;
 		}
@@ -597,6 +602,26 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 						draw_image_quad_sdf(quad.geom, quad.texture, quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255,255) : attr_fill.color,
 							(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
+
+						if (ctx->show_baseline_details) {
+							const skb_text_property_t* text_properties = skb_layout_get_text_properties(edit_layout);
+							const skb_text_direction_t dir = text_properties[glyph->text_range.start].direction;
+							const uint8_t script = text_properties[glyph->text_range.start].script;
+							skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout_params->font_collection, glyph->font_handle, dir, script, attr_font.size);
+							skb_font_metrics_t metrics = skb_font_get_metrics(layout_params->font_collection, glyph->font_handle);
+
+							const float rx = roundf(gx);
+							const float ry = roundf(gy);
+
+							draw_line(rx, ry + metrics.ascender * attr_font.size, rx + glyph->advance_x * 0.5f, ry + metrics.ascender * attr_font.size, skb_rgba(0,0,0,255));
+							draw_line(rx, ry + metrics.descender * attr_font.size, rx + glyph->advance_x * 0.5f, ry + metrics.descender * attr_font.size, skb_rgba(0,0,0,255));
+
+							draw_line(rx, ry + baseline_set.alphabetic, rx + glyph->advance_x, ry + baseline_set.alphabetic, skb_rgba(255,64,0,255));
+							draw_line(rx, ry + baseline_set.ideographic, rx + glyph->advance_x, ry + baseline_set.ideographic, skb_rgba(0,64,255,255));
+							draw_line(rx, ry + baseline_set.hanging, rx + glyph->advance_x, ry + baseline_set.hanging, skb_rgba(0,192,255,255));
+							draw_line(rx, ry + baseline_set.central, rx + glyph->advance_x, ry + baseline_set.central, skb_rgba(64,255,0,255));
+						}
+
 
 						pen_x += glyph->advance_x;
 
@@ -942,7 +967,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),
-		"RMB: Pan view   F8: Caret details %s   F9: Glyph details %s   F10: Atlas %.1f%%",
+		"RMB: Pan view   F7: Baseline details %s   F8: Caret details %s   F9: Glyph details %s   F10: Atlas %.1f%%",
+		ctx->show_baseline_details ? "ON" : "OFF",
 		ctx->show_caret_details ? "ON" : "OFF",
 		ctx->show_glyph_details ? "ON" : "OFF",
 		ctx->atlas_scale * 100.f);

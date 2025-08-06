@@ -1069,6 +1069,7 @@ typedef enum {
 	SKB_CHAR_NEXT_LINE = 0x85,
 	SKB_CHAR_LINE_SEPARATOR = 0x2028,
 	SKB_CHAR_PARAGRAPH_SEPARATOR = 0x2029,
+	SKB_CHAR_REPLACEMENT_OBJECT = 0xFFFC,
 } skb_character_t;
 
 /** @returns true of the character serve as a base for emoji modifiers (EBase). */

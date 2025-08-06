@@ -81,11 +81,11 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
 	return hash;
 }
 
-uint64_t skb_attributes_hash_append(uint64_t hash, const skb_attribute_t* attribs, int32_t attribs_count)
+uint64_t skb_attributes_hash_append(uint64_t hash, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	// Note: The attributes are zero initialized (including padding)
-	for (int32_t i = 0; i < attribs_count; i++)
-		hash = skb_hash64_append(hash, &attribs[i], sizeof(skb_attribute_t));
+	for (int32_t i = 0; i < attributes_count; i++)
+		hash = skb_hash64_append(hash, &attributes[i], sizeof(skb_attribute_t));
 	return hash;
 }
 
@@ -196,6 +196,26 @@ skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_object(float width, float height, float baseline, intptr_t id)
+{
+	return skb_attribute_make_object_with_align(width, height, baseline, SKB_OBJECT_ALIGN_SELF, SKB_BASELINE_ALPHABETIC, id);
+}
+
+skb_attribute_t skb_attribute_make_object_with_align(float width, float height, float baseline, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline, intptr_t id)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.object = (skb_attribute_object_t) {
+		.kind = SKB_ATTRIBUTE_OBJECT,
+		.width = width,
+		.height = height,
+		.baseline_offset = baseline,
+		.align_ref = (uint8_t)align_ref,
+		.align_baseline = (uint8_t)align_baseline,
+		.id = id,
+	};
+	return attribute;
+}
 
 skb_attribute_writing_t skb_attributes_get_writing(const skb_attribute_t* attributes, int32_t attributes_count)
 {
@@ -252,8 +272,70 @@ skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_t* attributes, 
 	};
 }
 
+skb_attribute_object_t skb_attributes_get_object(const skb_attribute_t* attributes, int32_t attributes_count)
+{
+	for (int32_t i = 0; i < attributes_count; i++) {
+		if (attributes[i].kind == SKB_ATTRIBUTE_OBJECT)
+			return attributes[i].object;
+	}
+	return (skb_attribute_object_t) {
+		.width = 16.f,
+		.height = 16.f,
+		.id = 0
+	};
+}
 
+/*
+static bool skb__has_object_attribute(const skb_attribute_t* attributes, const int32_t attributes_count)
+{
+	for (int32_t i = 0; i < attributes_count; i++) {
+		if (attributes[i].kind == SKB_ATTRIBUTE_OBJECT)
+			return true;
+	}
+	return false;
+}
+*/
 
+/*
+skb_attribute_object_baselines_t skb_attributes_get_object_baselines(const skb_attribute_t* attributes, int32_t attributes_count)
+{
+	for (int32_t i = 0; i < attributes_count; i++) {
+		if (attributes[i].kind == SKB_ATTRIBUTE_OBJECT_BASELINES)
+			return attributes[i].object_baselines;
+	}
+	return (skb_attribute_object_baselines_t) {
+		.alphabetic = 0.775f,
+		.ideographic = 1.f,
+		.central = 0.45f,
+		.hanging = 0.25f,
+		.mathematical = 0.5f,
+		.middle = 0.55f,
+	};
+}
+
+float skb_object_calc_baseline(skb_baseline_t baseline_align, float height, skb_attribute_object_baselines_t object_baselines)
+{
+	switch (baseline_align) {
+	case SKB_BASELINE_ALPHABETIC:
+		return height * object_baselines.alphabetic;
+	case SKB_BASELINE_IDEOGRAPHIC:
+		return height * object_baselines.ideographic;
+	case SKB_BASELINE_CENTRAL:
+		return height * object_baselines.central;
+	case SKB_BASELINE_HANGING:
+		return height * object_baselines.hanging;
+	case SKB_BASELINE_MATHEMATICAL:
+		return height * object_baselines.mathematical;
+	case SKB_BASELINE_MIDDLE:
+		return height * object_baselines.middle;
+	case SKB_BASELINE_TEXT_BOTTOM:
+		return height;
+	case SKB_BASELINE_TEXT_TOP:
+		return 0.f;
+	}
+	return height * object_baselines.alphabetic;
+}
+*/
 
 typedef struct skb__script_tag_t {
 	uint32_t tag;
@@ -721,6 +803,45 @@ static int32_t skb__prune_line_width(const skb_layout_t* layout, skb_range_t* gl
 	return last_pruned_glyph_idx;
 }
 
+static int32_t skb__get_next_text_run(const skb_layout_t* layout, int32_t cur_glyph_idx, uint16_t cur_span_idx)
+{
+	for (int32_t gi = cur_glyph_idx + 1; gi < layout->glyphs_count; gi++) {
+		const skb_glyph_t* glyph = &layout->glyphs[gi];
+		if (glyph->span_idx != cur_span_idx) {
+			const skb_text_attributes_span_t* span = &layout->attribute_spans[glyph->span_idx];
+			if ((span->flags & SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT) == 0)
+				return gi;
+		}
+	}
+	return SKB_INVALID_INDEX;
+}
+
+static int32_t skb__get_prev_text_run(const skb_layout_t* layout, int32_t cur_glyph_idx, uint16_t cur_span_idx)
+{
+	for (int32_t gi = cur_glyph_idx - 1; gi > 0; gi++) {
+		const skb_glyph_t* glyph = &layout->glyphs[gi];
+		if (glyph->span_idx != cur_span_idx) {
+			const skb_text_attributes_span_t* span = &layout->attribute_spans[glyph->span_idx];
+			if ((span->flags & SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT) == 0)
+				return gi;
+		}
+	}
+	return SKB_INVALID_INDEX;
+}
+
+static void skb__init_glyph_run(const skb_layout_t* layout, skb_glyph_run_t* glyph_run, int32_t first_glyph_idx)
+{
+	const skb_glyph_t* glyph = &layout->glyphs[first_glyph_idx];
+	glyph_run->font_handle = glyph->font_handle;
+	glyph_run->span_idx = glyph->span_idx;
+	glyph_run->glyph_range.start = first_glyph_idx;
+	glyph_run->glyph_range.end = first_glyph_idx;
+	glyph_run->baseline = glyph->offset_y;
+
+	const skb_text_attributes_span_t* span = &layout->attribute_spans[glyph->span_idx];
+	SKB_SET_FLAG(glyph_run->flags, SKB_GLYPH_RUN_IS_OBJECT, span->flags & SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT);
+}
+
 void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 {
 	// Sort glyphs in logical order, word breaks must be done in logical order.
@@ -894,26 +1015,57 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 			// Update line dimensions
 			for (int32_t gi = line->glyph_range.start; gi < line->glyph_range.end; gi++) {
 				skb_glyph_t* glyph = &layout->glyphs[gi];
+
 				if (prev_font_handle != glyph->font_handle || prev_span_idx != glyph->span_idx) {
-					prev_font_handle = glyph->font_handle;
-					prev_span_idx = glyph->span_idx;
 
 					const skb_text_attributes_span_t* span = &layout->attribute_spans[glyph->span_idx];
-					const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-					const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(span->attributes, span->attributes_count);
+					if (span->flags & SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT) {
+						const skb_attribute_object_t attr_object = skb_attributes_get_object(span->attributes, span->attributes_count);
 
-					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
+						// Find index of the reference glyph to align to.
+						int32_t ref_glyph_idx = gi; // self
+						if (attr_object.align_ref == SKB_OBJECT_ALIGN_TEXT_BEFORE)
+							ref_glyph_idx = skb__get_prev_text_run(layout, gi, glyph->span_idx);
+						else if (attr_object.align_ref == SKB_OBJECT_ALIGN_TEXT_AFTER)
+							ref_glyph_idx = skb__get_next_text_run(layout, gi, glyph->span_idx);
 
-					skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
-					const float baseline = skb_font_get_baseline(layout->params.font_collection, glyph->font_handle, layout->params.baseline_align, text_prop.direction, text_prop.script, attr_font.size);
+						// Find baseline to align to.
+						float ref_baseline = 0.f;
+						if (ref_glyph_idx != SKB_INVALID_INDEX) {
+							const skb_glyph_t* ref_glyph = &layout->glyphs[ref_glyph_idx];
+							skb_text_property_t ref_text_prop = layout->text_props[ref_glyph->text_range.start];
+							const skb_text_attributes_span_t* ref_span = &layout->attribute_spans[ref_glyph->span_idx];
+							const skb_attribute_font_t attr_font = skb_attributes_get_font(ref_span->attributes, ref_span->attributes_count);
+							const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, ref_glyph->font_handle, ref_text_prop.direction, ref_text_prop.script, attr_font.size);
+							ref_baseline = baseline_set.baselines[attr_object.align_baseline] - baseline_set.baselines[layout->params.baseline_align];
+						}
 
-					baseline_align_offset = -baseline;
+						line_height = skb_maxf(line_height, attr_object.height);
+						line->ascender = skb_minf(line->ascender, -attr_object.baseline_offset);
+						line->descender = skb_maxf(line->descender, attr_object.height - attr_object.baseline_offset);
 
-					line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
-					line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size - baseline);
-					line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size - baseline);
-					if (li == 0)
-						first_line_cap_height = skb_minf(first_line_cap_height, font->metrics.cap_height * attr_font.size - baseline);
+						baseline_align_offset = ref_baseline - attr_object.baseline_offset;
+
+					} else {
+						const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+						const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(span->attributes, span->attributes_count);
+
+						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, glyph->font_handle);
+
+						skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
+						const float baseline = skb_font_get_baseline(layout->params.font_collection, glyph->font_handle, layout->params.baseline_align, text_prop.direction, text_prop.script, attr_font.size);
+
+						baseline_align_offset = -baseline;
+
+						line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, attr_font.size));
+						line->ascender = skb_minf(line->ascender, font->metrics.ascender * attr_font.size - baseline);
+						line->descender = skb_maxf(line->descender, font->metrics.descender * attr_font.size - baseline);
+						if (li == 0)
+							first_line_cap_height = skb_minf(first_line_cap_height, font->metrics.cap_height * attr_font.size - baseline);
+					}
+
+					prev_font_handle = glyph->font_handle;
+					prev_span_idx = glyph->span_idx;
 				}
 
 				glyph->offset_y += baseline_align_offset;
@@ -1071,11 +1223,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 			SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
 			skb_glyph_run_t* glyph_run = &layout->glyph_runs[layout->glyph_runs_count++];
-			glyph_run->font_handle = layout->glyphs[glyph_range.start].font_handle;
-			glyph_run->span_idx = layout->glyphs[glyph_range.start].span_idx;
-			glyph_run->glyph_range.start = glyph_range.start;
-			glyph_run->glyph_range.end = glyph_run->glyph_range.start;
-			glyph_run->baseline = layout->glyphs[glyph_range.start].offset_y;
+			skb__init_glyph_run(layout, glyph_run, glyph_range.start);
 
 			for (int32_t gi = glyph_range.start + 1; gi < glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &layout->glyphs[gi];
@@ -1085,11 +1233,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 					// Start new run
 					SKB_ARRAY_RESERVE(layout->glyph_runs, layout->glyph_runs_count+1);
 					glyph_run = &layout->glyph_runs[layout->glyph_runs_count++];
-					glyph_run->font_handle = glyph->font_handle;
-					glyph_run->span_idx = glyph->span_idx;
-					glyph_run->glyph_range.start = gi;
-					glyph_run->glyph_range.end = gi;
-					glyph_run->baseline = glyph->offset_y;
+					skb__init_glyph_run(layout, glyph_run, gi);
 				}
 			}
 			glyph_run->glyph_range.end = glyph_range.end;
@@ -1692,7 +1836,7 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	// Itemize text into runs of same direction and script. A run of emojis is treated the same as script.
 	skb__itemize(&build_context, layout);
 
-	// Apply run attribs to text attribs
+	// Apply run attribs to text properties
 	for (int32_t i = 0; i < build_context.shaping_runs_count; ++i) {
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		for (int32_t j = 0; j < run->length; j++) {
@@ -1713,29 +1857,49 @@ static void skb__build_layout(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		const skb__shaping_run_t* run = &build_context.shaping_runs[i];
 		const skb_text_attributes_span_t* span = &layout->attribute_spans[run->shaping_span_idx];
 
-		const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-		const skb_attribute_writing_t attr_writing = skb_attributes_get_writing(span->attributes, span->attributes_count);
+		// Check if this run is a replacement object.
+		if (span->flags & SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT) {
+			// Add the replacement object as a glyph.
+			SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + 1);
 
-		const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : attr_font.family;
-		const hb_language_t run_lang = attr_writing.lang ? hb_language_from_string(attr_writing.lang, -1) : build_context.lang;
+			skb_attribute_object_t object = skb_attributes_get_object(span->attributes, span->attributes_count);
 
-		skb_font_handle_t fonts[32];
-		int32_t fonts_count = skb_font_collection_match_fonts(
-			layout->params.font_collection, hb_language_to_string(run_lang), run->script, font_family,
-			attr_font.weight, attr_font.style, attr_font.stretch,
-			fonts, SKB_COUNTOF(fonts));
+			skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
+			glyph->gid = 0;
+			glyph->offset_x = 0.f;
+			glyph->offset_y = 0.f;
+			glyph->advance_x = object.width;
+			glyph->font_handle = 0;
+			glyph->text_range.start = run->offset;
+			glyph->text_range.end = run->offset + run->length;
+			glyph->visual_idx = layout->glyphs_count - 1;
+			glyph->span_idx = (uint16_t)run->shaping_span_idx;
 
-		if (fonts_count == 0) {
-			// If not fonts found, try the font family's default font.
-			fonts[0] = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
-			// If still not found, there's nothing we can do, so continue to next run.
-			if (!fonts[0])
-				continue;
-			fonts_count++;
+		} else {
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+			const skb_attribute_writing_t attr_writing = skb_attributes_get_writing(span->attributes, span->attributes_count);
+
+			const uint8_t font_family = run->is_emoji ? SKB_FONT_FAMILY_EMOJI : attr_font.family;
+			const hb_language_t run_lang = attr_writing.lang ? hb_language_from_string(attr_writing.lang, -1) : build_context.lang;
+
+			skb_font_handle_t fonts[32];
+			int32_t fonts_count = skb_font_collection_match_fonts(
+				layout->params.font_collection, hb_language_to_string(run_lang), run->script, font_family,
+				attr_font.weight, attr_font.style, attr_font.stretch,
+				fonts, SKB_COUNTOF(fonts));
+
+			if (fonts_count == 0) {
+				// If not fonts found, try the font family's default font.
+				fonts[0] = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
+				// If still not found, there's nothing we can do, so continue to next run.
+				if (!fonts[0])
+					continue;
+				fonts_count++;
+			}
+
+			hb_buffer_clear_contents(buffer);
+			skb__shape_run(&build_context, layout, run, span, buffer, fonts, fonts_count, 0);
 		}
-
-		hb_buffer_clear_contents(buffer);
-		skb__shape_run(&build_context, layout, run, span, buffer, fonts, fonts_count, 0);
 	}
 	hb_buffer_destroy(buffer);
 
@@ -1825,6 +1989,12 @@ static void skb__append_attributes(skb_layout_t* layout, const skb_attribute_t* 
 
         memcpy(span->attributes, attributes, attributes_count * sizeof(skb_attribute_t));
 
+		span->flags = 0;
+		for (int32_t i = 0; i < attributes_count; i++) {
+			if (attributes[i].kind == SKB_ATTRIBUTE_OBJECT)
+				span->flags |= SKB_TEXT_ATTRIBUTES_SPAN_HAS_OBJECT;
+		}
+
         layout->attributes_count += attributes_count;
 	}
 }
@@ -1850,24 +2020,24 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 	return layout;
 }
 
-skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attribs, int32_t attribs_count)
+skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	skb_text_run_utf8_t run = {
 		.text = text,
 		.text_count = text_count,
-		.attribs = attribs,
-		.attribs_count = attribs_count,
+		.attributes = attributes,
+		.attributes_count = attributes_count,
 	};
 	return skb_layout_create_from_runs_utf8(temp_alloc, params, &run, 1);
 }
 
-skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attribs, int32_t attribs_count)
+skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	skb_text_run_utf32_t run = {
 		.text = text,
 		.text_count = text_count,
-		.attributes = attribs,
-		.attributes_count = attribs_count
+		.attributes = attributes,
+		.attributes_count = attributes_count
 	};
 	return skb_layout_create_from_runs_utf32(temp_alloc, params, &run, 1);
 }
@@ -1886,24 +2056,24 @@ skb_layout_t* skb_layout_create_from_runs_utf32(skb_temp_alloc_t* temp_alloc, co
 	return layout;
 }
 
-void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attribs, int32_t attribs_count)
+void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	skb_text_run_utf8_t run = {
 		.text = text,
 		.text_count = text_count,
-		.attribs = attribs,
-		.attribs_count = attribs_count,
+		.attributes = attributes,
+		.attributes_count = attributes_count,
 	};
 	skb_layout_set_from_runs_utf8(layout, temp_alloc, params, &run, 1);
 }
 
-void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attribs, int32_t attribs_count)
+void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
 	skb_text_run_utf32_t run = {
 		.text = text,
 		.text_count = text_count,
-		.attributes = attribs,
-		.attributes_count = attribs_count,
+		.attributes = attributes,
+		.attributes_count = attributes_count,
 	};
 	skb_layout_set_from_runs_utf32(layout, temp_alloc, params, &run, 1);
 }
@@ -1957,6 +2127,7 @@ static void skb__init_text_props_from_spans(skb_layout_t* layout, skb_temp_alloc
 		skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
 }
 
+
 void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_run_utf8_t* runs, int32_t runs_count)
 {
 	assert(layout);
@@ -1972,7 +2143,7 @@ void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_
 	for (int32_t i = 0; i < runs_count; i++) {
 		text_counts[i] = runs[i].text_count >= 0 ? runs[i].text_count : (int32_t)strlen(runs[i].text);
 		total_text_count += text_counts[i];
-		total_attribs_count += runs[i].attribs_count;
+		total_attribs_count += runs[i].attributes_count;
 	}
 	skb__reserve_text(layout, total_text_count);
 
@@ -1983,7 +2154,7 @@ void skb_layout_set_from_runs_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_
 	for (int32_t i = 0; i < runs_count; i++) {
 		int32_t offset = layout->text_count;
 		int32_t count = skb__append_text_utf8(layout, runs[i].text, text_counts[i]);
-		skb__append_attributes(layout, runs[i].attribs, runs[i].attribs_count, offset, offset + count);
+		skb__append_attributes(layout, runs[i].attributes, runs[i].attributes_count, offset, offset + count);
 	}
 
 	skb__init_text_props_from_spans(layout, temp_alloc);

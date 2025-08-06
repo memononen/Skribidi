@@ -158,7 +158,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs_utf8(
 
 		hash = skb_hash64_append(hash, fixed_runs[i].text, fixed_runs[i].text_count);
 		hash = skb_layout_params_hash_append(hash, params);
-		hash = skb_attributes_hash_append(hash, fixed_runs[i].attribs, fixed_runs[i].attribs_count);
+		hash = skb_attributes_hash_append(hash, fixed_runs[i].attributes, fixed_runs[i].attributes_count);
 	}
 
 	skb__cached_layout_t* cached_layout = skb__layout_cache_get_or_insert(cache, hash);

@@ -139,6 +139,7 @@ typedef enum {
 	SKB_BASELINE_TEXT_TOP,
 	/** Text bottom baseline. */
 	SKB_BASELINE_TEXT_BOTTOM,
+	SKB_BASELINE_MAX,
 } skb_baseline_t;
 
 /** Font metrics */
@@ -162,6 +163,36 @@ typedef struct skb_font_metrics_t {
 	/** Strikeout height. */
 	float strikeout_size;
 } skb_font_metrics_t;
+
+/** Struct describing all the baselines of a font. Based on baseline tables of CSS: https://www.w3.org/TR/css-inline-3/#baseline-table */
+typedef struct skb_baseline_set_t {
+	union {
+		// Baselines that can be index using skb_baseline_t.
+		float baselines[SKB_BASELINE_MAX];
+		struct {
+			/** Alphabetic baseline, used in Latin, Cyrillic, Greek, and many other scripts. Corresponds to the bottom of most lower case glyphs. Often represented as zero in font design coordinate systems. */
+			float alphabetic;
+			/** Ideographic baseline, used in CJK (Han/Hangul/Kana), corresponds to the bottom design edge of the glyph. */
+			float ideographic;
+			/** Central baseline, middle of cap-height and alphabetic baseline. Generally the nicest choice to center align items. */
+			float central;
+			/** Hanging baseline, used in Tibetan and similar unicameral scripts. Corresponds to top edge the glyphs seem to "hang" from */
+			float hanging;
+			/** Mathematical baseline, corresponds to center baseline of mathematical glyphs. */
+			float mathematical;
+			/** Middle baseline, middle of x-height and alphabetic baseline. */
+			float middle;
+			/** Text bottom baseline, equals to descender. */
+			float text_bottom;
+			/** Text top baseline, equals to ascender. */
+			float text_top;
+		};
+	};
+	/** Script the baseline set was build for. */
+	uint8_t script;
+	/** Text direction the baseline set was build for. */
+	uint8_t direction;
+} skb_baseline_set_t;
 
 /** Caret metrics */
 typedef struct skb_caret_metrics_t {
@@ -356,6 +387,17 @@ hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, sk
  * @return vertical location of the baseline.
  */
 float skb_font_get_baseline(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size);
+
+/**
+ * Returns the baseline set of the specified font and font_size.
+ * @param font_collection font collection to use.
+ * @param font_handle font to use.
+ * @param direction direction of the text.
+ * @param script script of the use cases.
+ * @param font_size size of the font in use.
+ * @return
+ */
+skb_baseline_set_t skb_font_get_baseline_set(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_text_direction_t direction, uint8_t script, float font_size);
 
 /** @} */
 
