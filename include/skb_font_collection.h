@@ -335,11 +335,7 @@ skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* fo
  */
 skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
-/**
- * Returns the id of the fonc collection, each font collection has unique index.
- * @param font_collection font collection to use.
- * @return
- */
+/** @returns the id of the font collection, each font collection has unique index. */
 uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection);
 
 /**

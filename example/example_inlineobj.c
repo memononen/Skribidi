@@ -24,6 +24,7 @@ typedef struct inlineobj_context_t {
 	example_t base;
 
 	skb_font_collection_t* font_collection;
+	skb_icon_collection_t* icon_collection;
 	skb_temp_alloc_t* temp_alloc;
 	skb_image_atlas_t* atlas;
 	skb_rasterizer_t* rasterizer;
@@ -34,6 +35,7 @@ typedef struct inlineobj_context_t {
 	bool drag_view;
 	bool drag_text;
 
+	bool show_details;
 	float atlas_scale;
 
 } inlineobj_context_t;
@@ -76,6 +78,7 @@ void* inlineobj_create(void)
 	ctx->base.on_mouse_scroll = inlineobj_on_mouse_scroll;
 	ctx->base.on_update = inlineobj_on_update;
 
+	ctx->show_details = true;
 	ctx->atlas_scale = 0.0f;
 
 	ctx->font_collection = skb_font_collection_create();
@@ -96,6 +99,21 @@ void* inlineobj_create(void)
 	LOAD_FONT_OR_FAIL("data/NotoSansThai-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/NotoColorEmoji-Regular.ttf", SKB_FONT_FAMILY_EMOJI);
 
+	ctx->icon_collection = skb_icon_collection_create();
+	assert(ctx->icon_collection);
+
+	skb_icon_handle_t icon_astro = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "astro", "data/astronaut_pico.svg");
+	if (!icon_astro) {
+		skb_debug_log("Failed to load icon_astro\n");
+		goto error;
+	}
+	skb_icon_handle_t icon_pen = skb_icon_collection_add_picosvg_icon(ctx->icon_collection, "pen", "data/pen_pico.svg");
+	if (!icon_pen) {
+		skb_debug_log("Failed to load icon3\n");
+		goto error;
+	}
+	skb_icon_collection_set_is_color(ctx->icon_collection, icon_pen, false); // render as alpha.
+
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
 
@@ -104,6 +122,7 @@ void* inlineobj_create(void)
 	skb_layout_params_t params = {
 		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
+		.icon_collection = ctx->icon_collection,
 		.layout_width = 600.f,
 		.text_wrap = SKB_WRAP_WORD_CHAR,
 		.horizontal_align = SKB_ALIGN_START,
@@ -124,36 +143,50 @@ void* inlineobj_create(void)
 
 	static const float object_size = 50.f;
 	const skb_attribute_t attributes_object[] = {
-		skb_attribute_make_object_with_align(object_size, object_size, 0.5f * object_size, SKB_OBJECT_ALIGN_TEXT_BEFORE, SKB_BASELINE_CENTRAL, 0),
+		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_BEFORE, SKB_BASELINE_CENTRAL),
+		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(255,128,128,255)),
 	};
 
 	const skb_attribute_t attributes_object2[] = {
-		skb_attribute_make_object_with_align(object_size, object_size, 0.5f * object_size, SKB_OBJECT_ALIGN_TEXT_AFTER, SKB_BASELINE_CENTRAL, 0),
+		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER, SKB_BASELINE_CENTRAL),
+		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(128,220,128,255)),
 	};
 
 	const skb_attribute_t attributes_object3[] = {
-		skb_attribute_make_object(object_size, object_size, 0.65f * object_size, 0),
+		skb_attribute_make_object_align(0.65f, SKB_OBJECT_ALIGN_SELF, SKB_BASELINE_ALPHABETIC),
+		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(128,128,255,255)),
 	};
 
-	skb_text_run_utf8_t runs[] = {
-		{ "Djúpur ", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-		{ "*", -1, attributes_object, SKB_COUNTOF(attributes_object) },
-//		{ " این یک.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-//		{ " 呼んでいた.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-//		{ " Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-		{ " शक्ति.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-		{ "Djúpur ", -1, attributes_text, SKB_COUNTOF(attributes_text) },
-		{ "*", -1, attributes_object2, SKB_COUNTOF(attributes_object) },
-		{ " Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
-		{ "Djúpur ", -1, attributes_text, SKB_COUNTOF(attributes_text) },
-		{ "*", -1, attributes_object3, SKB_COUNTOF(attributes_object) },
-		{ " Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text) },
+	const skb_attribute_t attributes_icon[] = {
+		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
+		skb_attribute_make_object_padding_hv(5.f, 5.f),
+		skb_attribute_make_fill(skb_rgba(32,32,63,255)),
 	};
 
-	ctx->layout = skb_layout_create_from_runs_utf8(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
+	skb_content_run_t runs[] = {
+		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text)),
+		skb_content_run_make_object(1, object_size, object_size, attributes_object, SKB_COUNTOF(attributes_object)),
+//		skb_text_run_make_utf8(" این یک.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
+//		skb_text_run_make_utf8(" 呼んでいた.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
+		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
+
+		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text)),
+		skb_content_run_make_object(2, object_size, object_size, attributes_object2, SKB_COUNTOF(attributes_object2)),
+		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
+
+		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text)),
+		skb_content_run_make_object(3, object_size, object_size, attributes_object3, SKB_COUNTOF(attributes_object3)),
+		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
+
+		skb_content_run_make_icon("astro", SKB_SIZE_AUTO, object_size, attributes_icon, SKB_COUNTOF(attributes_icon)),
+		skb_content_run_make_utf8("Icon and two", -1, attributes_text, SKB_COUNTOF(attributes_text)),
+		skb_content_run_make_icon("pen", SKB_SIZE_AUTO, object_size * 0.75f, attributes_icon, SKB_COUNTOF(attributes_icon)),
+	};
+
+	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 	assert(ctx->layout);
 
 	ctx->atlas = skb_image_atlas_create(NULL);
@@ -195,6 +228,9 @@ void inlineobj_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, in
 	assert(ctx);
 
 	if (action == GLFW_PRESS) {
+		if (key == GLFW_KEY_F9) {
+			ctx->show_details = !ctx->show_details;
+		}
 		if (key == GLFW_KEY_F10) {
 			ctx->atlas_scale += 0.25f;
 			if (ctx->atlas_scale > 1.01f)
@@ -275,30 +311,34 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw layout
 		const skb_layout_line_t* lines = skb_layout_get_lines(ctx->layout);
 		const int32_t lines_count = skb_layout_get_lines_count(ctx->layout);
-		const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(ctx->layout);
-		const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(ctx->layout);
+		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
+		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
-		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
-		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
+		const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		const int32_t decorations_count = skb_layout_get_decorations_count(ctx->layout);
 		const skb_decoration_t* decorations = skb_layout_get_decorations(ctx->layout);
 
 		// Draw line baselines
-		for (int32_t li = 0; li < lines_count; li++) {
-			const skb_layout_line_t* line = &lines[li];
-			float baseline = view_transform_y(&ctx->view, line->baseline);
-			float min_x = view_transform_x(&ctx->view, line->bounds.x);
-			float max_x = view_transform_x(&ctx->view, line->bounds.x + line->bounds.width);
-			draw_line(min_x, baseline, max_x, baseline, skb_rgba(0,0,0,128));
+		if (ctx->show_details) {
+			for (int32_t li = 0; li < lines_count; li++) {
+				const skb_layout_line_t* line = &lines[li];
+				float baseline = view_transform_y(&ctx->view, line->baseline);
+				float min_x = view_transform_x(&ctx->view, line->bounds.x);
+				float max_x = view_transform_x(&ctx->view, line->bounds.x + line->bounds.width);
+				draw_line(min_x, baseline, max_x, baseline, skb_rgba(0,0,0,128));
+
+				skb_rect2_t b = view_transform_rect(&ctx->view, line->bounds);
+				draw_rect(b.x, b.y, b.width, b.height, skb_rgba(0,0,255,255));
+			}
 		}
 
 		// Draw underlines
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
-			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+			const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+			const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
 				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
 				skb_pattern_quad_t pat_quad = skb_image_atlas_get_decoration_quad(
@@ -312,31 +352,79 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 
 		// Draw glyphs
-		for (int32_t ri = 0; ri < glyph_runs_count; ri++) {
-			const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
-			const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
-			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
+		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+			const skb_layout_run_t* run = &layout_runs[ri];
+			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
 
-			if (glyph_run->flags & SKB_GLYPH_RUN_IS_OBJECT) {
-				const skb_attribute_object_t attr_object = skb_attributes_get_object(span->attributes, span->attributes_count);
-				const skb_glyph_t* glyph = &glyphs[glyph_run->glyph_range.start];
+			if (run->type == SKB_CONTENT_RUN_OBJECT) {
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(attribute_span);
+
+				if (ctx->show_details) {
+					const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span);
+					skb_rect2_t pad_rect = {
+						.x = run->offset_x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
+						.y = run->offset_y - attr_object_padding.top,
+						.width = run->content_width + attr_object_padding.start + attr_object_padding.end,
+						.height = run->content_height + attr_object_padding.top + attr_object_padding.bottom,
+					};
+					pad_rect = view_transform_rect(&ctx->view, pad_rect);
+					draw_rect(pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255));
+				}
+
 				skb_rect2_t obj_rect = {
-					.x = glyph->offset_x,
-					.y = glyph->offset_y,
-					.width = attr_object.width,
-					.height = attr_object.height,
+					.x = run->offset_x,
+					.y = run->offset_y,
+					.width = run->content_width,
+					.height = run->content_height,
 				};
 				obj_rect = view_transform_rect(&ctx->view, obj_rect);
 				draw_filled_rect(obj_rect.x, obj_rect.y, obj_rect.width, obj_rect.height, attr_fill.color);
 
 				draw_line_width(2.f);
-				float baseline = attr_object.baseline_offset; // skb_object_calc_baseline(layout_params->baseline_align, attr_object.height, attr_object_baselines);
-				float y = view_transform_y(&ctx->view, glyph->offset_y + baseline);
+				const float baseline = run->content_height * attr_object_align.baseline_ratio;
+				const float y = view_transform_y(&ctx->view, run->offset_y + baseline);
 				draw_line(obj_rect.x, y, obj_rect.x + obj_rect.width, y, skb_rgba(255,255,255,255));
 				draw_line_width(1.f);
+
+			} else if (run->type == SKB_CONTENT_RUN_ICON) {
+				if (ctx->show_details) {
+					const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span);
+					skb_rect2_t pad_rect = {
+						.x = run->offset_x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
+						.y = run->offset_y - attr_object_padding.top,
+						.width = run->content_width + attr_object_padding.start + attr_object_padding.end,
+						.height = run->content_height + attr_object_padding.top + attr_object_padding.bottom,
+					};
+					pad_rect = view_transform_rect(&ctx->view, pad_rect);
+					draw_rect(pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,128));
+
+					skb_rect2_t obj_rect = {
+						.x = run->offset_x,
+						.y = run->offset_y,
+						.width = run->content_width,
+						.height = run->content_height,
+					};
+					obj_rect = view_transform_rect(&ctx->view, obj_rect);
+					draw_rect(obj_rect.x, obj_rect.y, obj_rect.width, obj_rect.height, skb_rgba(0,0,0,128));
+				}
+
+				skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, run->icon_handle, run->content_width, run->content_height);
+
+				// Icon image
+				skb_quad_t quad = skb_image_atlas_get_icon_quad(
+					ctx->atlas, run->offset_x, run->offset_y, ctx->view.scale,
+					ctx->icon_collection, run->icon_handle, icon_scale,
+					SKB_RASTERIZE_ALPHA_SDF);
+
+				draw_image_quad_sdf(
+					view_transform_rect(&ctx->view, quad.geom),
+					quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
+					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
+
 			} else {
-				for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+				const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+				for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 					const skb_glyph_t* glyph = &glyphs[gi];
 
 					const float gx = glyph->offset_x;
@@ -345,7 +433,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					// Glyph image
 					skb_quad_t quad = skb_image_atlas_get_glyph_quad(
 						ctx->atlas,gx, gy, ctx->view.scale,
-						layout_params->font_collection, glyph_run->font_handle, glyph->gid,
+						layout_params->font_collection, run->font_handle, glyph->gid,
 						attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
 
 					draw_image_quad_sdf(
@@ -359,8 +447,8 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw through lines.
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
-			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
+			const skb_attribute_span_t* skb_attribute_span = &attribute_spans[decoration->attribute_span_idx];
+			const skb_attribute_decoration_t attr_decoration = skb_attribute_span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
 				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
 				skb_pattern_quad_t pat_quad = skb_image_atlas_get_decoration_quad(
@@ -400,7 +488,8 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	draw_text((float)view_width - 20.f, (float)view_height - 15.f, 12.f, 1.f, skb_rgba(0,0,0,255),
-		"RMB: Pan view   Wheel: Zoom View   F10: Atlas %.1f%%",
+		"RMB: Pan view   Wheel: Zoom View   F9: Glyph details %s   F10: Atlas %.1f%%",
+		ctx->show_details ? "ON" : "OFF",
 		ctx->atlas_scale * 100.f);
 
 }

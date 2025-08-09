@@ -74,6 +74,38 @@ skb_vec2_t skb_icon_collection_calc_proportional_scale(const skb_icon_collection
 	};
 }
 
+skb_vec2_t skb_icon_collection_calc_proportional_size(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height)
+{
+	assert(icon_collection);
+	skb_icon_t* icon = skb__get_icon_by_handle(icon_collection, icon_handle);
+
+	if (!icon)
+		return (skb_vec2_t) {0};
+
+	if (width <= 0 && height <= 0) {
+		// Auto width and height, use the icon size.
+		return (skb_vec2_t) {
+			.x = icon->view.width,
+			.y = icon->view.height,
+		};
+	}
+	if (width <= 0) {
+		// Auto width
+		const float scale = icon->view.height > 0.f ? height / icon->view.height : 0.f;
+		return (skb_vec2_t) { icon->view.width * scale, height };
+	}
+	if (height <= 0) {
+		// Auto height
+		const float scale = icon->view.width > 0.f ? width / icon->view.width : 0.f;
+		return (skb_vec2_t) { width, icon->view.height * scale };
+	}
+
+	return (skb_vec2_t) {
+		.x = width,
+		.y = height,
+	};
+}
+
 
 skb_vec2_t skb_icon_collection_get_icon_size(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle)
 {
@@ -90,6 +122,12 @@ const skb_icon_t* skb_icon_collection_get_icon(const skb_icon_collection_t* icon
 {
 	assert(icon_collection);
 	return skb__get_icon_by_handle(icon_collection, icon_handle);
+}
+
+uint32_t skb_icon_collection_get_id(const skb_icon_collection_t* icon_collection)
+{
+	assert(icon_collection);
+	return icon_collection->id;
 }
 
 static void skb__icon_shape_destroy(skb_icon_shape_t* shape)

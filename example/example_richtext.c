@@ -174,24 +174,24 @@ void* richtext_create(void)
 		"Donec vitae tristique libero. Etiam eget pellentesque nisi, in porta lectus. Donec accumsan ligula mauris. Nulla consectetur tortor at sem rutrum, non dapibus libero interdum. "
 		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.\n";
 
-	skb_text_run_utf8_t runs[] = {
-		{ ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small) },
-		{ "moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
+	skb_content_run_t runs[] = {
+		skb_content_run_make_utf8(ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small)),
+		skb_content_run_make_utf8("moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic)),
 
-		{ "این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
+		skb_content_run_make_utf8("این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2)),
 
-		{ "Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1) },
-		{ "vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2) },
-		{ "dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3) },
+		skb_content_run_make_utf8("Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1)),
+		skb_content_run_make_utf8("vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2)),
+		skb_content_run_make_utf8("dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3)),
 
-		{ "ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small) },
-		{ "POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big) },
-		{ "11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts) },
-		{ "शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic) },
-		{ "今天天气晴朗。 ", -1, attributes_small, SKB_COUNTOF(attributes_small) },
+		skb_content_run_make_utf8("ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small)),
+		skb_content_run_make_utf8("POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big)),
+		skb_content_run_make_utf8("11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts)),
+		skb_content_run_make_utf8("शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic)),
+		skb_content_run_make_utf8("今天天气晴朗。 ", -1, attributes_small, SKB_COUNTOF(attributes_small)),
 	};
 
-	ctx->layout = skb_layout_create_from_runs_utf8(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
+	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 	assert(ctx->layout);
 
 
@@ -315,11 +315,11 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	{
 		// Draw layout
-		const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(ctx->layout);
-		const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(ctx->layout);
+		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
+		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
 		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
-		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
+		const skb_attribute_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		if (ctx->show_glyph_bounds) {
@@ -335,7 +335,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw underlines
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+			const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
 				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
@@ -350,12 +350,12 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 
 		// Draw glyphs
-		for (int32_t ri = 0; ri < glyph_runs_count; ri++) {
-			const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
-			const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
-			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-			for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+			const skb_layout_run_t* run = &layout_runs[ri];
+			const skb_attribute_span_t* span = &attrib_spans[run->attribute_span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span);
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span);
+			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 
 				const float gx = glyph->offset_x;
@@ -364,7 +364,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				if (ctx->show_glyph_bounds) {
 					draw_tick(view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans);
 
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph_run->font_handle, glyph->gid, attr_font.size);
+					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, run->font_handle, glyph->gid, attr_font.size);
 					bounds.x += gx;
 					bounds.y += gy;
 					bounds = view_transform_rect(&ctx->view, bounds);
@@ -374,7 +374,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				// Glyph image
 				skb_quad_t quad = skb_image_atlas_get_glyph_quad(
 					ctx->atlas,gx, gy, ctx->view.scale,
-					layout_params->font_collection, glyph_run->font_handle, glyph->gid,
+					layout_params->font_collection, run->font_handle, glyph->gid,
 					attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
 
 				draw_image_quad_sdf(
@@ -387,7 +387,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw through lines.
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+			const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
 				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);

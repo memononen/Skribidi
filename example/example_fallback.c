@@ -339,11 +339,11 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	{
 		// Draw layout
-		const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(ctx->layout);
-		const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(ctx->layout);
+		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
+		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
 		const int32_t glyphs_count = skb_layout_get_glyphs_count(ctx->layout);
-		const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
+		const skb_attribute_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		if (ctx->show_glyph_bounds) {
@@ -352,12 +352,12 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			draw_rect(layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128));
 		}
 
-		for (int32_t ri = 0; ri < glyph_runs_count; ri++) {
-			const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
-			const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
-			const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-			for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+			const skb_layout_run_t* run = &layout_runs[ri];
+			const skb_attribute_span_t* span = &attrib_spans[run->attribute_span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span);
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(span);
+			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 
 				const float gx = glyph->offset_x;

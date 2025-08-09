@@ -452,6 +452,15 @@ static void draw_selection_rect(skb_rect2_t rect, void* context)
 	draw_filled_rect(ctx->x + rect.x, ctx->y + rect.y, rect.width, rect.height, ctx->color);
 }
 
+static skb_attribute_font_t get_font_attribute_from_editor_params(const skb_editor_params_t* edit_params)
+{
+	skb_attribute_span_t dummy_span = {
+		.attributes = (skb_attribute_t*)edit_params->text_attributes,
+		.attributes_count = edit_params->text_attributes_count,
+	};
+	return skb_attributes_get_font(&dummy_span);
+}
+
 void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
 	testbed_context_t* ctx = ctx_ptr;
@@ -515,11 +524,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
-			const skb_glyph_run_t* glyph_runs = skb_layout_get_glyph_runs(edit_layout);
-			const int32_t glyph_runs_count = skb_layout_get_glyph_runs_count(edit_layout);
+			const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
+			const int32_t layout_runs_count = skb_layout_get_layout_runs_count(edit_layout);
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
 			const int32_t glyphs_count = skb_layout_get_glyphs_count(edit_layout);
-			const skb_text_attributes_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
+			const skb_attribute_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
 			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
 			const int32_t decorations_count = skb_layout_get_decorations_count(edit_layout);
 			const skb_decoration_t* decorations = skb_layout_get_decorations(edit_layout);
@@ -527,7 +536,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw underlines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+				const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 				if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
 					skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
@@ -567,12 +576,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				skb_rect2_t run_bounds = skb_rect2_make_undefined();
 
 
-				for (int32_t ri = line->glyph_run_range.start; ri < line->glyph_run_range.end; ri++) {
-					const skb_glyph_run_t* glyph_run = &glyph_runs[ri];
-					const skb_text_attributes_span_t* span = &attrib_spans[glyph_run->span_idx];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span->attributes, span->attributes_count);
-					const skb_attribute_font_t attr_font = skb_attributes_get_font(span->attributes, span->attributes_count);
-					for (int32_t gi = glyph_run->glyph_range.start; gi < glyph_run->glyph_range.end; gi++) {
+				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+					const skb_layout_run_t* run = &layout_runs[ri];
+					const skb_attribute_span_t* span = &attrib_spans[run->attribute_span_idx];
+					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(span);
+					const skb_attribute_font_t attr_font = skb_attributes_get_font(span);
+					for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
 
 						float gx = ox + glyph->offset_x;
@@ -688,7 +697,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw through lines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_text_attributes_span_t* span = &attrib_spans[decoration->span_idx];
+				const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 				if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
 					skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
@@ -776,7 +785,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	// Draw logical string info
 	{
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
-		const skb_attribute_font_t attr_font = skb_attributes_get_font(edit_params->text_attributes, edit_params->text_attributes_count);
+		const skb_attribute_font_t attr_font = get_font_attribute_from_editor_params(edit_params);
+
 		float ox = ctx->view.cx;
 		float oy = ctx->view.cy + 30.f + layout_height + 80.f;
 		float sz = 80.f;

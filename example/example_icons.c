@@ -270,7 +270,7 @@ static float draw_icon(icons_context_t* ctx, skb_icon_handle_t icon_handle, floa
 {
 	if (!icon_handle) return 0.f;
 
-	skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, icon_handle, -1.f, (float)icon_size);
+	skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, icon_handle, SKB_SIZE_AUTO, (float)icon_size);
 	skb_vec2_t icon_base_size = skb_icon_collection_get_icon_size(ctx->icon_collection, icon_handle);
 
 	skb_rect2_t icon_rect = {

@@ -54,6 +54,9 @@ void skb_debug_log(const char* format, ...);
 /** Math constant PI */
 #define SKB_PI (3.14159265f)
 
+/** Size parameter indicating the value is not specified, but should be calculated instead. Indicated per use case if auto can be used. */
+#define SKB_SIZE_AUTO (-1.f)
+
 enum {
 	/** Invalid value used for indices. */
 	SKB_INVALID_INDEX = -1,

@@ -202,7 +202,7 @@ int main(int argc, char** args)
 	}
 
 	// Init first example
-	set_example(0);
+	set_example(g_examples_count-1);
 
 	while (!g_done) {
 		main_loop(0);

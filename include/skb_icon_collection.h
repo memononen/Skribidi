@@ -105,16 +105,26 @@ skb_icon_handle_t skb_icon_collection_find_icon(const skb_icon_collection_t* ico
 void skb_icon_collection_set_is_color(skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, bool is_color);
 
 /**
- * Calculates propertional scale to render icon at specific size.
+ * Calculates proportional scale to render icon at specific size.
  * For example, if icon size is 20, and you request 30, the scaling will be 1.5.
- * If width or height is set to -1, then uniform scaling is used.
+ * If width or height is set to SKB_SIZE_AUTO, then uniform scaling is used.
  * @param icon_collection icon collection to use.
  * @param icon_handle handle to the icon to query.
- * @param width requested with, if -1 the result x scale is same as y scale.
- * @param height requested with, if -1 the result y scale is same as x scale.
+ * @param width requested with, if SKB_SIZE_AUTO the result x scale is same as y scale.
+ * @param height requested with, if SKB_SIZE_AUTO the result y scale is same as x scale.
  * @return how much to scale the icon to get requested size.
  */
 skb_vec2_t skb_icon_collection_calc_proportional_scale(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height);
+
+/**
+ * Calculates proportional size of the icon given either width or height.
+ * @param icon_collection icon collection to use.
+ * @param icon_handle handle to the icon to query.
+ * @param width requested with, if SKB_SIZE_AUTO the width will be calculated from height keeping aspect ratio.
+ * @param height requested with, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
+ * @return size of the icon.
+ */
+skb_vec2_t skb_icon_collection_calc_proportional_size(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height);
 
 /** @return size of the icon. */
 skb_vec2_t skb_icon_collection_get_icon_size(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle);
@@ -126,6 +136,9 @@ skb_vec2_t skb_icon_collection_get_icon_size(const skb_icon_collection_t* icon_c
  * @return pointer to the specified icon.
  */
 const skb_icon_t* skb_icon_collection_get_icon(const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle);
+
+/** @returns the id of the icon collection, each icon collection has unique index. */
+uint32_t skb_icon_collection_get_id(const skb_icon_collection_t* icon_collection);
 
 //
 // Icon Builder

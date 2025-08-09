@@ -1223,7 +1223,7 @@ skb_quad_t skb_image_atlas_get_icon_quad(
 	quad.geom.height = (float)(item->height - inset*2) * render_scale_y;
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.texture_idx = item->texture_idx;
-	quad.flags |= SKB_QUAD_IS_COLOR;
+	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_COLOR, item->flags & SKB__ITEM_IS_COLOR);
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_SDF, item->flags & SKB__ITEM_IS_SDF);
 
 	return quad;

@@ -141,28 +141,16 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 			}
 
 			// Compose the paragraph from 3 pieces.
-			skb_text_run_utf32_t runs[] = {
-				{ // Before
-					.attributes = editor->params.text_attributes,
-					.attributes_count = editor->params.text_attributes_count,
-					.text = paragraph->text,
-					.text_count = ime_position.paragraph_offset,
-				},
-				{ // Composition
-					.attributes = editor->params.composition_attributes,
-					.attributes_count = editor->params.composition_attributes_count,
-					.text = editor->composition_text,
-					.text_count = editor->composition_text_count,
-				},
-				{ // After
-					.attributes = editor->params.text_attributes,
-					.attributes_count = editor->params.text_attributes_count,
-					.text = paragraph->text + ime_position.paragraph_offset,
-					.text_count = paragraph->text_count - ime_position.paragraph_offset,
-				},
+			skb_content_run_t runs[] = {
+				// Before
+				skb_content_run_make_utf32(paragraph->text, ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count),
+				// Composition
+				skb_content_run_make_utf32(editor->composition_text, editor->composition_text_count, editor->params.composition_attributes, editor->params.composition_attributes_count),
+				// After
+				skb_content_run_make_utf32(paragraph->text + ime_position.paragraph_offset, paragraph->text_count - ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count),
 			};
 
-			paragraph->layout = skb_layout_create_from_runs_utf32(temp_alloc, &layout_params, runs, SKB_COUNTOF(runs));
+			paragraph->layout = skb_layout_create_from_runs(temp_alloc, &layout_params, runs, SKB_COUNTOF(runs));
 
 			// Mark as IME layout, so that we can clean things up later.
 			paragraph->has_ime_layout = true;
@@ -1173,7 +1161,7 @@ static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* edit
 	if (editor->paragraphs_count == 0) {
 		return skb__editor_get_document_start(editor);
 	}
-	
+
 	const skb__editor_paragraph_t* last_paragraph = &editor->paragraphs[editor->paragraphs_count - 1];
 	skb_text_position_t result = {
 		.offset = last_paragraph->text_start_offset + last_paragraph->text_count,
