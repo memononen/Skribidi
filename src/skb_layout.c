@@ -766,9 +766,9 @@ static float skb_calculate_line_height(skb_attribute_line_height_t attr_line_hei
 
 static float skb__calc_align(skb_align_t align, float size, float container_size)
 {
-	if (align == SKB_ALIGN_START)
+	if (align == SKB_ALIGN_START || align == SKB_ALIGN_LEFT || align == SKB_ALIGN_TOP)
 		return 0.f;
-	if (align == SKB_ALIGN_END)
+	if (align == SKB_ALIGN_END || align == SKB_ALIGN_RIGHT || align == SKB_ALIGN_BOTTOM)
 		return container_size - size;
 	if (align == SKB_ALIGN_CENTER)
 		return (container_size - size) / 2.f;

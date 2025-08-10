@@ -331,7 +331,7 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	float layout_width = layout_sizes[ctx->layout_size_idx * 2 + 0];
 	float layout_height = layout_sizes[ctx->layout_size_idx * 2 + 1];
 
-	const char* align_labels[] = { "Start", "Center", "End" };
+	const char* align_labels[] = { "Start", "Center", "End", "left", "Right", "Top", "Bottom" };
 	const char* wrap_labels[] = { "None", "Word", "Word & Char" };
 	const char* overflow_labels[] = { "None", "Clip", "Ellipsis" };
 	const char* vert_trim_labels[] = { "Ascender to Descender", "Cap Height to Baseline" };
@@ -346,21 +346,27 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			y += 50.f;
 		}
 
-		for (uint8_t valign = 0; valign < 3; valign++) {
+
+		for (uint8_t v = 0; v < 3; v++) {
+
+			static const uint8_t valiang_opts[3] = { SKB_ALIGN_TOP, SKB_ALIGN_CENTER, SKB_ALIGN_BOTTOM };
+			const uint8_t valign = valiang_opts[v];
 
 			{
 				skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){x - 10.f, y + layout_height * 0.5f + 6});
 				draw_text(p.x,p.y, 12 * ctx->view.scale, 1.f, skb_rgba(0,0,0,128), align_labels[valign]);
 			}
 
-			for (uint8_t halign = 0; halign < 3; halign++) {
+			for (uint8_t h = 0; h < 5; h++) {
+
+				static const uint8_t haliang_opts[5] = { SKB_ALIGN_START, SKB_ALIGN_CENTER, SKB_ALIGN_END, SKB_ALIGN_LEFT, SKB_ALIGN_RIGHT };
+				const uint8_t halign = haliang_opts[h];
+
 				float tx = x + halign * (layout_width + 120.f);
 				float ty = y;
 
-				if (valign == 0) {
-					skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){tx + layout_width * 0.5f, ty - 10.f});
-					draw_text(p.x,p.y, 12 * ctx->view.scale, 0.5f, skb_rgba(0,0,0,128), align_labels[halign]);
-				}
+				skb_vec2_t p = view_transform_pt(&ctx->view, (skb_vec2_t){tx + layout_width * 0.5f, ty - 10.f});
+				draw_text(p.x,p.y, 12 * ctx->view.scale, 0.5f, skb_rgba(0,0,0,128), align_labels[halign]);
 
 				skb_rect2_t rect = {
 					.x = tx,

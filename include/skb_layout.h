@@ -46,6 +46,14 @@ typedef enum {
 	SKB_ALIGN_CENTER,
 	/** Horizontal: Align to the language specific end. Right for LTR and left for RTL. Vertical: align to bottom. */
 	SKB_ALIGN_END,
+	/** Horizontal: Align to left. Vertical: n/a (will behave like top). */
+	SKB_ALIGN_LEFT,
+	/** Horizontal: Align to right. Vertical: n/a (will behave like bottom). */
+	SKB_ALIGN_RIGHT,
+	/** Horizontal: n/a (will behave like left). Vertical: align to top. */
+	SKB_ALIGN_TOP,
+	/** Horizontal: n/a (will behave like right). Vertical: align to bottom. */
+	SKB_ALIGN_BOTTOM,
 } skb_align_t;
 
 /** Enum describing how text is wrapped to layout box. */
