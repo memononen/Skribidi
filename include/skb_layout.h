@@ -430,6 +430,8 @@ typedef struct skb_layout_params_t {
 	float layout_width;
 	/** Layout box height. Used for alignment, wrapping, and overflow */
 	float layout_height;
+	/** Tab stop increment. If zero, the tab will have same width as space. */
+	float tab_stop_increment;
 	/** Base writing direction. */
 	uint8_t base_direction;
 	/** Text wrapping. Used together with layout box to wrap the text to lines. See skb_text_wrap_t */

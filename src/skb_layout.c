@@ -697,7 +697,7 @@ static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf3
 	return layout->objects_count - 1;
 }*/
 
-static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang, const uint32_t* text, skb_text_property_t* text_attribs, int32_t text_count)
+static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang, const uint32_t* text, skb_text_property_t* text_props, int32_t text_count)
 {
 	if (!text_count)
 		return;
@@ -707,28 +707,31 @@ static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang,
 	set_graphemebreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == GRAPHEMEBREAK_BREAK)
-			text_attribs[i].flags |= SKB_TEXT_PROP_GRAPHEME_BREAK;
+			text_props[i].flags |= SKB_TEXT_PROP_GRAPHEME_BREAK;
 	}
 
 	set_wordbreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == WORDBREAK_BREAK)
-			text_attribs[i].flags |= SKB_TEXT_PROP_WORD_BREAK;
+			text_props[i].flags |= SKB_TEXT_PROP_WORD_BREAK;
 	}
 
 	set_linebreaks_utf32(text, text_count, lang, breaks);
 	for (int i = 0; i < text_count; i++) {
 		if (breaks[i] == LINEBREAK_MUSTBREAK)
-			text_attribs[i].flags |= SKB_TEXT_PROP_MUST_LINE_BREAK;
+			text_props[i].flags |= SKB_TEXT_PROP_MUST_LINE_BREAK;
 		if (breaks[i] == LINEBREAK_ALLOWBREAK)
-			text_attribs[i].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
+			text_props[i].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
+		// Allow line break before tabs.
+		if (text[i] == SKB_CHAR_HORIZONTAL_TAB && i > 0)
+			text_props[i-1].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
 	}
 
 	for (int i = 0; i < text_count; i++) {
 		SBGeneralCategory category = SBCodepointGetGeneralCategory(text[i]);
-		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_CONTROL, category == SBGeneralCategoryCC);
-		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_WHITESPACE, SBGeneralCategoryIsSeparator(category));
-		SKB_SET_FLAG(text_attribs[i].flags, SKB_TEXT_PROP_PUNCTUATION, SBGeneralCategoryIsPunctuation(category));
+		SKB_SET_FLAG(text_props[i].flags, SKB_TEXT_PROP_CONTROL, category == SBGeneralCategoryCC);
+		SKB_SET_FLAG(text_props[i].flags, SKB_TEXT_PROP_WHITESPACE, SBGeneralCategoryIsSeparator(category));
+		SKB_SET_FLAG(text_props[i].flags, SKB_TEXT_PROP_PUNCTUATION, SBGeneralCategoryIsPunctuation(category));
 	}
 
 	SKB_TEMP_FREE(temp_alloc, breaks);
@@ -940,6 +943,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 			float run_end_whitespace_width = 0.f;
 			float run_width = 0.f;
 
+			bool tab_overflows = false;
 			bool must_break = false;
 			while (glyph_run_end < layout->glyphs_count) {
 
@@ -953,14 +957,37 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 				const int cp_offset = layout->glyphs[glyph_run_end].text_range.end - 1;
 
+				// Handle tabs
+				bool codepoint_is_tab = false;
+				if (layout->text[cp_offset] == SKB_CHAR_HORIZONTAL_TAB && layout->params.tab_stop_increment > 0.f) {
+					// Calculate the next tab stop.
+					const float cur_pos = cur_line->bounds.width + run_width + run_end_whitespace_width;
+					const float next_tab_stop = floorf((cur_pos + layout->params.tab_stop_increment) / layout->params.tab_stop_increment) * layout->params.tab_stop_increment;
+
+					// Check if the tab will overflow the width, if so reset to the first tab on new line and signal to break line.
+					float tab_width = 0.f;
+					if (next_tab_stop > line_break_width) {
+						tab_overflows = true;
+						tab_width = layout->params.tab_stop_increment;
+					} else {
+						tab_width = next_tab_stop - cur_pos;
+					}
+
+					// Update glyph width to match the tab width.
+					layout->glyphs[glyph_run_end].advance_x = tab_width;
+					cluster_width = tab_width;
+					codepoint_is_tab = true;
+				}
+
 				glyph_run_end++;
 
 				// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 				// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
+				// Treat tab as non-whitespace so that it allocates space at the end of the line too.
 				const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
 				const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
 				const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
-				if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control)) {
+				if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control) && !codepoint_is_tab) {
 					run_end_whitespace_width += cluster_width;
 				} else {
 					if (run_end_whitespace_width > 0.f) {
@@ -1012,8 +1039,10 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 				cur_line->bounds.width += run_width;
 				cur_line->glyph_range.end = glyph_run_end;
 			} else {
-				// If the word does not fit, start a new line (unless it's an empty line).
-				if (cur_line->glyph_range.start != cur_line->glyph_range.end && (cur_line->bounds.width + run_width) > line_break_width) {
+				// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
+				const bool is_empty_line = cur_line->glyph_range.start == cur_line->glyph_range.end;
+				const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
+				if ((!is_empty_line && width_overflows) || tab_overflows) {
 					SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
 					cur_line = &layout->lines[layout->lines_count++];
 					memset(cur_line, 0, sizeof(skb_layout_line_t));
@@ -1816,8 +1845,12 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 static void skb__override_line_breaks(skb_layout_t* layout, int32_t start_offset, int32_t end_offset, boundary_iterator_t iter)
 {
 	// Override line breaks.
-	for (int32_t j = start_offset; j < end_offset; j++)
+	for (int32_t j = start_offset; j < end_offset; j++) {
 		layout->text_props[j].flags &= ~SKB_TEXT_PROP_ALLOW_LINE_BREAK;
+		// Allow line break before tabs.
+		if (layout->text[j] == SKB_CHAR_HORIZONTAL_TAB && j > 0)
+			layout->text_props[j-1].flags |= SKB_TEXT_PROP_ALLOW_LINE_BREAK;
+	}
 
 	int32_t range_start = 0, range_end = 0;
 	while (boundary_iterator_next(&iter, &range_start, &range_end)) {

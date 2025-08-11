@@ -215,6 +215,7 @@ void* testbed_create(void)
 			.font_collection = ctx->font_collection,
 			.layout_width = 1200.f,
 			.text_wrap = SKB_WRAP_WORD_CHAR,
+			.tab_stop_increment = 92.f * 2.f,
 		},
 		.text_attributes = attributes,
 		.text_attributes_count = SKB_COUNTOF(attributes),
@@ -317,6 +318,9 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			// Select all
 			skb_editor_select_all(ctx->editor);
 			ctx->allow_char = false;
+		}
+		if (key == GLFW_KEY_TAB) {
+			skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, '\t');
 		}
 		if (key == GLFW_KEY_ESCAPE) {
 			// Clear selection
