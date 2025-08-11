@@ -38,13 +38,14 @@ typedef enum {
 } skb_sanitize_affinity_t;
 
 typedef struct skb__editor_paragraph_t {
-	skb_layout_t* layout;
-	uint32_t* text;
-	int32_t text_count;
-	int32_t text_cap;
-	int32_t text_start_offset;
-	bool has_ime_layout;
-	float y;
+	skb_layout_t* layout;		// Layout for the paragraph, may contain multiple lines.
+	uint32_t* text;				// Pointer to the paragraph text.
+	int32_t text_count;			// The length of the paragraph text.
+	int32_t text_cap;			// Capacity of the the paragraph text.
+	int32_t text_start_offset;	// The start offset of the pargraph text in relation to the whole text.
+	bool has_ime_layout;		// True if the paragraph was layout was done with ime input.
+	uint8_t direction;			// The reading direction the paragraph layout was done with.
+	float y;					// Y offset of the layout.
 } skb__editor_paragraph_t;
 
 // Stores enough data to be able to undo and redo skb__replace_range().
@@ -120,12 +121,9 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	skb_layout_params_t layout_params = editor->params.layout_params;
 	layout_params.origin = (skb_vec2_t){ 0 };
 	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
-	// TODO: we will need to improve the logic pick up the direction automatically.
-	// If left to AUTO, each split paragraph will adjust separately and it's confusing.
-	if (layout_params.base_direction == SKB_DIRECTION_AUTO)
-		layout_params.base_direction = SKB_DIRECTION_LTR;
 
 	float y = 0.f;
+	skb_text_direction_t direction = layout_params.base_direction;
 
 	skb__editor_text_position_t ime_position = { .paragraph_idx = SKB_INVALID_INDEX };
 	if (editor->composition_text_count > 0)
@@ -133,6 +131,8 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 
 	for (int32_t i = 0; i < editor->paragraphs_count; i++) {
 		skb__editor_paragraph_t* paragraph = &editor->paragraphs[i];
+
+		layout_params.base_direction = (uint8_t)direction;
 
 		if (ime_position.paragraph_idx == i) {
 			if (paragraph->layout) {
@@ -157,17 +157,29 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 
 		} else {
 			// If the paragraph previous had IME layout, relayout.
-			if (paragraph->has_ime_layout) {
+			if (paragraph->has_ime_layout && paragraph->layout) {
 				skb_layout_destroy(paragraph->layout);
 				paragraph->layout = NULL;
 				paragraph->has_ime_layout = false;
 			}
+			// If the paragraph direction has changed, relayout.
+			if (paragraph->direction != direction && paragraph->layout) {
+				skb_layout_destroy(paragraph->layout);
+				paragraph->layout = NULL;
+			}
+
 			if (!paragraph->layout) {
 				paragraph->layout = skb_layout_create_utf32(
 					temp_alloc, &layout_params, paragraph->text, paragraph->text_count,
 					editor->params.text_attributes, editor->params.text_attributes_count);
+				paragraph->direction = (uint8_t)direction;
 			}
+
+			// Take the resolved direction from the first paragraph, and apply to the rest. This matches the behavior of a single layout.
+			if (i == 0)
+				direction = skb_layout_get_resolved_direction(paragraph->layout);
 		}
+
 		assert(paragraph->layout);
 
 		paragraph->y = y;
@@ -769,14 +781,6 @@ static bool skb__is_at_last_line(const skb_editor_t* editor, skb__editor_text_po
 	return (edit_pos.paragraph_idx == editor->paragraphs_count - 1) && (edit_pos.line_idx == lines_count - 1);
 }
 
-static bool skb__is_at_start_of_line(const skb_editor_t* editor, skb__editor_text_position_t edit_pos)
-{
-	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
-	const skb_layout_line_t* lines = skb_layout_get_lines(paragraph->layout);
-	const skb_layout_line_t* line = &lines[edit_pos.line_idx];
-	return edit_pos.paragraph_offset == line->text_range.start;
-}
-
 static bool skb__is_past_end_of_line(const skb_editor_t* editor, skb__editor_text_position_t edit_pos)
 {
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
@@ -906,9 +910,8 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 			cur_edit_pos = prev_edit_pos;
 		}
 	} else {
-		if (cur_affinity == SKB_AFFINITY_LEADING || (!skb__is_at_start_of_line(editor, cur_edit_pos) && cur_affinity == SKB_AFFINITY_EOL)) {
+		if (cur_affinity == SKB_AFFINITY_LEADING || cur_affinity == SKB_AFFINITY_EOL) {
 			// On leading edge, normalize the index to next trailing location.
-			// Special handling for empty lines to avoid extra stop.
 			affinity = SKB_AFFINITY_TRAILING;
 		} else {
 			// On a trailing edge, advance to the next character.
