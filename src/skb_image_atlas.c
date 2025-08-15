@@ -1249,11 +1249,11 @@ skb_quad_t skb_image_atlas_get_icon_quad(
 }
 
 
-static uint64_t skb__get_pattern_hash(uint8_t style, float thickness, skb_rasterize_alpha_mode_t alpha_mode)
+static uint64_t skb__get_pattern_hash(skb_decoration_style_t style, float thickness, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	uint64_t hash = skb_hash64_append_uint8(skb_hash64_empty(), SKB__ITEM_TYPE_ICON);
 	hash = skb_hash64_append_float(hash, thickness);
-	hash = skb_hash64_append_uint8(hash, style);
+	hash = skb_hash64_append_uint8(hash, (uint8_t)style);
 	hash = skb_hash64_append_uint8(hash, (uint8_t)alpha_mode);
 
 	return hash;

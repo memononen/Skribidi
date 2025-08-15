@@ -410,6 +410,17 @@ static inline float skb_vec2_dot(skb_vec2_t a, skb_vec2_t b)
 	return a.x * b.x + a.y * b.y;
 }
 
+static inline skb_vec2_t skb_vec2_norm(skb_vec2_t a)
+{
+	const float d = a.x*a.x + a.y*a.y;
+	if (d > 0.f) {
+		const float inv_d = 1.f / sqrtf(d);
+		a.x *= inv_d;
+		a.y *= inv_d;
+	}
+	return a;
+}
+
 static inline float skb_vec2_length(skb_vec2_t a)
 {
 	return sqrtf(a.x*a.x + a.y*a.y);

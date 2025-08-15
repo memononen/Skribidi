@@ -21,8 +21,6 @@ add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>")
 add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 
 set(SKRIBIDI_EXAMPLE_FILES
-	debug_draw.c
-	debug_draw.h
 	example_aligns.c
 	example_cached.c
 	example_decorations.c
@@ -34,6 +32,10 @@ set(SKRIBIDI_EXAMPLE_FILES
 	ime.c
 	ime.h
 	main.c
+	render.c
+	render.h
+	debug_render.c
+	debug_render.h
 	utils.c
 	utils.h
 )
