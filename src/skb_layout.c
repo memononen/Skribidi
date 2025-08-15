@@ -1311,8 +1311,10 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		// Each glyph run has same attributes and font (same attributes may lead to different font due to script).
 
 		if (layout_is_rtl) {
-			SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
-			layout->layout_runs[layout->layout_runs_count++] = ellipsis_run;
+			if (!skb_range_is_empty(ellipsis_run.glyph_range)) {
+				SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
+				layout->layout_runs[layout->layout_runs_count++] = ellipsis_run;
+			}
 		}
 
 		if (glyph_range.start != glyph_range.end) {
@@ -1336,8 +1338,10 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		}
 
 		if (!layout_is_rtl) {
-			SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
-			layout->layout_runs[layout->layout_runs_count++] = ellipsis_run;
+			if (!skb_range_is_empty(ellipsis_run.glyph_range)) {
+				SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
+				layout->layout_runs[layout->layout_runs_count++] = ellipsis_run;
+			}
 		}
 
 		line->layout_run_range.end = layout->layout_runs_count;

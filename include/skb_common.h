@@ -200,6 +200,11 @@ static inline bool skb_range_contains(skb_range_t r, int32_t idx)
 	return idx >= r.start && idx < r.end;
 }
 
+/** @return true if the range is empty. */
+static inline bool skb_range_is_empty(skb_range_t r)
+{
+	return r.start >= r.end;
+}
 
 /** 8-bits per component color, sRGB. */
 typedef struct skb_color_t {
