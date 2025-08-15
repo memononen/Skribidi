@@ -1003,7 +1003,7 @@ static uint64_t skb__get_glyph_hash(uint32_t gid, const skb_font_t* font, float 
 skb_quad_t skb_image_atlas_get_glyph_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
 	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size,
-	skb_rasterize_alpha_mode_t alpha_mode)
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(atlas);
 
@@ -1090,14 +1090,23 @@ skb_quad_t skb_image_atlas_get_glyph_quad(
 	quad.texture.y = (float)(item->texture_offset_y + inset);
 	quad.texture.width = (float)(item->width - inset*2);
 	quad.texture.height = (float)(item->height - inset*2);
+
+	// Map the whole texture region to geom.
+	quad.pattern.x = 0.f;
+	quad.pattern.y = 0.f;
+	quad.pattern.width = 1.f;
+	quad.pattern.height = 1.f;
+
 	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
 	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
 	quad.geom.width = (float)(item->width - inset*2) * render_scale;
 	quad.geom.height = (float)(item->height - inset*2) * render_scale;
+
 	quad.scale = render_scale * pixel_scale;
 	quad.texture_idx = item->texture_idx;
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_COLOR, item->flags & SKB__ITEM_IS_COLOR);
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_SDF, item->flags & SKB__ITEM_IS_SDF);
+	quad.color = (item->flags & SKB__ITEM_IS_COLOR) ? skb_rgba(255,255,255, tint_color.a) : tint_color;
 
 	return quad;
 }
@@ -1116,8 +1125,8 @@ static uint64_t skb__get_icon_hash(const skb_icon_t* icon, skb_vec2_t icon_scale
 
 skb_quad_t skb_image_atlas_get_icon_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
-	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, skb_vec2_t icon_scale,
-    skb_rasterize_alpha_mode_t alpha_mode)
+	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height,
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(atlas);
 	assert(icon_collection);
@@ -1127,8 +1136,9 @@ skb_quad_t skb_image_atlas_get_icon_quad(
 
 	const skb_image_item_config_t* img_config = alpha_mode == SKB_RASTERIZE_ALPHA_SDF ? &atlas->config.icon_sdf : &atlas->config.icon_alpha;
 
-	const float requested_width = icon->view.width * icon_scale.x;
-	const float requested_height = icon->view.height * icon_scale.y;
+	const skb_vec2_t icon_size = skb_icon_collection_calc_proportional_size(icon_collection, icon_handle, width, height);
+	const float requested_width = icon_size.x;
+	const float requested_height = icon_size.y;
 
 	// Scale proportionally when image is clamped or rounded
 	const float max_dim = skb_maxf(requested_width, requested_height);
@@ -1217,14 +1227,23 @@ skb_quad_t skb_image_atlas_get_icon_quad(
 	quad.texture.y = (float)(item->texture_offset_y + inset);
 	quad.texture.width = (float)(item->width - inset*2);
 	quad.texture.height = (float)(item->height - inset*2);
+
+	// Map the whole texture region to geom.
+	quad.pattern.x = 0.f;
+	quad.pattern.y = 0.f;
+	quad.pattern.width = 1.f;
+	quad.pattern.height = 1.f;
+
 	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale_x;
 	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale_y;
 	quad.geom.width = (float)(item->width - inset*2) * render_scale_x;
 	quad.geom.height = (float)(item->height - inset*2) * render_scale_y;
+
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.texture_idx = item->texture_idx;
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_COLOR, item->flags & SKB__ITEM_IS_COLOR);
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_SDF, item->flags & SKB__ITEM_IS_SDF);
+	quad.color = (item->flags & SKB__ITEM_IS_COLOR) ? skb_rgba(255,255,255, tint_color.a) : tint_color;
 
 	return quad;
 }
@@ -1240,11 +1259,10 @@ static uint64_t skb__get_pattern_hash(uint8_t style, float thickness, skb_raster
 	return hash;
 }
 
-skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
-	skb_image_atlas_t* atlas,
-	float x, float y, float width, float offset_x, float pixel_scale,
-	uint8_t style, float thickness,
-	skb_rasterize_alpha_mode_t alpha_mode)
+skb_quad_t skb_image_atlas_get_decoration_quad(
+	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
+	skb_decoration_position_t position, skb_decoration_style_t style, float length, float pattern_offset, float thickness,
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(atlas);
 
@@ -1254,6 +1272,13 @@ skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
 	const float clamped_thickness = skb_clampf(rounded_thickness, img_config->min_size, img_config->max_size);
 
 	const uint64_t hash_id = skb__get_pattern_hash(style, clamped_thickness, alpha_mode);
+
+	// Position affects only placement, so it is not hashed.
+	skb_vec2_t size = skb_rasterizer_get_decoration_pattern_size(style, thickness);
+	if (position == SKB_DECORATION_OVERLINE)
+		y -= size.y; // Above the position.
+	else if (position == SKB_DECORATION_THROUGHLINE)
+		y -= size.y * 0.5f; // Center.
 
 	skb__atlas_item_t* item = NULL;
 	int32_t item_idx = SKB_INVALID_INDEX;
@@ -1276,7 +1301,7 @@ skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
 
 		const int32_t texture_idx = skb__add_rect_or_grow(atlas, bounds.width, bounds.height, requested_bpp, &atlas_offset_x, &atlas_offset_y, &atlas_handle);
 		if (texture_idx == SKB_INVALID_INDEX)
-			return (skb_pattern_quad_t){0};
+			return (skb_quad_t){0};
 
 		// Alloc and init the new icon
 		if (atlas->items_freelist != SKB_INVALID_INDEX) {
@@ -1290,7 +1315,7 @@ skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
 
 		item = &atlas->items[item_idx];
 		item->type = SKB__ITEM_TYPE_PATTERN;
-		item->pattern.style = style;
+		item->pattern.style = (uint8_t)style;
 		item->pattern.thickness = clamped_thickness;
 		item->width = (int16_t)bounds.width;
 		item->height = (int16_t)bounds.height;
@@ -1323,26 +1348,27 @@ skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
 	const float pattern_width = (float)(item->width - inset*2) * render_scale;
 
 	// Note: x is missing inset intentionally since the quad is tiling.
-	skb_pattern_quad_t quad = {0};
+	skb_quad_t quad = {0};
 	quad.texture.x = (float)(item->texture_offset_x + inset);
 	quad.texture.y = (float)(item->texture_offset_y + inset);
 	quad.texture.width = (float)(item->width - inset*2);
 	quad.texture.height = (float)(item->height - inset*2);
 	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
 	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
-	quad.geom.width = width;
+	quad.geom.width = length;
 	quad.geom.height = (float)(item->height - inset*2) * render_scale;
 
 	// Calculate mapping between the image and geom
-	quad.pattern.x = -offset_x / pattern_width;
+	quad.pattern.x = -pattern_offset / pattern_width;
 	quad.pattern.y = 0.f;
-	quad.pattern.width = width / pattern_width;
+	quad.pattern.width = length / pattern_width;
 	quad.pattern.height = 1.f;
 
 	quad.scale = render_scale * pixel_scale;
 	quad.texture_idx = item->texture_idx;
 	quad.flags |= SKB_QUAD_IS_COLOR;
 	SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_SDF, item->flags & SKB__ITEM_IS_SDF);
+	quad.color = (item->flags & SKB__ITEM_IS_COLOR) ? skb_rgba(255,255,255, tint_color.a) : tint_color;
 
 	return quad;
 }

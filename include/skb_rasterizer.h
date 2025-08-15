@@ -132,7 +132,7 @@ bool skb_rasterizer_draw_color_glyph(
  * Calculates the dimensions required to rasterize a specific icon at spcified size.
  * The width and height of the returned rectangle defines the image size, and origin defines the offset the icon should be rasterized at.
  * @param icon icon to rasterize.
- * @param icon_scale icon scale (see skb_rasterizer_calc_proportional_icon_scale()).
+ * @param icon_scale icon scale.
  * @param padding padding to leave around the icon.
  * @return rect describing size and offset required to rasterize the icon.
  */

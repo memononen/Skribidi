@@ -375,12 +375,13 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 				// Glyph image
 				skb_quad_t quad = skb_image_atlas_get_glyph_quad(
-					ctx->atlas,gx, gy, ctx->view.scale, layout_params->font_collection,
-					glyph->font_handle, glyph->gid, attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
+					ctx->atlas,gx, gy, ctx->view.scale,
+					layout_params->font_collection, glyph->font_handle, glyph->gid, attr_font.size,
+					attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
 
 				draw_image_quad_sdf(
 					view_transform_rect(&ctx->view, quad.geom),
-					quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
+					quad.texture, 1.f / quad.scale, quad.color,
 					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 			}
 		}

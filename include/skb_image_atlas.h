@@ -62,22 +62,8 @@ enum skb_quad_flags_t {
 	SKB_QUAD_IS_SDF   = 1 << 1,
 };
 
-/** Quad representing a glyph or icon. */
+/** Quad representing textured rectangle to render. */
 typedef struct skb_quad_t {
-	/** Screen geometry of the quad to render */
-	skb_rect2_t geom;
-	/** Portion of the texture to map to the render bounds. */
-	skb_rect2_t texture;
-	/** Scaling factor between bounds and image bounds. Can be used to adjust the width of the anti-aliasing gradient. */
-	float scale;
-	/** Index of the atlas texture to draw. */
-	uint8_t texture_idx;
-	/** Render quad flags (see skb_quad_flags_t). */
-	uint8_t flags;
-} skb_quad_t;
-
-/** Quad representing a repeating pattern. */
-typedef struct skb_pattern_quad_t {
 	/** Screen geometry of the quad to render */
 	skb_rect2_t geom;
 	/** Describes how the geometry maps to the texture bounds, in normalized coordinates.
@@ -87,11 +73,13 @@ typedef struct skb_pattern_quad_t {
 	skb_rect2_t texture;
 	/** Scaling factor between geom and texture bounds. Can be used to adjust the width of the anti-aliasing gradient. */
 	float scale;
+	/** Color of the quad. */
+	skb_color_t color;
 	/** Index of the atlas texture to draw. */
 	uint8_t texture_idx;
 	/** Render quad flags (see skb_quad_flags_t). */
 	uint8_t flags;
-} skb_pattern_quad_t;
+} skb_quad_t;
 
 /**
  * Signature of the image create callback.
@@ -297,12 +285,14 @@ skb_rect2i_t skb_image_atlas_debug_get_texture_prev_dirty_bounds(skb_image_atlas
  * @param font_handle handle to the font in the font collection.
  * @param glyph_id glyph id to render.
  * @param font_size font size.
+ * @param tint_color color of the icon, if the icon is color icon, only the alpha will be used.
  * @param alpha_mode whether to render the glyph as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
 skb_quad_t skb_image_atlas_get_glyph_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
-	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size, skb_rasterize_alpha_mode_t alpha_mode);
+	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size,
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
 
 /**
  * Get a quad representing the geometry and texture portion of the specified icon.
@@ -319,13 +309,16 @@ skb_quad_t skb_image_atlas_get_glyph_quad(
  * @param pixel_scale the size of a pixel compared to the geometry.
  * @param icon_collection icon collection to use.
  * @param icon_handle handle to icon in the icon collection.
- * @param icon_scale scale of the icon to render.
+ * @param width requested with, if SKB_SIZE_AUTO the width will be calculated from height keeping aspect ratio.
+ * @param height requested with, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
+ * @param tint_color color of the icon, if the icon is color icon, only the alpha will be used.
  * @param alpha_mode whether to render the icon as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
 skb_quad_t skb_image_atlas_get_icon_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
-	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, skb_vec2_t icon_scale, skb_rasterize_alpha_mode_t alpha_mode);
+	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height,
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
 
 /**
  * Get a quad representing the geometry and texture portion of the specified decoration pattern.
@@ -339,17 +332,20 @@ skb_quad_t skb_image_atlas_get_icon_quad(
  * @param atlas atlas to use.
  * @param x position x to render the glyph at.
  * @param y position y to render the glyph at.
- * @param width width of the decoration line to render (in same units as x and y).
- * @param offset_x offset of the pattern (in same units as x and y).
  * @param pixel_scale the size of a pixel compared to the geometry.
+ * @param position vertical position, used to align the quad relative to the y (e.g. throughline pattern is center aligned)
  * @param style style of the decoration to render.
+ * @param length length of the decoration line to render (in same units as x and y).
+ * @param pattern_offset offset of the pattern (in same units as x and y).
  * @param thickness thickness of the decoration to render.
+ * @param tint_color color of the icon, if the icon is color icon, only the alpha will be used.
  * @param alpha_mode whether to render the pattern as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
-skb_pattern_quad_t skb_image_atlas_get_decoration_quad(
-	skb_image_atlas_t* atlas, float x, float y, float width, float offset_x, float pixel_scale,
-	uint8_t style, float thickness, skb_rasterize_alpha_mode_t alpha_mode);
+skb_quad_t skb_image_atlas_get_decoration_quad(
+	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
+	skb_decoration_position_t position, skb_decoration_style_t style, float length, float pattern_offset, float thickness,
+	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
 
 /**
  * Compacts the atlas based on usage.

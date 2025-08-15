@@ -35,6 +35,18 @@ typedef enum {
 	SKB_DECORATION_STYLE_WAVY,
 } skb_decoration_style_t;
 
+/** Enum describing text decoration position. */
+typedef enum {
+	/** Under the alphabetic baseline. */
+	SKB_DECORATION_UNDERLINE = 0,
+	/** Under the descender. */
+	SKB_DECORATION_BOTTOMLINE,
+	/** Over the ascender */
+	SKB_DECORATION_OVERLINE,
+	/** Through the text. */
+	SKB_DECORATION_THROUGHLINE,
+} skb_decoration_position_t;
+
 /**
  * Logs a debug message.
  * @param format printf style format string.

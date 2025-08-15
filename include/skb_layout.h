@@ -96,18 +96,6 @@ typedef enum {
 	SKB_LINE_HEIGHT_ABSOLUTE,
 } skb_line_height_t;
 
-/** Enum describing text decoration position. */
-typedef enum {
-	/** Under the alphabetic baseline. */
-	SKB_DECORATION_UNDERLINE = 0,
-	/** Under the descender. */
-	SKB_DECORATION_BOTTOMLINE,
-	/** Over the ascender */
-	SKB_DECORATION_OVERLINE,
-	/** Through the text. */
-	SKB_DECORATION_THROUGHLINE,
-} skb_decoration_position_t;
-
 /** Enum describing to which part of the text the object is aligned to. */
 typedef enum {
 	/** Align to the text run of the object. If the run does not have font attribute, use the default font attribute. */

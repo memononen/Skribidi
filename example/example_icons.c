@@ -270,7 +270,7 @@ static float draw_icon(icons_context_t* ctx, skb_icon_handle_t icon_handle, floa
 {
 	if (!icon_handle) return 0.f;
 
-	skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, icon_handle, SKB_SIZE_AUTO, (float)icon_size);
+	skb_vec2_t icon_scale = skb_icon_collection_calc_proportional_scale(ctx->icon_collection, icon_handle, SKB_SIZE_AUTO, icon_size);
 	skb_vec2_t icon_base_size = skb_icon_collection_get_icon_size(ctx->icon_collection, icon_handle);
 
 	skb_rect2_t icon_rect = {
@@ -285,19 +285,20 @@ static float draw_icon(icons_context_t* ctx, skb_icon_handle_t icon_handle, floa
 
 	skb_quad_t quad = skb_image_atlas_get_icon_quad(
 		ctx->atlas,ox, oy, view_scale,
-		ctx->icon_collection, icon_handle, icon_scale, alpha_mode);
+		ctx->icon_collection, icon_handle, SKB_SIZE_AUTO, icon_size,
+		skb_rgba(255,255,255,255), alpha_mode);
 
 	float render_scale = use_view_scale ? quad.scale : quad.scale * ctx->view.scale;
 
 	if (alpha_mode == SKB_RASTERIZE_ALPHA_SDF) {
 		draw_image_quad_sdf(
 			view_transform_rect(&ctx->view, quad.geom),
-			quad.texture, 1.f / render_scale, skb_rgba(255,255,255,255),
+			quad.texture, 1.f / render_scale, quad.color,
 			(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 	} else {
 		draw_image_quad(
 			view_transform_rect(&ctx->view, quad.geom),
-			quad.texture, skb_rgba(255,255,255,255),
+			quad.texture, quad.color,
 			(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 	}
 

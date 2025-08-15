@@ -292,14 +292,15 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
-				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
-				skb_pattern_quad_t pat_quad = skb_image_atlas_get_decoration_quad(
-					ctx->atlas, rect.x, rect.y, rect.width, decoration->pattern_offset, ctx->view.scale,
-					attr_decoration.style, decoration->thickness, SKB_RASTERIZE_ALPHA_SDF);
+				skb_quad_t quad = skb_image_atlas_get_decoration_quad(
+					ctx->atlas, decoration->offset_x, decoration->offset_y, ctx->view.scale,
+					attr_decoration.position, attr_decoration.style,
+					decoration->length, decoration->pattern_offset, decoration->thickness,
+					attr_decoration.color, SKB_RASTERIZE_ALPHA_SDF);
 				draw_image_pattern_quad_sdf(
-					view_transform_rect(&ctx->view, pat_quad.geom),
-					pat_quad.pattern, pat_quad.texture, 1.f / pat_quad.scale, attr_decoration.color,
-					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, pat_quad.texture_idx));
+					view_transform_rect(&ctx->view, quad.geom),
+					quad.pattern, quad.texture, 1.f / quad.scale, quad.color,
+					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 			}
 		}
 
@@ -318,12 +319,12 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 				// Glyph image
 				skb_quad_t quad = skb_image_atlas_get_glyph_quad(
 					ctx->atlas,gx, gy, ctx->view.scale,
-					layout_params->font_collection, run->font_handle, glyph->gid,
-					attr_font.size, SKB_RASTERIZE_ALPHA_SDF);
+					layout_params->font_collection, run->font_handle, glyph->gid, attr_font.size,
+					attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
 
 				draw_image_quad_sdf(
 					view_transform_rect(&ctx->view, quad.geom),
-					quad.texture, 1.f / quad.scale, (quad.flags & SKB_QUAD_IS_COLOR) ? skb_rgba(255,255,255, attr_fill.color.a) : attr_fill.color,
+					quad.texture, 1.f / quad.scale, quad.color,
 					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 			}
 		}
@@ -334,14 +335,15 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
 			const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
-				skb_rect2_t rect = calc_decoration_rect(decoration, attr_decoration);
-				skb_pattern_quad_t pat_quad = skb_image_atlas_get_decoration_quad(
-					ctx->atlas, rect.x, rect.y, rect.width, decoration->pattern_offset, ctx->view.scale,
-					attr_decoration.style, decoration->thickness, SKB_RASTERIZE_ALPHA_SDF);
+				skb_quad_t quad = skb_image_atlas_get_decoration_quad(
+					ctx->atlas, decoration->offset_x, decoration->offset_y, ctx->view.scale,
+					attr_decoration.position, attr_decoration.style,
+					decoration->length, decoration->pattern_offset, decoration->thickness,
+					attr_decoration.color, SKB_RASTERIZE_ALPHA_SDF);
 				draw_image_pattern_quad_sdf(
-					view_transform_rect(&ctx->view, pat_quad.geom),
-					pat_quad.pattern, pat_quad.texture, 1.f / pat_quad.scale, attr_decoration.color,
-					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, pat_quad.texture_idx));
+					view_transform_rect(&ctx->view, quad.geom),
+					quad.pattern, quad.texture, 1.f / quad.scale, quad.color,
+					(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 			}
 		}
 	}
@@ -364,14 +366,18 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			// Offset based on view center to test offsetting.
 			const float offset_x = ctx->view.cx;
 
-			skb_pattern_quad_t pat_quad = skb_image_atlas_get_decoration_quad(ctx->atlas, ax, ay, 250.f, offset_x, ctx->view.scale, i, thickness, SKB_RASTERIZE_ALPHA_SDF);
+			skb_quad_t quad = skb_image_atlas_get_decoration_quad(
+				ctx->atlas, ax, ay, ctx->view.scale,
+				SKB_DECORATION_UNDERLINE, i, 250.f, offset_x, thickness,
+				skb_rgba(0,0,0, 128), SKB_RASTERIZE_ALPHA_SDF);
+
 			draw_image_pattern_quad_sdf(
-				view_transform_rect(&ctx->view, pat_quad.geom),
-				pat_quad.pattern, pat_quad.texture, 1.f / pat_quad.scale, skb_rgba(0,0,0, 128),
-				(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, pat_quad.texture_idx));
+				view_transform_rect(&ctx->view, quad.geom),
+				quad.pattern, quad.texture, 1.f / quad.scale, quad.color,
+				(uint32_t)skb_image_atlas_get_texture_user_data(ctx->atlas, quad.texture_idx));
 
 			{
-				skb_rect2_t bounds = view_transform_rect(&ctx->view, pat_quad.geom);
+				skb_rect2_t bounds = view_transform_rect(&ctx->view, quad.geom);
 				draw_rect(bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,128));
 			}
 		}
