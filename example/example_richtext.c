@@ -114,6 +114,13 @@ void* richtext_create(render_context_t* rc)
 		skb_attribute_make_fill(ink_color),
 	};
 
+	const skb_attribute_t attributes_ja_jp[] = {
+		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+		skb_attribute_make_writing("ja-jp", SKB_DIRECTION_AUTO),
+		skb_attribute_make_fill(ink_color),
+	};
+
 	const skb_attribute_t attributes_deco1[] = {
 		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
@@ -184,7 +191,7 @@ void* richtext_create(render_context_t* rc)
 		skb_content_run_make_utf8("POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big)),
 		skb_content_run_make_utf8("11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts)),
 		skb_content_run_make_utf8("शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic)),
-		skb_content_run_make_utf8("今天天气晴朗。 ", -1, attributes_small, SKB_COUNTOF(attributes_small)),
+		skb_content_run_make_utf8("こんにちは世界。 ", -1, attributes_ja_jp, SKB_COUNTOF(attributes_ja_jp)),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
