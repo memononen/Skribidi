@@ -28,6 +28,9 @@ void debug_render_dashed_line(render_context_t* rc, float x0, float y0, float x1
 /** Renders a stroked rectangle. */
 void debug_render_stroked_rect(render_context_t* rc, float x, float y, float w, float h, skb_color_t col, float line_width);
 
+/** Renders a stroked rectangle. */
+void debug_render_dashed_rect(render_context_t* rc, float x, float y, float w, float h, float dash, skb_color_t col, float line_width);
+
 /** Renders a filled rectangle. */
 void debug_render_filled_rect(render_context_t* rc, float x, float y, float w, float h, skb_color_t col);
 

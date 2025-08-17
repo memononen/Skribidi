@@ -606,6 +606,10 @@ typedef struct skb_layout_run_t {
 	float content_width;
 	/** Width of the content for object and icon content. */
 	float content_height;
+	/** Bounding rectangle of the run that contains all the content, but might overestimate. */
+	skb_rect2_t culling_bounds;
+	/** Common glyph bounds the contains all the glyphs in the run, used for per glyph culling. Empty if not text run. */
+	skb_rect2_t common_glyph_bounds;
 	union {
 		/** Font handle of the text content, if text content. */
 		skb_font_handle_t font_handle;
@@ -695,8 +699,10 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Baseline offset from line top. */
 	float baseline;
-	/** Bounding rectangle of the line. */
+	/** Logical bounding rectangle of the line. */
 	skb_rect2_t bounds;
+	/** Bounding rectangle of the line that contains all the content, but might overestimate. */
+	skb_rect2_t culling_bounds;
 	/** Line flags, see skb_layout_line_flags_t. */
 	uint8_t flags;
 } skb_layout_line_t;

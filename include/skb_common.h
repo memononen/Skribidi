@@ -608,6 +608,15 @@ static inline bool skb_rect2_pt_inside(const skb_rect2_t r, const skb_vec2_t pt)
 	return pt.x >= r.x && pt.y >= r.y && pt.x <= (r.x + r.width) && pt.y <= (r.y + r.height);
 }
 
+static inline bool arb_rect2_overlap(const skb_rect2_t a, const skb_rect2_t b)
+{
+	const float min_x = skb_maxf(a.x, b.x);
+	const float min_y = skb_maxf(a.y, b.y);
+	const float max_x = skb_minf(a.x + a.width, b.x + b.width);
+	const float max_y = skb_minf(a.y + a.height, b.y + b.height);
+	return (max_x - min_x) > 0.f && (max_y - min_y) > 0.f;
+}
+
 
 /** 2D integer rectangle. */
 typedef struct skb_rect2i_t {

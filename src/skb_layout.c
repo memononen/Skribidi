@@ -689,14 +689,6 @@ static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf3
 	return utf32_len;
 }
 
-/*static int32_t skb__append_object(skb_layout_t* layout, const skb_inline_object_t* object)
-{
-	SKB_ARRAY_RESERVE(layout->objects, layout->objects_count + 1);
-	skb_inline_object_t* new_object = &layout->objects[layout->objects_count++];
-	memcpy(new_object, object, sizeof(skb_inline_object_t));
-	return layout->objects_count - 1;
-}*/
-
 static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang, const uint32_t* text, skb_text_property_t* text_props, int32_t text_count)
 {
 	if (!text_count)
@@ -1217,7 +1209,6 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		}
 	}
 
-
 	// Calculate glyph runs, line width, and handle overflow.
 	// Similar to CSS, the overflow is calculated in visual runs of glyphs, truncated based on dominant reading direction.
 	layout->layout_runs_count = 0;
@@ -1254,12 +1245,12 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 						// We expect these to exist, since they were calculated earlier.
 						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, font_handle);
-						const skb_attribute_span_t* span = &layout->attribute_spans[span_idx];
+						const skb_attribute_span_t* attribute_span = &layout->attribute_spans[span_idx];
 						assert(font);
-						assert(span);
+						assert(attribute_span);
 
 						// Figure out ellipsis size.
-						const skb_attribute_font_t attr_font = skb_attributes_get_font(span);
+						const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
 
 						// Try to use the actual ellipsis character, but fall back to 3 periods.
 						int32_t ellipsis_glyph_count = 0;
@@ -1435,6 +1426,48 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		}
 
 		start_y += line->bounds.height;
+	}
+
+	// Calculate culling bounds
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		skb_layout_line_t* line = &layout->lines[li];
+		if (line->layout_run_range.start != line->layout_run_range.end) {
+			line->culling_bounds = skb_rect2_make_undefined();
+
+			for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+				skb_layout_run_t* run = &layout->layout_runs[ri];
+				const skb_attribute_span_t* attribute_span = &layout->attribute_spans[run->attribute_span_idx];
+
+				if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
+					// Object or Icon
+					run->culling_bounds = (skb_rect2_t) {
+						.x = run->offset_x,
+						.y = run->offset_y,
+						.width = run->content_width,
+						.height = run->content_height,
+					};
+				} else {
+					// Text
+					if (run->glyph_range.start != run->glyph_range.end) {
+						const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+						run->common_glyph_bounds = skb_rect2_make_undefined();
+						run->culling_bounds = skb_rect2_make_undefined();
+						for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+							const skb_glyph_t* glyph = &layout->glyphs[gi];
+							// Translate the glyph bounds to right place and calculate ink bounds for the whole run.
+							const skb_rect2_t glyph_bounds = skb_font_get_glyph_bounds(layout->params.font_collection, glyph->font_handle, glyph->gid, attr_font.size);
+							// Calculate glyph bounds the contains all the glyphs in the run, used for per glyph culling.
+							run->common_glyph_bounds = skb_rect2_union(run->common_glyph_bounds, glyph_bounds);
+							// Calculate run bounds, offset glyph bounds to glyph position.
+							run->culling_bounds = skb_rect2_union(run->culling_bounds, skb_rect2_translate(glyph_bounds, (skb_vec2_t){ glyph->offset_x, glyph->offset_y }));
+						}
+					}
+				}
+
+				// Combine all runs for line.
+				line->culling_bounds = skb_rect2_union(line->culling_bounds, run->culling_bounds);
+			}
+		}
 	}
 
 	// Build decorations.

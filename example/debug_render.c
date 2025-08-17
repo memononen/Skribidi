@@ -182,6 +182,7 @@ void debug_render_line(render_context_t* rc, float x0, float y0, float x1, float
 void debug_render_dashed_line(render_context_t* rc, float x0, float y0, float x1, float y1, float dash, skb_color_t col, float line_width)
 {
 	if (line_width < 0.f) line_width = -line_width / render_get_transform_scale(rc);
+	if (dash < 0.f) dash = -dash / render_get_transform_scale(rc);
 
 	const skb_vec2_t p0 = { x0, y0 };
 	const skb_vec2_t p1 = { x1, y1 };
@@ -209,6 +210,14 @@ void debug_render_stroked_rect(render_context_t* rc, float x, float y, float w, 
 	debug_render_filled_rect(rc, x-hw, y+hw, line_width, h-line_width, col);
 	debug_render_filled_rect(rc, x+w-hw, y+hw, line_width, h-line_width, col);
 	debug_render_filled_rect(rc, x-hw, y+h-hw, w+line_width, line_width, col);
+}
+
+void debug_render_dashed_rect(render_context_t* rc, float x, float y, float w, float h, float dash, skb_color_t col, float line_width)
+{
+	debug_render_dashed_line(rc, x, y, x+w, y, dash, col, line_width);
+	debug_render_dashed_line(rc, x+w, y, x+w, y+h, dash, col, line_width);
+	debug_render_dashed_line(rc, x+w, y+h, x, y+h, dash, col, line_width);
+	debug_render_dashed_line(rc, x, y+h, x, y, dash, col, line_width);
 }
 
 void debug_render_filled_rect(render_context_t* rc, float x, float y, float w, float h, skb_color_t col)

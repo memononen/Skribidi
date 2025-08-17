@@ -33,6 +33,7 @@ void* fallback_create(render_context_t* rc);
 void* decorations_create(render_context_t* rc);
 void* aligns_create(render_context_t* rc);
 void* inlineobj_create(render_context_t* rc);
+void* culling_create(render_context_t* rc);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -43,6 +44,7 @@ static example_stub_t g_examples[] = {
 	{ .create = decorations_create, .name = "Text Decorations" },
 	{ .create = aligns_create, .name = "Layout Align" },
 	{ .create = inlineobj_create, .name = "Inline Objects" },
+	{ .create = culling_create, .name = "Culling" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;
@@ -260,7 +262,9 @@ static void main_loop(void* arg)
 
 	float title_width = debug_render_text_width(g_render_context, 15.f, g_examples[g_example_idx].name);
 	debug_render_filled_rect(g_render_context, 0, 0, 25+title_width+25, 30.f, skb_rgba(0,0,0,128));
-	debug_render_text(g_render_context, 20.f, 20.f, 15, RENDER_ALIGN_START, skb_rgba(255,255,255,255), g_examples[g_example_idx].name);
+	debug_render_text(g_render_context, 25.f, 20.f, 15, RENDER_ALIGN_START, skb_rgba(255,255,255,255), g_examples[g_example_idx].name);
+
+	debug_render_text(g_render_context, 25+title_width+25+15, 20.f, 15, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "%d/%d", g_example_idx+1, g_examples_count);
 
 	render_end_frame(g_render_context);
 

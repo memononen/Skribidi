@@ -41,6 +41,8 @@ typedef struct skb_font_t {
 	skb_baseline_set_t* baseline_sets;	// Baseline sets (one for each requested script/direction combo).
 	int32_t baseline_sets_count;		// Number of baseline sets
 	int32_t baseline_sets_cap;			// Capacity of the baseline sets
+	skb_rect2_t* glyph_bounds;	// Array of glyph bounds.
+	int32_t glyph_bounds_count;
 } skb_font_t;
 
 #endif // SKB_FONT_COLLECTION_INTERNAL_H

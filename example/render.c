@@ -75,9 +75,9 @@ typedef struct render_context_t {
 } render_context_t;
 
 
-static bool gl__init(render_context_t* r);
-static void gl__destroy(render_context_t* r);
-static void gl__flush(render_context_t* r);
+static bool gl__init(render_context_t* rc);
+static void gl__destroy(render_context_t* rc);
+static void gl__flush(render_context_t* rc);
 static void gl__create_texture(render__texture_t* tex, int32_t width, int32_t height, int32_t stride_bytes, const uint8_t* image, uint8_t bpp);
 static void gl__update_texture(render__texture_t* tex, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height, int32_t stride_bytes, const uint8_t* image);
 
@@ -231,6 +231,28 @@ skb_vec2_t render_get_transform_offset(render_context_t* rc)
 	};
 }
 
+skb_rect2_t render_transform_rect(render_context_t* rc, const skb_rect2_t rect)
+{
+	const render__transform_t xform = rc->transform_stack[rc->transform_stack_idx];
+	return (skb_rect2_t) {
+		.x = xform.dx + rect.x * xform.scale,
+		.y = xform.dy + rect.y * xform.scale,
+		.width = rect.width * xform.scale,
+		.height = rect.height * xform.scale,
+	};
+}
+
+skb_rect2_t render_inv_transform_rect(render_context_t* rc, const skb_rect2_t rect)
+{
+	const render__transform_t xform = rc->transform_stack[rc->transform_stack_idx];
+	return (skb_rect2_t) {
+		.x = (rect.x - xform.dx) / xform.scale,
+		.y = (rect.y - xform.dy) / xform.scale,
+		.width = rect.width / xform.scale,
+		.height = rect.height / xform.scale,
+	};
+}
+
 
 skb_image_atlas_t* render_get_atlas(render_context_t* rc)
 {
@@ -311,22 +333,11 @@ void render_draw_debug_tris(render_context_t* rc, const render_vert_t* verts, in
 		renderer__push_triangles(rc, transformed_verts, transformed_verts_count, 0, 0);
 }
 
-static skb_rect2_t render__transform_rect(const render_context_t* r, skb_rect2_t rect)
-{
-	const render__transform_t xform = r->transform_stack[r->transform_stack_idx];
-	return (skb_rect2_t) {
-		.x = xform.dx + rect.x * xform.scale,
-		.y = xform.dy + rect.y * xform.scale,
-		.width = rect.width * xform.scale,
-		.height = rect.height * xform.scale,
-	};
-}
-
 void render_draw_quad(render_context_t* rc, const skb_quad_t* quad)
 {
 	assert(rc);
 
-	const skb_rect2_t geom = render__transform_rect(rc, quad->geom);
+	const skb_rect2_t geom = render_transform_rect(rc, quad->geom);
 	const float x0 = geom.x;
 	const float y0 = geom.y;
 	const float x1 = geom.x + geom.width;
@@ -519,6 +530,96 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 	}
 }
 
+void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
+{
+	assert(rc);
+	assert(layout);
+
+	skb_image_atlas_t* atlas = render_get_atlas(rc);
+
+	// Draw layout
+	const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
+	const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
+	const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(layout);
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
+
+	const int32_t decorations_count = skb_layout_get_decorations_count(layout);
+	const skb_decoration_t* decorations = skb_layout_get_decorations(layout);
+
+	for (int32_t li = 0; li < layout_lines_count; li++) {
+		const skb_layout_line_t* line = &layout_lines[li];
+		if (!arb_rect2_overlap(view_bounds, line->culling_bounds))
+			continue;
+
+		// Draw underlines
+		for (int32_t i = line->decorations_range.start; i < line->decorations_range.end; i++) {
+			const skb_decoration_t* decoration = &decorations[i];
+			const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+			const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
+			if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
+				render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+					attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,
+					attr_decoration.color, alpha_mode);
+			}
+		}
+
+		// Draw glyphs
+		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+			const skb_layout_run_t* run = &layout_runs[ri];
+			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
+
+			if (!arb_rect2_overlap(view_bounds, run->culling_bounds))
+				continue;
+
+			if (run->type == SKB_CONTENT_RUN_OBJECT) {
+				// Object
+			} else if (run->type == SKB_CONTENT_RUN_ICON) {
+				// Icon
+				render_draw_icon(rc, run->offset_x, run->offset_y,
+					layout_params->icon_collection, run->icon_handle, run->content_width, run->content_height,
+					attr_fill.color, alpha_mode);
+			} else {
+				// Text
+				const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+				for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+					const skb_glyph_t* glyph = &glyphs[gi];
+
+					skb_rect2_t coarse_glyph_bounds = run->common_glyph_bounds;
+					coarse_glyph_bounds.x += glyph->offset_x;
+					coarse_glyph_bounds.y += glyph->offset_y;
+					if (!arb_rect2_overlap(view_bounds, coarse_glyph_bounds))
+						continue;
+
+					render_draw_glyph(rc, glyph->offset_x, glyph->offset_y,
+						layout_params->font_collection, run->font_handle, glyph->gid, attr_font.size,
+						attr_fill.color, alpha_mode);
+				}
+			}
+		}
+
+		// Draw through lines.
+		for (int32_t i = 0; i < decorations_count; i++) {
+			const skb_decoration_t* decoration = &decorations[i];
+			const skb_attribute_span_t* skb_attribute_span = &attribute_spans[decoration->attribute_span_idx];
+			const skb_attribute_decoration_t attr_decoration = skb_attribute_span->attributes[decoration->attribute_idx].decoration;
+			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+				render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+					attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,
+					attr_decoration.color, alpha_mode);
+			}
+		}
+
+
+	}
+
+
+}
+
+
 
 //
 // OpengGL specific
@@ -580,7 +681,7 @@ static void gl__print_shader_log(GLuint shader)
 	skb_free(info_log);
 }
 
-static bool gl__init(render_context_t* r)
+static bool gl__init(render_context_t* rc)
 {
 	gl__check_error("init");
 
@@ -671,23 +772,23 @@ static bool gl__init(render_context_t* r)
 		return false;
 	}
 
-	r->program = glCreateProgram();
-	glAttachShader(r->program, vs);
-	glAttachShader(r->program, fs);
+	rc->program = glCreateProgram();
+	glAttachShader(rc->program, vs);
+	glAttachShader(rc->program, fs);
 
-	glBindAttribLocation(r->program, 0, "a_pos");
-	glBindAttribLocation(r->program, 1, "a_uv");
-	glBindAttribLocation(r->program, 2, "a_atlas_pos");
-	glBindAttribLocation(r->program, 3, "a_atlas_size");
-	glBindAttribLocation(r->program, 4, "a_color");
-	glBindAttribLocation(r->program, 5, "a_scale");
+	glBindAttribLocation(rc->program, 0, "a_pos");
+	glBindAttribLocation(rc->program, 1, "a_uv");
+	glBindAttribLocation(rc->program, 2, "a_atlas_pos");
+	glBindAttribLocation(rc->program, 3, "a_atlas_size");
+	glBindAttribLocation(rc->program, 4, "a_color");
+	glBindAttribLocation(rc->program, 5, "a_scale");
 
-	glLinkProgram(r->program);
+	glLinkProgram(rc->program);
 
-	glGetProgramiv(r->program, GL_LINK_STATUS, &success);
+	glGetProgramiv(rc->program, GL_LINK_STATUS, &success);
 	if (success != GL_TRUE) {
-		skb_debug_log("Error linking program %d!\n", r->program);
-		gl__print_program_log(r->program);
+		skb_debug_log("Error linking program %d!\n", rc->program);
+		gl__print_program_log(rc->program);
 		return false;
 	}
 
@@ -695,23 +796,23 @@ static bool gl__init(render_context_t* r)
 	glDeleteShader(fs);
 	gl__check_error("link");
 
-	glGenBuffers(1, &r->vbo);
+	glGenBuffers(1, &rc->vbo);
 	gl__check_error("gen vbo");
 
 	return true;
 }
 
-static void gl__destroy(render_context_t* r)
+static void gl__destroy(render_context_t* rc)
 {
-	glDeleteBuffers(1, &r->vbo);
-	glDeleteProgram(r->program);
-	for (int32_t i = 0; i < r->textures_count; i++) {
-		render__texture_t* tex = &r->textures[i];
+	glDeleteBuffers(1, &rc->vbo);
+	glDeleteProgram(rc->program);
+	for (int32_t i = 0; i < rc->textures_count; i++) {
+		render__texture_t* tex = &rc->textures[i];
 		glDeleteTextures(1, &tex->tex_id);
 	}
 }
 
-static void gl__flush(render_context_t* r)
+static void gl__flush(render_context_t* rc)
 {
 	gl__check_error("flush start");
 
@@ -731,8 +832,8 @@ static void gl__flush(render_context_t* r)
 
 	gl__check_error("flush state");
 
-	glUseProgram(r->program);
-	glUniform2f(glGetUniformLocation(r->program, "u_view_size"), (float)r->view_width, (float)r->view_height);
+	glUseProgram(rc->program);
+	glUniform2f(glGetUniformLocation(rc->program, "u_view_size"), (float)rc->view_width, (float)rc->view_height);
 
 	gl__check_error("prog");
 
@@ -742,7 +843,7 @@ static void gl__flush(render_context_t* r)
 
 	gl__check_error("vao");
 
-	glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, rc->vbo);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
@@ -756,33 +857,33 @@ static void gl__flush(render_context_t* r)
 	glVertexAttribPointer(4, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(render__vertex_t), (GLvoid*)(0 + offsetof(render__vertex_t, color)));
 	glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(render__vertex_t), (GLvoid*)(0 + offsetof(render__vertex_t, scale)));
 
-	glBufferData(GL_ARRAY_BUFFER, r->verts_count * sizeof(render__vertex_t), r->verts, GL_STREAM_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, rc->verts_count * sizeof(render__vertex_t), rc->verts, GL_STREAM_DRAW);
 
 	gl__check_error("vbo");
 
-	for (int32_t i = 0; i < r->batches_count; i++) {
-		const render__batch_t* b = &r->batches[i];
-		const render__texture_t* image_tex = renderer__find_texture(r, b->image_id);
-		const render__texture_t* sdf_tex = renderer__find_texture(r, b->sdf_id);
+	for (int32_t i = 0; i < rc->batches_count; i++) {
+		const render__batch_t* b = &rc->batches[i];
+		const render__texture_t* image_tex = renderer__find_texture(rc, b->image_id);
+		const render__texture_t* sdf_tex = renderer__find_texture(rc, b->sdf_id);
 
 		if (image_tex && image_tex->tex_id) {
-			glUniform1i(glGetUniformLocation(r->program, "u_tex_type"), image_tex->bpp == 4 ? 1: 2);
-			glUniform2f(glGetUniformLocation(r->program, "u_tex_size"), image_tex->width, image_tex->height);
-			glUniform1i(glGetUniformLocation(r->program, "u_tex"), 0);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex_type"), image_tex->bpp == 4 ? 1: 2);
+			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), image_tex->width, image_tex->height);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex"), 0);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, image_tex->tex_id);
 			gl__check_error("texture image");
 		} else if (sdf_tex && sdf_tex->tex_id) {
-			glUniform1i(glGetUniformLocation(r->program, "u_tex_type"), sdf_tex->bpp == 4 ? 3: 4);
-			glUniform2f(glGetUniformLocation(r->program, "u_tex_size"), sdf_tex->width, sdf_tex->height);
-			glUniform1i(glGetUniformLocation(r->program, "u_tex"), 0);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex_type"), sdf_tex->bpp == 4 ? 3: 4);
+			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), sdf_tex->width, sdf_tex->height);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex"), 0);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, sdf_tex->tex_id);
 			gl__check_error("texture sdf");
 		} else {
-			glUniform1i(glGetUniformLocation(r->program, "u_tex_type"), 0);
-			glUniform2f(glGetUniformLocation(r->program, "u_tex_size"), 1, 1);
-			glUniform1i(glGetUniformLocation(r->program, "u_tex"), 0);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex_type"), 0);
+			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), 1, 1);
+			glUniform1i(glGetUniformLocation(rc->program, "u_tex"), 0);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, 0);
 			gl__check_error("texture none");
@@ -799,8 +900,8 @@ static void gl__flush(render_context_t* r)
 
 	gl__check_error("end");
 
-	r->verts_count = 0;
-	r->batches_count = 0;
+	rc->verts_count = 0;
+	rc->batches_count = 0;
 }
 
 static void gl__create_texture(render__texture_t* tex, int32_t width, int32_t height, int32_t stride_bytes, const uint8_t* image, uint8_t bpp)

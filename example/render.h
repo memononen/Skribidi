@@ -91,6 +91,12 @@ float render_get_transform_scale(render_context_t* rc);
 /** @returns offset of the current trasnform. */
 skb_vec2_t render_get_transform_offset(render_context_t* rc);
 
+/** @returns rectangle transformed by the current transform. */
+skb_rect2_t render_transform_rect(render_context_t* rc, const skb_rect2_t rect);
+
+/** @returns rectangle transformed by the inverse of the current transform. */
+skb_rect2_t render_inv_transform_rect(render_context_t* rc, const skb_rect2_t rect);
+
 /**
  * Creates new texture and returns handle to it.
  * @param rc render context.
@@ -197,6 +203,17 @@ void render_draw_decoration(render_context_t* rc,
  * @param alpha_mode whether to render as SDF or alpha mask.
  */
 void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
+
+/**
+ * Draws text layout with culling.
+ * Items (glyphs, icons, objects) that fall completely outside the viewport will not be drawn nor requested from the image atlas.
+ * The viewport is in the same coordinate space as the layout.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param layout layout to draw
+ * @param alpha_mode whether to render as SDF or alpha mask.
+ */
+void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
 
 
 #endif // RENDERER_H

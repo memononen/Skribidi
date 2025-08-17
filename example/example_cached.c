@@ -217,8 +217,6 @@ void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	cached_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
-	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
-
 	skb_layout_cache_compact(ctx->layout_cache);
 
 	{
@@ -227,6 +225,8 @@ void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_temp_alloc_stats_t render_stats = skb_temp_alloc_stats(render_get_temp_alloc(ctx->rc));
 		debug_render_text(ctx->rc, (float)view_width - 20,40, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,220), "Render Temp alloc  used:%.1fkB  allocated:%.1fkB", (float)render_stats.used / 1024.f, (float)render_stats.allocated / 1024.f);
 	}
+
+	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
 	// Draw visual result
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);

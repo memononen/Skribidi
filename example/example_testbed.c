@@ -517,16 +517,13 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	};
 
 	{
-		float ox = 0.f;
-		float oy = 0.f;
-
 		// line break boundaries
 		const float line_break_width = skb_editor_get_params(ctx->editor)->layout_params.layout_width;
-		debug_render_dashed_line(ctx->rc, ox, oy-50, ox, oy+layout_height+50, 6, ink_color_trans, -1.f);
-		debug_render_dashed_line(ctx->rc, ox+line_break_width, oy+50, ox+line_break_width, oy+layout_height+50, 6, ink_color_trans, -1.f);
+		debug_render_dashed_line(ctx->rc, 0, -50, 0, layout_height+50, 6, ink_color_trans, -1.f);
+		debug_render_dashed_line(ctx->rc, line_break_width, 50, line_break_width, layout_height+50, 6, ink_color_trans, -1.f);
 
 		if (skb_editor_get_selection_count(ctx->editor, edit_selection) > 0) {
-			draw_selection_context_t sel_ctx = { .x = ox, .y = oy, .color = sel_color, .renderer = ctx->rc };
+			draw_selection_context_t sel_ctx = { .x = 0, .y = 0, .color = sel_color, .renderer = ctx->rc };
 			skb_editor_get_selection_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
 		}
 
@@ -549,7 +546,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
 				if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
 					render_draw_decoration(ctx->rc,
-						ox + decoration->offset_x, oy + decoration->offset_y, decoration->length, decoration->pattern_offset, decoration->thickness,
+						decoration->offset_x, decoration->offset_y, decoration->length, decoration->pattern_offset, decoration->thickness,
 						attr_decoration.style, attr_decoration.position, attr_decoration.color, SKB_RASTERIZE_ALPHA_SDF);
 				}
 			}
@@ -557,8 +554,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int li = 0; li < lines_count; li++) {
 				const skb_layout_line_t* line = &lines[li];
 
-				float rox = ox + line->bounds.x;
-				float roy = oy + edit_layout_y + line->baseline;
+				float rox = line->bounds.x;
+				float roy = edit_layout_y + line->baseline;
 
 				float top_y = roy + line->ascender;
 				float bot_y = roy + line->descender;
@@ -574,11 +571,10 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					debug_render_text(ctx->rc, rox - 10, bot_y - 5.f,13,RENDER_ALIGN_END, log_color, "LTR >");
 
 				// Draw glyphs
-				float pen_x = ox + line->bounds.x;
+				float pen_x = line->bounds.x;
 				float run_start_x = pen_x;
 				int32_t run_start_glyph_idx = line->glyph_range.start;
 				skb_rect2_t run_bounds = skb_rect2_make_undefined();
-
 
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* run = &layout_runs[ri];
@@ -588,8 +584,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
 
-						float gx = ox + glyph->offset_x;
-						float gy = oy + edit_layout_y + glyph->offset_y;
+						float gx = glyph->offset_x;
+						float gy = edit_layout_y + glyph->offset_y;
 
 						if (ctx->show_glyph_details) {
 							// Glyph pen position
@@ -671,7 +667,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
 
-						float cx = ox + caret_x;
+						float cx = caret_x;
 						debug_render_line(ctx->rc, cx, bot_y, cx, top_y + 5, caret_color, -1.f);
 
 						if (left.direction != right.direction) {
@@ -711,11 +707,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		// Caret & selection info
 		{
-			float cx = ox;
+			float cx = 0.f;
 
 			// Caret
-			cx = debug_render_text(ctx->rc, cx + 5,oy + layout_height + 30, 13, RENDER_ALIGN_START, caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
-			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = debug_render_text(ctx->rc, cx + 5,layout_height + 30, 13, RENDER_ALIGN_START, caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
+			cx = ceilf((cx-10.f)/40.f) * 40.f;
 
 			// Caret location
 			int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
@@ -726,18 +722,18 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			int32_t line_idx = skb_editor_get_line_index_at(ctx->editor, insert_pos);
 			int32_t col_idx = skb_editor_get_column_index_at(ctx->editor, insert_pos);
 
-			cx = debug_render_text(ctx->rc, cx,oy + layout_height + 30, 13, RENDER_ALIGN_START, log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
-			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
+			cx = ceilf((cx-10.f)/40.f) * 40.f;
 
 			// Selection count
 			const int32_t selection_count = skb_editor_get_selection_count(ctx->editor, edit_selection);
 			if (selection_count > 0) {
-				cx = debug_render_text(ctx->rc, cx,oy + layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
-				cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
+				cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
+				cx = ceilf((cx-10.f)/40.f) * 40.f;
 			}
 
-			cx = debug_render_text(ctx->rc, cx,oy + layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "text_offset %d", edit_selection.end_pos.offset);
-			cx = ox + ceilf((cx-ox+10.f)/40.f) * 40.f;
+			cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "text_offset %d", edit_selection.end_pos.offset);
+			cx = ceilf((cx-10.f)/40.f) * 40.f;
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -747,17 +743,17 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
 
 			float caret_slope = caret_pos.width / caret_pos.height;
-			float caret_top_x = ox + caret_pos.x + caret_pos.width - caret_slope * 3.f;
-			float caret_top_y = oy + caret_pos.y + 3.f;
-			float caret_bot_x = ox + caret_pos.x + caret_slope * 3.f;
-			float caret_bot_y = oy + caret_pos.y + caret_pos.height - 3.f;
+			float caret_top_x = caret_pos.x + caret_pos.width - caret_slope * 3.f;
+			float caret_top_y = caret_pos.y + 3.f;
+			float caret_bot_x = caret_pos.x + caret_slope * 3.f;
+			float caret_bot_y = caret_pos.y + caret_pos.height - 3.f;
 
 			debug_render_line(ctx->rc, caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color, 6.f);
 
 			float as = skb_absf(caret_pos.height) / 10.f;
 			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
-			float tri_top_x = ox + caret_pos.x + caret_pos.width;
-			float tri_top_y = oy + caret_pos.y;
+			float tri_top_x = caret_pos.x + caret_pos.width;
+			float tri_top_y = caret_pos.y;
 			float tri_bot_x = tri_top_x - as * caret_slope;
 			float tri_bot_y = tri_top_y + as;
 			debug_render_tri(ctx->rc, tri_top_x, tri_top_y,
@@ -778,8 +774,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
 		const skb_attribute_font_t attr_font = get_font_attribute_from_editor_params(edit_params);
 
-		float ox = 0.f;//ctx->view.cx;
-		float oy = /*ctx->view.cy +*/ 30.f + layout_height + 80.f;
+		float ox = 0.f;
+		float oy = 30.f + layout_height + 80.f;
 		float sz = 80.f;
 		float font_scale = (sz * 0.5f) / attr_font.size;
 

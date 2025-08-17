@@ -23,6 +23,7 @@ add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 set(SKRIBIDI_EXAMPLE_FILES
 	example_aligns.c
 	example_cached.c
+	example_culling.c
 	example_decorations.c
 	example_fallback.c
 	example_icons.c

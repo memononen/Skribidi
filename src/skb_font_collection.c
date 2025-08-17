@@ -200,11 +200,11 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 //		skb_debug_log(" - script: %c%c%c%c\n", HB_UNTAG(SBScriptGetOpenTypeTag(font->scripts[i])));
 
 	// Store metrics
-	hb_font_extents_t extents;
-	if (hb_font_get_h_extents(font->hb_font, &extents)) {
-		font->metrics.ascender = -(float)extents.ascender * font->upem_scale;
-		font->metrics.descender = -(float)extents.descender * font->upem_scale;
-		font->metrics.line_gap = (float)extents.line_gap * font->upem_scale;
+	hb_font_extents_t font_extents;
+	if (hb_font_get_h_extents(font->hb_font, &font_extents)) {
+		font->metrics.ascender = -(float)font_extents.ascender * font->upem_scale;
+		font->metrics.descender = -(float)font_extents.descender * font->upem_scale;
+		font->metrics.line_gap = (float)font_extents.line_gap * font->upem_scale;
 	}
 
 	hb_position_t x_height;
@@ -238,6 +238,25 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run);
 	font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
 	font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
+
+	// Cache glyph bounds
+	font->glyph_bounds_count = (int32_t)hb_face_get_glyph_count(face);
+	if (font->glyph_bounds_count > 0) {
+		font->glyph_bounds = skb_malloc(sizeof(skb_rect2_t) * font->glyph_bounds_count);
+		memset(font->glyph_bounds, 0, sizeof(skb_rect2_t) * font->glyph_bounds_count);
+
+		for (int32_t gid = 0; gid < font->glyph_bounds_count; gid++) {
+			hb_glyph_extents_t extents;
+			if (hb_font_get_glyph_extents(hb_font, gid, &extents)) {
+				font->glyph_bounds[gid] = (skb_rect2_t) {
+					.x = (float)extents.x_bearing * font->upem_scale,
+					.y = -(float)extents.y_bearing * font->upem_scale,
+					.width = (float)extents.width * font->upem_scale,
+					.height = -(float)extents.height * font->upem_scale,
+				};
+			}
+		}
+	}
 
 	return true;
 
@@ -755,24 +774,16 @@ uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection
 skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, uint32_t glyph_id, float font_size)
 {
 	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
-	if (!font || glyph_id == 0) return (skb_rect2_t) { 0 };
+	if (!font || glyph_id == 0 || glyph_id >= (uint32_t)font->glyph_bounds_count) return (skb_rect2_t) { 0 };
 
-	hb_glyph_extents_t extents;
-	if (hb_font_get_glyph_extents(font->hb_font, glyph_id, &extents)) {
-		const float scale = font_size * font->upem_scale;
-		const float x = (float)extents.x_bearing * scale;
-		const float y = -(float)extents.y_bearing * scale;
-		const float width = (float)extents.width * scale;
-		const float height = -(float)extents.height * scale;
+	const skb_rect2_t* bounds = &font->glyph_bounds[glyph_id];
 
-		return (skb_rect2_t) {
-			.x = x,
-			.y = y,
-			.width = width,
-			.height = height,
-		};
-	}
-	return (skb_rect2_t) { 0 };
+	return (skb_rect2_t) {
+		.x = bounds->x * font_size,
+		.y = bounds->y * font_size,
+		.width = bounds->width * font_size,
+		.height = bounds->height * font_size,
+	};
 }
 
 
