@@ -1105,6 +1105,7 @@ typedef struct skb_caret_iterator_t {
 	float advance;
 	float x;
 
+	int32_t glyph_start_idx;
 	int32_t glyph_pos;
 	int32_t glyph_end;
 	uint8_t glyph_direction;

@@ -2700,7 +2700,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 			break;
 		}
 		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
-			skb_glyph_t* glyph = &layout->glyphs[left.glyph_idx];
+			skb_glyph_t* glyph = &layout->glyphs[right.glyph_idx];
 			attribute_span = &layout->attribute_spans[glyph->attribute_span_idx];
 			font_handle = glyph->font_handle;
 			vis_caret.x = caret_iter.x;
@@ -2999,6 +2999,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	iter.pending_left.direction = layout->resolved_direction;
 	iter.pending_left.glyph_idx = line->glyph_range.start;
 
+	iter.glyph_start_idx = line->glyph_range.start;
 	iter.glyph_pos = line->glyph_range.start;
 	iter.glyph_end = line->glyph_range.end;
 
@@ -3025,6 +3026,9 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 
 	// Advance to next glyph
 	if (iter->end_of_glyph) {
+		// Calculate the glyph we want to report before we advance glyph_pos to the next glyph position.
+		iter->glyph_start_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
+
 		if (iter->glyph_pos == iter->glyph_end) {
 			iter->end_of_line = true;
 			iter->advance = 0.f;
@@ -3091,12 +3095,12 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 		right->text_position.offset = offset;
 		right->text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_LEADING : SKB_AFFINITY_TRAILING; // LTR = trailing;
 		right->direction = iter->glyph_direction;
-		right->glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
+		right->glyph_idx = iter->glyph_start_idx;
 
 		iter->pending_left.text_position.offset = offset;
 		iter->pending_left.text_position.affinity = skb_is_rtl(iter->glyph_direction) ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
 		iter->pending_left.direction = iter->glyph_direction;
-		iter->pending_left.glyph_idx = skb_mini(iter->glyph_pos, iter->glyph_end - 1);
+		iter->pending_left.glyph_idx = iter->glyph_start_idx;
 	}
 
 	*x = iter->x;
