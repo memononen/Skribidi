@@ -298,6 +298,8 @@ typedef struct skb_attribute_span_t {
 	float content_height;
 	/** Data of object or icon specified by the span */
 	intptr_t content_data;
+	/** Custom identifier for a content run. */
+	intptr_t run_id;
 	/** Range of text the attributes apply to. */
 	skb_range_t text_range;
 	/** The text attributes. */
@@ -490,6 +492,7 @@ typedef struct skb_content_run_t {
 		skb_content_object_t object;
 		skb_content_icon_t icon;
 	};
+	intptr_t run_id;
 	/** Pointer to the attributes. */
 	const skb_attribute_t* attributes;
 	/** Number of attributes in attributes array. */
@@ -505,9 +508,10 @@ typedef struct skb_content_run_t {
  * @param text_count length of the text, or -1 if not known.
  * @param attributes pointer to the attributes.
  * @param attributes_count number of attributes in attributes array.
+ * @param run_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count);
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
 
 /**
  * Makes utf-32 content run.
@@ -516,9 +520,10 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
  * @param text_count length of the text, or -1 if not known.
  * @param attributes pointer to the attributes.
  * @param attributes_count number of attributes in attributes array.
+ * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count);
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
 
 /**
  * Makes inline object content run.
@@ -534,8 +539,9 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
  * @param attributes pointer to the attributes.
  * @param attributes_count number of attributes in attributes array.
  * @return initialized content run.
+ * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  */
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count);
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
 
 /**
  * Makes inline icon content run.
@@ -552,9 +558,10 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * @param height height of the icon, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
  * @param attributes pointer to the attributes.
  * @param attributes_count number of attributes in attributes array.
+ * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count);
+skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
 
 
 /** Struct describing shaped and positioned glyph. */
@@ -581,13 +588,13 @@ typedef struct skb_glyph_t {
  * Struct describing continuous run of shaped and positioned layout content.
  *
  * Text content:
- *  - glyph_range describes the run of glyphs to render using font_handle
+ *  - "glyph_range" describes the run of glyphs to render using font_handle
  *  - the other font data is stored in the attributes, e.g. fonts size can be queried using skb_attributes_get_font()
- *  - the offset describes the origin of the first glyph (the same as the offset on the glyph)
+ *  - "bounds" describes the logical bounding box of all the glyphs
  *
  * Object or icon content:
  *  - the object data is stored in the attributes and can be accessed using skb_attributes_get_object()
- *  - the offset describes the top-left corner of the object or icon
+ *  - "bounds" describes the location and size of the object or icon
  */
 typedef struct skb_layout_run_t {
 	/** Type of the content, see skb_content_run_type_t */
@@ -596,19 +603,15 @@ typedef struct skb_layout_run_t {
 	uint8_t direction;
 	/** Index of the attribute span. */
 	uint16_t attribute_span_idx;
-	/** Offset X of the content. */
-	float offset_x;
-	/** Offset Y of the content. */
-	float offset_y;
 	/** Range of glyphs the content corresponds to. */
 	skb_range_t glyph_range;
-	/** Width of the content for object and icon content. */
-	float content_width;
-	/** Width of the content for object and icon content. */
-	float content_height;
-	/** Bounding rectangle of the run that contains all the content, but might overestimate. */
+	/** Logical bounding rectangle of the content. */
+	skb_rect2_t bounds;
+	/** Y position of the reference baseline of the run (in practice the alphabetic baseline). The text decorations are positioned relative to this baseline. */
+	float ref_baseline;
+	/** Bounding rectangle of the run that contains all the content (might overestimate). */
 	skb_rect2_t culling_bounds;
-	/** Common glyph bounds the contains all the glyphs in the run, used for per glyph culling. Empty if not text run. */
+	/** Common glyph bounds can encompass any glyph in the run, used for per glyph culling (relative to glyph offset). Empty if not text run. */
 	skb_rect2_t common_glyph_bounds;
 	union {
 		/** Font handle of the text content, if text content. */
@@ -693,15 +696,15 @@ typedef struct skb_layout_line_t {
 	skb_range_t decorations_range;
 	/** Text offset (codepoints) of the start of the last codepoint on the line. */
 	int32_t last_grapheme_offset;
-	/** Combined ascender of the line. */
+	/** Combined ascender of the line. Describes how much the line extends above the baseline. */
 	float ascender;
-	/** Combined descender of the line. */
+	/** Combined descender of the line. Describes how much the line extends below the baseline. */
 	float descender;
-	/** Baseline offset from line top. */
+	/** Y position of the baseline the text on the line was aligned to (see skb_layout_params_t.baseline_align). */
 	float baseline;
-	/** Logical bounding rectangle of the line. */
+	/** Logical bounding rectangle of the line. The Y extends of the rectangle is set to the line height, which can differ from the ascender and descender. */
 	skb_rect2_t bounds;
-	/** Bounding rectangle of the line that contains all the content, but might overestimate. */
+	/** Bounding rectangle of the line that contains all the content (might overestimate). */
 	skb_rect2_t culling_bounds;
 	/** Line flags, see skb_layout_line_flags_t. */
 	uint8_t flags;
@@ -1013,6 +1016,71 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
  * @return text position under the specified hit location.
  */
 skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement_type_t type, float hit_x, float hit_y);
+
+
+/** Struct identifying run of content. */
+typedef struct skb_layout_content_hit_t {
+	/** Run id of the hit content, 0 if no hit was found. */
+	intptr_t run_id;
+	/** Line index of the hit content. */
+	int32_t line_idx;
+	/** Attribute span index of the hit content. */
+	uint16_t attribute_span_idx;
+} skb_layout_content_hit_t;
+
+/**
+ * Returns data identifying the content under the hit location at specified line.
+ * If no hit was found, the "run_id" of the return value will be 0.
+ * @param layout layout to use.
+ * @param line_idx index of the line to test.
+ * @param hit_x hit X location
+ * @return struct representing the content under the hit location.
+ */
+skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t* layout, int32_t line_idx, float hit_x);
+
+/**
+ * Returns data identifying the content under the hit location.
+ * If no hit was found, the "run_id" of the return value will be 0.
+ * @param layout layout to use.
+ * @param hit_x hit X location
+ * @param hit_y hit Y location
+ * @return struct representing the content under the hit location.
+ */
+skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout, float hit_x, float hit_y);
+
+/**
+ * Signature of content bounds getter callback.
+ * @param rect content rectangle.
+ * @param attribute_span_idx attribute span index of the content rectangle
+ * @param line_idx lined index of the content rectangle
+ * @param context context passed to skb_layout_get_content_bounds()
+ */
+typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t attribute_span_idx, int32_t line_idx, void* context);
+
+/**
+ * Return set of rectangles that represent the specified run at specified line.
+ * Runs what come one after each other are reported as one rectangle.
+ * If the content got broken into multiple lines, multiple rectangles will be returned.
+ * Note: runs with run_id = 0 will be ignored.
+ * @param layout layout to use.
+ * @param line_idx index of the line where to look for the runs
+ * @param run_id id of the run to query
+ * @param callback callback to call on each rectangle.
+ * @param context context passed to the callback.
+ */
+void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+
+/**
+ * Return set of rectangles that represent the specified run.
+ * Runs what come one after each other are reported as one rectangle.
+ * Note: runs with run_id = 0 will be ignored.
+ * @param layout layout to use.
+ * @param run_id id of the run to query
+ * @param callback callback to call on each rectangle.
+ * @param context context passed to the callback.
+ */
+void skb_layout_get_content_bounds(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+
 
 /**
  * Returns visual caret location of the text position at specified line.

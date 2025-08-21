@@ -54,7 +54,7 @@ void richtext_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void richtext_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* richtext_create(render_context_t* rc)
+void* richtext_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 
@@ -178,20 +178,20 @@ void* richtext_create(render_context_t* rc)
 		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.\n";
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8(ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small)),
-		skb_content_run_make_utf8("moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic)),
+		skb_content_run_make_utf8(ipsum, -1, attributes_small, SKB_COUNTOF(attributes_small), 0),
+		skb_content_run_make_utf8("moikkelis!\n", -1, attributes_italic, SKB_COUNTOF(attributes_italic), 0),
 
-		skb_content_run_make_utf8("این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2)),
+		skb_content_run_make_utf8("این یک 😬👀🚨 تست است\n", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2), 0),
 
-		skb_content_run_make_utf8("Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1)),
-		skb_content_run_make_utf8("vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2)),
-		skb_content_run_make_utf8("dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3)),
+		skb_content_run_make_utf8("Donec sodales ", -1, attributes_deco1, SKB_COUNTOF(attributes_deco1), 0),
+		skb_content_run_make_utf8("vitae odio ", -1, attributes_deco2, SKB_COUNTOF(attributes_deco2), 0),
+		skb_content_run_make_utf8("dapibus pulvinar\n", -1, attributes_deco3, SKB_COUNTOF(attributes_deco3), 0),
 
-		skb_content_run_make_utf8("ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small)),
-		skb_content_run_make_utf8("POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big)),
-		skb_content_run_make_utf8("11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts)),
-		skb_content_run_make_utf8("शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic)),
-		skb_content_run_make_utf8("こんにちは世界。 ", -1, attributes_ja_jp, SKB_COUNTOF(attributes_ja_jp)),
+		skb_content_run_make_utf8("ہے۔ kofi یہ ایک\n", -1, attributes_small, SKB_COUNTOF(attributes_small), 0),
+		skb_content_run_make_utf8("POKS! 🧁\n", -1, attributes_big, SKB_COUNTOF(attributes_big), 0),
+		skb_content_run_make_utf8("11/17\n", -1, attributes_fracts, SKB_COUNTOF(attributes_fracts), 0),
+		skb_content_run_make_utf8("शकति शक्ति ", -1, attributes_italic, SKB_COUNTOF(attributes_italic), 0),
+		skb_content_run_make_utf8("こんにちは世界。 ", -1, attributes_ja_jp, SKB_COUNTOF(attributes_ja_jp), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));

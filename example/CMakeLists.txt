@@ -26,6 +26,7 @@ set(SKRIBIDI_EXAMPLE_FILES
 	example_culling.c
 	example_decorations.c
 	example_fallback.c
+	example_hyperlink.c
 	example_icons.c
 	example_inlineobj.c
 	example_richtext.c

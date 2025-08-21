@@ -25,15 +25,16 @@ typedef struct example_stub_t {
 	const char* name;
 } example_stub_t;
 
-void* richtext_create(render_context_t* rc);
-void* testbed_create(render_context_t* rc);
-void* icons_create(render_context_t* rc);
-void* cached_create(render_context_t* rc);
-void* fallback_create(render_context_t* rc);
-void* decorations_create(render_context_t* rc);
-void* aligns_create(render_context_t* rc);
-void* inlineobj_create(render_context_t* rc);
-void* culling_create(render_context_t* rc);
+void* richtext_create(GLFWwindow* window, render_context_t* rc);
+void* testbed_create(GLFWwindow* window, render_context_t* rc);
+void* icons_create(GLFWwindow* window, render_context_t* rc);
+void* cached_create(GLFWwindow* window, render_context_t* rc);
+void* fallback_create(GLFWwindow* window, render_context_t* rc);
+void* decorations_create(GLFWwindow* window, render_context_t* rc);
+void* aligns_create(GLFWwindow* window, render_context_t* rc);
+void* inlineobj_create(GLFWwindow* window, render_context_t* rc);
+void* culling_create(GLFWwindow* window, render_context_t* rc);
+void* hyperlink_create(GLFWwindow* window, render_context_t* rc);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -45,6 +46,7 @@ static example_stub_t g_examples[] = {
 	{ .create = aligns_create, .name = "Layout Align" },
 	{ .create = inlineobj_create, .name = "Inline Objects" },
 	{ .create = culling_create, .name = "Culling" },
+	{ .create = hyperlink_create, .name = "Hyperlink" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;
@@ -72,7 +74,7 @@ static void set_example(int32_t example_idx)
 
 	g_example_idx = skb__wrap(example_idx, g_examples_count);
 
-	g_example = g_examples[g_example_idx].create(g_render_context);
+	g_example = g_examples[g_example_idx].create(g_window, g_render_context);
 	assert(g_example);
 }
 
@@ -207,7 +209,7 @@ int main(int argc, char** args)
 	}
 
 	// Init first example
-	set_example(0);
+	set_example(g_examples_count-1);
 
 	while (!g_done) {
 		main_loop(0);

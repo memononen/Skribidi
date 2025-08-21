@@ -502,8 +502,8 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 			// Object
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
 			// Icon
-			render_draw_icon(rc, run->offset_x, run->offset_y,
-				layout_params->icon_collection, run->icon_handle, run->content_width, run->content_height,
+			render_draw_icon(rc, run->bounds.x, run->bounds.y,
+				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
 				attr_fill.color, alpha_mode);
 		} else {
 			// Text
@@ -520,12 +520,129 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 	// Draw through lines.
 	for (int32_t i = 0; i < decorations_count; i++) {
 		const skb_decoration_t* decoration = &decorations[i];
-		const skb_attribute_span_t* skb_attribute_span = &attribute_spans[decoration->attribute_span_idx];
-		const skb_attribute_decoration_t attr_decoration = skb_attribute_span->attributes[decoration->attribute_idx].decoration;
+		const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+		const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
 		if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
 			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
 				attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,
 				attr_decoration.color, alpha_mode);
+		}
+	}
+}
+
+static void override_color(render_override_type_t type, intptr_t content_data, skb_color_t* color, render_override_slice_t color_overrides)
+{
+	for (int32_t i = 0; i < color_overrides.count; i++) {
+		if (color_overrides.items[i].type == type && color_overrides.items[i].content_id == content_data) {
+			*color = color_overrides.items[i].color;
+			break;
+		}
+	}
+}
+
+static bool has_override(render_override_type_t type, render_override_slice_t color_overrides)
+{
+	for (int32_t i = 0; i < color_overrides.count; i++)
+		if (color_overrides.items[i].type == type)
+			return true;
+	return false;
+}
+
+render_override_t render_color_override_make_fill(intptr_t content_data, skb_color_t color)
+{
+	return (render_override_t) {
+		.type = RENDER_OVERRIDE_FILL,
+		.content_id = content_data,
+		.color = color,
+	};
+}
+
+render_override_t render_color_override_make_decoration(intptr_t content_data, skb_color_t color)
+{
+	return (render_override_t) {
+		.type = RENDER_OVERRIDE_DECORATION,
+		.content_id = content_data,
+		.color = color,
+	};
+}
+
+void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides)
+{
+	assert(rc);
+	assert(layout);
+
+	skb_image_atlas_t* atlas = render_get_atlas(rc);
+
+	// Draw layout
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
+	const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(layout);
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
+
+	const int32_t decorations_count = skb_layout_get_decorations_count(layout);
+	const skb_decoration_t* decorations = skb_layout_get_decorations(layout);
+
+	const bool has_decoration_overrides = has_override(RENDER_OVERRIDE_DECORATION, color_overrides);
+	const bool has_fill_overrides = has_override(RENDER_OVERRIDE_FILL, color_overrides);
+
+	// Draw underlines
+	for (int32_t i = 0; i < decorations_count; i++) {
+		const skb_decoration_t* decoration = &decorations[i];
+		const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+		const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
+		if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
+			skb_color_t color = attr_decoration.color;
+			if (has_decoration_overrides)
+				override_color(RENDER_OVERRIDE_DECORATION, attribute_span->run_id, &color, color_overrides);
+			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+				attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,
+				color, alpha_mode);
+		}
+	}
+
+	// Draw glyphs
+	for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+		const skb_layout_run_t* run = &layout_runs[ri];
+		const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
+
+		// TODO: handle color glyph/icon
+		skb_color_t color = attr_fill.color;
+		if (has_decoration_overrides)
+			override_color(RENDER_OVERRIDE_DECORATION, attribute_span->run_id, &color, color_overrides);
+
+		if (run->type == SKB_CONTENT_RUN_OBJECT) {
+			// Object
+		} else if (run->type == SKB_CONTENT_RUN_ICON) {
+			// Icon
+			render_draw_icon(rc, run->bounds.x, run->bounds.y,
+				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
+				color, alpha_mode);
+		} else {
+			// Text
+			const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+				const skb_glyph_t* glyph = &glyphs[gi];
+				render_draw_glyph(rc, glyph->offset_x, glyph->offset_y,
+					layout_params->font_collection, run->font_handle, glyph->gid, attr_font.size,
+					color, alpha_mode);
+			}
+		}
+	}
+
+	// Draw through lines.
+	for (int32_t i = 0; i < decorations_count; i++) {
+		const skb_decoration_t* decoration = &decorations[i];
+		const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+		const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
+		if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+			skb_color_t color = attr_decoration.color;
+			if (has_decoration_overrides)
+				override_color(RENDER_OVERRIDE_DECORATION, attribute_span->run_id, &color, color_overrides);
+			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+				attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,
+				color, alpha_mode);
 		}
 	}
 }
@@ -579,8 +696,8 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 				// Object
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
 				// Icon
-				render_draw_icon(rc, run->offset_x, run->offset_y,
-					layout_params->icon_collection, run->icon_handle, run->content_width, run->content_height,
+				render_draw_icon(rc, run->bounds.x, run->bounds.y,
+					layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
 					attr_fill.color, alpha_mode);
 			} else {
 				// Text
@@ -604,8 +721,8 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		// Draw through lines.
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			const skb_attribute_span_t* skb_attribute_span = &attribute_spans[decoration->attribute_span_idx];
-			const skb_attribute_decoration_t attr_decoration = skb_attribute_span->attributes[decoration->attribute_idx].decoration;
+			const skb_attribute_span_t* attribute_span = &attribute_spans[decoration->attribute_span_idx];
+			const skb_attribute_decoration_t attr_decoration = attribute_span->attributes[decoration->attribute_idx].decoration;
 			if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
 				render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
 					attr_decoration.style, attr_decoration.position, decoration->length, decoration->pattern_offset, decoration->thickness,

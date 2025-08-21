@@ -204,6 +204,30 @@ void render_draw_decoration(render_context_t* rc,
  */
 void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
 
+
+typedef enum {
+	RENDER_OVERRIDE_FILL,
+	RENDER_OVERRIDE_DECORATION,
+} render_override_type_t;
+
+typedef struct render_override_t {
+	intptr_t content_id;
+	skb_color_t color;
+	uint8_t type;
+} render_override_t;
+
+typedef struct render_override_slice_t {
+	const render_override_t* items;
+	int32_t count;
+} render_override_slice_t;
+
+#define RENDER_OVERRIDE_SLICE_FROM_ARRAY(array) (render_override_slice_t) { .items = (array), .count = SKB_COUNTOF(array) }
+
+render_override_t render_color_override_make_fill(intptr_t content_data, skb_color_t color);
+render_override_t render_color_override_make_decoration(intptr_t content_data, skb_color_t color);
+
+void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides);
+
 /**
  * Draws text layout with culling.
  * Items (glyphs, icons, objects) that fall completely outside the viewport will not be drawn nor requested from the image atlas.

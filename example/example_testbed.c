@@ -86,7 +86,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 		goto error; \
 	}
 
-void* testbed_create(render_context_t* rc)
+void* testbed_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 

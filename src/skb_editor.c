@@ -143,11 +143,11 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 			// Compose the paragraph from 3 pieces.
 			skb_content_run_t runs[] = {
 				// Before
-				skb_content_run_make_utf32(paragraph->text, ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count),
+				skb_content_run_make_utf32(paragraph->text, ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count, 0),
 				// Composition
-				skb_content_run_make_utf32(editor->composition_text, editor->composition_text_count, editor->params.composition_attributes, editor->params.composition_attributes_count),
+				skb_content_run_make_utf32(editor->composition_text, editor->composition_text_count, editor->params.composition_attributes, editor->params.composition_attributes_count, 0),
 				// After
-				skb_content_run_make_utf32(paragraph->text + ime_position.paragraph_offset, paragraph->text_count - ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count),
+				skb_content_run_make_utf32(paragraph->text + ime_position.paragraph_offset, paragraph->text_count - ime_position.paragraph_offset, editor->params.text_attributes, editor->params.text_attributes_count, 0),
 			};
 
 			paragraph->layout = skb_layout_create_from_runs(temp_alloc, &layout_params, runs, SKB_COUNTOF(runs));

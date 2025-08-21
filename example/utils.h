@@ -87,7 +87,7 @@ static inline void view_scroll_zoom(view_t* view, float mouse_x, float mouse_y, 
 typedef struct render_context_t render_context_t;
 typedef struct GLFWwindow GLFWwindow;
 
-typedef void* example_create_t(render_context_t* rc);
+typedef void* example_create_t(GLFWwindow* window, render_context_t* rc);
 typedef void example_destroy_t(void* ctx_ptr);
 typedef void example_on_key_t(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
 typedef void example_on_char_t(void* ctx_ptr, unsigned int codepoint);

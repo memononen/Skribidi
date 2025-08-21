@@ -61,7 +61,7 @@ void aligns_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void aligns_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* aligns_create(render_context_t* rc)
+void* aligns_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 

@@ -55,7 +55,7 @@ void cached_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void cached_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* cached_create(render_context_t* rc)
+void* cached_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 

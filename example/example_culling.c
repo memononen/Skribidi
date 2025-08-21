@@ -54,7 +54,7 @@ void culling_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void culling_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* culling_create(render_context_t* rc)
+void* culling_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 
@@ -267,7 +267,7 @@ void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
 				// Object or Icon
 				debug_render_filled_rect(ctx->rc,
-					run->offset_x, run->offset_y, run->content_width, run->content_height,
+					run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height,
 					skb_rgba(255,64,64,32));
 			} else {
 				// Text

@@ -150,7 +150,7 @@ error:
 	return false;
 }
 
-void* fallback_create(render_context_t* rc)
+void* fallback_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 

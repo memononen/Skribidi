@@ -53,7 +53,7 @@ void decorations_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void decorations_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-void* decorations_create(render_context_t* rc)
+void* decorations_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
 
@@ -144,11 +144,11 @@ void* decorations_create(render_context_t* rc)
 
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_solid, SKB_COUNTOF(attributes_deco_solid)),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_double, SKB_COUNTOF(attributes_deco_double)),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dotted, SKB_COUNTOF(attributes_deco_dotted)),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dashed, SKB_COUNTOF(attributes_deco_dashed)),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_wavy, SKB_COUNTOF(attributes_deco_wavy)),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_solid, SKB_COUNTOF(attributes_deco_solid), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_double, SKB_COUNTOF(attributes_deco_double), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dotted, SKB_COUNTOF(attributes_deco_dotted), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dashed, SKB_COUNTOF(attributes_deco_dashed), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_wavy, SKB_COUNTOF(attributes_deco_wavy), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));

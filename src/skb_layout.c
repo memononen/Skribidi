@@ -63,33 +63,39 @@ typedef struct skb_layout_t {
 } skb_layout_t;
 
 
-
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF8,
-		.utf8.text = text,
-		.utf8.text_count = text_count,
+		.run_id = run_id,
+		.utf8 = {
+			.text = text,
+			.text_count = text_count,
+		},
 		.attributes = attributes,
 		.attributes_count = attributes_count,
 	};
 }
 
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF32,
-		.utf32.text = text,
-		.utf32.text_count = text_count,
+		.run_id = run_id,
+		.utf32 = {
+			.text = text,
+			.text_count = text_count,
+		},
 		.attributes = attributes,
 		.attributes_count = attributes_count,
 	};
 }
 
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count)
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_OBJECT,
+		.run_id = run_id,
 		.object = {
 			.data = data,
 			.width = width,
@@ -100,10 +106,11 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
 	};
 }
 
-skb_content_run_t skb_content_run_make_icon(const char* icon_name, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count)
+skb_content_run_t skb_content_run_make_icon(const char* icon_name, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_ICON,
+		.run_id = run_id,
 		.icon = {
 			.name = icon_name,
 			.width = width,
@@ -866,7 +873,7 @@ static int32_t skb__get_text_run_after(const skb_layout_t* layout, int32_t cur_g
 	return SKB_INVALID_INDEX;
 }
 
-static void skb__layout_run_init(const skb_layout_t* layout, skb_layout_run_t* run, int32_t first_glyph_idx)
+static void skb__layout_run_init(const skb_layout_t* layout, skb_layout_run_t* run, int32_t line_idx, int32_t first_glyph_idx)
 {
 	const skb_glyph_t* glyph = &layout->glyphs[first_glyph_idx];
 	const skb_attribute_span_t* attribute_span = &layout->attribute_spans[glyph->attribute_span_idx];
@@ -874,19 +881,34 @@ static void skb__layout_run_init(const skb_layout_t* layout, skb_layout_run_t* r
 	run->type = attribute_span->run_type;
 	run->direction = layout->text_props[glyph->text_range.start].direction;
 	run->attribute_span_idx = glyph->attribute_span_idx;
-	run->offset_x = glyph->offset_x;
-	run->offset_y = glyph->offset_y;
 	run->glyph_range.start = first_glyph_idx;
 	run->glyph_range.end = first_glyph_idx;
 
-	run->content_width = attribute_span->content_width;
-	run->content_height = attribute_span->content_height;
-	if (run->type == SKB_CONTENT_RUN_OBJECT)
-		run->object_data = attribute_span->content_data;
-	else if (run->type == SKB_CONTENT_RUN_ICON)
-		run->icon_handle = (skb_icon_handle_t)attribute_span->content_data;
-	else
+	if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
+		if (run->type == SKB_CONTENT_RUN_OBJECT)
+			run->object_data = attribute_span->content_data;
+		else if (run->type == SKB_CONTENT_RUN_ICON)
+			run->icon_handle = (skb_icon_handle_t)attribute_span->content_data;
+		run->bounds.x = glyph->offset_x;
+		run->bounds.y = glyph->offset_y;
+		run->bounds.width = attribute_span->content_width;
+		run->bounds.height = attribute_span->content_height;
+		run->ref_baseline = run->bounds.y + attribute_span->content_height;
+	} else {
+		const skb_layout_line_t* line = &layout->lines[line_idx];
 		run->font_handle = glyph->font_handle;
+		run->bounds.x = glyph->offset_x;
+		run->bounds.y = line->ascender;
+		run->bounds.width = glyph->advance_x;
+		run->bounds.height = -line->ascender + line->descender;
+		// Calculate reference baseline for the run. At this stage Y=0 is at baseline specified by params.baseline_align, calculate the reference baseline relative to that.
+		// The OpenType file format is not specific about in which coordinate system the baseline metrics are reported.
+		// We assume that they are relative to the alphabetic baseline, as that seems to be the recommendation to author fonts.
+		skb_text_property_t text_prop = layout->text_props[glyph->text_range.start];
+		const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+		const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, glyph->font_handle, text_prop.direction, text_prop.script, attr_font.size);
+		run->ref_baseline = baseline_set.alphabetic - baseline_set.baselines[layout->params.baseline_align];
+	}
 }
 
 void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
@@ -1312,7 +1334,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 			SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
 			skb_layout_run_t* layout_run = &layout->layout_runs[layout->layout_runs_count++];
-			skb__layout_run_init(layout, layout_run, glyph_range.start);
+			skb__layout_run_init(layout, layout_run, li, glyph_range.start);
 
 			for (int32_t gi = glyph_range.start + 1; gi < glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &layout->glyphs[gi];
@@ -1322,9 +1344,13 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 					// Start new run
 					SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count+1);
 					layout_run = &layout->layout_runs[layout->layout_runs_count++];
-					skb__layout_run_init(layout, layout_run, gi);
+					skb__layout_run_init(layout, layout_run, li, gi);
+				} else {
+					// Update width. Icon and object has just one replace object glyph, so we should not get here.
+					layout_run->bounds.width += glyph->advance_x;
 				}
 			}
+			// Close last run
 			layout_run->glyph_range.end = glyph_range.end;
 		}
 
@@ -1414,8 +1440,9 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 		float cur_x = start_x;
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			skb_layout_run_t* run = &layout->layout_runs[ri];
-			run->offset_x += cur_x;
-			run->offset_y += line->baseline;
+			run->bounds.x += cur_x;
+			run->bounds.y += line->baseline;
+			run->ref_baseline += line->baseline;
 
 			for (int32_t j = run->glyph_range.start; j < run->glyph_range.end; j++) {
 				skb_glyph_t* glyph = &layout->glyphs[j];
@@ -1440,12 +1467,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 				if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
 					// Object or Icon
-					run->culling_bounds = (skb_rect2_t) {
-						.x = run->offset_x,
-						.y = run->offset_y,
-						.width = run->content_width,
-						.height = run->content_height,
-					};
+					run->culling_bounds = run->bounds;
 				} else {
 					// Text
 					if (run->glyph_range.start != run->glyph_range.end) {
@@ -1478,10 +1500,10 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 
 		line->decorations_range.start = layout->decorations_count;
 
-		// Iterate over glyphs of same attribute span.
+		// Iterate over runs of same attribute span.
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 
-			// Find range of glyphs runs that share same attribute span.
+			// Find range of runs that share same attribute span.
 			int32_t first_run = ri;
 			int32_t last_run = ri;
 			const uint16_t attribute_span_idx = layout->layout_runs[first_run].attribute_span_idx;
@@ -1506,7 +1528,9 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 				float thickness_div = 0.f;
 
 				// Calculate the position of the line.
-				const float ref_baseline = layout->layout_runs[first_run].offset_y;
+				// The OpenType file format is not specific about in which coordinate system the baseline metrics are reported.
+				// We assume that they are relative to the alphabetic baseline, as that seems to be the recommendation to author fonts.
+				const float base_ref_baseline = layout->layout_runs[first_run].ref_baseline;
 				skb_font_handle_t prev_font_handle = 0;
 				for (int32_t sri = first_run; sri <= last_run; sri++) {
 					const skb_layout_run_t* run = &layout->layout_runs[sri];
@@ -1514,7 +1538,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 					if (run->font_handle != prev_font_handle) {
 						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, run->font_handle);
 						if (font) {
-							const float delta_y = run->offset_y - ref_baseline;
+							const float delta_y = run->ref_baseline - base_ref_baseline;
 							if (attr_decoration.position == SKB_DECORATION_UNDERLINE) {
 								line_position = skb_maxf(line_position, delta_y + font->metrics.underline_offset * attr_font.size);
 								thickness += font->metrics.underline_size * attr_font.size;
@@ -1567,7 +1591,7 @@ void skb__layout_lines(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc)
 				SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
 				skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
 				decoration->offset_x = first_glyph->offset_x;
-				decoration->offset_y = ref_baseline + line_position;
+				decoration->offset_y = base_ref_baseline + line_position;
 				decoration->length = last_glyph->offset_x - first_glyph->offset_x + last_glyph->advance_x;
 				decoration->pattern_offset = first_glyph->offset_x - origin.x;
 				decoration->thickness = thickness;
@@ -2113,7 +2137,7 @@ static bool skb__attribs_equals(const skb_attribute_span_t* attribute_span, cons
 }
 
 static void skb__add_attribute_span(
-	skb_layout_t* layout, uint8_t run_type,
+	skb_layout_t* layout, uint8_t run_type, intptr_t run_id,
 	int32_t text_start, int32_t text_end,
 	float content_width, float content_height, intptr_t content_data,
 	const skb_attribute_t* attributes, int32_t attributes_count)
@@ -2121,9 +2145,11 @@ static void skb__add_attribute_span(
 	// Try to merge text to previous span if the attributes match.
 	if (layout->attribute_spans_count > 0 && (run_type == SKB_CONTENT_RUN_UTF8 || run_type == SKB_CONTENT_RUN_UTF32)) {
 		const skb_attribute_span_t* prev_attributes = &layout->attribute_spans[layout->attribute_spans_count - 1];
-		if ((prev_attributes->run_type == SKB_CONTENT_RUN_UTF8 || prev_attributes->run_type == SKB_CONTENT_RUN_UTF32) && skb__attribs_equals(prev_attributes, attributes, attributes_count)) {
-			layout->attribute_spans[layout->attribute_spans_count - 1].text_range.end = layout->text_count;
-			return;
+		if (prev_attributes->run_type == SKB_CONTENT_RUN_UTF8 || prev_attributes->run_type == SKB_CONTENT_RUN_UTF32) {
+			if (prev_attributes->run_id == run_id && skb__attribs_equals(prev_attributes, attributes, attributes_count)) {
+				layout->attribute_spans[layout->attribute_spans_count - 1].text_range.end = layout->text_count;
+				return;
+			}
 		}
 	}
 
@@ -2131,6 +2157,7 @@ static void skb__add_attribute_span(
 	skb_attribute_span_t* attribute_span = &layout->attribute_spans[layout->attribute_spans_count++];
 
 	attribute_span->run_type = run_type;
+	attribute_span->run_id = run_id;
 	attribute_span->text_range.start = text_start;
 	attribute_span->text_range.end = text_end;
 	attribute_span->content_width = content_width;
@@ -2168,13 +2195,13 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 
 skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
-	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, attributes_count);
+	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, attributes_count, 0);
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
 }
 
 skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
-	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, attributes_count);
+	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, attributes_count, 0);
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
 }
 
@@ -2187,13 +2214,13 @@ skb_layout_t* skb_layout_create_from_runs(skb_temp_alloc_t* temp_alloc, const sk
 
 void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
-	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, attributes_count);
+	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, attributes_count, 0);
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
 }
 
 void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count)
 {
-	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, attributes_count);
+	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, attributes_count, 0);
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
 }
 
@@ -2289,9 +2316,9 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		intptr_t content_data = 0;
 
 		if (run->type == SKB_CONTENT_RUN_UTF8) {
-			count = skb__append_text_utf8(layout, runs[i].utf8.text, text_counts[i]);
+			count = skb__append_text_utf8(layout, run->utf8.text, text_counts[i]);
 		} else if (run->type == SKB_CONTENT_RUN_UTF32) {
-			count = skb__append_text_utf32(layout, runs[i].utf32.text, text_counts[i]);
+			count = skb__append_text_utf32(layout, run->utf32.text, text_counts[i]);
 		} else if (run->type == SKB_CONTENT_RUN_OBJECT) {
 			// Add replacement text.
 			const uint32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
@@ -2315,7 +2342,10 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 				}
 			}
 		}
-		skb__add_attribute_span(layout, run->type, offset, offset + count, content_width, content_height, content_data, runs[i].attributes, runs[i].attributes_count);
+		skb__add_attribute_span(layout, run->type, run->run_id,
+			offset, offset + count,
+			content_width, content_height, content_data,
+			runs[i].attributes, runs[i].attributes_count);
 	}
 
 	skb__init_text_props_from_attributes(layout, temp_alloc);
@@ -2624,6 +2654,125 @@ skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement
 	}
 
 	return skb_layout_hit_test_at_line(layout, type, line_idx, hit_x);
+}
+
+
+
+skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t* layout, int32_t line_idx, float hit_x)
+{
+	const skb_layout_line_t* line = &layout->lines[line_idx];
+
+	skb_layout_content_hit_t result = { 0 };
+
+	if (hit_x > line->bounds.x && hit_x < (line->bounds.x + line->bounds.width)) {
+		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+			const skb_layout_run_t* run = &layout->layout_runs[ri];
+			if (hit_x < (run->bounds.x + run->bounds.width)) {
+				const intptr_t run_id = layout->attribute_spans[run->attribute_span_idx].run_id;
+				if (run_id != 0) {
+					result.line_idx = line_idx;
+					result.attribute_span_idx = run->attribute_span_idx;
+					result.run_id = layout->attribute_spans[run->attribute_span_idx].run_id;
+				}
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
+skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout, float hit_x, float hit_y)
+{
+	if (layout->lines_count == 0)
+		return (skb_layout_content_hit_t){ 0 };
+
+	if (hit_y < layout->bounds.y || hit_y > (layout->bounds.y + layout->bounds.height))
+		return (skb_layout_content_hit_t){ 0 };
+
+	// Find the row the hit position is at.
+	int32_t line_idx = layout->lines_count - 1;
+	for (int32_t i = 0; i < layout->lines_count; i++) {
+		skb_layout_line_t* line = &layout->lines[i];
+		const float bot_y = line->bounds.y + -line->ascender + line->descender;
+		if (hit_y < bot_y) {
+			line_idx = i;
+			break;
+		}
+	}
+
+	return skb_layout_hit_test_content_at_line(layout, line_idx, hit_x);
+}
+
+void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+{
+	assert(layout);
+	assert(callback);
+
+	if (line_idx < 0 || line_idx >= layout->lines_count)
+		return;
+
+	// Find attribute span idx that matches run_id.
+	int32_t attribute_span_idx = SKB_INVALID_INDEX;
+	for (int32_t i = 0; i < layout->attribute_spans_count; i++) {
+		if (layout->attribute_spans[i].run_id == run_id) {
+			attribute_span_idx = i;
+			break;
+		}
+	}
+	if (attribute_span_idx == SKB_INVALID_INDEX)
+		return;
+
+	const skb_layout_line_t* line = &layout->lines[line_idx];
+
+	for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+		const skb_layout_run_t* run = &layout->layout_runs[ri];
+		if ((int32_t)run->attribute_span_idx == attribute_span_idx) {
+			// Combine consecutive runs of same span into one rectangle.
+			skb_rect2_t rect = run->bounds;
+			while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].attribute_span_idx == attribute_span_idx) {
+				const skb_layout_run_t* next_run = &layout->layout_runs[ri+1];
+				rect = skb_rect2_union(rect, next_run->bounds);
+				ri++;
+			}
+			callback(rect, attribute_span_idx, line_idx, context);
+		}
+	}
+}
+
+void skb_layout_get_content_bounds(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+{
+	assert(layout);
+	assert(callback);
+
+	// Find attribute span idx that matches run_id.
+	int32_t attribute_span_idx = SKB_INVALID_INDEX;
+	for (int32_t i = 0; i < layout->attribute_spans_count; i++) {
+		if (layout->attribute_spans[i].run_id == run_id) {
+			attribute_span_idx = i;
+			break;
+		}
+	}
+	if (attribute_span_idx == SKB_INVALID_INDEX)
+		return;
+
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		const skb_layout_line_t* line = &layout->lines[li];
+
+		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+			const skb_layout_run_t* run = &layout->layout_runs[ri];
+			if ((int32_t)run->attribute_span_idx == attribute_span_idx) {
+				// Combine consecutive runs of same span into one rectangle.
+				skb_rect2_t rect = run->bounds;
+				while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].attribute_span_idx == attribute_span_idx) {
+					const skb_layout_run_t* next_run = &layout->layout_runs[ri+1];
+					rect = skb_rect2_union(rect, next_run->bounds);
+					ri++;
+				}
+				callback(rect, attribute_span_idx, li, context);
+			}
+		}
+	}
 }
 
 skb_text_position_t skb__sanitize_offset(const skb_layout_t* layout, const skb_layout_line_t* line, const skb_text_position_t caret)
