@@ -202,6 +202,31 @@ typedef struct skb_caret_metrics_t {
 	float slope;
 } skb_caret_metrics_t;
 
+/** Reasonable value for synthetic X emboldening. */
+#define SKB_DEFAULT_EMBOLDEN_X (1.f/36.f)
+/** Reasonable value for synthetic Y emboldening. */
+#define SKB_DEFAULT_EMBOLDEN_Y (1.f/72.f)
+/** Reasonable value for synthetic slant. */
+#define SKB_DEFAULT_SLANT (1.f/6.f)
+
+/**
+ * Optional parameters for font creation.
+ *
+ * There are some options to synthetically adjust the appearance of the font.
+ * Real variations should be used when they are available, as they will always look better.
+ *
+ * - Emboldening will offset the contours of the glyphs making the glyphs look bolder.
+ * - Slant will skew the font making ot look oblique.
+ */
+typedef struct skb_font_create_params_t {
+	/** Synthetic emboldening in X direction. Relative to font size, see SKB_DEFAULT_EMBOLDEN_X. */
+	float embolden_x;
+	/** Synthetic emboldening in Y direction. Relative to font size, see SKB_DEFAULT_EMBOLDEN_Y. */
+	float embolden_y;
+	/** Synthetic slant ratio (run / rise), see SKB_DEFAULT_SLANT. */
+	float slant;
+} skb_font_create_params_t;
+
 /** Handle to a font. */
 typedef uint32_t skb_font_handle_t;
 
@@ -250,22 +275,23 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
  * The destroy_func() is called with the provided context pointer when the data is destroyed.
  * @param font_collection font collection to use.
  * @param name used to uniquely identify the font.
- * @param font_family font family identifier.
  * @param font_data pointer to the font data in memory.
  * @param font_data_length length of the font data in bytes.
  * @param context pointer passed to the destroy function, when the font data is no longer used. null can be passed in.
  * @param destroy_func function to call, when the font data is longer used. null can be passed in if no callback is desired.
+ * @param font_family font family identifier.
+ * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
 skb_font_handle_t skb_font_collection_add_font_from_data(
 	skb_font_collection_t* font_collection,
 	const char* name,
-	uint8_t font_family,
 	const void* font_data,
 	size_t font_data_length,
 	void* context,
-	skb_destroy_func_t* destroy_func
-);
+	skb_destroy_func_t* destroy_func,
+	uint8_t font_family,
+	const skb_font_create_params_t* params);
 
 #if !defined(SKB_NO_OPEN)
 /**
@@ -273,20 +299,22 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
  * @param font_collection font collection to use.
  * @param file_name file name of the font to add.
  * @param font_family font family identifier.
+ * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family);
+skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family, const skb_font_create_params_t* params);
 #endif
 
 /**
  * Adds OTF or TTF font to the collection.
  * @param font_collection font collection to use.
- * @param hb_font a harfbuzz font instance. will be incref'd
  * @param name used to uniquely identify the font.
+ * @param hb_font a harfbuzz font instance. will be incref'd
  * @param font_family font family identifier.
+ * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, hb_font_t* hb_font, const char* name, uint8_t font_family);
+skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, const char* name, hb_font_t* hb_font, uint8_t font_family, const skb_font_create_params_t* params);
 
 /**
  * Removes font from the collection.

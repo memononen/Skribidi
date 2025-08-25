@@ -25,7 +25,7 @@ static int test_missing_script(void)
 	ENSURE(temp_alloc != NULL);
 
 	skb_font_collection_t* font_collection = skb_font_collection_create();
-	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
 	ENSURE(font_handle);
 
 	skb_layout_params_t layout_params = {

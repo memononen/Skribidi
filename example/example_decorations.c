@@ -40,7 +40,7 @@ typedef struct decorations_context_t {
 
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family)) { \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
 		skb_debug_log("Failed to load " path "\n"); \
 		goto error; \
 	}

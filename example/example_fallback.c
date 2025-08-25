@@ -53,7 +53,7 @@ static const int32_t g_snippets_count = SKB_COUNTOF(g_snippets);
 
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family)) { \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
 		skb_debug_log("Failed to load " path "\n"); \
 		goto error; \
 	}

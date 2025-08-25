@@ -81,7 +81,7 @@ void testbed_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float 
 void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family)) { \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
 		skb_debug_log("Failed to load " path "\n"); \
 		goto error; \
 	}

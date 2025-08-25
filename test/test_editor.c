@@ -37,7 +37,7 @@ static int test_command_line_navigation_macos(void)
 
 	skb_font_collection_t* font_collection = skb_font_collection_create();
 	ENSURE(font_collection != NULL);
-	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
@@ -70,7 +70,7 @@ static int test_command_line_navigation_macos(void)
 	// Test Command+Right (should jump to end of line on macOS)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_RIGHT, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t after_command_right = skb_editor_get_current_selection(editor);
 	// Should be at end of first line (position 11, after "Hello world")
 	ENSURE(after_command_right.start_pos.offset == 11);
@@ -79,7 +79,7 @@ static int test_command_line_navigation_macos(void)
 	// Test Command+Left (should jump to beginning of line on macOS)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_LEFT, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t after_command_left = skb_editor_get_current_selection(editor);
 	// Should be back at beginning of line (position 0)
 	ENSURE(after_command_left.start_pos.offset == 0);
@@ -99,7 +99,7 @@ static int test_command_document_navigation_macos(void)
 
 	skb_font_collection_t* font_collection = skb_font_collection_create();
 	ENSURE(font_collection != NULL);
-	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
@@ -132,7 +132,7 @@ static int test_command_document_navigation_macos(void)
 	// Test Command+Down (should navigate to document end on macOS)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_DOWN, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t after_command_down = skb_editor_get_current_selection(editor);
 	int32_t expected_end = (int32_t)strlen(test_text);
 	ENSURE(after_command_down.start_pos.offset == expected_end);
@@ -141,7 +141,7 @@ static int test_command_document_navigation_macos(void)
 	// Test Command+Up (should navigate to document start on macOS)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_UP, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t after_command_up = skb_editor_get_current_selection(editor);
 	ENSURE(after_command_up.start_pos.offset == 0);
 	ENSURE(after_command_up.end_pos.offset == 0);
@@ -158,7 +158,7 @@ static int test_command_document_navigation_macos(void)
 	// Test Command+Up from middle (should go to document start)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_UP, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t from_middle_up = skb_editor_get_current_selection(editor);
 	ENSURE(from_middle_up.start_pos.offset == 0);
 	ENSURE(from_middle_up.end_pos.offset == 0);
@@ -169,7 +169,7 @@ static int test_command_document_navigation_macos(void)
 	// Test Command+Down from middle (should go to document end)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_DOWN, SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t from_middle_down = skb_editor_get_current_selection(editor);
 	ENSURE(from_middle_down.start_pos.offset == expected_end);
 	ENSURE(from_middle_down.end_pos.offset == expected_end);
@@ -188,7 +188,7 @@ static int test_shift_command_text_selection_macos(void)
 
 	skb_font_collection_t* font_collection = skb_font_collection_create();
 	ENSURE(font_collection != NULL);
-	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
@@ -221,7 +221,7 @@ static int test_shift_command_text_selection_macos(void)
 	// Test Shift+Command+Down (should select from start to document end)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_DOWN, SKB_MOD_SHIFT | SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t full_selection = skb_editor_get_current_selection(editor);
 	int32_t expected_end = (int32_t)strlen(test_text);
 	ENSURE(full_selection.start_pos.offset == 0);
@@ -238,7 +238,7 @@ static int test_shift_command_text_selection_macos(void)
 
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_UP, SKB_MOD_SHIFT | SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t reverse_selection = skb_editor_get_current_selection(editor);
 	// Should select from end to start
 	ENSURE((reverse_selection.start_pos.offset == 0 && reverse_selection.end_pos.offset == expected_end) ||
@@ -256,7 +256,7 @@ static int test_shift_command_text_selection_macos(void)
 	// Test Shift+Command+Right (should select from start to end of line)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_RIGHT, SKB_MOD_SHIFT | SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t line_selection = skb_editor_get_current_selection(editor);
 	// Should select from position 0 to end of first line (position 11, after "Hello world")
 	ENSURE(line_selection.start_pos.offset == 0);
@@ -274,7 +274,7 @@ static int test_shift_command_text_selection_macos(void)
 
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_LEFT, SKB_MOD_SHIFT | SKB_MOD_COMMAND);
-	
+
 	skb_text_selection_t reverse_line_selection = skb_editor_get_current_selection(editor);
 	// Should select from position 11 back to position 0
 	ENSURE((reverse_line_selection.start_pos.offset == 0 && reverse_line_selection.end_pos.offset == 11) ||
@@ -294,7 +294,7 @@ static int test_option_word_navigation_macos(void)
 
 	skb_font_collection_t* font_collection = skb_font_collection_create();
 	ENSURE(font_collection != NULL);
-	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
@@ -327,7 +327,7 @@ static int test_option_word_navigation_macos(void)
 	// Test Option+Right (should jump to next word boundary)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_RIGHT, SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t after_first_jump = skb_editor_get_current_selection(editor);
 	// Should move to next word boundary (position depends on word boundary algorithm)
 	ENSURE(after_first_jump.start_pos.offset > 0);
@@ -337,7 +337,7 @@ static int test_option_word_navigation_macos(void)
 	// Test Option+Right again (should jump to next word)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_RIGHT, SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t after_second_jump = skb_editor_get_current_selection(editor);
 	ENSURE(after_second_jump.start_pos.offset > first_word_end);
 	ENSURE(after_second_jump.start_pos.offset == after_second_jump.end_pos.offset);
@@ -346,7 +346,7 @@ static int test_option_word_navigation_macos(void)
 	// Test Option+Left (should jump back to previous word boundary)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_LEFT, SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t after_left_jump = skb_editor_get_current_selection(editor);
 	ENSURE(after_left_jump.start_pos.offset < second_word_end);
 	ENSURE(after_left_jump.start_pos.offset == after_left_jump.end_pos.offset);
@@ -354,7 +354,7 @@ static int test_option_word_navigation_macos(void)
 	// Test Option+Left again (should jump back further)
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_LEFT, SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t after_second_left = skb_editor_get_current_selection(editor);
 	ENSURE(after_second_left.start_pos.offset < after_left_jump.start_pos.offset);
 	ENSURE(after_second_left.start_pos.offset == after_second_left.end_pos.offset);
@@ -370,7 +370,7 @@ static int test_option_word_navigation_macos(void)
 
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_RIGHT, SKB_MOD_SHIFT | SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t word_selection = skb_editor_get_current_selection(editor);
 	// Should have a selection that spans some text
 	ENSURE(word_selection.start_pos.offset == 0);
@@ -388,7 +388,7 @@ static int test_option_word_navigation_macos(void)
 
 	skb_temp_alloc_reset(temp_alloc);
 	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_LEFT, SKB_MOD_SHIFT | SKB_MOD_OPTION);
-	
+
 	skb_text_selection_t reverse_word_selection = skb_editor_get_current_selection(editor);
 	// Should have a selection going backwards
 	ENSURE(reverse_word_selection.start_pos.offset != reverse_word_selection.end_pos.offset);

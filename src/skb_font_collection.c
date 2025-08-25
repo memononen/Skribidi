@@ -158,9 +158,18 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	if (scripts.tags_count == 0)
 		skb__append_tags_from_unicodes(face, &scripts);
 
+	// Check synthetic properties.
+	float synthetic_weight = 0.f;
+	float synthetic_embolden_x = 0.f;
+	float synthetic_embolden_y = 0.f;
+	hb_font_get_synthetic_bold(hb_font, &synthetic_embolden_x, &synthetic_embolden_y, NULL);
+	if (skb_absf(synthetic_embolden_x) > 1e-6f || skb_absf(synthetic_embolden_y) > 1e-6f)
+		synthetic_weight = 700.f;
+	const float synthetic_slant = hb_font_get_synthetic_slant(hb_font);
+
 	const float italic = hb_style_get_value(hb_font, HB_STYLE_TAG_ITALIC);
 	const float slant = hb_style_get_value(hb_font, HB_STYLE_TAG_SLANT_RATIO);
-	const float weight = hb_style_get_value(hb_font, HB_STYLE_TAG_WEIGHT);
+	const float weight = skb_maxf(synthetic_weight, hb_style_get_value(hb_font, HB_STYLE_TAG_WEIGHT));
 	const float width = hb_style_get_value(hb_font, HB_STYLE_TAG_WIDTH);
 
 	if (!hb_font) goto error;
@@ -185,8 +194,19 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 
 	// Store name
 	size_t name_len = strlen(name);
-	font->name = skb_malloc(name_len+1);
-	memcpy(font->name, name, name_len+1); // copy null term.
+	font->name = skb_malloc(name_len+4+1);
+	memcpy(font->name, name, name_len);
+	// Append synthetic markers.
+	if (skb_absf(synthetic_embolden_x) > 1e-6f || skb_absf(synthetic_embolden_y) > 1e-6f) {
+		font->name[name_len++] = '_';
+		font->name[name_len++] = 'B';
+	}
+	if (skb_absf(synthetic_slant) > 1e-6f) {
+		font->name[name_len++] = '_';
+		font->name[name_len++] = 'I';
+	}
+	font->name[name_len] = '\0';
+
 	font->hash = skb_hash64_append_str(skb_hash64_empty(), font->name);
 
 	// Store supported scripts
@@ -202,8 +222,13 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	// Store metrics
 	hb_font_extents_t font_extents;
 	if (hb_font_get_h_extents(font->hb_font, &font_extents)) {
-		font->metrics.ascender = -(float)font_extents.ascender * font->upem_scale;
-		font->metrics.descender = -(float)font_extents.descender * font->upem_scale;
+		// Undo embolden affecting ascender
+		if (synthetic_embolden_y > 0.f) {
+			const int32_t y_strength = (int32_t)skb_absf (roundf ((float)font->upem * synthetic_embolden_y));
+			font->metrics.ascender = -(float)(font_extents.ascender - y_strength) * font->upem_scale;
+		} else {
+			font->metrics.ascender = -(float)font_extents.ascender * font->upem_scale;
+		}		font->metrics.descender = -(float)font_extents.descender * font->upem_scale;
 		font->metrics.line_gap = (float)font_extents.line_gap * font->upem_scale;
 	}
 
@@ -268,7 +293,7 @@ error:
 }
 
 #if !defined(SKB_NO_OPEN)
-static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family)
+static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_family, const skb_font_create_params_t* params)
 {
 	hb_blob_t* blob = NULL;
 	hb_face_t* face = NULL;
@@ -287,6 +312,13 @@ static bool skb__font_create(skb_font_t* font, const char* path, uint8_t font_fa
 	hb_font = hb_font_create(face);
 	if (!hb_font) goto cleanup;
 
+	if (params) {
+		if (skb_absf(params->embolden_x) > 1e-6f || skb_absf(params->embolden_y) > 1e-6f)
+			hb_font_set_synthetic_bold(hb_font, params->embolden_x, params->embolden_y, true);
+		if (skb_absf(params->slant) > 1e-6f)
+			hb_font_set_synthetic_slant(hb_font, params->slant);
+	}
+
 	ok = skb__font_create_from_hb_font(font, hb_font, path, font_family);
 
 cleanup:
@@ -299,11 +331,12 @@ cleanup:
 static bool skb__font_create_from_data(
 	skb_font_t* font,
 	const char* name,
-	uint8_t font_family,
 	const void* font_data,
 	size_t font_data_length,
 	void* context,
-	skb_destroy_func_t* destroy_func)
+	skb_destroy_func_t* destroy_func,
+	uint8_t font_family,
+	const skb_font_create_params_t* params)
 {
 	hb_blob_t* blob = NULL;
 	hb_face_t* face = NULL;
@@ -322,6 +355,13 @@ static bool skb__font_create_from_data(
 
 	hb_font = hb_font_create(face);
 	if (!hb_font) goto cleanup;
+
+	if (params) {
+		if (skb_absf(params->embolden_x) > 1e-6f || skb_absf(params->embolden_y) > 1e-6f)
+			hb_font_set_synthetic_bold(hb_font, params->embolden_x, params->embolden_y, true);
+		if (skb_absf(params->slant) > 1e-6f)
+			hb_font_set_synthetic_slant(hb_font, params->slant);
+	}
 
 	ok = skb__font_create_from_hb_font(font, hb_font, name, font_family);
 
@@ -397,11 +437,11 @@ static skb_font_t* skb__alloc_font(skb_font_collection_t* font_collection)
 }
 
 #if !defined(SKB_NO_OPEN)
-skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family)
+skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family, const skb_font_create_params_t* params)
 {
 	skb_font_t* font = skb__alloc_font(font_collection);
 
-	if (!skb__font_create(font, file_name, font_family)) {
+	if (!skb__font_create(font, file_name, font_family, params)) {
 		// skb__font_create() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
 		return false;
@@ -414,15 +454,16 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
 skb_font_handle_t skb_font_collection_add_font_from_data(
 	skb_font_collection_t* font_collection,
 	const char* name,
-	uint8_t font_family,
 	const void* font_data,
 	size_t font_data_length,
 	void* context,
-	skb_destroy_func_t* destroy_func)
+	skb_destroy_func_t* destroy_func,
+	uint8_t font_family,
+	const skb_font_create_params_t* params)
 {
 	skb_font_t* font = skb__alloc_font(font_collection);
 
-	if (!skb__font_create_from_data(font, name, font_family, font_data, font_data_length, context, destroy_func)) {
+	if (!skb__font_create_from_data(font, name, font_data, font_data_length, context, destroy_func, font_family, params)) {
 		// skb__font_create_from_data() has emptied the font struct, indicate that we have one empty to use.
 		font_collection->empty_fonts_count++;
 		return false;
@@ -433,14 +474,44 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
 
 skb_font_handle_t skb_font_collection_add_hb_font(
 	skb_font_collection_t* font_collection,
-	hb_font_t* hb_font,
 	const char* name,
-	uint8_t font_family)
+	hb_font_t* hb_font,
+	uint8_t font_family,
+	const skb_font_create_params_t* params)
 {
+	hb_font_t* new_hb_font = NULL;
+
+	// If parameters do not match, create new font.
+	if (params) {
+		float embolden_x = 0.f;
+		float embolden_y = 0.f;
+		hb_bool_t in_place = true;
+		hb_font_get_synthetic_bold(hb_font, &embolden_x, &embolden_y, &in_place);
+		float slant = hb_font_get_synthetic_slant(hb_font);
+
+		if (!skb_equalsf(params->embolden_x, embolden_x, 1e-6f)
+			|| !skb_equalsf(params->embolden_y, embolden_y, 1e-6f)
+			|| !skb_equalsf(params->slant, slant, 1e-6f)
+			|| !in_place) {
+			hb_face_t* hb_face = hb_font_get_face(hb_font);
+			assert(hb_face);
+
+			new_hb_font = hb_font_create(hb_face);
+
+			if (skb_absf(params->embolden_x) > 1e-6f || skb_absf(params->embolden_y) > 1e-6f)
+				hb_font_set_synthetic_bold(new_hb_font, params->embolden_x, params->embolden_y, true);
+			if (skb_absf(params->slant) > 1e-6f)
+				hb_font_set_synthetic_slant(new_hb_font, params->slant);
+		}
+	}
+
 	skb_font_t* font = skb__alloc_font(font_collection);
 
 	// Increase the reference count
-	hb_font = hb_font_reference(hb_font);
+	if (new_hb_font)
+		hb_font = new_hb_font;
+	else
+		hb_font = hb_font_reference(hb_font);
 
 	if (!skb__font_create_from_hb_font(font, hb_font, name, font_family)) {
 		// skb__font_create_from_hb_font() has emptied the font struct, indicate that we have one empty to use.
@@ -667,7 +738,7 @@ int32_t skb__match_fonts(
 
 		for (int32_t i = 0; i < candidates_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
-			if (requested_weight == font->weight) {
+			if (requested_weight_value == font->weight) {
 				exact_weight_match = true;
 				break;
 			}
