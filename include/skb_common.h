@@ -509,8 +509,8 @@ static inline skb_mat2_t skb_mat2_multiply(skb_mat2_t t, skb_mat2_t s)
 	res.yx = t.xx * s.yx + t.yx * s.yy;
 	res.xy = t.xy * s.xx + t.yy * s.xy;
 	res.yy = t.xy * s.yx + t.yy * s.yy;
-	res.dx = t.dx * s.xx + t.dx * s.xy + s.dx;
-	res.dy = t.dy * s.yx + t.dy * s.yy + s.dy;
+	res.dx = t.dx * s.xx + t.dy * s.xy + s.dx;
+	res.dy = t.dx * s.yx + t.dy * s.yy + s.dy;
 	return res;
 }
 
