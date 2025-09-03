@@ -38,7 +38,7 @@ skb_attribute_t skb_attribute_make_lang(const char* lang)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_font_family(skb_font_family_t family)
+skb_attribute_t skb_attribute_make_font_family(uint8_t family)
 {
 	skb_attribute_t attribute;
 	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
