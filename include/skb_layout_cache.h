@@ -51,7 +51,7 @@ void skb_layout_cache_destroy(skb_layout_cache_t* cache);
 const skb_layout_t* skb_layout_cache_get_utf8(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const char* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
@@ -66,7 +66,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(
 const skb_layout_t* skb_layout_cache_get_utf32(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const uint32_t* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.

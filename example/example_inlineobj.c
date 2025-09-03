@@ -126,13 +126,13 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t attributes_text[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	const skb_attribute_t attributes_text2[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 50.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(50.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
@@ -163,23 +163,23 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text), 0),
-		skb_content_run_make_object(1, object_size, object_size, attributes_object, SKB_COUNTOF(attributes_object), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text), 0),
+		skb_content_run_make_object(1, object_size, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_object), 0),
 //		skb_text_run_make_utf8(" این یک.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
 //		skb_text_run_make_utf8(" 呼んでいた.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
-		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text2), 0),
 
-		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text), 0),
-		skb_content_run_make_object(2, object_size, object_size, attributes_object2, SKB_COUNTOF(attributes_object2), 0),
-		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text), 0),
+		skb_content_run_make_object(2, object_size, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_object2), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text2), 0),
 
-		skb_content_run_make_utf8("Djúpur", -1, attributes_text, SKB_COUNTOF(attributes_text), 0),
-		skb_content_run_make_object(3, object_size, object_size, attributes_object3, SKB_COUNTOF(attributes_object3), 0),
-		skb_content_run_make_utf8("Fjörður.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text), 0),
+		skb_content_run_make_object(3, object_size, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_object3), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text2), 0),
 
-		skb_content_run_make_icon("astro", SKB_SIZE_AUTO, object_size, attributes_icon, SKB_COUNTOF(attributes_icon), 0),
-		skb_content_run_make_utf8("Icon and two", -1, attributes_text, SKB_COUNTOF(attributes_text), 0),
-		skb_content_run_make_icon("pen", SKB_SIZE_AUTO, object_size * 0.75f, attributes_icon, SKB_COUNTOF(attributes_icon), 0),
+		skb_content_run_make_icon("astro", SKB_SIZE_AUTO, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
+		skb_content_run_make_utf8("Icon and two", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text), 0),
+		skb_content_run_make_icon("pen", SKB_SIZE_AUTO, object_size * 0.75f, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -303,11 +303,11 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
 			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span->attributes);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Draw object
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(attribute_span);
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(attribute_span->attributes);
 				debug_render_filled_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, attr_fill.color);
 
 				// Draw baseline
@@ -339,11 +339,9 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
 			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(attribute_span);
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span->attributes);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,
@@ -352,7 +350,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				};
 				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255), -1.f);
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span->attributes);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,

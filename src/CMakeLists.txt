@@ -96,6 +96,7 @@ FetchContent_MakeAvailable(budouxc)
 #
 set(SKRIBIDI_SOURCE_FILES
 	emoji_data.h
+	skb_attributes.c
 	skb_canvas.c
 	skb_common.c
 	skb_common_internal.h
@@ -111,6 +112,7 @@ set(SKRIBIDI_SOURCE_FILES
 )
 
 set(SKRIBIDI_API_FILES
+	../include/skb_attributes.h
 	../include/skb_canvas.h
 	../include/skb_common.h
 	../include/skb_editor.h
@@ -153,6 +155,10 @@ target_link_libraries(skribidi PRIVATE harfbuzz SheenBidi libunibreak budouxc)
 
 if(MINGW)
     target_compile_options(harfbuzz PRIVATE -Wa,-mbig-obj)
+endif()
+
+if (MSVC)
+	target_sources(skribidi PRIVATE skribidi.natvis)
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${SKRIBIDI_SOURCE_FILES})

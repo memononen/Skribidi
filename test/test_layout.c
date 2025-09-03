@@ -32,11 +32,11 @@ static int test_missing_script(void)
 		.font_collection = font_collection,
 	};
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	// The loaded font should not support the script of the text. We should still get a valid layout, but with invalid glyphs.
-	skb_layout_t* layout = skb_layout_create_utf8(temp_alloc, &layout_params, "今天天气晴朗", -1, attributes, SKB_COUNTOF(attributes));
+	skb_layout_t* layout = skb_layout_create_utf8(temp_alloc, &layout_params, "今天天气晴朗", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
 	ENSURE(layout != NULL);
 	ENSURE(skb_layout_get_glyphs_count(layout) > 0);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);

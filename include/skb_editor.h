@@ -62,13 +62,9 @@ typedef struct skb_editor_params_t {
 	/** Layout parameters used for each paragraph layout. */
 	skb_layout_params_t layout_params;
 	/** Text attributes for all the text. */
-	const skb_attribute_t* text_attributes;
-	/** Number of text attributes. */
-	int32_t text_attributes_count;
+	skb_attribute_slice_t text_attributes;
 	/** Text attributes for the IME composition text. */
-	const skb_attribute_t* composition_attributes;
-	/** Number of compositoin text attributes. */
-	int32_t composition_attributes_count;
+	skb_attribute_slice_t composition_attributes;
 	/** Base direction of the text editor. */
 	uint8_t base_direction;
 	/** Care movement mode */

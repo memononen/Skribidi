@@ -108,35 +108,35 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t attributes_deco_solid[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t attributes_deco_double[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t attributes_deco_dotted[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t attributes_deco_dashed[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t attributes_deco_wavy[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 25.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(24.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),
@@ -144,11 +144,11 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_solid, SKB_COUNTOF(attributes_deco_solid), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_double, SKB_COUNTOF(attributes_deco_double), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dotted, SKB_COUNTOF(attributes_deco_dotted), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_dashed, SKB_COUNTOF(attributes_deco_dashed), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, attributes_deco_wavy, SKB_COUNTOF(attributes_deco_wavy), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_solid), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_double), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_dotted), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_dashed), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_wavy), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));

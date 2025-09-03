@@ -35,6 +35,7 @@ void* aligns_create(GLFWwindow* window, render_context_t* rc);
 void* inlineobj_create(GLFWwindow* window, render_context_t* rc);
 void* culling_create(GLFWwindow* window, render_context_t* rc);
 void* hyperlink_create(GLFWwindow* window, render_context_t* rc);
+void* baseattribs_create(GLFWwindow* window, render_context_t* rc);
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -47,6 +48,7 @@ static example_stub_t g_examples[] = {
 	{ .create = inlineobj_create, .name = "Inline Objects" },
 	{ .create = culling_create, .name = "Culling" },
 	{ .create = hyperlink_create, .name = "Hyperlink" },
+	{ .create = baseattribs_create, .name = "Base Attributes" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;

@@ -289,11 +289,11 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			};
 
 			const skb_attribute_t attributes[] = {
-				skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 24.f, SKB_WEIGHT_REGULAR, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+				skb_attribute_make_font_size(24.f),
 				skb_attribute_make_fill(skb_rgba(0,0,0,255)),
 			};
 
-			const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, example_text[ctx->example_text_idx], -1, attributes, SKB_COUNTOF(attributes));
+			const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, example_text[ctx->example_text_idx], -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
 			assert(layout);
 
 			skb_rect2_t bounds = skb_layout_get_bounds(layout);

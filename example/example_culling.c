@@ -109,13 +109,13 @@ void* culling_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 24.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(24.f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	const char* text = "Hamburgerfontstiv 🤣🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸 این یک تست است 😬👀🚨🏡🕊️🏆😻🌟私はその人を常に先生と 呼んでいた。";
 
-	ctx->layout = skb_layout_create_utf8(ctx->temp_alloc, &params, text, -1, attributes, SKB_COUNTOF(attributes));
+	ctx->layout = skb_layout_create_utf8(ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
 	assert(ctx->layout);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
@@ -271,7 +271,6 @@ void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					skb_rgba(255,64,64,32));
 			} else {
 				// Text
-				const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
 				for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 					const skb_glyph_t* glyph = &glyphs[gi];
 					debug_render_filled_rect(ctx->rc,

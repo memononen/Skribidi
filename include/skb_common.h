@@ -20,7 +20,78 @@ extern "C" {
  * @{
  */
 
-// TODO: this feels out of place here, but it is needed in multiple places.
+/** Enum describing alignment of text relative to the layout box. */
+typedef enum {
+	/** Horizontal: Align to the language specific start. Left for LTR and right for RTL. Vertical: align to top. */
+	SKB_ALIGN_START = 0,
+	/** Horizontal & Vertical: align to center. */
+	SKB_ALIGN_CENTER,
+	/** Horizontal: Align to the language specific end. Right for LTR and left for RTL. Vertical: align to bottom. */
+	SKB_ALIGN_END,
+	/** Horizontal: Align to left. Vertical: n/a (will behave like top). */
+	SKB_ALIGN_LEFT,
+	/** Horizontal: Align to right. Vertical: n/a (will behave like bottom). */
+	SKB_ALIGN_RIGHT,
+	/** Horizontal: n/a (will behave like left). Vertical: align to top. */
+	SKB_ALIGN_TOP,
+	/** Horizontal: n/a (will behave like right). Vertical: align to bottom. */
+	SKB_ALIGN_BOTTOM,
+} skb_align_t;
+
+/** Enum describing how text is wrapped to layout box. */
+typedef enum {
+	/** No text wrapping. */
+	SKB_WRAP_NONE = 0,
+	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will overflow. */
+	SKB_WRAP_WORD,
+	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will be wrapped at a character. */
+	SKB_WRAP_WORD_CHAR,
+} skb_text_wrap_t;
+
+/** Enum describing how the text overflowing the layout box is handled. */
+typedef enum {
+	/** Overflowing text is visible. */
+	SKB_OVERFLOW_NONE = 0,
+	/** Overflowing text is clipped. */
+	SKB_OVERFLOW_CLIP,
+	/** Overflowing text is clipped and ellipsis is placed at the end of clipped text. */
+	SKB_OVERFLOW_ELLIPSIS,
+} skb_text_overflow_t;
+
+/** Enum describing which font metrics is used to describe the line height. Used for aligning. */
+typedef enum {
+	/** Line height is from ascender to descender. */
+	SKB_VERTICAL_TRIM_DEFAULT = 0,
+	/** Line height is from cap height to baseline. This option is best suited for aligning text to UI widget bounds, it gives more visually centered result. */
+	SKB_VERTICAL_TRIM_CAP_TO_BASELINE,
+} skb_vertical_trim_t;
+
+/** Enum describing how line height is calculated */
+typedef enum {
+	/** Line height comes from font metrics. No scaling applied. */
+	SKB_LINE_HEIGHT_NORMAL = 0,
+	/** Line height is multiple of line height specified in font metrics. */
+	SKB_LINE_HEIGHT_METRICS_RELATIVE,
+	/** Line height is multiple of font size. */
+	SKB_LINE_HEIGHT_FONT_SIZE_RELATIVE,
+	/** Line height is the specified value.  */
+	SKB_LINE_HEIGHT_ABSOLUTE,
+} skb_line_height_t;
+
+/** Enum describing to which part of the text the object is aligned to. */
+typedef enum {
+	/** Align to the text run of the object. If the run does not have font attribute, use the default font attribute. */
+	SKB_OBJECT_ALIGN_SELF,
+	/** Align to text before the object in logical direction. */
+	SKB_OBJECT_ALIGN_TEXT_BEFORE,
+	/** Align to text before the object in logical direction, if there's no text before, align to text after. */
+	SKB_OBJECT_ALIGN_TEXT_BEFORE_OR_AFTER,
+	/** Align to text after the object in logical direction. */
+	SKB_OBJECT_ALIGN_TEXT_AFTER,
+	/** Align to text after the object in logical direction, if there's no text before, align to text before. */
+	SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE,
+} skb_object_align_reference_t;
+
 /** Enum describing how the decoration should be drawn. */
 typedef enum {
 	/** Solid line. */
@@ -47,10 +118,11 @@ typedef enum {
 	SKB_DECORATION_THROUGHLINE,
 } skb_decoration_position_t;
 
+
 /**
  * Logs a debug message.
  * @param format printf style format string.
- * @param ... paramters to format.
+ * @param ... parameters to format.
  */
 void skb_debug_log(const char* format, ...);
 

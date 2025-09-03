@@ -283,12 +283,12 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		};
 
 		const skb_attribute_t text_attrs[] = {
-			skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 24.f, SKB_WEIGHT_REGULAR, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+			skb_attribute_make_font_size(24.f),
 			skb_attribute_make_fill(text_color),
 		};
 
 		const skb_attribute_t link_attrs[] = {
-			skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 24.f, SKB_WEIGHT_REGULAR, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+			skb_attribute_make_font_size(24.f),
 			skb_attribute_make_fill(link_color),
 			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, skb_rgba(0,0,0,0)),
 		};
@@ -299,13 +299,13 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		};
 
 		skb_content_run_t runs[] = {
-			skb_content_run_make_utf8("You could potentially click over ", -1, text_attrs, SKB_COUNTOF(text_attrs), 0),
-			skb_content_run_make_utf8("here", -1, link_attrs, SKB_COUNTOF(link_attrs), 1),
-			skb_content_run_make_utf8(" or maybe ", -1, text_attrs, SKB_COUNTOF(text_attrs), 0),
-			skb_content_run_make_icon("pen", SKB_SIZE_AUTO, 24.f, attributes_icon, SKB_COUNTOF(attributes_icon), 2),
-			skb_content_run_make_utf8(" or eventually try ", -1, text_attrs, SKB_COUNTOF(text_attrs), 0),
-			skb_content_run_make_utf8("this other one", -1, link_attrs, SKB_COUNTOF(link_attrs), 3),
-			skb_content_run_make_utf8(".", -1, text_attrs, SKB_COUNTOF(text_attrs), 0),
+			skb_content_run_make_utf8("You could potentially click over ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("here", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(link_attrs), 1),
+			skb_content_run_make_utf8(" or maybe ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_icon("pen", SKB_SIZE_AUTO, 24.f, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 2),
+			skb_content_run_make_utf8(" or eventually try ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("this other one", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(link_attrs), 3),
+			skb_content_run_make_utf8(".", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
 		};
 
 		const skb_layout_t* layout = skb_layout_cache_get_from_runs(ctx->layout_cache, ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));

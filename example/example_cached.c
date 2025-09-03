@@ -201,11 +201,12 @@ static void render_cached_text(cached_context_t* ctx, float x, float y, float fo
 	};
 
 	const skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, font_size, font_weight, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(font_size),
+		skb_attribute_make_font_weight(font_weight),
 		skb_attribute_make_fill(color),
 	};
 
-	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, attributes, SKB_COUNTOF(attributes));
+	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
 	assert(layout);
 
 	// Draw layout

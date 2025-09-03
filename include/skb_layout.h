@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "skb_common.h"
+#include "skb_attributes.h"
 #include "skb_font_collection.h"
 #include "skb_icon_collection.h"
 
@@ -37,367 +38,6 @@ typedef const struct hb_language_impl_t *hb_language_t;
  *
  * @{
  */
-
-/** Enum describing alignment of text relative to the layout box. */
-typedef enum {
-	/** Horizontal: Align to the language specific start. Left for LTR and right for RTL. Vertical: align to top. */
-	SKB_ALIGN_START = 0,
-	/** Horizontal & Vertical: align to center. */
-	SKB_ALIGN_CENTER,
-	/** Horizontal: Align to the language specific end. Right for LTR and left for RTL. Vertical: align to bottom. */
-	SKB_ALIGN_END,
-	/** Horizontal: Align to left. Vertical: n/a (will behave like top). */
-	SKB_ALIGN_LEFT,
-	/** Horizontal: Align to right. Vertical: n/a (will behave like bottom). */
-	SKB_ALIGN_RIGHT,
-	/** Horizontal: n/a (will behave like left). Vertical: align to top. */
-	SKB_ALIGN_TOP,
-	/** Horizontal: n/a (will behave like right). Vertical: align to bottom. */
-	SKB_ALIGN_BOTTOM,
-} skb_align_t;
-
-/** Enum describing how text is wrapped to layout box. */
-typedef enum {
-	/** No text wrapping. */
-	SKB_WRAP_NONE = 0,
-	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will overflow. */
-	SKB_WRAP_WORD,
-	/** Wrap text at word boundaries. If a single word is longer than the layout box, it will be wrapped at a character. */
-	SKB_WRAP_WORD_CHAR,
-} skb_text_wrap_t;
-
-/** Enum describing how the text overflowing the layout box is handled. */
-typedef enum {
-	/** Overflowing text is visible. */
-	SKB_OVERFLOW_NONE = 0,
-	/** Overflowing text is clipped. */
-	SKB_OVERFLOW_CLIP,
-	/** Overflowing text is clipped and ellipsis is placed at the end of clipped text. */
-	SKB_OVERFLOW_ELLIPSIS,
-} skb_text_overflow_t;
-
-/** Enum describing which font metrics is used to describe the line height. Used for aligning. */
-typedef enum {
-	/** Line height is from ascender to descender. */
-	SKB_VERTICAL_TRIM_DEFAULT = 0,
-	/** Line height is from cap height to baseline. This option is best suited for aligning text to UI widget bounds, it gives more visually centered result. */
-	SKB_VERTICAL_TRIM_CAP_TO_BASELINE,
-} skb_vertical_trim_t;
-
-/** Enum describing how line height is calculated */
-typedef enum {
-	/** Line height comes from font metrics. No scaling applied. */
-	SKB_LINE_HEIGHT_NORMAL = 0,
-	/** Line height is multiple of line height specified in font metrics. */
-	SKB_LINE_HEIGHT_METRICS_RELATIVE,
-	/** Line height is multiple of font size. */
-	SKB_LINE_HEIGHT_FONT_SIZE_RELATIVE,
-	/** Line height is the specified value.  */
-	SKB_LINE_HEIGHT_ABSOLUTE,
-} skb_line_height_t;
-
-/** Enum describing to which part of the text the object is aligned to. */
-typedef enum {
-	/** Align to the text run of the object. If the run does not have font attribute, use the default font attribute. */
-	SKB_OBJECT_ALIGN_SELF,
-	/** Align to text before the object in logical direction. */
-	SKB_OBJECT_ALIGN_TEXT_BEFORE,
-	/** Align to text before the object in logical direction, if there's no text before, align to text after. */
-	SKB_OBJECT_ALIGN_TEXT_BEFORE_OR_AFTER,
-	/** Align to text after the object in logical direction. */
-	SKB_OBJECT_ALIGN_TEXT_AFTER,
-	/** Align to text after the object in logical direction, if there's no text before, align to text before. */
-	SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE,
-} skb_object_align_reference_t;
-
-//
-// Text attributes
-//
-
-/**
- * Writing mode text attribute.
- * If multiple writing attributes are defined, only the first one is used.
- * Subset of https://drafts.csswg.org/css-writing-modes-4/
- */
-typedef struct skb_attribute_writing_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Text writing direction, no change if SKB_DIRECTION_AUTO. */
-	uint8_t direction;
-	/** BCP 47 language tag, e.g. fi-FI. If NULL, do not override language.  */
-	const char* lang;
-} skb_attribute_writing_t;
-
-/**
- * Font text attribute.
- * If multiple font attributes are defined, only the first one is used.
- * Subset of https://drafts.csswg.org/css-fonts/
- */
-typedef struct skb_attribute_font_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Font size (px). Default 16.0 */
-	float size;
-	/** Font family, see skb_font_family_t. Default SKB_FONT_FAMILY_DEFAULT. */
-	uint8_t family;
-	/** Font weight, see skb_weight_t. Default SKB_WEIGHT_NORMAL. */
-	uint8_t weight;
-	/** Font style, see skb_style_t. Default SKB_STYLE_NORMAL. */
-	uint8_t style;
-	/** Font stretch see skb_stretch_t. Default SKB_STRETCH_NORMAL. */
-	uint8_t stretch;
-} skb_attribute_font_t;
-
-/**
- * Font feature text attribute.
- * The attribute array can contain multiple font feature attributes.
- * See https://learn.microsoft.com/en-us/typography/opentype/spec/featuretags
- */
-typedef struct skb_attribute_font_feature_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** OpenType font feature tag */
-	uint32_t tag;
-	/** Taga value, often 1 = on, 0 = off. */
-	uint32_t value;
-} skb_attribute_font_feature_t;
-
-/**
- * Text spacing attribute.
- * If multiple spacing attributes are defined, only the first one is used.
- * Subset of https://drafts.csswg.org/css-text/
- */
-typedef struct skb_attribute_spacing_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Letter spacing (px)  */
-	float letter;
-	/** Word spacing (px) */
-	float word;
-} skb_attribute_spacing_t;
-
-/**
- * Line height attribute.
- * If multiple line height attributes are defined, only the first one is used.
- */
-typedef struct skb_attribute_line_height_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Line height type. See skb_line_height_t for types. */
-	uint8_t type;
-	/** Line height, see line_height_type how the value is interpreted. */
-	float height;
-} skb_attribute_line_height_t;
-
-/**
- * Text fill color attribute.
- * It is up to the client code to decide if multiple fill attributes are supported.
- */
-typedef struct skb_attribute_fill_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Color of the text */
-	skb_color_t color;
-} skb_attribute_fill_t;
-
-/**
- * Text line decoration attribute.
- * It is up to the client code to decide if multiple decoration attributes are supported.
- * Loosely based on https://drafts.csswg.org/css-text-decor-4/
- */
-typedef struct skb_attribute_decoration_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Position of the decoration line relative to the text. See skb_decoration_position_t. */
-	uint8_t position;
-	/** Style of the decoration line. See skb_decoration_style_t. */
-	uint8_t style;
-	/** Thickness of the decoration line to draw. If left to 0.0, the thickness will be based on the font. */
-	float thickness;
-	/** Offset of the decoration line relative to the position. For under and bottom the offset grows down, and for through and top line the offset grows up. */
-	float offset;
-	/** Color of the decoration line. */
-	skb_color_t color;
-} skb_attribute_decoration_t;
-
-/**
- * Object alignment attribute.
- * The alignment describes which baseline on the object (or icon) is aligned to a specific baseline of the surrounding text.
- */
-typedef struct skb_attribute_object_align_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** The object's baseline is object's height multiplied by the baseline_ratio (measured from the top of the object). */
-	float baseline_ratio;
-	/** The reference text to align the object to, see skb_object_align_reference_t. */
-	uint8_t align_ref;
-	/** Which baseline of the reference text to align to, see skb_baseline_t */
-	uint8_t align_baseline;
-} skb_attribute_object_align_t;
-
-/**
- * Object padding attribute.
- * Allows to define free space that should be left around object or icon.
- */
-typedef struct skb_attribute_object_padding_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Horizontal padding at start (left for LTR, right for RTL). */
-	float start;
-	/** Horizontal padding at end (right for LTR, left for RTL). */
-	float end;
-	/** Vertical padding top */
-	float top;
-	/** Vertical padding bottom */
-	float bottom;
-} skb_attribute_object_padding_t;
-
-/** Enum describing tags for each of the attributes. */
-typedef enum {
-	/** Tag for skb_attribute_writing_t */
-	SKB_ATTRIBUTE_WRITING = SKB_TAG('w','r','i','t'),
-	/** Tag for skb_attribute_font_t */
-	SKB_ATTRIBUTE_FONT = SKB_TAG('f','o','n','t'),
-	/** Tag for skb_attribute_font_feature_t */
-	SKB_ATTRIBUTE_FONT_FEATURE = SKB_TAG('f','e','a','t'),
-	/** tag for skb_attribute_spacing_t */
-	SKB_ATTRIBUTE_SPACING = SKB_TAG('s','p','c','e'),
-	/** Tag for skb_attribute_line_height_t */
-	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
-	/** Tag for skb_attribute_fill_t */
-	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
-	/** Tag for skb_attribute_decoration_t */
-	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
-	/** Tag for skb_attribute_object_align_t */
-	SKB_ATTRIBUTE_OBJECT_ALIGN = SKB_TAG('o','b','a','l'),
-	/** Tag for skb_attribute_object_padding_t */
-	SKB_ATTRIBUTE_OBJECT_PADDING = SKB_TAG('o','b','p','a'),
-} skb_attribute_type_t;
-
-/**
- * Tagged union which can hold any attribute.
- */
-typedef union skb_attribute_t {
-	uint32_t kind;
-	skb_attribute_writing_t writing;
-	skb_attribute_font_t font;
-	skb_attribute_font_feature_t font_feature;
-	skb_attribute_spacing_t spacing;
-	skb_attribute_line_height_t line_height;
-	skb_attribute_fill_t fill;
-	skb_attribute_decoration_t decoration;
-	skb_attribute_object_align_t object_align;
-	skb_attribute_object_padding_t object_padding;
-} skb_attribute_t;
-
-/** Struct describing attributes assigned to a range of text. */
-typedef struct skb_attribute_span_t {
-	/** Width of object or icon specified by the span */
-	float content_width;
-	/** Height of object or icon specified by the span */
-	float content_height;
-	/** Data of object or icon specified by the span */
-	intptr_t content_data;
-	/** Custom identifier for a content run. */
-	intptr_t run_id;
-	/** Range of text the attributes apply to. */
-	skb_range_t text_range;
-	/** The text attributes. */
-	skb_attribute_t* attributes;
-	/** Number of text attributes in attributes array. */
-	int32_t attributes_count;
-	/** Type of the content run which described the attributes. See skb_content_run_type_t. */
-	uint8_t run_type;
-} skb_attribute_span_t;
-
-
-/** @returns new writing mode text attribute. See skb_attribute_writing_t */
-skb_attribute_t skb_attribute_make_writing(const char* lang, skb_text_direction_t direction);
-
-/** @returns new font text attribute. See skb_attribute_font_t */
-skb_attribute_t skb_attribute_make_font(skb_font_family_t family, float size, skb_weight_t weight, skb_style_t style, skb_stretch_t stretch);
-
-/** @returns new font feature text attribute. See skb_attribute_font_feature_t */
-skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value);
-
-/** @returns new spacing text attribute. See skb_attribute_spacing_t */
-skb_attribute_t skb_attribute_make_spacing(float letter, float word);
-
-/** @returns new line height text attribute. See skb_attribute_line?height_t */
-skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
-
-/** @returns new fill color text attribute. See skb_attribute_fill_t */
-skb_attribute_t skb_attribute_make_fill(skb_color_t color);
-
-/** @returns new text decoration attribute. See skb_attribute_decoration_t */
-skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
-
-/** @returns new object align attribute. See skb_attribute_object_align_t */
-skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline);
-
-/** @returns new object padding attribute. See skb_attribute_object_padding_t */
-skb_attribute_t skb_attribute_make_object_padding(float start, float end, float top, float bottom);
-
-/** @returns new object padding attribute. See skb_attribute_object_padding_t */
-skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical);
-
-
-/**
- * Returns first text writing attribute or default value if not found.
- * The default value is empty, which causes no change.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default avalue.
- */
-skb_attribute_writing_t skb_attributes_get_writing(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first font text attribute or default value if not found.
- * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default value.
- */
-skb_attribute_font_t skb_attributes_get_font(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first spacing attribute or default value if not found.
- * The default value is: letter spacing 0, word spacing 0.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default value.
- */
-skb_attribute_spacing_t skb_attributes_get_spacing(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first line height attribute or default value if not found.
- * The default value is: line spacing multiplier 1.0.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default value.
- */
-skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first fill attribute or default value if not found.
- * The default value is opaque black.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default value.
- */
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first object align attribute or default value if not found.
- * The default value is: SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL, 0.5f,
- * that is, align the object or icon centered to the central baseline of surrounding text.
- * @param attributes_span attribute span where to look for the attributes from.
- * @return first found attribute or default value.
- */
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_span_t* attributes_span);
-
-/**
- * Returns first object padding attribute or default value if not found.
- * The default value is 0.0 on all sides.
- * @param attributes_span
- * @return first found attribute or default value.
- */
-skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_span_t* attributes_span);
 
 
 /** Enum describing flags for skb_layout_params_t. */
@@ -438,6 +78,8 @@ typedef struct skb_layout_params_t {
 	uint8_t baseline_align;
 	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
+	/** Attributes to apply for all the content. Each content run can add or override these attributes. */
+	skb_attribute_slice_t base_attributes;
 } skb_layout_params_t;
 
 
@@ -493,37 +135,39 @@ typedef struct skb_content_run_t {
 		skb_content_icon_t icon;
 	};
 	intptr_t run_id;
-	/** Pointer to the attributes. */
-	const skb_attribute_t* attributes;
-	/** Number of attributes in attributes array. */
-	int32_t attributes_count;
+	/** Slice to the attributes. */
+	skb_attribute_slice_t attributes;
 	/** Type of the content, see skb_content_run_type_t. */
 	uint8_t type;
 } skb_content_run_t;
 
 /**
  * Makes utf-8 content run.
- * Note: the function does not take copy of the data. The passed pointers must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
+ * Note: the function does not take copy of the data. The passed pointers (including attribute slice)
+ * must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
  * @param text pointer to the utf-8 text.
  * @param text_count length of the text, or -1 if not known.
- * @param attributes pointer to the attributes.
- * @param attributes_count number of attributes in attributes array.
+ * @param attributes attributes to apply for the text.
  * @param run_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
 
 /**
  * Makes utf-32 content run.
- * Note: the function does not take copy of the data. The passed pointers must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
+ * Note: the function does not take copy of the data. The passed pointers (including attribute slice)
+ * must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
  * @param text pointer to the utf-32 text.
  * @param text_count length of the text, or -1 if not known.
- * @param attributes pointer to the attributes.
- * @param attributes_count number of attributes in attributes array.
+ * @param attributes attributes to apply for the text.
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
 
 /**
  * Makes inline object content run.
@@ -532,16 +176,17 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
  *  - A replacement object character (U+FFFC) will be added to the text which is used to track the position of the object in the text
  *  - The object definition is stored in attribute span, and can also be accessed from skb_layout_run_t.
  *
- * Note: the function does not take copy of the data. The passed pointers must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ * Note: the function does not take copy of the data. The passed pointers (including attribute slice)
+ * must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
  * @param data data that can be used to identify the object.
  * @param width width of the object.
  * @param height height of the object.
- * @param attributes pointer to the attributes.
- * @param attributes_count number of attributes in attributes array.
+ * @param attributes attributes to apply for the object.
  * @return initialized content run.
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  */
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
 
 /**
  * Makes inline icon content run.
@@ -552,37 +197,79 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * - The icon name will be resolved into an icon handle, which is stored in the "handle" of the icon attribute
  * - The icon size will be calculated, and stored to the "width" and "height" of the icon attribute
  *
- * Note: the function does not take copy of the data. The passed pointers must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ * Note: the function does not take copy of the data. The passed pointers (including attribute slice)
+ * must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
+ *
  * @param name name of the icon to add, the icon is looked in the icon_collection specified in the layout params.
  * @param width width of the icon, if SKB_SIZE_AUTO the width will be calculated from height keeping aspect ratio.
  * @param height height of the icon, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
- * @param attributes pointer to the attributes.
- * @param attributes_count number of attributes in attributes array.
+ * @param attributes attributes to apply for the icon.
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, const skb_attribute_t* attributes, int32_t attributes_count, intptr_t run_id);
+skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
 
 
-/** Struct describing shaped and positioned glyph. */
-typedef struct skb_glyph_t {
-	/** X offset of the glyph (including layout origin). */
-	float offset_x;
-	/** Y offset of the glyph (including layout origin). */
-	float offset_y;
-	/** Typographic advancement to the next glyph. */
-	float advance_x;
-	/** Original visual index of the glyph. Used internally for word wrapping. */
-	int32_t visual_idx;
-	/** Range of the text (codepoints) the glyph covers. End exclusive. */
+/**
+ * Struct describing attributes assigned to a range of text.
+ * Initially each content run creates an attribute span, but each span may be used by more than one layout run,
+ * e.g. in case the run is split due to different script/language.
+ */
+typedef struct skb_attribute_span_t {
+	/** Width of object or icon specified by the span */
+	float content_width;
+	/** Height of object or icon specified by the span */
+	float content_height;
+	/** Data of object or icon specified by the span */
+	intptr_t content_data;
+	/** Custom identifier for a content run. */
+	intptr_t run_id;
+	/** Range of text the attributes apply to. */
 	skb_range_t text_range;
-	/** Glyph ID to render. */
-	uint16_t gid;
-	/** Index of the attribute span. */
-	uint16_t attribute_span_idx;
-	/** Index of the font in font collection. */
-	skb_font_handle_t font_handle;
-} skb_glyph_t;
+	/** The content attributes. */
+	skb_attribute_slice_t attributes;
+	/** Cached font size for the span. */
+	float font_size;
+	/** Type of the content run which described the attributes. See skb_content_run_type_t. */
+	uint8_t run_type;
+} skb_attribute_span_t;
+
+/** Enum describing flags for skb_layout_line_t. */
+typedef enum {
+	/** Flag indicating that layout line is truncated (see skb_text_overflow_t). */
+	SKB_LAYOUT_LINE_IS_TRUNCATED	= 1 << 0,
+} skb_layout_line_flags_t;
+
+/**
+ * Struct describing a line of text.
+ * Note: glyph_range and text_range contain the glyphs and text before line overflow handling,
+ * they may contain data that is not visible, and does not contain the ellipsis glyphs.
+ * Use layout_run_range to get range of visible glyphs.
+ */
+typedef struct skb_layout_line_t {
+	/** Range of glyphs that belong to the line, matches text_range. */
+	skb_range_t glyph_range;
+	/** Range of text (codepoints) that belong to the line, matches glyph_range. */
+	skb_range_t text_range;
+	/** Range of glyph runs that belong to the line. */
+	skb_range_t layout_run_range;
+	/** Range of decorations that belong to the line. */
+	skb_range_t decorations_range;
+	/** Text offset (codepoints) of the start of the last codepoint on the line. */
+	int32_t last_grapheme_offset;
+	/** Combined ascender of the line. Describes how much the line extends above the baseline. */
+	float ascender;
+	/** Combined descender of the line. Describes how much the line extends below the baseline. */
+	float descender;
+	/** Y position of the baseline the text on the line was aligned to (see skb_layout_params_t.baseline_align). */
+	float baseline;
+	/** Logical bounding rectangle of the line. The Y extends of the rectangle is set to the line height, which can differ from the ascender and descender. */
+	skb_rect2_t bounds;
+	/** Bounding rectangle of the line that contains all the content (might overestimate). */
+	skb_rect2_t culling_bounds;
+	/** Line flags, see skb_layout_line_flags_t. */
+	uint8_t flags;
+} skb_layout_line_t;
 
 /**
  * Struct describing continuous run of shaped and positioned layout content.
@@ -623,6 +310,26 @@ typedef struct skb_layout_run_t {
 	};
 } skb_layout_run_t;
 
+/** Struct describing shaped and positioned glyph. */
+typedef struct skb_glyph_t {
+	/** X offset of the glyph (including layout origin). */
+	float offset_x;
+	/** Y offset of the glyph (including layout origin). */
+	float offset_y;
+	/** Typographic advancement to the next glyph. */
+	float advance_x;
+	/** Original visual index of the glyph. Used internally for word wrapping. */
+	int32_t visual_idx;
+	/** Range of the text (codepoints) the glyph covers. End exclusive. */
+	skb_range_t text_range;
+	/** Glyph ID to render. */
+	uint16_t gid;
+	/** Index of the attribute span. */
+	uint16_t attribute_span_idx;
+	/** Index of the font in font collection. */
+	skb_font_handle_t font_handle;
+} skb_glyph_t;
+
 /** Struct describing text decoration  */
 typedef struct skb_decoration_t {
 	/** X offset of the decoration (including layout origin). */
@@ -635,10 +342,14 @@ typedef struct skb_decoration_t {
 	float pattern_offset;
 	/** Thickness of the decoration. */
 	float thickness;
+	/** Color of the decoration line. */
+	skb_color_t color;
+	/** Position of the decoration line relative to the text. See skb_decoration_position_t. */
+	uint8_t position;
+	/** Style of the decoration line. See skb_decoration_style_t. */
+	uint8_t style;
 	/** Index of the attribute span. */
 	uint16_t attribute_span_idx;
-	/** Index to the decoration attribute inside the attribute span attributes array. */
-	uint16_t attribute_idx;
 	/** Range of glyphs the decoration relates to. */
 	skb_range_t glyph_range;
 } skb_decoration_t;
@@ -673,43 +384,6 @@ typedef struct skb_text_property_t {
 	uint8_t direction;
 } skb_text_property_t;
 
-/** Enum describing flags for skb_layout_line_t. */
-typedef enum {
-	/** Flag indicating that layout line is truncated (see skb_text_overflow_t). */
-	SKB_LAYOUT_LINE_IS_TRUNCATED	= 1 << 0,
-} skb_layout_line_flags_t;
-
-/**
- * Struct describing a line of text.
- * Note: glyph_range and text_range contain the glyphs and text before line overflow handling,
- * they may contain data that is not visible, and does not contain the ellipsis glyphs.
- * Use layout_run_range to get range of visible glyphs.
- */
-typedef struct skb_layout_line_t {
-	/** Range of glyphs that belong to the line, matches text_range. */
-	skb_range_t glyph_range;
-	/** Range of text (codepoints) that belong to the line, matches glyph_range. */
-	skb_range_t text_range;
-	/** Range of glyph runs that belong to the line. */
-	skb_range_t layout_run_range;
-	/** Range of decorations that belong to the line. */
-	skb_range_t decorations_range;
-	/** Text offset (codepoints) of the start of the last codepoint on the line. */
-	int32_t last_grapheme_offset;
-	/** Combined ascender of the line. Describes how much the line extends above the baseline. */
-	float ascender;
-	/** Combined descender of the line. Describes how much the line extends below the baseline. */
-	float descender;
-	/** Y position of the baseline the text on the line was aligned to (see skb_layout_params_t.baseline_align). */
-	float baseline;
-	/** Logical bounding rectangle of the line. The Y extends of the rectangle is set to the line height, which can differ from the ascender and descender. */
-	skb_rect2_t bounds;
-	/** Bounding rectangle of the line that contains all the content (might overestimate). */
-	skb_rect2_t culling_bounds;
-	/** Line flags, see skb_layout_line_flags_t. */
-	uint8_t flags;
-} skb_layout_line_t;
-
 /** Opaque type for the text layout. Use skb_layout_create*() to create. */
 typedef struct skb_layout_t skb_layout_t;
 
@@ -724,15 +398,14 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
 /**
  * Appends the hash of the text attributes to the provided hash.
  * @param hash hash to append to.
- * @param attributes pointer to the attributes to hash.
- * @param attributes_count number of items in attributes array.
+ * @param attributes attributes to hash.
  * @return combined hash.
  */
-uint64_t skb_attributes_hash_append(uint64_t hash, const skb_attribute_t* attributes, int32_t attributes_count);
+uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_slice_t attributes);
 
 /**
  * Creates empty layout with specified parameters.
- * @param params paramters to use for the layout.
+ * @param params parameters to use for the layout.
  * @return newly create empty layout.
  */
 skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
@@ -744,13 +417,12 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
  * @param text text to layout as utf-8.
  * @param text_count length of the text, or -1 is nul terminated.
  * @param attributes attributes to apply for the text.
- * @param attributes_count number of items in attributes array.
  * @return newly create layout.
  */
 skb_layout_t* skb_layout_create_utf8(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Creates new layout from the provided parameters, text and text attributes.
@@ -759,13 +431,12 @@ skb_layout_t* skb_layout_create_utf8(
  * @param text text to layout as utf-32.
  * @param text_count length of the text, or -1 is nul terminated.
  * @param attributes attributes to apply for the text.
- * @param attributes_count number of items in attributes array.
  * @return newly create layout.
  */
 skb_layout_t* skb_layout_create_utf32(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Creates new layout from the provided parameters and text runs.
@@ -788,13 +459,12 @@ skb_layout_t* skb_layout_create_from_runs(
  * @param text text to layout as utf-8.
  * @param text_count length of the text, or -1 is nul terminated.
  * @param attributes attributes to apply for the text.
- * @param attributes_count number of items in attributes array.
  * @return newly create layout.
  */
 void skb_layout_set_utf8(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -804,13 +474,12 @@ void skb_layout_set_utf8(
  * @param text text to layout as utf-8.
  * @param text_count length of the text, or -1 is nul terminated.
  * @param attributes attributes to apply for the text.
- * @param attributes_count number of items in attributes array.
  * @return newly create layout.
  */
 void skb_layout_set_utf32(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count,
-	const skb_attribute_t* attributes, int32_t attributes_count);
+	skb_attribute_slice_t attributes);
 
 /**
  * Sets the layout from the provided parameters and text runs.

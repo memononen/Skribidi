@@ -82,11 +82,11 @@ static void set_text(fallback_context_t* ctx, const char* text)
 	};
 
 	const skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 32.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(32.f),
 		skb_attribute_make_fill(ink_color),
 	};
 
-	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, attributes, SKB_COUNTOF(attributes));
+	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
 
 }
 
@@ -338,15 +338,14 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_span_t* span = &attrib_spans[run->attribute_span_idx];
-			const skb_attribute_font_t attr_font = skb_attributes_get_font(span);
+			const skb_attribute_span_t* attribute_span = &attrib_spans[run->attribute_span_idx];
 			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 				const float gx = glyph->offset_x;
 				const float gy = glyph->offset_y;
 				if (ctx->show_glyph_bounds) {
 					debug_render_tick(ctx->rc, view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans, -1.f);
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, attr_font.size);
+					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, attribute_span->font_size);
 					bounds.x += gx;
 					bounds.y += gy;
 //					bounds = view_transform_rect(&ctx->view, bounds);

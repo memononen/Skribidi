@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="bc29af22-070d-4196-bf79-68305d5c1dcb" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/skb_attributes.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/skb_attributes.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../example/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_aligns.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_aligns.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_cached.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_cached.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_culling.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_culling.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_decorations.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_decorations.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_fallback.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_fallback.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_hyperlink.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_hyperlink.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_inlineobj.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_inlineobj.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_richtext.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_richtext.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/example_testbed.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/example_testbed.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/main.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../example/render.c" beforeDir="false" afterPath="$PROJECT_DIR$/../example/render.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/skb_common.h" beforeDir="false" afterPath="$PROJECT_DIR$/skb_common.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/skb_editor.h" beforeDir="false" afterPath="$PROJECT_DIR$/skb_editor.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/skb_layout.h" beforeDir="false" afterPath="$PROJECT_DIR$/skb_layout.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/skb_layout_cache.h" beforeDir="false" afterPath="$PROJECT_DIR$/skb_layout_cache.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../src/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/skb_editor.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/skb_editor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/skb_layout.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/skb_layout.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/skb_layout_cache.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/skb_layout_cache.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../test/test_editor.c" beforeDir="false" afterPath="$PROJECT_DIR$/../test/test_editor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../test/test_layout.c" beforeDir="false" afterPath="$PROJECT_DIR$/../test/test_layout.c" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/skb_layout.h" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="32CP56OVbHcx1hcAj03Ds09i0pf" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true"
+  }
+}]]></component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="bc29af22-070d-4196-bf79-68305d5c1dcb" name="Changes" comment="" />
+      <created>1756921395465</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1756921395465</updated>
+      <workItem from="1756921397252" duration="6000" />
+    </task>
+    <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+</project>

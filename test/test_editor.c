@@ -9,15 +9,14 @@
 static int test_init(void)
 {
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = NULL,
 		 },
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 	};
@@ -41,15 +40,14 @@ static int test_command_line_navigation_macos(void)
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -103,15 +101,14 @@ static int test_command_document_navigation_macos(void)
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -192,15 +189,14 @@ static int test_shift_command_text_selection_macos(void)
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -298,15 +294,14 @@ static int test_option_word_navigation_macos(void)
 	ENSURE(font_handle);
 
 	skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 15.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(15.f),
 	};
 
 	skb_editor_params_t params = {
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,

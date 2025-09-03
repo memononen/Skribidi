@@ -193,13 +193,13 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
 	const skb_attribute_t attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(92.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	const skb_attribute_t composition_attributes[] = {
-		skb_attribute_make_font(SKB_FONT_FAMILY_DEFAULT, 92.f, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL),
+		skb_attribute_make_font_size(92.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, skb_rgba(0,128,192,255)),
@@ -214,10 +214,8 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 			.text_wrap = SKB_WRAP_WORD_CHAR,
 			.tab_stop_increment = 92.f * 2.f,
 		},
-		.text_attributes = attributes,
-		.text_attributes_count = SKB_COUNTOF(attributes),
-		.composition_attributes = composition_attributes,
-		.composition_attributes_count = SKB_COUNTOF(composition_attributes),
+		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.composition_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(composition_attributes),
 	};
 
 	ctx->editor = skb_editor_create(&edit_params);
@@ -463,15 +461,6 @@ static void draw_selection_rect(skb_rect2_t rect, void* context)
 	debug_render_filled_rect(ctx->renderer, ctx->x + rect.x, ctx->y + rect.y, rect.width, rect.height, ctx->color);
 }
 
-static skb_attribute_font_t get_font_attribute_from_editor_params(const skb_editor_params_t* edit_params)
-{
-	skb_attribute_span_t dummy_span = {
-		.attributes = (skb_attribute_t*)edit_params->text_attributes,
-		.attributes_count = edit_params->text_attributes_count,
-	};
-	return skb_attributes_get_font(&dummy_span);
-}
-
 void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
 	testbed_context_t* ctx = ctx_ptr;
@@ -542,12 +531,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw underlines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
-				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
-				if (attr_decoration.position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc,
-						decoration->offset_x, decoration->offset_y, decoration->length, decoration->pattern_offset, decoration->thickness,
-						attr_decoration.style, attr_decoration.position, attr_decoration.color, SKB_RASTERIZE_ALPHA_SDF);
+				const skb_attribute_span_t* attribute_span = &attrib_spans[decoration->attribute_span_idx];
+				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
+					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
+						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
 			}
 
@@ -579,8 +567,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* run = &layout_runs[ri];
 					const skb_attribute_span_t* attribute_span = &attrib_spans[run->attribute_span_idx];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span);
-					const skb_attribute_font_t attr_font = skb_attributes_get_font(attribute_span);
+					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span->attributes);
+					const float font_size = attribute_span->font_size;
 					for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
 
@@ -592,7 +580,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							debug_render_tick(ctx->rc, gx, gy, 5.f, ink_color_trans, -1.f);
 
 							// Glyph bounds
-							skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, attr_font.size);
+							skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, font_size);
 							debug_render_stroked_rect(ctx->rc, gx + bounds.x, gy + bounds.y, bounds.width, bounds.height, ink_color_trans, -1.f);
 
 							// Visual index
@@ -606,7 +594,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						if (run->type == SKB_CONTENT_RUN_UTF8 || run->type == SKB_CONTENT_RUN_UTF32) {
 							// Text
 							render_draw_glyph(ctx->rc, gx, gy,
-								layout_params->font_collection, run->font_handle, glyph->gid, attr_font.size,
+								layout_params->font_collection, run->font_handle, glyph->gid, font_size,
 								attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
 						}
 
@@ -614,14 +602,14 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							const skb_text_property_t* text_properties = skb_layout_get_text_properties(edit_layout);
 							const skb_text_direction_t dir = text_properties[glyph->text_range.start].direction;
 							const uint8_t script = text_properties[glyph->text_range.start].script;
-							skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout_params->font_collection, glyph->font_handle, dir, script, attr_font.size);
+							skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout_params->font_collection, glyph->font_handle, dir, script, font_size);
 							skb_font_metrics_t metrics = skb_font_get_metrics(layout_params->font_collection, glyph->font_handle);
 
 							const float rx = roundf(gx);
 							const float ry = roundf(gy);
 
-							debug_render_line(ctx->rc, rx, ry + metrics.ascender * attr_font.size, rx + glyph->advance_x * 0.5f, ry + metrics.ascender * attr_font.size, skb_rgba(0,0,0,255), -1.f);
-							debug_render_line(ctx->rc, rx, ry + metrics.descender * attr_font.size, rx + glyph->advance_x * 0.5f, ry + metrics.descender * attr_font.size, skb_rgba(0,0,0,255), -1.f);
+							debug_render_line(ctx->rc, rx, ry + metrics.ascender * font_size, rx + glyph->advance_x * 0.5f, ry + metrics.ascender * font_size, skb_rgba(0,0,0,255), -1.f);
+							debug_render_line(ctx->rc, rx, ry + metrics.descender * font_size, rx + glyph->advance_x * 0.5f, ry + metrics.descender * font_size, skb_rgba(0,0,0,255), -1.f);
 
 							debug_render_line(ctx->rc, rx, ry + baseline_set.alphabetic, rx + glyph->advance_x, ry + baseline_set.alphabetic, skb_rgba(255,64,0,255), -1.f);
 							debug_render_line(ctx->rc, rx, ry + baseline_set.ideographic, rx + glyph->advance_x, ry + baseline_set.ideographic, skb_rgba(0,64,255,255), -1.f);
@@ -694,12 +682,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw through lines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_attribute_span_t* span = &attrib_spans[decoration->attribute_span_idx];
-				const skb_attribute_decoration_t attr_decoration = span->attributes[decoration->attribute_idx].decoration;
-				if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc,
-						decoration->offset_x, decoration->offset_y, decoration->length, decoration->pattern_offset, decoration->thickness,
-						attr_decoration.style, attr_decoration.position, attr_decoration.color, SKB_RASTERIZE_ALPHA_SDF);
+				const skb_attribute_span_t* attribute_span = &attrib_spans[decoration->attribute_span_idx];
+				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
+					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
+						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
 			}
 
@@ -772,12 +759,16 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	// Draw logical string info
 	{
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
-		const skb_attribute_font_t attr_font = get_font_attribute_from_editor_params(edit_params);
+		const uint8_t font_family = skb_attributes_get_font_family(edit_params->text_attributes);
+		const float font_size = skb_attributes_get_font_size(edit_params->text_attributes);
+		const skb_weight_t font_weight = skb_attributes_get_font_weight(edit_params->text_attributes);
+		const skb_style_t font_style = skb_attributes_get_font_style(edit_params->text_attributes);
+		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(edit_params->text_attributes);
 
 		float ox = 0.f;
 		float oy = 30.f + layout_height + 80.f;
 		float sz = 80.f;
-		float font_scale = (sz * 0.5f) / attr_font.size;
+		float font_scale = (sz * 0.5f) / font_size;
 
 		bool prev_is_emoji = false;
 		uint8_t prev_script = 0;
@@ -850,9 +841,9 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					const uint8_t script = text_props[cp_idx].script;
 					const bool is_emoji = (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI);
-					const uint8_t font_family = is_emoji ? SKB_FONT_FAMILY_EMOJI : attr_font.family;
 					if (!font_handle || script != prev_script || is_emoji != prev_is_emoji) {
-						if (skb_font_collection_match_fonts(ctx->font_collection, "", script, font_family, attr_font.weight, attr_font.style, attr_font.stretch, &font_handle, 1) == 0)
+						if (skb_font_collection_match_fonts(ctx->font_collection, "", script,
+							is_emoji ? SKB_FONT_FAMILY_EMOJI : font_family, font_weight, font_style, font_stretch, &font_handle, 1) == 0)
 							font_handle = 0;
 						prev_script = script;
 						prev_is_emoji = is_emoji;
@@ -869,7 +860,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						hb_font_get_nominal_glyph(skb_font_get_hb_font(ctx->font_collection, font_handle), cp, &gid);
 
 						// Draw glyph centered on the rect.
-						skb_rect2_t bounds = skb_font_get_glyph_bounds(ctx->font_collection, font_handle, gid, attr_font.size * font_scale);
+						skb_rect2_t bounds = skb_font_get_glyph_bounds(ctx->font_collection, font_handle, gid, font_size * font_scale);
 
 						float base_line = oy + sz * 0.75f;
 						debug_render_line(ctx->rc, ox+4+0.5f, base_line+0.5f, ox + sz - 4+0.5f, base_line+0.5f, log_color, -1.f);
@@ -878,7 +869,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						float gy = base_line+0.5f;
 
 						render_draw_glyph(ctx->rc, gx, gy,
-							ctx->font_collection, font_handle, gid, attr_font.size * font_scale,
+							ctx->font_collection, font_handle, gid, font_size * font_scale,
 							ink_color, SKB_RASTERIZE_ALPHA_MASK);
 
 					} else {
