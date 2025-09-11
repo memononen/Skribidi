@@ -41,6 +41,7 @@ typedef struct testbed_context_t {
 	bool show_glyph_details;
 	bool show_caret_details;
 	bool show_baseline_details;
+	bool show_run_details;
 
 } testbed_context_t;
 
@@ -109,6 +110,7 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	ctx->show_glyph_details = false;
 	ctx->show_caret_details = true;
 	ctx->show_baseline_details = false;
+	ctx->show_run_details = false;
 
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
@@ -128,64 +130,64 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 
 	// These snippets have been useful for at some point in developing the library.
 	// Leaving them here for future tests.
-//	const char* bidiText = "یہ ایک )cargfi( ہے۔";
-//	const char* bidiText = "Koffi";
-//	const char* bidiText = "nǐn hǎo¿Qué tal?Привет你好안녕하세요こんにちは";
-//	const char* bidiText = "a\u0308o\u0308u\u0308";
-//	const char* bidiText = "\uE0B0\u2588Öy";
-//	const char* bidiText = "एक गांव -- में मोहन नाम का लड़का रहता था। उसके पिताजी एक मामूली मजदूर थे";
-//	const char* bidiText = "ᬓ ᬓᬸ ᬓᭀ ᬓᬿ";
+//	const char* bidi_text = "یہ ایک )cargfi( ہے۔";
+//	const char* bidi_text = "Koffi";
+//	const char* bidi_text = "nǐn hǎo¿Qué tal?Привет你好안녕하세요こんにちは";
+//	const char* bidi_text = "a\u0308o\u0308u\u0308";
+//	const char* bidi_text = "\uE0B0\u2588Öy";
+//	const char* bidi_text = "एक गांव -- में मोहन नाम का लड़का रहता था। उसके पिताजी एक मामूली मजदूर थे";
+//	const char* bidi_text = "ᬓ ᬓᬸ ᬓᭀ ᬓᬿ";
 
-//	const char* bidiText = "ᬓᭀ ᬓᬿ ہے۔ kofi یہ ایک";
+//	const char* bidi_text = "ᬓᭀ ᬓᬿ ہے۔ kofi یہ ایک";
 
-//	const char* bidiText = "ᬓᭀ ᬓᬿ ہے۔ [kofi] یہ ایک";
+//	const char* bidi_text = "ᬓᭀ ᬓᬿ ہے۔ [kofi] یہ ایک";
 
-//	const char* bidiText = "ᬓᭀ ᬓᬿ (ہے۔) [kofi] (یہ ایک)";
+//	const char* bidi_text = "ᬓᭀ ᬓᬿ (ہے۔) [kofi] (یہ ایک)";
 
-//	const char* bidiText = "ہے۔ kofi یہ ایک"; // rlt line
-//	const char* bidiText = "asd ہے۔ kofi یہ ایک";
-//	const char* bidiText = "سلام در حال تست";
+//	const char* bidi_text = "ہے۔ kofi یہ ایک"; // rlt line
+//	const char* bidi_text = "asd ہے۔ kofi یہ ایک";
+//	const char* bidi_text = "سلام در حال تست";
 
-//	const char* bidiText = "123سلام در حال تست";
+//	const char* bidi_text = "123سلام در حال تست";
 
-//	const char* bidiText = "123.456";
+//	const char* bidi_text = "123.456";
 
-//	const char* bidiText = "١١رس"; // arabic numerals
+//	const char* bidi_text = "١١رس"; // arabic numerals
 
-//	const char* bidiText = "såppa";
+//	const char* bidi_text = "såppa";
 
-//	const char* bidiText = "لا"; // ligature
-//	const char* bidiText = "این یک تست است"; // this is a test
+//	const char* bidi_text = "لا"; // ligature
+//	const char* bidi_text = "این یک تست است"; // this is a test
 
-//	const char* bidiText = "ltr این یک تست است"; // this is a test
+//	const char* bidi_text = "ltr این یک تست است"; // this is a test
 
-//	const char* bidiText = "aa این یک تست\nاست"; // this is a test
+//	const char* bidi_text = "aa این یک تست\nاست"; // this is a test
 
-//	const char* bidiText = "ہے۔ kofi یہ ایک";
-//	const char* bidiText = "私はその人を常に先生と 呼んでいた。";
-//	const char* bidiText = "วันนี้อากาศดี";
-//	const char* bidiText = "今天天气晴朗。";
-//	const char* bidiText ="Hamburgerfontstiv";
+//	const char* bidi_text = "ہے۔ kofi یہ ایک";
+//	const char* bidi_text = "私はその人を常に先生と 呼んでいた。";
+//	const char* bidi_text = "วันนี้อากาศดี";
+//	const char* bidi_text = "今天天气晴朗。";
+//	const char* bidi_text ="Hamburgerfontstiv";
 
-//	const char* bidiText = "🤣moikka 🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸😬foo 👀🚨🏡🕊️🏆😻🌟🧿🍀🎨🍜 bar 🥳🧁🍰🎁🎂🎈🎺🎉🎊📧〽️🧿🌶️🔋 😂❤️😍😊🥺🙏💕😭😘👍😅👏😁";
+//	const char* bidi_text = "🤣moikka 🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸😬foo 👀🚨🏡🕊️🏆😻🌟🧿🍀🎨🍜 bar 🥳🧁🍰🎁🎂🎈🎺🎉🎊📧〽️🧿🌶️🔋 😂❤️😍😊🥺🙏💕😭😘👍😅👏😁";
 
-//	const char* bidiText = "این یک 😬👀🚨 تست است"; // this is a test
+//	const char* bidi_text = "این یک 😬👀🚨 تست است"; // this is a test
 
-//	const char* bidiText = "い😍";
+//	const char* bidi_text = "い😍";
 
-//	const char* bidiText = "🤦🏼‍♂️ Ä था ᬓᬿ";
+//	const char* bidi_text = "🤦🏼‍♂️ Ä था ᬓᬿ";
 
-//	const char* bidiText = "A, B, C, kissa kävelee, tikapuita pitkin taivaaseen.";
+//	const char* bidi_text = "A, B, C, kissa kävelee, tikapuita pitkin taivaaseen.";
 
-//	const char* bidiText = "\nsorsa juo \r\n\r\nkaf  fia\n";
-//	const char* bidiText = "sorsa juo \nkaffia thisiverylongwordandstuff and more";
-//	const char* bidiText = "शकति शक्ति";
-//	const char* bidiText = "हिन्दी हि न्दी";
-//	const char* bidiText = "யாவற்றையும்"; // tamil, does not work correctly!
-//	const char* bidiText = "ঝিল্লি ঝি ল্লি"; // bengali
-//	const char* bidiText = "";
+//	const char* bidi_text = "\nsorsa juo \r\n\r\nkaf  fia\n";
+//	const char* bidi_text = "sorsa juo \nkaffia thisiverylongwordandstuff and more";
+//	const char* bidi_text = "शकति शक्ति";
+//	const char* bidi_text = "हिन्दी हि न्दी";
+//	const char* bidi_text = "யாவற்றையும்"; // tamil, does not work correctly!
+//	const char* bidi_text = "ঝিল্লি ঝি ল্লি"; // bengali
+//	const char* bidi_text = "";
 
-	const char* bidiText = "Hamburgerfontstiv 🤣🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸 این یک تست است 😬👀🚨🏡🕊️🏆😻🌟私はその人を常に先生と 呼んでいた。";
+	const char* bidi_text = "Hamburgerfontstiv 🤣🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸 این یک تست است 😬👀🚨🏡🕊️🏆😻🌟私はその人を常に先生と 呼んでいた。";
 
 	ctx->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(ctx->temp_alloc);
@@ -220,7 +222,7 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 
 	ctx->editor = skb_editor_create(&edit_params);
 	assert(ctx->editor);
-	skb_editor_set_text_utf8(ctx->editor, ctx->temp_alloc, bidiText, -1);
+	skb_editor_set_text_utf8(ctx->editor, ctx->temp_alloc, bidi_text, -1);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f };
 
@@ -340,6 +342,9 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 
 		update_ime_rect(ctx);
 
+		if (key == GLFW_KEY_F6) {
+			ctx->show_run_details = !ctx->show_run_details;
+		}
 		if (key == GLFW_KEY_F7) {
 			ctx->show_baseline_details = !ctx->show_baseline_details;
 		}
@@ -523,7 +528,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
 			const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
 			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
-			const skb_attribute_span_t* attrib_spans = skb_layout_get_attribute_spans(edit_layout);
+			const skb_cluster_t* clusters = skb_layout_get_clusters(edit_layout);
 			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
 			const int32_t decorations_count = skb_layout_get_decorations_count(edit_layout);
 			const skb_decoration_t* decorations = skb_layout_get_decorations(edit_layout);
@@ -531,7 +536,6 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw underlines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_attribute_span_t* attribute_span = &attrib_spans[decoration->attribute_span_idx];
 				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
 					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
@@ -561,15 +565,33 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				// Draw glyphs
 				float pen_x = line->bounds.x;
 				float run_start_x = pen_x;
-				int32_t run_start_glyph_idx = line->glyph_range.start;
+//				int32_t run_start_glyph_idx = line->glyph_range.start;
 				skb_rect2_t run_bounds = skb_rect2_make_undefined();
 
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-					const skb_layout_run_t* run = &layout_runs[ri];
-					const skb_attribute_span_t* attribute_span = &attrib_spans[run->attribute_span_idx];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span->attributes);
-					const float font_size = attribute_span->font_size;
-					for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+					const skb_layout_run_t* layout_run = &layout_runs[ri];
+					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes);
+					const float font_size = layout_run->font_size;
+
+					if (ctx->show_run_details) {
+						const skb_color_t col = skb_rgba(0,64,220,128);
+						debug_render_stroked_rect(ctx->rc,
+							layout_run->bounds.x+2, edit_layout_y + layout_run->bounds.y-1,
+							layout_run->bounds.width-4, layout_run->bounds.height+2,
+							col, -2.f);
+
+						debug_render_text(ctx->rc,
+							layout_run->bounds.x+2, edit_layout_y + layout_run->bounds.y + layout_run->bounds.height + 10,
+							10, RENDER_ALIGN_START, col,
+							"%c%c%c%c", SKB_UNTAG(skb_script_to_iso15924_tag(layout_run->script)));
+
+						debug_render_text(ctx->rc,
+							layout_run->bounds.x+2, edit_layout_y + layout_run->bounds.y + layout_run->bounds.height + 20,
+							10, RENDER_ALIGN_START, col,
+							"F%d", layout_run->font_handle & 0xffff);
+					}
+
+					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
 
 						float gx = glyph->offset_x;
@@ -580,7 +602,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							debug_render_tick(ctx->rc, gx, gy, 5.f, ink_color_trans, -1.f);
 
 							// Glyph bounds
-							skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, font_size);
+							skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, layout_run->font_handle, glyph->gid, font_size);
 							debug_render_stroked_rect(ctx->rc, gx + bounds.x, gy + bounds.y, bounds.width, bounds.height, ink_color_trans, -1.f);
 
 							// Visual index
@@ -591,19 +613,18 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 								run_bounds = skb_rect2_union(run_bounds, skb_rect2_translate(bounds, skb_vec2_make(gx,gy)));
 						}
 
-						if (run->type == SKB_CONTENT_RUN_UTF8 || run->type == SKB_CONTENT_RUN_UTF32) {
+						if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
 							// Text
 							render_draw_glyph(ctx->rc, gx, gy,
-								layout_params->font_collection, run->font_handle, glyph->gid, font_size,
+								layout_params->font_collection, layout_run->font_handle, glyph->gid, font_size,
 								attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
 						}
 
 						if (ctx->show_baseline_details) {
-							const skb_text_property_t* text_properties = skb_layout_get_text_properties(edit_layout);
-							const skb_text_direction_t dir = text_properties[glyph->text_range.start].direction;
-							const uint8_t script = text_properties[glyph->text_range.start].script;
-							skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout_params->font_collection, glyph->font_handle, dir, script, font_size);
-							skb_font_metrics_t metrics = skb_font_get_metrics(layout_params->font_collection, glyph->font_handle);
+							const skb_text_direction_t dir = layout_run->direction;
+							const uint8_t script = layout_run->script;
+							skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout_params->font_collection, layout_run->font_handle, dir, script, font_size);
+							skb_font_metrics_t metrics = skb_font_get_metrics(layout_params->font_collection, layout_run->font_handle);
 
 							const float rx = roundf(gx);
 							const float ry = roundf(gy);
@@ -620,24 +641,25 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						pen_x += glyph->advance_x;
 
 						if (ctx->show_glyph_details) {
-							const int32_t next_gi = gi + 1;
-							if (next_gi > line->glyph_range.end || glyphs[next_gi].text_range.start != glyph->text_range.start) {
+							const skb_cluster_t* cluster = &clusters[glyph->cluster_idx];
+							int32_t last_glyph_in_cluster = cluster->glyphs_offset + cluster->glyphs_count - 1;
+							if (gi == last_glyph_in_cluster) {
 								// Glyph run bounds
-								if ((next_gi - run_start_glyph_idx) > 1 && !skb_rect2_is_empty(run_bounds))
+
+								if (cluster->text_count > 1 && !skb_rect2_is_empty(run_bounds))
 									debug_render_stroked_rect(ctx->rc, run_bounds.x - 4.f, run_bounds.y - 4.f, run_bounds.width + 8.f, run_bounds.height + 8.f, ink_color_trans, -1.f);
 
 								// Logical id
 								float run_end_x = pen_x;
 								debug_render_stroked_rect(ctx->rc, run_start_x + 2.f + 0.5f, bot_y + 0.5f - 18, (run_end_x - run_start_x) - 4.f,  18.f, log_color, -1.f);
-								if ((glyph->text_range.end - glyph->text_range.start) > 1)
-									debug_render_text(ctx->rc, run_start_x + 5.f, bot_y - 5.f, 11, RENDER_ALIGN_START, log_color, "L%d - L%d", glyph->text_range.start, glyph->text_range.end-1);
+								if (cluster->text_count > 1)
+									debug_render_text(ctx->rc, run_start_x + 5.f, bot_y - 5.f, 11, RENDER_ALIGN_START, log_color, "L%d - L%d", cluster->text_offset, cluster->text_offset + cluster->text_count - 1);
 								else
-									debug_render_text(ctx->rc, run_start_x + 5.f, bot_y - 5.f,11,RENDER_ALIGN_START, log_color, "L%d", glyph->text_range.start);
+									debug_render_text(ctx->rc, run_start_x + 5.f, bot_y - 5.f,11,RENDER_ALIGN_START, log_color, "L%d", cluster->text_offset);
 
 								// Reset
 								run_bounds = skb_rect2_make_undefined();
 								run_start_x = pen_x;
-								run_start_glyph_idx = gi + 1;
 							}
 						}
 					}
@@ -682,7 +704,6 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw through lines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				const skb_attribute_span_t* attribute_span = &attrib_spans[decoration->attribute_span_idx];
 				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
 					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
@@ -698,7 +719,6 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Caret
 			cx = debug_render_text(ctx->rc, cx + 5,layout_height + 30, 13, RENDER_ALIGN_START, caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
-			cx = ceilf((cx-10.f)/40.f) * 40.f;
 
 			// Caret location
 			int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
@@ -709,18 +729,15 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			int32_t line_idx = skb_editor_get_line_index_at(ctx->editor, insert_pos);
 			int32_t col_idx = skb_editor_get_column_index_at(ctx->editor, insert_pos);
 
-			cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
-			cx = ceilf((cx-10.f)/40.f) * 40.f;
+			cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, log_color, "Ln %d, Col %d", line_idx+1, col_idx+1);
 
 			// Selection count
 			const int32_t selection_count = skb_editor_get_selection_count(ctx->editor, edit_selection);
 			if (selection_count > 0) {
-				cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
-				cx = ceilf((cx-10.f)/40.f) * 40.f;
+				cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Selection %d - %d, (%d chars)", edit_selection.start_pos.offset, edit_selection.end_pos.offset, selection_count);
 			}
 
-			cx = debug_render_text(ctx->rc, cx,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "text_offset %d", edit_selection.end_pos.offset);
-			cx = ceilf((cx-10.f)/40.f) * 40.f;
+			cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "text_offset %d", edit_selection.end_pos.offset);
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -932,7 +949,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F7: Baseline details %s   F8: Caret details %s   F9: Glyph details %s   F10: Atlas %.1f%%",
+		"F6: Run details %s   F7: Baseline details %s   F8: Caret details %s   F9: Glyph details %s   F10: Atlas %.1f%%",
+		ctx->show_run_details ? "ON" : "OFF,",
 		ctx->show_baseline_details ? "ON" : "OFF",
 		ctx->show_caret_details ? "ON" : "OFF",
 		ctx->show_glyph_details ? "ON" : "OFF",

@@ -28,7 +28,7 @@ static void skb__add_unique(skb__sb_tag_array_t* script_tags, uint8_t sb_script)
 {
 	for (int32_t i = 0; i < script_tags->tags_count; i++) {
 		if (script_tags->tags[i] == sb_script)
-			continue;
+			return;
 	}
 	SKB_ARRAY_RESERVE(script_tags->tags, script_tags->tags_count+1);
 	script_tags->tags[script_tags->tags_count++] = sb_script;
@@ -59,32 +59,14 @@ static void skb__add_unique_script_from_ot_tag(skb__sb_tag_array_t* script_tags,
 	}
 }
 
-static void skb__append_tags_from_table(hb_face_t* face, hb_tag_t table_tag, skb__sb_tag_array_t* scripts)
+static void skb__append_tags_from_unicodes(hb_set_t* unicodes, skb__sb_tag_array_t* scripts)
 {
-	hb_tag_t tags[32];
-	uint32_t offset = 0;
-	uint32_t tags_count = 32;
-	while (tags_count == 32) {
-		tags_count = 32;
-		tags_count = hb_ot_layout_table_get_script_tags(face, table_tag, offset, &tags_count, tags);
-
-		for (uint32_t i = 0; i < tags_count; i++)
-			skb__add_unique_script_from_ot_tag(scripts, tags[i]);
-
-		offset += tags_count;
-	}
-}
-
-static void skb__append_tags_from_unicodes(hb_face_t* face, skb__sb_tag_array_t* scripts)
-{
-	hb_set_t* unicodes = hb_set_create();
-	hb_face_collect_unicodes(face, unicodes);
-
 	hb_unicode_funcs_t* unicode_funcs = hb_unicode_funcs_get_default();
 
 	// To save us testing the script of each individual glyph, we just sample the first and last glyph in the range.
 	hb_codepoint_t first = HB_SET_VALUE_INVALID;
 	hb_codepoint_t last = HB_SET_VALUE_INVALID;
+
 	while (hb_set_next_range (unicodes, &first, &last)) {
 
 		int32_t unicode_count = 0;
@@ -150,13 +132,13 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	// Get how many points per EM, used to scale font size.
 	unsigned int upem = hb_face_get_upem(face);
 
-	// Try to get script tags from tables.
-	skb__append_tags_from_table(face, HB_OT_TAG_GSUB, &scripts);
-	skb__append_tags_from_table(face, HB_OT_TAG_GPOS, &scripts);
+	// Get supported unicode range.
+	font->unicodes = hb_set_create();
+	hb_set_reference(font->unicodes);
 
-	// If the tables did not define the scripts, fallback to checking the supported glyph ranges.
-	if (scripts.tags_count == 0)
-		skb__append_tags_from_unicodes(face, &scripts);
+	// Get supported scripts from supported characters.
+	hb_face_collect_unicodes(face, font->unicodes);
+	skb__append_tags_from_unicodes(font->unicodes, &scripts);
 
 	// Check synthetic properties.
 	float synthetic_weight = 0.f;
@@ -287,6 +269,7 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 
 error:
 	skb_free(scripts.tags);
+	hb_set_destroy(font->unicodes);
 	skb__reset_font(font);
 
 	return false;
@@ -377,6 +360,7 @@ static void skb__font_destroy(skb_font_t* font)
 	skb_free(font->name);
 	skb_free(font->scripts);
 	skb_free(font->baseline_sets);
+	hb_set_destroy(font->unicodes);
 	hb_font_destroy(font->hb_font);
 }
 
@@ -819,6 +803,12 @@ int32_t skb_font_collection_match_fonts(
 	}
 
 	return results_count;
+}
+
+bool skb_font_collection_font_has_codepoint(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t codepoint)
+{
+	const skb_font_t* font = skb__get_font_by_handle(font_collection, font_handle);
+	return font && hb_set_has(font->unicodes, codepoint);
 }
 
 skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* font_collection, uint8_t font_family)

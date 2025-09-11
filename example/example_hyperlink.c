@@ -235,12 +235,12 @@ typedef struct draw_content_context_t {
 	skb_color_t color;
 } draw_content_context_t;
 
-void draw_content_bounds(skb_rect2_t rect, int32_t attribute_span_idx, int32_t line_idx, void* context)
+void draw_content_bounds(skb_rect2_t rect, int32_t layout_run_idx, int32_t line_idx, void* context)
 {
 	draw_content_context_t* ctx = context;
-	const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(ctx->layout);
-	const skb_attribute_span_t* attribute_span = &attribute_spans[attribute_span_idx];
-	if (attribute_span->run_type == SKB_CONTENT_RUN_ICON || attribute_span->run_type == SKB_CONTENT_RUN_OBJECT) {
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
+	const  skb_layout_run_t* run = &layout_runs[layout_run_idx];
+	if (run->type == SKB_CONTENT_RUN_ICON || run->type == SKB_CONTENT_RUN_OBJECT) {
 		debug_render_filled_rect(ctx->rc, rect.x-3, rect.y-3, rect.width+6, rect.height+6, ctx->color);
 	} else {
 		debug_render_filled_rect(ctx->rc, rect.x-3, rect.y, rect.width+6, rect.height, ctx->color);

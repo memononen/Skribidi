@@ -22,12 +22,12 @@ typedef const struct hb_language_impl_t *hb_language_t;
 /**
  * @defgroup layout Layout
  *
- * The layout takes text with attributes, and fonts as input, and gives an array of glyphs to render as output.
+ * The layout takes runs of text with attributes, and fonts as input, and gives a runs of glyphs of same font and style to render as output.
  *
- * To build the layout, the text is first split into runs based on the Unicode bidirectional algorithm.
+ * To build the layout, the text is first split into bidi runs based on the Unicode bidirectional algorithm.
  * Then the text is itemized into runs of same script (writing system), style, and direction.
  * Next the runs of text are shaped, arranging and combining the glyphs based on the rules of the script,
- * and finally the rungs of glyphs are arranged into lines.
+ * and finally the runs of glyphs are arranged into lines.
  *
  * Some units are marked as pixels (px), but they can be interpreted as a generic units too.
  * If you are using the renderer or render cache, the values will correspond to pixels.
@@ -129,11 +129,16 @@ typedef enum {
  */
 typedef struct skb_content_run_t {
 	union {
+		/** The utf-8 content, if type == SKB_CONTENT_RUN_UTF8. */
 		skb_content_text_utf8_t utf8;
+		/** The utf-32 content, if type == SKB_CONTENT_RUN_UTF32. */
 		skb_content_text_utf32_t utf32;
+		/** The object content, if type == SKB_CONTENT_RUN_OBJECT. */
 		skb_content_object_t object;
+		/** The icon content, if type == SKB_CONTENT_RUN_OBJECT. */
 		skb_content_icon_t icon;
 	};
+	/** ID of the run, which can be later used to identify content in the layout. 0 is treated as invalid value. */
 	intptr_t run_id;
 	/** Slice to the attributes. */
 	skb_attribute_slice_t attributes;
@@ -210,30 +215,6 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
 skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
 
 
-/**
- * Struct describing attributes assigned to a range of text.
- * Initially each content run creates an attribute span, but each span may be used by more than one layout run,
- * e.g. in case the run is split due to different script/language.
- */
-typedef struct skb_attribute_span_t {
-	/** Width of object or icon specified by the span */
-	float content_width;
-	/** Height of object or icon specified by the span */
-	float content_height;
-	/** Data of object or icon specified by the span */
-	intptr_t content_data;
-	/** Custom identifier for a content run. */
-	intptr_t run_id;
-	/** Range of text the attributes apply to. */
-	skb_range_t text_range;
-	/** The content attributes. */
-	skb_attribute_slice_t attributes;
-	/** Cached font size for the span. */
-	float font_size;
-	/** Type of the content run which described the attributes. See skb_content_run_type_t. */
-	uint8_t run_type;
-} skb_attribute_span_t;
-
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
 	/** Flag indicating that layout line is truncated (see skb_text_overflow_t). */
@@ -242,16 +223,16 @@ typedef enum {
 
 /**
  * Struct describing a line of text.
- * Note: glyph_range and text_range contain the glyphs and text before line overflow handling,
- * they may contain data that is not visible, and does not contain the ellipsis glyphs.
+ *
+ * Note: text_range contain the range of text before line overflow handling,
+ *		it may contain data that is not visible, and does not contain the ellipsis.
+ *
  * Use layout_run_range to get range of visible glyphs.
  */
 typedef struct skb_layout_line_t {
-	/** Range of glyphs that belong to the line, matches text_range. */
-	skb_range_t glyph_range;
-	/** Range of text (codepoints) that belong to the line, matches glyph_range. */
+	/** Range of text (codepoints) that belong to the line. */
 	skb_range_t text_range;
-	/** Range of glyph runs that belong to the line. */
+	/** Range of layout runs that belong to the line (glyphs are stored in layout runs). */
 	skb_range_t layout_run_range;
 	/** Range of decorations that belong to the line. */
 	skb_range_t decorations_range;
@@ -267,6 +248,8 @@ typedef struct skb_layout_line_t {
 	skb_rect2_t bounds;
 	/** Bounding rectangle of the line that contains all the content (might overestimate). */
 	skb_rect2_t culling_bounds;
+	/** Common glyph bounds can encompass any glyph in the line, used for per glyph culling (relative to glyph offset). Empty if no glyphs in line. */
+	skb_rect2_t common_glyph_bounds;
 	/** Line flags, see skb_layout_line_flags_t. */
 	uint8_t flags;
 } skb_layout_line_t;
@@ -288,18 +271,26 @@ typedef struct skb_layout_run_t {
 	uint8_t type;
 	/** Text direction of the run. */
 	uint8_t direction;
-	/** Index of the attribute span. */
-	uint16_t attribute_span_idx;
-	/** Range of glyphs the content corresponds to. */
+	/** Script of the run */
+	uint8_t script;
+	/** Bidi level of the run */
+	uint8_t bidi_level;
+	/** Index of the content run where the layout run originates. Can be used to detect style changes. */
+	int32_t content_run_idx;
+	/** Range of glyphs the content corresponds to. Note: glyphs are in visual order. */
 	skb_range_t glyph_range;
+	/** Range of clusters the content corresponds to. Note: clusters are in logical order. */
+	skb_range_t cluster_range;
 	/** Logical bounding rectangle of the content. */
 	skb_rect2_t bounds;
 	/** Y position of the reference baseline of the run (in practice the alphabetic baseline). The text decorations are positioned relative to this baseline. */
 	float ref_baseline;
-	/** Bounding rectangle of the run that contains all the content (might overestimate). */
-	skb_rect2_t culling_bounds;
-	/** Common glyph bounds can encompass any glyph in the run, used for per glyph culling (relative to glyph offset). Empty if not text run. */
-	skb_rect2_t common_glyph_bounds;
+	/** Cached font size. */
+	float font_size;
+	/** Attributes assigned to the run. */
+	skb_attribute_slice_t attributes;
+	/** ID of the content run where the layout run originates. */
+	intptr_t content_run_id;
 	union {
 		/** Font handle of the text content, if text content. */
 		skb_font_handle_t font_handle;
@@ -310,6 +301,18 @@ typedef struct skb_layout_run_t {
 	};
 } skb_layout_run_t;
 
+/** Struct describing the smallest inseparable shaping unit. Maps range of codepoints to range of glyphs. */
+typedef struct skb_cluster_t {
+	/** Offset of first codepoint in the cluster */
+	int32_t text_offset;
+	/** Offset of first glyph in the cluster.  */
+	int32_t glyphs_offset;
+	/** Number of codepoints in the cluster. */
+	uint8_t text_count;
+	/** Number of glyphs in the cluster. */
+	uint8_t glyphs_count;
+} skb_cluster_t;
+
 /** Struct describing shaped and positioned glyph. */
 typedef struct skb_glyph_t {
 	/** X offset of the glyph (including layout origin). */
@@ -318,20 +321,18 @@ typedef struct skb_glyph_t {
 	float offset_y;
 	/** Typographic advancement to the next glyph. */
 	float advance_x;
-	/** Original visual index of the glyph. Used internally for word wrapping. */
-	int32_t visual_idx;
-	/** Range of the text (codepoints) the glyph covers. End exclusive. */
-	skb_range_t text_range;
+	/** Index of the cluster that the glyph relates to */
+	int32_t cluster_idx;
 	/** Glyph ID to render. */
 	uint16_t gid;
-	/** Index of the attribute span. */
-	uint16_t attribute_span_idx;
-	/** Index of the font in font collection. */
-	skb_font_handle_t font_handle;
 } skb_glyph_t;
 
 /** Struct describing text decoration  */
 typedef struct skb_decoration_t {
+	/** Index of the layout run the decoration is related to. */
+	int32_t layout_run_idx;
+	/** Range of glyphs the decoration relates to. */
+	skb_range_t glyph_range;
 	/** X offset of the decoration (including layout origin). */
 	float offset_x;
 	/** Y offset of the decoration (including layout origin). */
@@ -348,10 +349,6 @@ typedef struct skb_decoration_t {
 	uint8_t position;
 	/** Style of the decoration line. See skb_decoration_style_t. */
 	uint8_t style;
-	/** Index of the attribute span. */
-	uint16_t attribute_span_idx;
-	/** Range of glyphs the decoration relates to. */
-	skb_range_t glyph_range;
 } skb_decoration_t;
 
 /** Enum describing flags for skb_text_property_t. */
@@ -515,41 +512,37 @@ const skb_layout_params_t* skb_layout_get_params(const skb_layout_t* layout);
 
 /** @return number of codepoints in the layout text. */
 int32_t skb_layout_get_text_count(const skb_layout_t* layout);
-
 /** @return const pointer to the codepoints of the text. See skb_layout_get_text_count() to get text length. */
 const uint32_t* skb_layout_get_text(const skb_layout_t* layout);
-
 /** @return const pointer to the codepoint properties of the text. See skb_layout_get_text_count() to get text length. */
 const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* layout);
 
 /** @return number of layout runs in the layout. */
 int32_t skb_layout_get_layout_runs_count(const skb_layout_t* layout);
-
 /** @return const pointer to the layout runs. See skb_layout_get_layout_runs_count() to get number of glyph runs. */
 const skb_layout_run_t* skb_layout_get_layout_runs(const skb_layout_t* layout);
 
 /** @return number of glyphs in the layout. */
 int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout);
-
 /** @return const pointer to the glyphs. See skb_layout_get_glyphs_count() to get number of glyphs. */
 const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout);
 
+/** @return number of clusters in the layout. */
+int32_t skb_layout_get_clusters_count(const skb_layout_t* layout);
+/** @return const pointer to the clusters. See skb_layout_get_clusters_count() to get number of clusters. */
+const skb_cluster_t* skb_layout_get_clusters(const skb_layout_t* layout);
+
+/** @return number of decorations in the layout. */
 int32_t skb_layout_get_decorations_count(const skb_layout_t* layout);
+/** @return const pointer to the lines. See skb_layout_get_decorations_count() to get number of decorations. */
 const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout);
 
 /** @return number of lines in the layout. */
 int32_t skb_layout_get_lines_count(const skb_layout_t* layout);
-
 /** @return const pointer to the lines. See skb_layout_get_lines_count() to get number of lines. */
 const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
 
-/** @return number of attribute spans in the layout. */
-int32_t skb_layout_get_attribute_spans_count(const skb_layout_t* layout);
-
-/** @return const pointer to the attribute spans. See skb_layout_get_attribute_spans_count() to get number of spans. */
-const skb_attribute_span_t* skb_layout_get_attribute_spans(const skb_layout_t* layout);
-
-/** @return typographic bunds of the layout. */
+/** @return typographic bounds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
 
 /** @return text direction of the layout, if the direction was auto, the direction inferred from the text. */
@@ -693,8 +686,8 @@ typedef struct skb_layout_content_hit_t {
 	intptr_t run_id;
 	/** Line index of the hit content. */
 	int32_t line_idx;
-	/** Attribute span index of the hit content. */
-	uint16_t attribute_span_idx;
+	/** Layout run index of the hit content. */
+	int32_t layout_run_idx;
 } skb_layout_content_hit_t;
 
 /**
@@ -720,11 +713,11 @@ skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout,
 /**
  * Signature of content bounds getter callback.
  * @param rect content rectangle.
- * @param attribute_span_idx attribute span index of the content rectangle
+ * @param layout_run_idx layout run index of the content rectangle
  * @param line_idx lined index of the content rectangle
  * @param context context passed to skb_layout_get_content_bounds()
  */
-typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t attribute_span_idx, int32_t line_idx, void* context);
+typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, int32_t line_idx, void* context);
 
 /**
  * Return set of rectangles that represent the specified run at specified line.
@@ -828,8 +821,12 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 typedef struct skb_caret_iterator_result_t {
 	/** Text position of the caret */
 	skb_text_position_t text_position;
+	/** Layout run index of the caret. */
+	int32_t layout_run_idx;
 	/** Glyph index of the caret. */
 	int32_t glyph_idx;
+	/** Cluster index of the caret. */
+	int32_t cluster_idx;
 	/** Text direction at the text position. */
 	uint8_t direction;
 } skb_caret_iterator_result_t;
@@ -842,15 +839,18 @@ typedef struct skb_caret_iterator_t {
 	float advance;
 	float x;
 
-	int32_t glyph_start_idx;
-	int32_t glyph_pos;
-	int32_t glyph_end;
-	uint8_t glyph_direction;
+	int32_t layout_run_idx;
+	int32_t layout_run_end;
+
+	int32_t cluster_idx;
+	int32_t cluster_end;
+
+	int32_t glyph_idx;
 
 	int32_t grapheme_pos;
 	int32_t grapheme_end;
 
-	bool end_of_glyph;
+	bool end_of_runs;
 	bool end_of_line;
 
 	int32_t line_first_grapheme_offset;

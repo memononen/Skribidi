@@ -298,16 +298,14 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	{
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
 		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
-		const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(ctx->layout);
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(attribute_span->attributes);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Draw object
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(attribute_span->attributes);
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run->attributes);
 				debug_render_filled_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, attr_fill.color);
 
 				// Draw baseline
@@ -324,7 +322,6 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const int32_t lines_count = skb_layout_get_lines_count(ctx->layout);
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
 		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
-		const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(ctx->layout);
 
 		// Draw line baselines
 		for (int32_t li = 0; li < lines_count; li++) {
@@ -338,10 +335,9 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span->attributes);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,
@@ -350,7 +346,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				};
 				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255), -1.f);
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(attribute_span->attributes);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,

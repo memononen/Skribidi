@@ -329,7 +329,6 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
 		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
-		const skb_attribute_span_t* attrib_spans = skb_layout_get_attribute_spans(ctx->layout);
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		skb_rect2_t layout_bounds = skb_layout_get_bounds(ctx->layout);
@@ -337,15 +336,14 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		debug_render_stroked_rect(ctx->rc, layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128), -1.f);
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
-			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_span_t* attribute_span = &attrib_spans[run->attribute_span_idx];
-			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+			const skb_layout_run_t* layout_run = &layout_runs[ri];
+			for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
 				const float gx = glyph->offset_x;
 				const float gy = glyph->offset_y;
 				if (ctx->show_glyph_bounds) {
 					debug_render_tick(ctx->rc, view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans, -1.f);
-					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, glyph->font_handle, glyph->gid, attribute_span->font_size);
+					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, layout_run->font_handle, glyph->gid, layout_run->font_size);
 					bounds.x += gx;
 					bounds.y += gy;
 //					bounds = view_transform_rect(&ctx->view, bounds);

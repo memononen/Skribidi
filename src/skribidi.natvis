@@ -198,6 +198,9 @@
     <Type Name="skb_layout_t">
         <Expand>
             <Item Name="params">params</Item>
+            <Item Name="bounds">bounds</Item>
+            <Item Name="resolved_direction">(skb_text_direction_t)resolved_direction</Item>
+
             <Item Name="text">text,s32</Item>
             <Item Name="text_count">text_count</Item>
             <Item Name="text_cap">text_cap</Item>
@@ -212,50 +215,12 @@
                 </Expand>
             </Synthetic>
 
-            <Synthetic Name="glyphs">
-                <DisplayString>{{count: {glyphs_count}}}</DisplayString>
+            <Synthetic Name="content_runs">
+                <DisplayString>{{count: {content_runs_count}}}</DisplayString>
                 <Expand>
-                    <Item Name="glyphs_count">glyphs_count</Item>
-                    <Item Name="glyphs_cap">glyphs_cap</Item>
                     <ArrayItems>
-                        <Size>glyphs_count</Size>
-                        <ValuePointer>glyphs</ValuePointer>
-                    </ArrayItems>
-                </Expand>
-            </Synthetic>
-
-            <Synthetic Name="layout_runs">
-                <DisplayString>{{count: {layout_runs_count}}}</DisplayString>
-                <Expand>
-                    <Item Name="layout_runs_count">layout_runs_count</Item>
-                    <Item Name="layout_runs_cap">layout_runs_cap</Item>
-                    <ArrayItems>
-                        <Size>layout_runs_count</Size>
-                        <ValuePointer>layout_runs</ValuePointer>
-                    </ArrayItems>
-                </Expand>
-            </Synthetic>
-
-            <Synthetic Name="lines">
-                <DisplayString>{{count: {lines_count}}}</DisplayString>
-                <Expand>
-                    <Item Name="lines_count">lines_count</Item>
-                    <Item Name="lines_cap">lines_cap</Item>
-                    <ArrayItems>
-                        <Size>lines_count</Size>
-                        <ValuePointer>lines</ValuePointer>
-                    </ArrayItems>
-                </Expand>
-            </Synthetic>
-
-            <Synthetic Name="attribute_spans">
-                <DisplayString>{{count: {attribute_spans_count}}}</DisplayString>
-                <Expand>
-                    <Item Name="attribute_spans_count">attribute_spans_count</Item>
-                    <Item Name="attribute_spans_cap">attribute_spans_cap</Item>
-                    <ArrayItems>
-                        <Size>attribute_spans_count</Size>
-                        <ValuePointer>attribute_spans</ValuePointer>
+                        <Size>content_runs_count</Size>
+                        <ValuePointer>content_runs_props</ValuePointer>
                     </ArrayItems>
                 </Expand>
             </Synthetic>
@@ -272,6 +237,66 @@
                 </Expand>
             </Synthetic>
 
+            <Synthetic Name="shaping_runs">
+                <DisplayString>{{count: {shaping_runs_count}}}</DisplayString>
+                <Expand>
+                    <Item Name="shaping_runs_count">shaping_runs_count</Item>
+                    <Item Name="shaping_runs_cap">shaping_runs_cap</Item>
+                    <ArrayItems>
+                        <Size>shaping_runs_count</Size>
+                        <ValuePointer>shaping_runs</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Synthetic Name="glyphs">
+                <DisplayString>{{count: {glyphs_count}}}</DisplayString>
+                <Expand>
+                    <Item Name="glyphs_count">glyphs_count</Item>
+                    <Item Name="glyphs_cap">glyphs_cap</Item>
+                    <ArrayItems>
+                        <Size>glyphs_count</Size>
+                        <ValuePointer>glyphs</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Synthetic Name="clusters">
+                <DisplayString>{{count: {clusters_count}}}</DisplayString>
+                <Expand>
+                    <Item Name="clusters_count">clusters_count</Item>
+                    <Item Name="clusters_cap">clusters_cap</Item>
+                    <ArrayItems>
+                        <Size>clusters_count</Size>
+                        <ValuePointer>clusters</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Synthetic Name="lines">
+                <DisplayString>{{count: {lines_count}}}</DisplayString>
+                <Expand>
+                    <Item Name="lines_count">lines_count</Item>
+                    <Item Name="lines_cap">lines_cap</Item>
+                    <ArrayItems>
+                        <Size>lines_count</Size>
+                        <ValuePointer>lines</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Synthetic Name="layout_runs">
+                <DisplayString>{{count: {layout_runs_count}}}</DisplayString>
+                <Expand>
+                    <Item Name="layout_runs_count">layout_runs_count</Item>
+                    <Item Name="layout_runs_cap">layout_runs_cap</Item>
+                    <ArrayItems>
+                        <Size>layout_runs_count</Size>
+                        <ValuePointer>layout_runs</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
             <Synthetic Name="decorations">
                 <DisplayString>{{count: {decorations_count}}}</DisplayString>
                 <Expand>
@@ -283,9 +308,6 @@
                     </ArrayItems>
                 </Expand>
             </Synthetic>
-
-            <Item Name="bounds">bounds</Item>
-            <Item Name="resolved_direction">(skb_text_direction_t)resolved_direction</Item>
 
         </Expand>
     </Type>

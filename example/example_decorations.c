@@ -136,7 +136,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t attributes_deco_wavy[] = {
-		skb_attribute_make_font_size(24.f),
+		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),

@@ -249,33 +249,35 @@ void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw detailed culling bounds visualization
 	if (ctx->show_details) {
+		const skb_layout_line_t* lines = skb_layout_get_lines(ctx->layout);
+		const int32_t lines_count = skb_layout_get_lines_count(ctx->layout);
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
-		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
 		const skb_glyph_t* glyphs = skb_layout_get_glyphs(ctx->layout);
-		const skb_attribute_span_t* attribute_spans = skb_layout_get_attribute_spans(ctx->layout);
-		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		// Draw glyphs
-		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
-			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_span_t* attribute_span = &attribute_spans[run->attribute_span_idx];
+		for (int32_t li = 0; li <lines_count; li++) {
+			const skb_layout_line_t* line = &lines[li];
 
 			debug_render_stroked_rect(ctx->rc,
-				run->culling_bounds.x, run->culling_bounds.y, run->culling_bounds.width, run->culling_bounds.height,
+				line->culling_bounds.x, line->culling_bounds.y, line->culling_bounds.width, line->culling_bounds.height,
 				skb_rgba(255,64,64,220), -2.f);
 
-			if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
-				// Object or Icon
-				debug_render_filled_rect(ctx->rc,
-					run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height,
-					skb_rgba(255,64,64,32));
-			} else {
-				// Text
-				for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
-					const skb_glyph_t* glyph = &glyphs[gi];
+				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+					const skb_layout_run_t* run = &layout_runs[ri];
+
+				if (run->type == SKB_CONTENT_RUN_OBJECT || run->type == SKB_CONTENT_RUN_ICON) {
+					// Object or Icon
 					debug_render_filled_rect(ctx->rc,
-						glyph->offset_x + run->common_glyph_bounds.x, glyph->offset_y + run->common_glyph_bounds.y, run->common_glyph_bounds.width, run->common_glyph_bounds.height,
+						run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height,
 						skb_rgba(255,64,64,32));
+				} else {
+					// Text
+					for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
+						const skb_glyph_t* glyph = &glyphs[gi];
+						debug_render_filled_rect(ctx->rc,
+							glyph->offset_x + line->common_glyph_bounds.x, glyph->offset_y + line->common_glyph_bounds.y, line->common_glyph_bounds.width, line->common_glyph_bounds.height,
+							skb_rgba(255,64,64,32));
+					}
 				}
 			}
 		}

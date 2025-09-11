@@ -347,6 +347,15 @@ int32_t skb_font_collection_match_fonts(
 	skb_font_handle_t* results, int32_t results_cap);
 
 /**
+ * Retruns true if the specified font supports given codepoint.
+ * @param font_collection font collection to use.
+ * @param font_handle font to query.
+ * @param codepoint codepoint to query
+ * @return true of the font exists and given codepoint is supported by the font, else false.
+ */
+bool skb_font_collection_font_has_codepoint(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t codepoint);
+
+/**
  * Returns default font for specified font family.
  * The default font is the first added font.
  * @param font_collection font collection to change.

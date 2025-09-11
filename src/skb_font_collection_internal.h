@@ -10,6 +10,7 @@
 
 // harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;
+typedef struct hb_set_t hb_set_t;
 
 typedef struct skb_font_collection_t {
 	uint32_t id;				// ID of the font collection.
@@ -24,6 +25,7 @@ typedef struct skb_font_collection_t {
 
 typedef struct skb_font_t {
 	hb_font_t* hb_font;			// Associate harfbuzz font.
+	hb_set_t* unicodes;			// Set of codepoints supported by the font.
 	char* name;					// Name of the font (file name)
 	uint64_t hash;				// Hash of the name, used as unique identifier.
 	int32_t upem;				// units per em square.
