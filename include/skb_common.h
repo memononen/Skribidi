@@ -8,7 +8,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
-#include <uchar.h>
+
+#ifdef __APPLE__
+	typedef uint32_t char32_t;
+#else
+	#include <uchar.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
