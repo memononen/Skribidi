@@ -203,14 +203,11 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 		if (skb_is_paragraph_separator(utf32[offset])) {
 			// Handle CRLF
 			if (offset + 1 < utf32_len && utf32[offset] == SKB_CHAR_CARRIAGE_RETURN && utf32[offset+1] == SKB_CHAR_LINE_FEED)
-				offset++; // Skip over the separator
+				offset++; // Skip over CR
 			offset++; // Skip over the separator
 
 			// Create new paragraph
-			if (paragraphs_count + 1 > paragraphs_cap) {
-				paragraphs_cap += paragraphs_cap/2;
-				paragraphs = SKB_TEMP_REALLOC(temp_alloc, paragraphs, skb_range_t, paragraphs_cap);
-			}
+			SKB_TEMP_RESERVE(temp_alloc, paragraphs, paragraphs_count + 1);
 			skb_range_t* new_paragraph = &paragraphs[paragraphs_count++];
 			memset(new_paragraph, 0, sizeof(skb_range_t));
 			new_paragraph->start = start_offset;
@@ -222,10 +219,7 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 	}
 
 	// The rest
-	if (paragraphs_count + 1 > paragraphs_cap) {
-		paragraphs_cap += paragraphs_cap/2;
-		paragraphs = SKB_TEMP_REALLOC(temp_alloc, paragraphs, skb_range_t, paragraphs_cap);
-	}
+	SKB_TEMP_RESERVE(temp_alloc, paragraphs, paragraphs_count + 1);
 	skb_range_t* new_paragraph = &paragraphs[paragraphs_count++];
 	memset(new_paragraph, 0, sizeof(skb_range_t));
 	new_paragraph->start = start_offset;
@@ -1009,17 +1003,15 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor, skb__editor_text_position_t cur_edit_pos)
 {
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[cur_edit_pos.paragraph_idx];
-
 	int32_t offset = cur_edit_pos.paragraph_offset;
-
-	const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
-	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
 	if (offset == 0) {
 		if (cur_edit_pos.paragraph_idx - 1 >= 0) {
 			// Goto previous paragraph
 			cur_edit_pos.paragraph_idx--;
 			paragraph = &editor->paragraphs[cur_edit_pos.paragraph_idx];
+
+			const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
 			offset = skb_layout_align_grapheme_offset(paragraph->layout, text_count-1); // Last grapheme of the paragraph.
 			return (skb_text_position_t) {
 				.offset = paragraph->text_start_offset + offset,
@@ -1032,6 +1024,8 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 			.affinity = SKB_AFFINITY_SOL,
 		};
 	}
+
+	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
 
 	if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
 		// skip whitespace and punctuation at start.
@@ -1071,7 +1065,7 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 // TODO: should we expose this?
 skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb_text_position_t pos)
 {
-	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_ADJUST_AFFINITY);
+	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
 	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_backward(editor, edit_pos);
@@ -1081,7 +1075,7 @@ skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb
 // TODO: should we expose this?
 skb_text_position_t skb_editor_move_to_prev_word(const skb_editor_t* editor, skb_text_position_t pos)
 {
-	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_ADJUST_AFFINITY);
+	skb__editor_text_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_SANITIZE_IGNORE_AFFINITY);
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[edit_pos.paragraph_idx];
 	if (skb_is_rtl(skb_layout_get_resolved_direction(paragraph->layout)))
 		return skb__advance_word_forward(editor, edit_pos);
@@ -2463,7 +2457,7 @@ void skb_editor_get_selection_bounds(const skb_editor_t* editor, skb_text_select
 			const skb__editor_paragraph_t* paragraph = &editor->paragraphs[paragraph_idx];
 			skb_text_selection_t line_sel = {
 				.start_pos = { .offset = 0 },
-				.end_pos = { .offset = first_paragraph->text_count },
+				.end_pos = { .offset = paragraph->text_count },
 			};
 			skb_layout_get_selection_bounds_with_offset(paragraph->layout, paragraph->y, line_sel, callback, context);
 		}
