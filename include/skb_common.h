@@ -7,7 +7,6 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stddef.h> // size_t
 #include <math.h>
 
 #ifdef __APPLE__
