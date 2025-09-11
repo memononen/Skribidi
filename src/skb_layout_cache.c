@@ -120,7 +120,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(
 
 const skb_layout_t* skb_layout_cache_get_utf32(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
+	const char32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
 {
 	assert(cache);
 
@@ -128,7 +128,7 @@ const skb_layout_t* skb_layout_cache_get_utf32(
 		text_count = skb_utf32_strlen(text);
 
 	uint64_t hash = skb_hash64_empty();
-	hash = skb_hash64_append(hash, text, text_count * sizeof(uint32_t));
+	hash = skb_hash64_append(hash, text, text_count * sizeof(char32_t));
 	hash = skb_layout_params_hash_append(hash, params);
 	hash = skb_attributes_hash_append(hash, attributes);
 
@@ -160,7 +160,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs(
 		} else if (fixed_runs[i].type == SKB_CONTENT_RUN_UTF32) {
 			if (fixed_runs[i].utf32.text_count < 0)
 				fixed_runs[i].utf32.text_count = skb_utf32_strlen(fixed_runs[i].utf32.text);
-			hash = skb_hash64_append(hash, fixed_runs[i].utf32.text, fixed_runs[i].utf32.text_count * sizeof(uint32_t));
+			hash = skb_hash64_append(hash, fixed_runs[i].utf32.text, fixed_runs[i].utf32.text_count * sizeof(char32_t));
 		} else if (fixed_runs[i].type == SKB_CONTENT_RUN_OBJECT) {
 			hash = skb_hash64_append_float(hash, fixed_runs[i].object.width);
 			hash = skb_hash64_append_float(hash, fixed_runs[i].object.height);

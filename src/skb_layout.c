@@ -56,7 +56,7 @@ typedef struct skb_layout_t {
 	uint8_t resolved_direction;
 
 	// Text, text props, content_runs, and attributes are create based on the input text.
-	uint32_t* text;
+	char32_t* text;
 	skb_text_property_t* text_props;
 	int32_t text_count;
 	int32_t text_cap;
@@ -124,7 +124,7 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
 	};
 }
 
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_utf32(const char32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF32,
@@ -505,7 +505,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 							for (int32_t j = text_range.start; j < text_range.end; j++) {
 								// Treat control characters are space for font selection, since fonts dont have glyphs for control chars.
 								// Missing glyph would break runs, and cause missing glyphs. During rendering we do treat control chars as spaces too.
-								const uint32_t codepoint = layout->text_props[j].flags & SKB_TEXT_PROP_CONTROL ? 32 : layout->text[j];
+								const char32_t codepoint = layout->text_props[j].flags & SKB_TEXT_PROP_CONTROL ? 32 : layout->text[j];
 								skb_font_handle_t font_handle = cur_font_handle;
 								if (!skb_font_collection_font_has_codepoint(layout->params.font_collection, cur_font_handle, codepoint)) {
 									// Find new font
@@ -1977,7 +1977,7 @@ skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_lay
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
 }
 
-skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
+skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, 0);
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
@@ -1996,7 +1996,7 @@ void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, con
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
 }
 
-void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
+void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, 0);
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
@@ -2024,7 +2024,7 @@ static void skb__reserve_text(skb_layout_t* layout, int32_t text_count)
 {
 	if (text_count > layout->text_cap) {
 		layout->text_cap = text_count;
-		layout->text = skb_realloc(layout->text, layout->text_cap * sizeof(uint32_t));
+		layout->text = skb_realloc(layout->text, layout->text_cap * sizeof(char32_t));
 		assert(layout->text);
 		layout->text_props = skb_realloc(layout->text_props, layout->text_cap * sizeof(skb_text_property_t));
 		assert(layout->text_props);
@@ -2050,7 +2050,7 @@ static int32_t skb__append_text_utf8(skb_layout_t* layout, const char* utf8, int
 	return new_text_count;
 }
 
-static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf32, int32_t utf32_len)
+static int32_t skb__append_text_utf32(skb_layout_t* layout, const char32_t* utf32, int32_t utf32_len)
 {
 	if (utf32_len < 0) utf32_len = utf32 ? skb_utf32_strlen(utf32) : 0;
 	const int32_t new_text_offset = layout->text_count;
@@ -2061,13 +2061,13 @@ static int32_t skb__append_text_utf32(skb_layout_t* layout, const uint32_t* utf3
 	layout->text_count += new_text_count;
 	skb__reserve_text(layout, layout->text_count);
 
-	memcpy(layout->text + new_text_offset, utf32, new_text_count * sizeof(uint32_t));
+	memcpy(layout->text + new_text_offset, utf32, new_text_count * sizeof(char32_t));
 	memset(layout->text_props + new_text_offset, 0, new_text_count * sizeof(skb_text_property_t));
 
 	return utf32_len;
 }
 
-static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang, const uint32_t* text, skb_text_property_t* text_props, int32_t text_count)
+static void skb__init_text_props(skb_temp_alloc_t* temp_alloc, const char* lang, const char32_t* text, skb_text_property_t* text_props, int32_t text_count)
 {
 	if (!text_count)
 		return;
@@ -2182,14 +2182,14 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 			count = skb__append_text_utf32(layout, run->utf32.text, text_counts[i]);
 		} else if (run->type == SKB_CONTENT_RUN_OBJECT) {
 			// Add replacement text.
-			const uint32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
+			const char32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
 			count = skb__append_text_utf32(layout, &object_str, 1);
 			content_width = run->object.width;
 			content_height = run->object.height;
 			content_data = run->object.data;
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
 			// Add replacement text.
-			const uint32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
+			const char32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
 			count = skb__append_text_utf32(layout, &object_str, 1);
 			if (layout->params.icon_collection) {
 				skb_icon_handle_t icon_handle = skb_icon_collection_find_icon(layout->params.icon_collection, run->icon.name);
@@ -2279,7 +2279,7 @@ int32_t skb_layout_get_text_count(const skb_layout_t* layout)
 	return layout->text_count;
 }
 
-const uint32_t* skb_layout_get_text(const skb_layout_t* layout)
+const char32_t* skb_layout_get_text(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->text;

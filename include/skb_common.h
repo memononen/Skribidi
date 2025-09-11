@@ -5,10 +5,10 @@
 #define SKB_COMMON_H
 
 #include <assert.h>
-#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
+#include <uchar.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -1250,7 +1250,7 @@ bool skb_emoji_run_iterator_next(skb_emoji_run_iterator_t* iter, skb_range_t* ra
  * @param utf32_cap capacity of the result utf-32 string.
  * @return total number of codeunits in the utf-32 string.
  */
-int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, uint32_t* utf32, int32_t utf32_cap);
+int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, char32_t* utf32, int32_t utf32_cap);
 
 /**
  * Counts number of utf-32 codeunits in an utf-8 string.
@@ -1270,7 +1270,7 @@ int32_t skb_utf8_to_utf32_count(const char* utf8, int32_t utf8_len);
 int32_t skb_utf8_codepoint_offset(const char* utf8, int32_t utf8_len, int32_t codepoint_offset);
 
 /** @return number of utf-8 code units in a codepoint. */
-int32_t skb_utf8_num_units(uint32_t cp);
+int32_t skb_utf8_num_units(char32_t cp);
 
 /**
  * Encodes a codepoint to utf-8 string (max 4 utf-8 code units).
@@ -1279,7 +1279,7 @@ int32_t skb_utf8_num_units(uint32_t cp);
  * @param utf8_cap capacity of the utf-8 string.
  * @return number of code units in the result string.
  */
-int32_t skb_utf8_encode(uint32_t cp, char* utf8, int32_t utf8_cap);
+int32_t skb_utf8_encode(char32_t cp, char* utf8, int32_t utf8_cap);
 
 /**
  * Converts utf-32 string into utf-8 string.
@@ -1291,7 +1291,7 @@ int32_t skb_utf8_encode(uint32_t cp, char* utf8, int32_t utf8_cap);
  * @param utf8_cap capacity of the result utf-8 string.
  * @return total number of codeunits in the utf-8 string.
  */
-int32_t skb_utf32_to_utf8(const uint32_t* utf32, int32_t utf32_len, char* utf8, int32_t utf8_cap);
+int32_t skb_utf32_to_utf8(const char32_t* utf32, int32_t utf32_len, char* utf8, int32_t utf8_cap);
 
 /**
  * Counts number of utf-8 codeunits in an utf-32 string.
@@ -1301,10 +1301,10 @@ int32_t skb_utf32_to_utf8(const uint32_t* utf32, int32_t utf32_len, char* utf8, 
  * @param utf8_cap capacity of the result utf-8 string.
  * @return total number of codeunits in the utf-8 string.
  */
-int32_t skb_utf32_to_utf8_count(const uint32_t* utf32, int32_t utf32_len);
+int32_t skb_utf32_to_utf8_count(const char32_t* utf32, int32_t utf32_len);
 
 /** @return number of code units in null terminated utf-32 string. */
-int32_t skb_utf32_strlen(const uint32_t* utf32);
+int32_t skb_utf32_strlen(const char32_t* utf32);
 
 /** @} */
 

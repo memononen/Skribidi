@@ -152,7 +152,7 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
  * @param utf32 pointer to the utf-32 string to set.
  * @param utf32_len length of the string, or -1 if nul terminated.
  */
-void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
+void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len);
 
 /** @return length of the edited text as utf-8. */
 int32_t skb_editor_get_text_utf8_count(const skb_editor_t* editor);
@@ -176,7 +176,7 @@ int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor);
  * @param buf_cap capacity of the buffer.
  * @return total length of the string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* buf, int32_t buf_cap);
+int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, char32_t* buf, int32_t buf_cap);
 
 /** @return number of paragraphs in the editor. */
 int32_t skb_editor_get_paragraph_count(skb_editor_t* editor);
@@ -282,7 +282,7 @@ int32_t skb_editor_get_selection_text_utf32_count(const skb_editor_t* editor, sk
  * @param buf_cap capacity of the buffer.
  * @return total length of the selected string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* buf, int32_t buf_cap);
+int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, char32_t* buf, int32_t buf_cap);
 
 /**
  * Processes mouse click, and updates internal state.
@@ -317,7 +317,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  * @param codepoint codepoint to insert.
  */
-void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, uint32_t codepoint);
+void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, char32_t codepoint);
 
 /**
  * Paste utf-8 text to the current caret position.
@@ -335,7 +335,7 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
  * @param utf32 pointer to utf-32 string to paste
  * @param utf32_len length of the string, or -1 if nul terminated.
  */
-void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
+void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len);
 
 /**
  * Deletes current selection.
@@ -374,7 +374,7 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
  * @param utf32_len length of the string, or -1 if nul terminated.
  * @param caret_position caret position whitin the text. Zero is in front of the first character, and utf32_len is after the last character.
  */
-void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position);
+void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len, int32_t caret_position);
 
 /**
  * Commits the specified string and clears composition text.
@@ -383,7 +383,7 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
  * @param utf32 pointer to utf-32 string to commit, if NULL previous text set with skb_editor_set_composition_utf32 will be used.
  * @param utf32_len length of the string, or -1 if nul terminated.
  */
-void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
+void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len);
 
 /**
  * Clears composition text.
