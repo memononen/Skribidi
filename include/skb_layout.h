@@ -91,7 +91,7 @@ typedef struct skb_content_text_utf8_t {
 
 /** Struct describing utf-32 text content. */
 typedef struct skb_content_text_utf32_t {
-	const char32_t* text;
+	const uint32_t* text;
 	int32_t text_count;
 } skb_content_text_utf32_t;
 
@@ -172,7 +172,7 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const char32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
 
 /**
  * Makes inline object content run.
@@ -432,7 +432,7 @@ skb_layout_t* skb_layout_create_utf8(
  */
 skb_layout_t* skb_layout_create_utf32(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const char32_t* text, int32_t text_count,
+	const uint32_t* text, int32_t text_count,
 	skb_attribute_slice_t attributes);
 
 /**
@@ -475,7 +475,7 @@ void skb_layout_set_utf8(
  */
 void skb_layout_set_utf32(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const char32_t* text, int32_t text_count,
+	const uint32_t* text, int32_t text_count,
 	skb_attribute_slice_t attributes);
 
 /**
@@ -513,7 +513,7 @@ const skb_layout_params_t* skb_layout_get_params(const skb_layout_t* layout);
 /** @return number of codepoints in the layout text. */
 int32_t skb_layout_get_text_count(const skb_layout_t* layout);
 /** @return const pointer to the codepoints of the text. See skb_layout_get_text_count() to get text length. */
-const char32_t* skb_layout_get_text(const skb_layout_t* layout);
+const uint32_t* skb_layout_get_text(const skb_layout_t* layout);
 /** @return const pointer to the codepoint properties of the text. See skb_layout_get_text_count() to get text length. */
 const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* layout);
 

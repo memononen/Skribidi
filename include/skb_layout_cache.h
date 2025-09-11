@@ -65,7 +65,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(
  */
 const skb_layout_t* skb_layout_cache_get_utf32(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
-	const skb_layout_params_t* params, const char32_t* text, int32_t text_count,
+	const skb_layout_params_t* params, const uint32_t* text, int32_t text_count,
 	skb_attribute_slice_t attributes);
 
 /**

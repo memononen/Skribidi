@@ -39,7 +39,7 @@ typedef enum {
 
 typedef struct skb__editor_paragraph_t {
 	skb_layout_t* layout;		// Layout for the paragraph, may contain multiple lines.
-	char32_t* text;				// Pointer to the paragraph text.
+	uint32_t* text;				// Pointer to the paragraph text.
 	int32_t text_count;			// The length of the paragraph text.
 	int32_t text_cap;			// Capacity of the the paragraph text.
 	int32_t text_start_offset;	// The start offset of the paragraph text in relation to the whole text.
@@ -51,11 +51,11 @@ typedef struct skb__editor_paragraph_t {
 // Stores enough data to be able to undo and redo skb__replace_range().
 typedef struct skb__editor_undo_state_t {
 	skb_range_t removed_range;		// Removed text range before replace.
-	char32_t* removed_text;			// Temoved text
+	uint32_t* removed_text;			// Temoved text
 	int32_t removed_text_count;		// Length of the removed text.
 
 	skb_range_t inserted_range;		// Inserted text range after replace.
-	char32_t* inserted_text;		// Inserted text
+	uint32_t* inserted_text;		// Inserted text
 	int32_t inserted_text_count;	// Lenfth of the inserted text.
 
 	skb_text_selection_t selection;	// Selection at the time of the replace.
@@ -84,7 +84,7 @@ typedef struct skb_editor_t {
 	uint8_t drag_mode;
 
 	// IME
-	char32_t* composition_text;				// Composition text set during IME editing, displayed temporariry at composition_position.
+	uint32_t* composition_text;				// Composition text set during IME editing, displayed temporariry at composition_position.
 	int32_t composition_text_cap;			// Space allocated for composition text.
 	int32_t composition_text_count;			// Composition text length.
 	skb__editor_text_position_t composition_position;	// Paragraph and text offset where the composition is displayed.
@@ -102,14 +102,14 @@ typedef struct skb_editor_t {
 
 // fwd decl
 static void skb__reset_undo(skb_editor_t* editor);
-static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, const char32_t* utf32, int32_t utf32_len);
+static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, const uint32_t* utf32, int32_t utf32_len);
 static skb__editor_text_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_sanitize_affinity_t sanitize_affinity);
 
-static int32_t skb__copy_utf32(const char32_t* src, int32_t count, char32_t* dst, int32_t max_dst)
+static int32_t skb__copy_utf32(const uint32_t* src, int32_t count, uint32_t* dst, int32_t max_dst)
 {
 	const int32_t copy_count = skb_mini(max_dst, count);
 	if (copy_count > 0)
-		memcpy(dst, src, copy_count * sizeof(char32_t));
+		memcpy(dst, src, copy_count * sizeof(uint32_t));
 	return count;
 }
 
@@ -189,7 +189,7 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	}
 }
 
-static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len, int32_t* out_paragraphs_count)
+static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t* out_paragraphs_count)
 {
 	// Split text to paragraphs.
 	int32_t start_offset = 0;
@@ -342,7 +342,7 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	if (utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
 
 	const int32_t utf32_len = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
-	char32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, char32_t, utf32_len);
+	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_len);
 	skb_utf8_to_utf32(utf8, utf8_len, utf32, utf32_len);
 
 	int32_t new_paragraph_count = 0;
@@ -359,7 +359,7 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 		new_paragraph->text_count = paragraph_range.end - paragraph_range.start;
 		if (new_paragraph->text_count > 0) {
 			SKB_ARRAY_RESERVE(new_paragraph->text, new_paragraph->text_count);
-			memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(char32_t));
+			memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(uint32_t));
 		}
 	}
 
@@ -370,7 +370,7 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len)
+void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(editor);
 
@@ -392,7 +392,7 @@ void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 		new_paragraph->text_count = paragraph_range.end - paragraph_range.start;
 		if (new_paragraph->text_count > 0) {
 			SKB_ARRAY_RESERVE(new_paragraph->text, new_paragraph->text_count);
-			memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(char32_t));
+			memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(uint32_t));
 		}
 	}
 
@@ -474,7 +474,7 @@ int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor)
 	return count;
 }
 
-int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, char32_t* buf, int32_t buf_cap)
+int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* buf, int32_t buf_cap)
 {
 	assert(editor);
 
@@ -484,7 +484,7 @@ int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, char32_t* buf, int
 		const int32_t cur_buf_cap = skb_maxi(0, buf_cap - count);
 		const int32_t copy_count = skb_mini(cur_buf_cap, paragraph->text_count);
 		if (buf && copy_count > 0)
-			memcpy(buf + count, paragraph->text, copy_count * sizeof(char32_t));
+			memcpy(buf + count, paragraph->text, copy_count * sizeof(uint32_t));
 		count += paragraph->text_count;
 	}
 
@@ -1257,7 +1257,7 @@ int32_t skb_editor_get_selection_text_utf32_count(const skb_editor_t* editor, sk
 	}
 }
 
-int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, char32_t* buf, int32_t buf_cap)
+int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* buf, int32_t buf_cap)
 {
 	assert(editor);
 
@@ -1496,18 +1496,18 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 }
 
 
-static void skb__paragraph_set_text_combined(skb__editor_paragraph_t* paragraph, const char32_t* a, int32_t a_count, const char32_t* b, int32_t b_count, const char32_t* c, int32_t c_count)
+static void skb__paragraph_set_text_combined(skb__editor_paragraph_t* paragraph, const uint32_t* a, int32_t a_count, const uint32_t* b, int32_t b_count, const uint32_t* c, int32_t c_count)
 {
 	paragraph->text_count = a_count + b_count + c_count;
 	if (paragraph->text_count > 0) {
 		SKB_ARRAY_RESERVE(paragraph->text, paragraph->text_count);
-		memcpy(paragraph->text, a, a_count * sizeof(char32_t));
-		memcpy(paragraph->text + a_count, b, b_count * sizeof(char32_t));
-		memcpy(paragraph->text + a_count + b_count, c, c_count * sizeof(char32_t));
+		memcpy(paragraph->text, a, a_count * sizeof(uint32_t));
+		memcpy(paragraph->text + a_count, b, b_count * sizeof(uint32_t));
+		memcpy(paragraph->text + a_count + b_count, c, c_count * sizeof(uint32_t));
 	}
 }
 
-static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb__editor_text_position_t start, skb__editor_text_position_t end, const char32_t* utf32, int32_t utf32_len)
+static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb__editor_text_position_t start, skb__editor_text_position_t end, const uint32_t* utf32, int32_t utf32_len)
 {
 	int32_t new_paragraph_count = 0;
 	skb_range_t* new_paragraph_ranges = skb__split_text_into_paragraphs(temp_alloc, utf32, utf32_len, &new_paragraph_count);
@@ -1579,7 +1579,7 @@ static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 			new_paragraph->text_count = paragraph_range.end - paragraph_range.start;
 			if (new_paragraph->text_count > 0) {
 				SKB_ARRAY_RESERVE(new_paragraph->text, new_paragraph->text_count);
-				memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(char32_t));
+				memcpy(new_paragraph->text, utf32 + paragraph_range.start, new_paragraph->text_count * sizeof(uint32_t));
 			}
 		}
 
@@ -1643,7 +1643,7 @@ static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	SKB_TEMP_FREE(temp_alloc, new_paragraph_ranges);
 }
 
-static void skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len)
+static void skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	// Insert pos gets clamped to the layout text size.
 	skb__editor_text_range_t sel_range = skb__get_sanitized_range(editor, editor->selection);
@@ -1654,7 +1654,7 @@ static void skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_
 }
 
 
-static int32_t skb__get_selection_text(const skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, char32_t* buf, int32_t buf_cap)
+static int32_t skb__get_selection_text(const skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, uint32_t* buf, int32_t buf_cap)
 {
 	assert(editor);
 	if (start.paragraph_idx == end.paragraph_idx) {
@@ -1706,7 +1706,7 @@ static void skb__reset_undo(skb_editor_t* editor)
 	editor->undo_stack_head = -1;
 }
 
-static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, const char32_t* utf32, int32_t utf32_len)
+static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t start, skb__editor_text_position_t end, const uint32_t* utf32, int32_t utf32_len)
 {
 	if (editor->params.max_undo_levels < 0)
 		return;
@@ -1716,7 +1716,7 @@ static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t 
 		skb__editor_undo_state_t* prev_undo_state = &editor->undo_stack[editor->undo_stack_head];
 		// If there's no text to remove, and we're inserting at the end of the previous undo insert.
 		if (start.text_offset == end.text_offset && end.text_offset == prev_undo_state->inserted_range.end) {
-			prev_undo_state->inserted_text = skb_realloc(prev_undo_state->inserted_text, (prev_undo_state->inserted_text_count + utf32_len) * sizeof(char32_t));
+			prev_undo_state->inserted_text = skb_realloc(prev_undo_state->inserted_text, (prev_undo_state->inserted_text_count + utf32_len) * sizeof(uint32_t));
 			assert(prev_undo_state->inserted_text);
 			skb__copy_utf32(utf32, utf32_len, prev_undo_state->inserted_text + prev_undo_state->inserted_text_count, utf32_len);
 			prev_undo_state->inserted_text_count += utf32_len;
@@ -1752,7 +1752,7 @@ static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t 
 	undo_state->removed_range.end = end.text_offset;
 	undo_state->removed_text_count = skb__get_selection_text(editor, start, end, NULL, 0);
 	if (undo_state->removed_text_count > 0) {
-		undo_state->removed_text = skb_malloc(undo_state->removed_text_count * sizeof(char32_t));
+		undo_state->removed_text = skb_malloc(undo_state->removed_text_count * sizeof(uint32_t));
 		assert(undo_state->removed_text);
 		skb__get_selection_text(editor, start, end, undo_state->removed_text, undo_state->removed_text_count);
 	}
@@ -1762,7 +1762,7 @@ static void skb__capture_undo(skb_editor_t* editor, skb__editor_text_position_t 
 	undo_state->inserted_range.end = start.text_offset + utf32_len;
 	if (utf32_len > 0) {
 		undo_state->inserted_text_count = utf32_len;
-		undo_state->inserted_text = skb_malloc(undo_state->inserted_text_count * sizeof(char32_t));
+		undo_state->inserted_text = skb_malloc(undo_state->inserted_text_count * sizeof(uint32_t));
 		assert(undo_state->inserted_text);
 		skb__copy_utf32(utf32, utf32_len, undo_state->inserted_text, undo_state->inserted_text_count);
 	}
@@ -1854,7 +1854,7 @@ static skb__editor_text_position_t skb__get_backspace_start_offset(const skb_edi
 	int32_t cur_offset = offset;
 
 	do {
-		const char32_t cp = paragraph->text[cur_offset - 1];
+		const uint32_t cp = paragraph->text[cur_offset - 1];
 		cur_offset--;
 		switch (state) {
 		case BACKSPACE_STATE_START:
@@ -2211,7 +2211,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_ENTER) {
-		const char32_t cp = SKB_CHAR_LINE_FEED;
+		const uint32_t cp = SKB_CHAR_LINE_FEED;
 		skb__replace_selection(editor, temp_alloc, &cp, 1);
 		editor->allow_append_undo = false;
 		skb__update_layout(editor, temp_alloc);
@@ -2227,7 +2227,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 }
 
-void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, char32_t codepoint)
+void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, uint32_t codepoint)
 {
 	assert(editor);
 
@@ -2244,7 +2244,7 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 	if (utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
 	const int32_t utf32_len = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
 
-	char32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, char32_t, utf32_len);
+	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_len);
 
 	skb_utf8_to_utf32(utf8, utf8_len, utf32, utf32_len);
 
@@ -2257,7 +2257,7 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len)
+void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(editor);
 
@@ -2278,7 +2278,7 @@ void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len, int32_t caret_position)
+void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position)
 {
 	assert(editor);
 
@@ -2288,7 +2288,7 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 	const bool had_ime_text = editor->composition_text_count > 0;
 
 	SKB_ARRAY_RESERVE(editor->composition_text, utf32_len);
-	memcpy(editor->composition_text, utf32, utf32_len * sizeof(char32_t));
+	memcpy(editor->composition_text, utf32, utf32_len * sizeof(uint32_t));
 	editor->composition_text_count = utf32_len;
 
 	if (!had_ime_text) {
@@ -2314,7 +2314,7 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 	skb__update_layout(editor, temp_alloc);
 }
 
-void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char32_t* utf32, int32_t utf32_len)
+void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(editor);
 

@@ -758,7 +758,7 @@ enum {
 	SKB_UTF8_REJECT = 12,
 };
 
-static uint32_t skb_decutf8_(uint32_t* state, char32_t* codep, uint8_t byte)
+static uint32_t skb_decutf8_(uint32_t* state, uint32_t* codep, uint8_t byte)
 {
 	static const uint8_t utf8d[] = {
 		// The first part of the table maps bytes to character classes that
@@ -791,13 +791,13 @@ static uint32_t skb_decutf8_(uint32_t* state, char32_t* codep, uint8_t byte)
 	return *state;
 }
 
-int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, char32_t* utf32, int32_t utf32_cap)
+int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, uint32_t* utf32, int32_t utf32_cap)
 {
 	int32_t cp_count = 0;
 	uint32_t state = 0;
 	int32_t idx = 0;
-	char32_t cp = 0;
 	while (idx < utf8_len) {
+		uint32_t cp;
 		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT) {
 			if (utf32 && cp_count < utf32_cap)
 				utf32[cp_count] = cp;
@@ -813,8 +813,8 @@ int32_t skb_utf8_to_utf32_count(const char* utf8, int32_t utf8_len)
 	int32_t cp_count = 0;
 	uint32_t state = 0;
 	int32_t idx = 0;
-	char32_t cp = 0;
 	while (idx < utf8_len) {
+		uint32_t cp;
 		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT)
 			cp_count++;
 		idx++;
@@ -829,8 +829,8 @@ int32_t skb_utf8_codepoint_offset(const char* utf8, int32_t utf8_len, int32_t co
 	uint32_t state = 0;
 	int32_t start_idx = 0;
 	int32_t idx = 0;
-	char32_t cp = 0;
 	while (idx < utf8_len) {
+		uint32_t cp;
 		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT) {
 			if (cp_count == codepoint_offset)
 				return start_idx;
@@ -842,7 +842,7 @@ int32_t skb_utf8_codepoint_offset(const char* utf8, int32_t utf8_len, int32_t co
 	return start_idx;
 }
 
-int32_t skb_utf8_num_units(char32_t cp)
+int32_t skb_utf8_num_units(uint32_t cp)
 {
 	if (cp < 0x80) return 1;
 	if (cp < 0x800) return 2;
@@ -851,7 +851,7 @@ int32_t skb_utf8_num_units(char32_t cp)
 	return 0;
 }
 
-int32_t skb_utf8_encode(char32_t cp, char* utf8, int32_t utf8_cap)
+int32_t skb_utf8_encode(uint32_t cp, char* utf8, int32_t utf8_cap)
 {
 	if (cp < 0x80 && utf8_cap >= 1) {
 		utf8[0] = (char)cp;
@@ -875,7 +875,7 @@ int32_t skb_utf8_encode(char32_t cp, char* utf8, int32_t utf8_cap)
 	return 0;
 }
 
-int32_t skb_utf32_to_utf8(const char32_t* utf32, int32_t utf32_len, char* utf8, int32_t utf8_cap)
+int32_t skb_utf32_to_utf8(const uint32_t* utf32, int32_t utf32_len, char* utf8, int32_t utf8_cap)
 {
 	if (!utf32) return 0;
 	int32_t idx = 0;
@@ -891,7 +891,7 @@ int32_t skb_utf32_to_utf8(const char32_t* utf32, int32_t utf32_len, char* utf8, 
 	return count;
 }
 
-int32_t skb_utf32_to_utf8_count(const char32_t* utf32, int32_t utf32_len)
+int32_t skb_utf32_to_utf8_count(const uint32_t* utf32, int32_t utf32_len)
 {
 	if (!utf32) return 0;
 	int32_t idx = 0;
@@ -904,7 +904,7 @@ int32_t skb_utf32_to_utf8_count(const char32_t* utf32, int32_t utf32_len)
 	return count;
 }
 
-int32_t skb_utf32_strlen(const char32_t* utf32)
+int32_t skb_utf32_strlen(const uint32_t* utf32)
 {
 	if (!utf32) return 0;
 	int32_t count = 0;
