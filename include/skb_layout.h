@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include "skb_common.h"
 #include "skb_attributes.h"
+#include "skb_text.h"
 #include "skb_font_collection.h"
 #include "skb_icon_collection.h"
 
@@ -437,7 +438,7 @@ skb_layout_t* skb_layout_create_utf32(
 
 /**
  * Creates new layout from the provided parameters and text runs.
- * The text runs are combined into one attributes string and laid out as one.
+ * The text runs are combined into one attributed string and laid out as one.
  * @param temp_alloc temp alloc to use during building the layout.
  * @param params paramters to use for the layout.
  * @param runs utf-8 text runs to combine into continuous text.
@@ -447,6 +448,15 @@ skb_layout_t* skb_layout_create_utf32(
 skb_layout_t* skb_layout_create_from_runs(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const skb_content_run_t* runs, int32_t runs_count);
+
+/**
+ * Creates new layout from the provided parameters and text.
+ * @param temp_alloc temp alloc to use during building the layout.
+ * @param params paramters to use for the layout.
+ * @param text pointer to the text to copy the text and attributes from.
+ * @return newly create layout.
+ */
+skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -490,6 +500,18 @@ void skb_layout_set_utf32(
 void skb_layout_set_from_runs(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const skb_content_run_t* runs, int32_t runs_count);
+
+/**
+ * Sets the layout from the provided parameters and text.
+ * The text runs are combined into one attributes string and laid out as one.
+ * @param layout layout to set up
+ * @param temp_alloc temp alloc to use during building the layout.
+ * @param params paramters to use for the layout.
+ * @param text pointer to the text to copy the text and attributes from.
+ */
+void skb_layout_set_from_text(
+	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
+	const skb_text_t* text);
 
 /**
  * Empties the specified layout. Keeps the existing allocations.

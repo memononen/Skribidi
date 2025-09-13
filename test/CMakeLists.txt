@@ -1,6 +1,7 @@
 # unit test app
 
 set(SKRIBIDI_TEST_FILES
+	test_attributed_text.c
 	test_basic.c
 	test_canvas.c
 	test_cpp.cpp

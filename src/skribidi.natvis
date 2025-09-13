@@ -201,12 +201,12 @@
             <Item Name="bounds">bounds</Item>
             <Item Name="resolved_direction">(skb_text_direction_t)resolved_direction</Item>
 
-            <Item Name="text">text,s32</Item>
+            <Item Name="text">text,[text_count] s32</Item>
             <Item Name="text_count">text_count</Item>
             <Item Name="text_cap">text_cap</Item>
 
             <Synthetic Name="text_props">
-                <DisplayString>{{count: {text_count}}}</DisplayString>
+                <DisplayString>{{count: {text_count}, cap: {text_cap}}}</DisplayString>
                 <Expand>
                     <ArrayItems>
                         <Size>text_count</Size>
@@ -226,7 +226,7 @@
             </Synthetic>
 
             <Synthetic Name="attributes">
-                <DisplayString>{{count: {attributes_count}}}</DisplayString>
+                <DisplayString>{{count: {attributes_count}, cap: {attributes_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="attributes_count">attributes_count</Item>
                     <Item Name="attributes_cap">attributes_cap</Item>
@@ -238,7 +238,7 @@
             </Synthetic>
 
             <Synthetic Name="shaping_runs">
-                <DisplayString>{{count: {shaping_runs_count}}}</DisplayString>
+                <DisplayString>{{count: {shaping_runs_count}, cap: {shaping_runs_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="shaping_runs_count">shaping_runs_count</Item>
                     <Item Name="shaping_runs_cap">shaping_runs_cap</Item>
@@ -250,7 +250,7 @@
             </Synthetic>
 
             <Synthetic Name="glyphs">
-                <DisplayString>{{count: {glyphs_count}}}</DisplayString>
+                <DisplayString>{{count: {glyphs_count}, cap: {glyphs_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="glyphs_count">glyphs_count</Item>
                     <Item Name="glyphs_cap">glyphs_cap</Item>
@@ -262,7 +262,7 @@
             </Synthetic>
 
             <Synthetic Name="clusters">
-                <DisplayString>{{count: {clusters_count}}}</DisplayString>
+                <DisplayString>{{count: {clusters_count}, cap: {clusters_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="clusters_count">clusters_count</Item>
                     <Item Name="clusters_cap">clusters_cap</Item>
@@ -274,7 +274,7 @@
             </Synthetic>
 
             <Synthetic Name="lines">
-                <DisplayString>{{count: {lines_count}}}</DisplayString>
+                <DisplayString>{{count: {lines_count}, cap: {lines_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="lines_count">lines_count</Item>
                     <Item Name="lines_cap">lines_cap</Item>
@@ -286,7 +286,7 @@
             </Synthetic>
 
             <Synthetic Name="layout_runs">
-                <DisplayString>{{count: {layout_runs_count}}}</DisplayString>
+                <DisplayString>{{count: {layout_runs_count}, cap: {layout_runs_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="layout_runs_count">layout_runs_count</Item>
                     <Item Name="layout_runs_cap">layout_runs_cap</Item>
@@ -298,7 +298,7 @@
             </Synthetic>
 
             <Synthetic Name="decorations">
-                <DisplayString>{{count: {decorations_count}}}</DisplayString>
+                <DisplayString>{{count: {decorations_count}, cap: {decorations_cap}}}</DisplayString>
                 <Expand>
                     <Item Name="decorations_count">decorations_count</Item>
                     <Item Name="decorations_cap">decorations_cap</Item>
@@ -344,6 +344,27 @@
             <Item Name="font_handle" Condition="type==0 || type==1">font_handle</Item>
             <Item Name="object_data" Condition="type==2">object_data</Item>
             <Item Name="icon_handle" Condition="type==3">icon_handle</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_text_t">
+        <Expand>
+
+            <Item Name="text">text,[text_count] s32</Item> -->
+            <Item Name="text_count">text_count</Item>
+            <Item Name="text_cap">text_cap</Item>
+
+            <Synthetic Name="spans">
+                <DisplayString>{{count: {spans_count}, cap: {spans_cap}}}</DisplayString>
+                <Expand>
+                    <Item Name="spans_count">spans_count</Item>
+                    <Item Name="spans_cap">spans_cap</Item>
+                    <ArrayItems>
+                        <Size>spans_count</Size>
+                        <ValuePointer>spans</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
         </Expand>
     </Type>
 

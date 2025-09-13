@@ -1990,6 +1990,13 @@ skb_layout_t* skb_layout_create_from_runs(skb_temp_alloc_t* temp_alloc, const sk
 	return layout;
 }
 
+skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text)
+{
+	skb_layout_t* layout = skb_layout_create(params);
+	skb_layout_set_from_text(layout, temp_alloc, params, text);
+	return layout;
+}
+
 void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_slice_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, 0);
@@ -2130,10 +2137,58 @@ static void skb__init_text_props_from_attributes(skb_temp_alloc_t* temp_alloc, s
 		skb__init_text_props(temp_alloc, prev_lang, layout->text + start_offset, layout->text_props + start_offset, cur_offset - start_offset);
 }
 
+typedef struct skb__text_to_runs_context_t {
+	skb_content_run_t* content_runs;
+	int32_t content_runs_count;
+	int32_t content_runs_cap;
+	skb_temp_alloc_t* temp_alloc;
+} skb__text_to_runs_context_t;
+
+static void iter_test(const skb_text_t* text, skb_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
+{
+	skb__text_to_runs_context_t* ctx = context;
+
+	const uint32_t* utf32 = skb_text_get_utf32(text);
+	const int32_t utf32_count = skb_text_get_utf32_count(text);
+
+	SKB_TEMP_RESERVE(ctx->temp_alloc, ctx->content_runs, ctx->content_runs_count + 1);
+	skb_content_run_t* run = &ctx->content_runs[ctx->content_runs_count++];
+
+	skb_attribute_slice_t attribute_slice = { 0 };
+	if (active_spans_count > 0) {
+		skb_attribute_t* attributes = SKB_TEMP_ALLOC(ctx->temp_alloc, skb_attribute_t, active_spans_count);
+		for (int32_t i = 0; i < active_spans_count; i++)
+			attributes[i] = active_spans[i]->attribute;
+		attribute_slice.items = attributes;
+		attribute_slice.count = active_spans_count;
+		// TODO text base style.
+	}
+
+	*run = skb_content_run_make_utf32(utf32 + range.start, range.end - range.start, attribute_slice, 0);
+}
+
+
+void skb_layout_set_from_text(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text)
+{
+	assert(layout);
+	assert(params);
+
+	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
+
+	skb__text_to_runs_context_t ctx = { .temp_alloc = temp_alloc };
+	SKB_TEMP_RESERVE(temp_alloc, ctx.content_runs, 16);
+
+	skb_text_iterate_attribute_runs(text, iter_test, &ctx);
+
+	skb_layout_set_from_runs(layout, temp_alloc, params, ctx.content_runs, ctx.content_runs_count);
+
+	skb_temp_alloc_restore(temp_alloc, mark);
+}
 
 void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_content_run_t* runs, int32_t runs_count)
 {
 	assert(layout);
+	assert(params);
 
 	layout->params = *params;
 	skb_layout_reset(layout);

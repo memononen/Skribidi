@@ -29,6 +29,7 @@ typedef struct baseattribs_context_t {
 	render_context_t* rc;
 
 	skb_layout_t* layout;
+	skb_layout_t* layout_text;
 
 	view_t view;
 	bool drag_view;
@@ -42,6 +43,12 @@ typedef struct baseattribs_context_t {
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \
 	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
+		skb_debug_log("Failed to load " path "\n"); \
+		goto error; \
+	}
+
+#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
 		skb_debug_log("Failed to load " path "\n"); \
 		goto error; \
 	}
@@ -78,10 +85,15 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
 
+	const skb_font_create_params_t fake_italic_params = {
+		.slant = SKB_DEFAULT_SLANT
+	};
+
 	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansCondensed-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Italic.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Bold.ttf", SKB_FONT_FAMILY_DEFAULT);
+	LOAD_FONT_PARAMS_OR_FAIL("data/IBMPlexSans-Bold.ttf", SKB_FONT_FAMILY_DEFAULT, &fake_italic_params);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansArabic-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansJP-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansKR-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
@@ -140,6 +152,23 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 	assert(ctx->layout);
+
+
+	// Base style with attributed text.
+	params.origin.y = 100.f;
+
+	skb_text_t* text = skb_text_create();
+
+	skb_text_append_utf8(text, "Yellow mellow submarine", -1, (skb_attribute_slice_t){0});
+
+	skb_text_add_attribute(text, (skb_range_t){ 0, 13 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
+	skb_text_add_attribute(text, (skb_range_t){ 7, 17 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
+
+	ctx->layout_text = skb_layout_create_from_text(ctx->temp_alloc, &params, text);
+	assert(ctx->layout_text);
+
+	skb_text_destroy(text);
+
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
@@ -250,6 +279,8 @@ void baseattribs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
 	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+
+	render_draw_layout(ctx->rc, ctx->layout_text, SKB_RASTERIZE_ALPHA_SDF);
 
 	if (ctx->show_glyph_bounds) {
 		// Draw layout details
