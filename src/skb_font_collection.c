@@ -567,8 +567,8 @@ int32_t skb__match_fonts(
 {
 	// Based on https://drafts.csswg.org/css-fonts-3/#font-style-matching
 
-	int32_t candidates_count = 0;
-	int32_t current_candidates_count = 0;
+	int32_t results_count = 0;
+	int32_t cur_results_count = 0;
 	bool multiple_stretch = false;
 	bool multiple_styles = false;
 	bool multiple_weights = false;
@@ -578,19 +578,19 @@ int32_t skb__match_fonts(
 		const skb_font_t* font = &font_collection->fonts[font_idx];
 		if (font->font_family == requested_font_family
 			&& (requested_font_family == SKB_FONT_FAMILY_EMOJI || skb__supports_script(font, requested_script))) { // Ignore script for emoji fonts, as emojis are the same on each writing system.
-			if (candidates_count < results_cap) {
-				if (candidates_count > 0) {
-					const skb_font_t* prev_font = skb__get_font_unchecked(font_collection, results[candidates_count - 1]);
+			if (results_count < results_cap) {
+				if (results_count > 0) {
+					const skb_font_t* prev_font = skb__get_font_unchecked(font_collection, results[results_count - 1]);
 					multiple_stretch |= !skb_equalsf(prev_font->stretch, font->stretch, 0.01f);
 					multiple_styles |= prev_font->style != font->style;
 					multiple_weights |= prev_font->weight != font->weight;
 				}
-				results[candidates_count++] = font->handle;
+				results[results_count++] = font->handle;
 			}
 		}
 	}
 
-	if (!candidates_count)
+	if (!results_count)
 		return 0;
 
 	// Match stretch.
@@ -603,7 +603,7 @@ int32_t skb__match_fonts(
 		float nearest_wide_error = FLT_MAX;
 		float nearest_wide = requested_stretch_value;
 
-		for (int32_t i = 0; i < candidates_count; i++) {
+		for (int32_t i = 0; i < results_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (skb_equalsf(requested_stretch_value, font->stretch, 0.01f)) {
 				exact_stretch_match = true;
@@ -641,17 +641,17 @@ int32_t skb__match_fonts(
 		}
 
 		// Prune out everything but the selected stretch.
-		current_candidates_count = candidates_count;
-		candidates_count = 0;
-		for (int32_t i = 0; i < current_candidates_count; i++) {
+		cur_results_count = results_count;
+		results_count = 0;
+		for (int32_t i = 0; i < cur_results_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (!skb_equalsf(selected_stretch, font->stretch, 0.01f))
 				continue;
-			results[candidates_count++] = results[i];
+			results[results_count++] = results[i];
 		}
 
-		if (candidates_count <= 1)
-			return candidates_count;
+		if (results_count <= 1)
+			return results_count;
 	}
 
 	// Style
@@ -659,7 +659,7 @@ int32_t skb__match_fonts(
 		int32_t normal_count = 0;
 		int32_t italic_count = 0;
 		int32_t oblique_count = 0;
-		for (int32_t i = 0; i < candidates_count; i++) {
+		for (int32_t i = 0; i < results_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			uint8_t style = font->style;
 			if (style == SKB_STYLE_NORMAL)
@@ -670,42 +670,52 @@ int32_t skb__match_fonts(
 				oblique_count++;
 		}
 
-		uint8_t selected_style = SKB_STYLE_NORMAL;
+		// Filter and sort results based on style.
+		// Treat italic and oblique equal, but give preference to the one requested.
+		// This allows makes it easier to mix faked fonts with proper ones, like synthetic slant bold with regular italic.
+		skb_style_t styles[3] = { 0 };
+		int32_t styles_count = 0;
 		if (requested_style == SKB_STYLE_ITALIC) {
-			if (italic_count > 0)
-				selected_style = SKB_STYLE_ITALIC;
-			else if (oblique_count > 0)
-				selected_style = SKB_STYLE_OBLIQUE;
-			else if (normal_count > 0)
-				selected_style = SKB_STYLE_NORMAL;
+			if (italic_count > 0 || oblique_count > 0) {
+				styles[styles_count++] = SKB_STYLE_ITALIC;
+				styles[styles_count++] = SKB_STYLE_OBLIQUE;
+			} else {
+				styles[styles_count++] = SKB_STYLE_NORMAL;
+			}
 		} else if (requested_style == SKB_STYLE_OBLIQUE) {
-			if (oblique_count > 0)
-				selected_style = SKB_STYLE_OBLIQUE;
-			else if (italic_count > 0)
-				selected_style = SKB_STYLE_ITALIC;
-			else if (normal_count > 0)
-				selected_style = SKB_STYLE_NORMAL;
+			if (italic_count > 0 || oblique_count > 0) {
+				styles[styles_count++] = SKB_STYLE_OBLIQUE;
+				styles[styles_count++] = SKB_STYLE_ITALIC;
+			} else {
+				styles[styles_count++] = SKB_STYLE_NORMAL;
+			}
 		} else {
-			if (normal_count > 0)
-				selected_style = SKB_STYLE_NORMAL;
-			else if (oblique_count > 0)
-				selected_style = SKB_STYLE_OBLIQUE;
-			else if (italic_count > 0)
-				selected_style = SKB_STYLE_ITALIC;
+			if (normal_count > 0) {
+				styles[styles_count++] = SKB_STYLE_NORMAL;
+			} else {
+				styles[styles_count++] = SKB_STYLE_ITALIC;
+				styles[styles_count++] = SKB_STYLE_OBLIQUE;
+			}
 		}
 
-		// Prune out everything but the selected style.
-		current_candidates_count = candidates_count;
-		candidates_count = 0;
-		for (int32_t i = 0; i < current_candidates_count; i++) {
-			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
-			if (font->style != selected_style)
-				continue;
-			results[candidates_count++] = results[i];
+		// Prune and sort based on preferred order.
+		cur_results_count = results_count;
+		results_count = 0;
+		for (int32_t si = 0; si < styles_count; si++) {
+			for (int32_t i = 0; i < cur_results_count; i++) {
+				const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
+				if (font->style != styles[si])
+					continue;
+				// Add this result to the end of the results to keep, while keeping the remainder of the results in initial order.
+				skb_font_handle_t res = results[i];
+				for (int32_t j = i; j > results_count; j--)
+					results[j] = results[j-1];
+				results[results_count++] = res;
+			}
 		}
 
-		if (candidates_count <= 1)
-			return candidates_count;
+		if (results_count <= 1)
+			return results_count;
 	}
 
 	// Font weight
@@ -720,7 +730,7 @@ int32_t skb__match_fonts(
 		int32_t nearest_darker_error = INT32_MAX;
 		int32_t nearest_darker = requested_weight_value;
 
-		for (int32_t i = 0; i < candidates_count; i++) {
+		for (int32_t i = 0; i < results_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (requested_weight_value == font->weight) {
 				exact_weight_match = true;
@@ -767,17 +777,17 @@ int32_t skb__match_fonts(
 		}
 
 		// Prune out everything but the selected weight.
-		current_candidates_count = candidates_count;
-		candidates_count = 0;
-		for (int32_t i = 0; i < current_candidates_count; i++) {
+		cur_results_count = results_count;
+		results_count = 0;
+		for (int32_t i = 0; i < cur_results_count; i++) {
 			const skb_font_t* font = skb__get_font_unchecked(font_collection, results[i]);
 			if (font->weight != selected_weight)
 				continue;
-			results[candidates_count++] = results[i];
+			results[results_count++] = results[i];
 		}
 	}
 
-	return candidates_count;
+	return results_count;
 }
 
 int32_t skb_font_collection_match_fonts(
