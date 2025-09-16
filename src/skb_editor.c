@@ -1791,7 +1791,7 @@ static void skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_
 	skb__replace_range(editor, temp_alloc, sel_range.start, sel_range.end, text);
 }
 
-static bool skb__get_selection_paragraph_text(const skb_editor_t* editor, int32_t paragraph_idx, skb_range_t text_range, void* context)
+static bool skb__get_selection_paragraph_text(skb_editor_t* editor, int32_t paragraph_idx, skb_range_t text_range, void* context)
 {
 	skb_text_t* selected_text = context;
 	const skb__editor_paragraph_t* paragraph = &editor->paragraphs[paragraph_idx];
@@ -2509,19 +2509,6 @@ typedef struct skb__paragraph_attribute_context_t {
 	int32_t count;
 } skb__paragraph_attribute_context_t;
 
-static bool skb__paragraph_attribute_set(skb_editor_t* editor, int32_t paragraph_idx, skb_range_t text_range, void* context)
-{
-	skb__paragraph_attribute_context_t* ctx = context;
-	skb__editor_paragraph_t* paragraph = &editor->paragraphs[paragraph_idx];
-	skb_text_add_attribute(&paragraph->text, text_range, ctx->attribute);
-
-	// Force to relayout
-	skb_layout_destroy(paragraph->layout);
-	paragraph->layout = NULL;
-
-	return true;
-}
-
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute)
 {
 	assert(editor);
@@ -2582,6 +2569,19 @@ void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 		// Apply to selection
 		skb_editor_set_attribute(editor, temp_alloc, selection, attribute);
 	}
+}
+
+static bool skb__paragraph_attribute_set(skb_editor_t* editor, int32_t paragraph_idx, skb_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	skb__editor_paragraph_t* paragraph = &editor->paragraphs[paragraph_idx];
+	skb_text_add_attribute(&paragraph->text, text_range, ctx->attribute);
+
+	// Force to relayout
+	skb_layout_destroy(paragraph->layout);
+	paragraph->layout = NULL;
+
+	return true;
 }
 
 void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute)
