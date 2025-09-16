@@ -44,6 +44,14 @@ typedef struct skb_text_t skb_text_t;
 skb_text_t* skb_text_create(void);
 
 /**
+ * Creates empty attributed text that uses the temp allocator. Use skb_text_destroy() to destroy.
+ * Note: the temp allocated text should be only used in very limited scope, e.g. as a text builder, which is disposed right after a layout is created.
+ * @param temp_alloc temp alloc to use with the text.
+ * @return pointer to the newly created text.
+ */
+skb_text_t* skb_text_create_temp(skb_temp_alloc_t* temp_alloc);
+
+/**
  * Destroys specified text.
  * @param text text to destroy
  */

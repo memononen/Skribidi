@@ -10,9 +10,13 @@ typedef struct skb_text_t {
 	uint32_t* text;
 	int32_t text_count;
 	int32_t text_cap;
+
 	skb_attribute_span_t* spans;
 	int32_t spans_count;
 	int32_t spans_cap;
+
+	skb_temp_alloc_t* temp_alloc;
+
 	uint8_t should_free_instance;
 } skb_text_t;
 

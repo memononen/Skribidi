@@ -15,19 +15,48 @@ skb_text_t* skb_text_create(void)
 	return result;
 }
 
+skb_text_t* skb_text_create_temp(skb_temp_alloc_t* temp_alloc)
+{
+	skb_text_t* result = skb_temp_alloc_alloc(temp_alloc, sizeof(skb_text_t));
+	assert(result);
+	memset(result, 0, sizeof(skb_text_t));
+	result->temp_alloc = temp_alloc;
+	result->should_free_instance = true;
+	return result;
+}
+
+
 skb_text_t skb_text_make_empty(void)
 {
 	return (skb_text_t){0};
 }
 
+skb_text_t skb_text_make_empty_temp(skb_temp_alloc_t* temp_alloc)
+{
+	return (skb_text_t){ .temp_alloc = temp_alloc };
+}
+
 void skb_text_destroy(skb_text_t* text)
 {
 	if (!text) return;
-	skb_free(text->text);
-	skb_free(text->spans);
+
+	skb_temp_alloc_t* temp_alloc = text->temp_alloc;
+	if (temp_alloc) {
+		skb_temp_alloc_free(temp_alloc, text->spans);
+		skb_temp_alloc_free(temp_alloc, text->text);
+	} else {
+		skb_free(text->text);
+		skb_free(text->spans);
+	}
+
 	memset(text, 0, sizeof(skb_text_t));
-	if (text->should_free_instance)
-		skb_free(text);
+
+	if (text->should_free_instance) {
+		if (temp_alloc)
+			skb_temp_alloc_free(temp_alloc, text);
+		else
+			skb_free(text);
+	}
 }
 
 void skb_text_reset(skb_text_t* text)
@@ -37,11 +66,29 @@ void skb_text_reset(skb_text_t* text)
 	text->spans_count = 0;
 }
 
+static void skb__text_reserve(skb_text_t* text, int32_t text_count)
+{
+	if (text->temp_alloc) {
+		SKB_TEMP_RESERVE(text->temp_alloc, text->text, text_count);
+	} else {
+		SKB_ARRAY_RESERVE(text->text, text_count);
+	}
+}
+
+static void skb__spans_reserve(skb_text_t* text, int32_t spans_count)
+{
+	if (text->temp_alloc) {
+		SKB_TEMP_RESERVE(text->temp_alloc, text->spans, spans_count);
+	} else {
+		SKB_ARRAY_RESERVE(text->spans, spans_count);
+	}
+}
+
 void skb_text_reserve(skb_text_t* text, int32_t text_count, int32_t spans_count)
 {
 	assert(text);
-	SKB_ARRAY_RESERVE(text->text, text_count);
-	SKB_ARRAY_RESERVE(text->spans, spans_count);
+	skb__text_reserve(text, text_count);
+	skb__spans_reserve(text, spans_count);
 }
 
 int32_t skb_text_get_utf32_count(const skb_text_t* text)
@@ -104,7 +151,7 @@ static int32_t skb__span_insert(skb_text_t* text, skb_range_t text_range, skb_at
 	// Find location to insert at
 	const int32_t idx = skb__spans_lower_bound(text, text_range.start);
 
-	SKB_ARRAY_RESERVE(text->spans, text->spans_count + 1);
+	skb__spans_reserve(text, text->spans_count + 1);
 	text->spans_count++;
 
 	for (int32_t i = text->spans_count - 1; i > idx; i--)
@@ -311,7 +358,7 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 	if (!text_from || !text_from->text_count)
 		return;
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + text_from->text_count);
+	skb__text_reserve(text, text->text_count + text_from->text_count);
 	const int32_t start_offset = text->text_count;
 
 	// Copy text
@@ -320,7 +367,7 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 
 	// Copy attributes
 	if (text_from->spans_count > 0) {
-		SKB_ARRAY_RESERVE(text->spans, text->spans_count + text_from->spans_count);
+		skb__spans_reserve(text, text->spans_count + text_from->spans_count);
 		for (int32_t i = 0; i < text_from->spans_count; i++) {
 			skb_range_t span_range = text_from->spans[i].text_range;
 			span_range.start += start_offset;
@@ -345,7 +392,7 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 	if (copy_count <= 0)
 		return;
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + copy_count);
+	skb__text_reserve(text, text->text_count + copy_count);
 	const int32_t start_offset = text->text_count;
 
 	// Copy text
@@ -376,7 +423,7 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	if (utf8_count < 0) utf8_count = (int32_t)strlen(utf8);
 
 	const int32_t utf32_count = skb_utf8_to_utf32_count(utf8, utf8_count);
-	SKB_ARRAY_RESERVE(text->text, text->text_count + utf32_count);
+	skb__text_reserve(text, text->text_count + utf32_count);
 
 	const skb_range_t range = {
 		.start = text->text_count,
@@ -386,6 +433,7 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	skb_utf8_to_utf32(utf8, utf8_count, text->text + text->text_count, utf32_count);
 	text->text_count += utf32_count;
 
+	skb__spans_reserve(text, text->spans_count + attributes.count);
 	for (int32_t i = 0; i < attributes.count; i++)
 		skb__span_insert(text, range, attributes.items[i]);
 }
@@ -397,7 +445,7 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 
 	if (utf32_count < 0) utf32_count = skb_utf32_strlen(utf32);
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + utf32_count);
+	skb__text_reserve(text, text->text_count + utf32_count);
 
 	const skb_range_t range = {
 		.start = text->text_count,
@@ -407,6 +455,7 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	memcpy(text->text + text->text_count, utf32, utf32_count * sizeof(uint32_t));
 	text->text_count += utf32_count;
 
+	skb__spans_reserve(text, text->spans_count + attributes.count);
 	for (int32_t i = 0; i < attributes.count; i++)
 		skb__span_insert(text, range, attributes.items[i]);
 }
@@ -420,7 +469,8 @@ void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* oth
 
 	const int32_t remove_count = range.end - range.start;
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + other->text_count - remove_count);
+	skb__text_reserve(text, text->text_count + other->text_count - remove_count);
+
 	const int32_t start_offset = text->text_count;
 
 	// Make space for the inserted text
@@ -434,7 +484,7 @@ void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* oth
 	skb__attributes_replace_with_empty(text, range, text->text_count);
 
 	// Insert existing spans
-	SKB_ARRAY_RESERVE(text->spans, text->spans_count + other->spans_count);
+	skb__spans_reserve(text, text->spans_count + other->spans_count);
 	for (int32_t i = 0; i < other->spans_count; i++) {
 		skb_range_t span_range = other->spans[i].text_range;
 		span_range.start += start_offset;
@@ -457,7 +507,7 @@ void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8
 	if (utf8_count < 0) utf8_count = (int32_t)strlen(utf8);
 	const int32_t utf32_count = skb_utf8_to_utf32_count(utf8, utf8_count);
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + utf32_count - remove_count);
+	skb__text_reserve(text, text->text_count + utf32_count - remove_count);
 
 	// Make space for the inserted text
 	memmove(text->text + range.start + utf32_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
@@ -481,7 +531,7 @@ void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t*
 
 	if (utf32_count < 0) utf32_count = skb_utf32_strlen(utf32);
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + utf32_count - remove_count);
+	skb__text_reserve(text, text->text_count + utf32_count - remove_count);
 
 	// Make space for the inserted text
 	memmove(text->text + range.start + utf32_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));

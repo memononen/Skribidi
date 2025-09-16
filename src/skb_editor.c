@@ -142,20 +142,23 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 				paragraph->layout = NULL;
 			}
 
+			skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
+
 			// Combine IME text with the line.
-			// TODO: this seems a bit wasteful, but supporting skb_text on content runs adds quite a lot of complexity.
-			skb_text_t combined_text = skb_text_make_empty();
+			skb_text_t* combined_text = skb_text_create_temp(temp_alloc);
 
 			// Before
-			skb_text_append_range(&combined_text, &paragraph->text, (skb_range_t){ .start = 0, .end = ime_position.paragraph_offset });
+			skb_text_append_range(combined_text, &paragraph->text, (skb_range_t){ .start = 0, .end = ime_position.paragraph_offset });
 			// Composition
-			skb_text_append_utf32(&combined_text, editor->composition_text, editor->composition_text_count, editor->params.composition_attributes);
+			skb_text_append_utf32(combined_text, editor->composition_text, editor->composition_text_count, editor->params.composition_attributes);
 			// After
-			skb_text_append_range(&combined_text, &paragraph->text, (skb_range_t){ .start = ime_position.paragraph_offset, .end = skb_text_get_utf32_count(&paragraph->text) - ime_position.paragraph_offset });
+			skb_text_append_range(combined_text, &paragraph->text, (skb_range_t){ .start = ime_position.paragraph_offset, .end = skb_text_get_utf32_count(&paragraph->text) });
 
-			paragraph->layout = skb_layout_create_from_text(temp_alloc, &layout_params, &combined_text);
+			paragraph->layout = skb_layout_create_from_text(temp_alloc, &layout_params, combined_text);
 
-			skb_text_destroy(&combined_text);
+			skb_text_destroy(combined_text);
+
+			skb_temp_alloc_restore(temp_alloc, mark);
 
 			// Mark as IME layout, so that we can clean things up later.
 			paragraph->has_ime_layout = true;
@@ -2387,16 +2390,18 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	if (key == SKB_KEY_ENTER) {
 		uint32_t cp = SKB_CHAR_LINE_FEED;
 
+		skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
 		skb_attribute_slice_t attributes = {
 			.items = editor->active_attributes,
 			.count = editor->active_attributes_count,
 		};
-		skb_text_t text = skb_text_make_empty();
-		skb_text_append_utf32(&text, &cp, 1, attributes);
+		skb_text_t* text = skb_text_create_temp(temp_alloc);
+		skb_text_append_utf32(text, &cp, 1, attributes);
 
-		skb__replace_selection(editor, temp_alloc, &text);
+		skb__replace_selection(editor, temp_alloc, text);
 
-		skb_text_destroy(&text);
+		skb_text_destroy(text);
+		skb_temp_alloc_restore(temp_alloc, mark);
 
 		editor->allow_append_undo = false;
 		skb__update_layout(editor, temp_alloc);
@@ -2417,16 +2422,18 @@ void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 {
 	assert(editor);
 
+	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
 	skb_attribute_slice_t attributes = {
 		.items = editor->active_attributes,
 		.count = editor->active_attributes_count,
 	};
-	skb_text_t text = skb_text_make_empty();
-	skb_text_append_utf32(&text, &codepoint, 1, attributes);
+	skb_text_t* text = skb_text_create_temp(temp_alloc);
+	skb_text_append_utf32(text, &codepoint, 1, attributes);
 
-	skb__replace_selection(editor, temp_alloc, &text);
+	skb__replace_selection(editor, temp_alloc, text);
 
-	skb_text_destroy(&text);
+	skb_text_destroy(text);
+	skb_temp_alloc_restore(temp_alloc, mark);
 
 	editor->allow_append_undo = true;
 	skb__update_layout(editor, temp_alloc);
@@ -2438,17 +2445,19 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 {
 	assert(editor);
 
-	skb_text_t text = skb_text_make_empty();
+	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
+	skb_text_t* text = skb_text_create_temp(temp_alloc);
 
 	skb_attribute_slice_t attributes = {
 		.items = editor->active_attributes,
 		.count = editor->active_attributes_count,
 	};
-	skb_text_append_utf8(&text, utf8, utf8_len, attributes);
+	skb_text_append_utf8(text, utf8, utf8_len, attributes);
 
-	skb__replace_selection(editor, temp_alloc, &text);
+	skb__replace_selection(editor, temp_alloc, text);
 
-	skb_text_destroy(&text);
+	skb_text_destroy(text);
+	skb_temp_alloc_restore(temp_alloc, mark);
 
 	editor->allow_append_undo = false;
 
@@ -2461,16 +2470,18 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
 {
 	assert(editor);
 
+	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
 	skb_attribute_slice_t attributes = {
 		.items = editor->active_attributes,
 		.count = editor->active_attributes_count,
 	};
-	skb_text_t text = skb_text_make_empty();
-	skb_text_append_utf32(&text, utf32, utf32_len, attributes);
+	skb_text_t* text = skb_text_create_temp(temp_alloc);
+	skb_text_append_utf32(text, utf32, utf32_len, attributes);
 
-	skb__replace_selection(editor, temp_alloc, &text);
+	skb__replace_selection(editor, temp_alloc, text);
 
-	skb_text_destroy(&text);
+	skb_text_destroy(text);
+	skb_temp_alloc_restore(temp_alloc, mark);
 
 	editor->allow_append_undo = false;
 	skb__update_layout(editor, temp_alloc);
