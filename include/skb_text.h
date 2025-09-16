@@ -38,7 +38,7 @@ typedef struct skb_attribute_span_t {
 typedef struct skb_text_t skb_text_t;
 
 /**
- * Creates empty attributed text.
+ * Creates empty attributed text. Use skb_text_destroy() to destroy.
  * @return pointer to the newly created text.
  */
 skb_text_t* skb_text_create(void);
@@ -55,6 +55,14 @@ void skb_text_destroy(skb_text_t* text);
  */
 void skb_text_reset(skb_text_t* text);
 
+/**
+ * Reserves memory in the text buffer for text and attributes. If larger buffer is already allocated, nothing changes.
+ * @param text text to change
+ * @param text_count reserved number of codepoints
+ * @param spans_count reserved number of attribute spans.
+ */
+void skb_text_reserve(skb_text_t* text, int32_t text_count, int32_t spans_count);
+
 /** @return length of the text (utf-32 codeunits).  */
 int32_t skb_text_get_utf32_count(const skb_text_t* text);
 /** @return const pointer to the utf-32 string. */
@@ -70,7 +78,7 @@ const skb_attribute_span_t* skb_text_get_attribute_spans(const skb_text_t* text)
  * @param text pointer to the text to modify
  * @param text_from text to copy from.
  */
-void skb_text_append(skb_text_t* text, skb_text_t* text_from);
+void skb_text_append(skb_text_t* text, const skb_text_t* text_from);
 
 /**
  * Appends range of contents from other text.
@@ -78,7 +86,7 @@ void skb_text_append(skb_text_t* text, skb_text_t* text_from);
  * @param from_text text to copy from.
  * @param from_range text range to copy (in utf-32 codepoints).
  */
-void skb_text_append_range(skb_text_t* text, skb_text_t* from_text, skb_range_t from_range);
+void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range);
 
 /**
  * Appends utf-8 string with attributes.
@@ -165,7 +173,7 @@ void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t
  * @param active_spans_count number of active attributes
  * @param context context pointer passed to skb_text_iterate_attribute_runs().
  */
-typedef void skb_attribute_iterator_func_t(const skb_text_t* text, skb_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context);
+typedef void skb_attribute_run_iterator_func_t(const skb_text_t* text, skb_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context);
 
 /**
  * Iterate through combined attributes runs of the text, returning active attributes for given run.
@@ -173,7 +181,7 @@ typedef void skb_attribute_iterator_func_t(const skb_text_t* text, skb_range_t r
  * @param callback function to call for each attribute run.
  * @param context context that is passed to the callback.
  */
-void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_iterator_func_t* callback, void* context);
+void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_iterator_func_t* callback, void* context);
 
 /** @} */
 

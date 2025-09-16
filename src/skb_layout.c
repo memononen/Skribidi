@@ -1323,10 +1323,18 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 	} else {
 		// If we end up here, we're dealing with last empty new line.
-		const skb__content_run_t* last_content_run = &layout->content_runs[layout->content_runs_count - 1];
-		const uint8_t font_family = skb_attributes_get_font_family(last_content_run->attributes);
-		const float font_size = last_content_run->font_size;
-		const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(last_content_run->attributes);
+		skb_attribute_slice_t attributes = {0};
+		float font_size = 0.f;
+		if (layout->content_runs_count > 0) {
+			const skb__content_run_t* last_content_run = &layout->content_runs[layout->content_runs_count - 1];
+			attributes = last_content_run->attributes;
+			font_size = last_content_run->font_size;
+		} else {
+			attributes = layout->params.base_attributes;
+			font_size = skb_attributes_get_font_size(attributes);
+		}
+		const uint8_t font_family = skb_attributes_get_font_family(attributes);
+		const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(attributes);
 
 		const skb_font_handle_t default_font_handle = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
 		const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, default_font_handle);
@@ -2762,13 +2770,19 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 
 	skb_visual_caret_t vis_caret = {
 		.x = line->bounds.x,
-		.y = line->baseline + line->ascender,
-		.width = 0.f,
-		.height = -line->ascender + line->descender,
+		.y = line->baseline,
+		.slope = 0.f,
+		.ascender = line->ascender,
+		.descender = line->descender,
 		.direction = layout->resolved_direction,
 	};
 
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
+
+	// Caret style is picked from previous character.
+	int32_t caret_style_text_offset = skb_layout_get_text_offset(layout, pos);
+	caret_style_text_offset = skb_layout_prev_grapheme_offset(layout, caret_style_text_offset);
+	caret_style_text_offset = skb_clampi(caret_style_text_offset, line->text_range.start, line->text_range.end - 1);
 
 	int32_t layout_run_idx = SKB_INVALID_INDEX;
 	int32_t glyph_idx = SKB_INVALID_INDEX;
@@ -2776,21 +2790,31 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	float advance = 0.f;
 	skb_caret_iterator_result_t left = {0};
 	skb_caret_iterator_result_t right = {0};
+	bool found_x = false;
+	bool found_style = false;
 
-	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
-		if (pos.offset == left.text_position.offset && pos.affinity == left.text_position.affinity) {
+	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right) && (!found_style || !found_x)) {
+
+		if (left.text_position.offset == caret_style_text_offset && left.text_position.affinity == SKB_AFFINITY_TRAILING) {
 			layout_run_idx = left.layout_run_idx;
 			glyph_idx = left.glyph_idx;
-			vis_caret.x = x;
-			vis_caret.direction = left.direction;
-			break;
+			found_style = true;
 		}
-		if (pos.offset == right.text_position.offset && pos.affinity == right.text_position.affinity) {
+		if (right.text_position.offset == caret_style_text_offset && right.text_position.affinity == SKB_AFFINITY_TRAILING) {
 			layout_run_idx = right.layout_run_idx;
 			glyph_idx = right.glyph_idx;
+			found_style = true;
+		}
+
+		if (left.text_position.offset == pos.offset && left.text_position.affinity == pos.affinity) {
+			vis_caret.x = x;
+			vis_caret.direction = left.direction;
+			found_x = true;
+		}
+		if (right.text_position.offset == pos.offset && right.text_position.affinity == pos.affinity) {
 			vis_caret.x = x;
 			vis_caret.direction = right.direction;
-			break;
+			found_x = true;
 		}
 	}
 
@@ -2798,18 +2822,16 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		const skb_layout_run_t* layout_run = &layout->layout_runs[layout_run_idx];
 		const float font_size = layout_run->font_size;
 		const skb_font_handle_t font_handle = layout_run->font_handle;
-		const skb_glyph_t* glyph = &layout->glyphs[right.glyph_idx];
 
+		const skb_glyph_t* glyph = &layout->glyphs[right.glyph_idx];
 		vis_caret.y = glyph->offset_y;
 
 		if (font_handle) {
 			const skb_font_metrics_t font_metrics = skb_font_get_metrics(layout->params.font_collection, font_handle);
 			const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(layout->params.font_collection, font_handle);
-
-			vis_caret.x -= caret_metrics.slope * font_metrics.descender * font_size;
-			vis_caret.y += font_metrics.ascender * font_size;
-			vis_caret.height = (-font_metrics.ascender + font_metrics.descender) * font_size;
-			vis_caret.width = vis_caret.height * caret_metrics.slope;
+			vis_caret.ascender = font_metrics.ascender * font_size;
+			vis_caret.descender = font_metrics.descender * font_size;
+			vis_caret.slope = caret_metrics.slope;
 		}
 	}
 
@@ -3216,12 +3238,14 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 		right->direction = cur_layout_run->direction;
 		right->glyph_idx = iter->glyph_idx;
 		right->cluster_idx = iter->cluster_idx;
+		right->layout_run_idx = iter->layout_run_idx;
 
 		iter->pending_left.text_position.offset = iter->grapheme_pos;
 		iter->pending_left.text_position.affinity = skb_is_rtl(cur_layout_run->direction) ? SKB_AFFINITY_TRAILING : SKB_AFFINITY_LEADING; // LTR = leading;
 		iter->pending_left.direction = cur_layout_run->direction;
 		iter->pending_left.glyph_idx = iter->glyph_idx;
 		iter->pending_left.cluster_idx = iter->cluster_idx;
+		iter->pending_left.layout_run_idx = iter->layout_run_idx;
 
 		// Advance to next state
 		if (!iter->end_of_runs) {

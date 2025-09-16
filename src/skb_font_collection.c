@@ -244,7 +244,7 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &caret_rise);
 	hb_ot_metrics_get_position_with_fallback(font->hb_font, HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &caret_run);
 	font->caret_metrics.offset = (float)caret_offset * font->upem_scale;
-	font->caret_metrics.slope = (float)caret_run / (float)caret_rise;
+	font->caret_metrics.slope = -(float)caret_run / (float)caret_rise;
 
 	// Cache glyph bounds
 	font->glyph_bounds_count = (int32_t)hb_face_get_glyph_count(face);

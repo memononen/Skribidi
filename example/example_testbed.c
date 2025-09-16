@@ -50,11 +50,18 @@ static void update_ime_rect(testbed_context_t* ctx)
 	skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 	skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
 
+	skb_rect2_t caret_rect = {
+		.x = caret_pos.x - caret_pos.descender * caret_pos.slope,
+		.y = caret_pos.y + caret_pos.ascender,
+		.width = (-caret_pos.ascender + caret_pos.descender) * caret_pos.slope,
+		.height = -caret_pos.ascender + caret_pos.descender,
+	};
+
 	skb_rect2i_t input_rect = {
-		.x = (int32_t)(ctx->view.cx + caret_pos.x * ctx->view.scale),
-		.y = (int32_t)(ctx->view.cy + caret_pos.y * ctx->view.scale),
-		.width = (int32_t)(caret_pos.width * ctx->view.scale),
-		.height = (int32_t)(caret_pos.height * ctx->view.scale),
+		.x = (int32_t)(ctx->view.cx + caret_rect.x * ctx->view.scale),
+		.y = (int32_t)(ctx->view.cy + caret_rect.y * ctx->view.scale),
+		.width = (int32_t)(caret_rect.width * ctx->view.scale),
+		.height = (int32_t)(caret_rect.height * ctx->view.scale),
 	};
 	ime_set_input_rect(input_rect);
 }
@@ -87,6 +94,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 		goto error; \
 	}
 
+#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
+		skb_debug_log("Failed to load " path "\n"); \
+		goto error; \
+	}
+
 void* testbed_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
@@ -115,7 +128,15 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
 
+	const skb_font_create_params_t fake_italic_params = {
+		.slant = SKB_DEFAULT_SLANT
+	};
+
 	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
+	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Italic.ttf", SKB_FONT_FAMILY_DEFAULT);
+	LOAD_FONT_OR_FAIL("data/IBMPlexSans-Bold.ttf", SKB_FONT_FAMILY_DEFAULT);
+	LOAD_FONT_PARAMS_OR_FAIL("data/IBMPlexSans-Bold.ttf", SKB_FONT_FAMILY_DEFAULT, &fake_italic_params);
+
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansArabic-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansJP-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
 	LOAD_FONT_OR_FAIL("data/IBMPlexSansKR-Regular.ttf", SKB_FONT_FAMILY_DEFAULT);
@@ -201,8 +222,6 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t composition_attributes[] = {
-		skb_attribute_make_font_size(92.f),
-		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, skb_rgba(0,128,192,255)),
 	};
@@ -303,6 +322,16 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		if (key == GLFW_KEY_A && (mods & GLFW_MOD_CONTROL)) {
 			// Select all
 			skb_editor_select_all(ctx->editor);
+			ctx->allow_char = false;
+		}
+		if (key == GLFW_KEY_B && (mods & GLFW_MOD_CONTROL)) {
+			// Bold
+			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
+			ctx->allow_char = false;
+		}
+		if (key == GLFW_KEY_I && (mods & GLFW_MOD_CONTROL)) {
+			// Italic
+			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_TAB) {
@@ -738,6 +767,13 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			}
 
 			cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "text_offset %d", edit_selection.end_pos.offset);
+
+			// Active attributes
+			const int32_t active_attributes_count = skb_editor_get_active_attributes_count(ctx->editor);
+			const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(ctx->editor);
+			cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Active attributes (%d):", active_attributes_count);
+			for (int32_t i = 0; i < active_attributes_count; i++)
+				cx = debug_render_text(ctx->rc, cx + 5,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "%c%c%c%c", SKB_UNTAG(active_attributes[i].kind));
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -746,18 +782,18 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Visual caret
 			skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
 
-			float caret_slope = caret_pos.width / caret_pos.height;
-			float caret_top_x = caret_pos.x + caret_pos.width - caret_slope * 3.f;
-			float caret_top_y = caret_pos.y + 3.f;
-			float caret_bot_x = caret_pos.x + caret_slope * 3.f;
-			float caret_bot_y = caret_pos.y + caret_pos.height - 3.f;
+			float caret_slope = caret_pos.slope;
+			float caret_top_x = caret_pos.x + (caret_pos.ascender + 3.f) * caret_slope;
+			float caret_top_y = caret_pos.y + caret_pos.ascender + 3.f;
+			float caret_bot_x = caret_pos.x + (caret_pos.descender - 3.f) * caret_slope;
+			float caret_bot_y = caret_pos.y + (caret_pos.descender - 3.f);
 
 			debug_render_line(ctx->rc, caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color, 6.f);
 
-			float as = skb_absf(caret_pos.height) / 10.f;
+			float as = skb_absf(caret_bot_y - caret_top_y) / 10.f;
 			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
-			float tri_top_x = caret_pos.x + caret_pos.width;
-			float tri_top_y = caret_pos.y;
+			float tri_top_x = caret_pos.x + caret_pos.ascender * caret_slope;
+			float tri_top_y = caret_pos.y + caret_pos.ascender;
 			float tri_bot_x = tri_top_x - as * caret_slope;
 			float tri_bot_y = tri_top_y + as;
 			debug_render_tri(ctx->rc, tri_top_x, tri_top_y,

@@ -110,6 +110,7 @@ set(SKRIBIDI_SOURCE_FILES
 	skb_layout_cache.c
 	skb_rasterizer.c
 	skb_text.c
+	skb_text_internal.h
 )
 
 set(SKRIBIDI_API_FILES

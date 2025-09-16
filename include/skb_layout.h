@@ -629,18 +629,19 @@ typedef struct skb_text_selection_t {
 } skb_text_selection_t;
 
 /** Struct describing visual caret location.
- * The caret line can be described as: (x+width, y) - (x, y+height).
- * Where, (x,y) is the top left corner of the rectangle containing the caret.
+ * The caret line can be described as: (x+descender*slope, y+descender) - (x+ascender*slope, y+ascender).
  */
 typedef struct skb_visual_caret_t {
-	/** X location of the caret */
+	/** X baseline location of the caret */
 	float x;
-	/** Y location of the caret */
+	/** Y baseline location of the caret */
 	float y;
-	/** Height of the caret */
-	float height;
-	/** Width of the caret (slant) */
-	float width;
+	/** Ascender of the caret (negative) */
+	float ascender;
+	/** Descender of the caret. */
+	float descender;
+	/** Slope of the caret (dx = dy * slope) */
+	float slope;
 	/** Text direction at caret location. */
 	uint8_t direction;
 } skb_visual_caret_t;

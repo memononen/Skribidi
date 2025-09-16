@@ -2,24 +2,22 @@
 
 #include "skb_text.h"
 #include "skb_common.h"
+#include "skb_text_internal.h"
 
 #include <assert.h>
 #include <string.h>
-
-typedef struct skb_text_t {
-	uint32_t* text;
-	int32_t text_count;
-	int32_t text_cap;
-	skb_attribute_span_t* spans;
-	int32_t spans_count;
-	int32_t spans_cap;
-} skb_text_t;
 
 skb_text_t* skb_text_create(void)
 {
 	skb_text_t* result = skb_malloc(sizeof(skb_text_t));
 	memset(result, 0, sizeof(skb_text_t));
+	result->should_free_instance = true;
 	return result;
+}
+
+skb_text_t skb_text_make_empty(void)
+{
+	return (skb_text_t){0};
 }
 
 void skb_text_destroy(skb_text_t* text)
@@ -27,7 +25,9 @@ void skb_text_destroy(skb_text_t* text)
 	if (!text) return;
 	skb_free(text->text);
 	skb_free(text->spans);
-	skb_free(text);
+	memset(text, 0, sizeof(skb_text_t));
+	if (text->should_free_instance)
+		skb_free(text);
 }
 
 void skb_text_reset(skb_text_t* text)
@@ -37,32 +37,35 @@ void skb_text_reset(skb_text_t* text)
 	text->spans_count = 0;
 }
 
-int32_t skb_text_get_utf32_count(const skb_text_t* text)
+void skb_text_reserve(skb_text_t* text, int32_t text_count, int32_t spans_count)
 {
 	assert(text);
-	return text->text_count;
+	SKB_ARRAY_RESERVE(text->text, text_count);
+	SKB_ARRAY_RESERVE(text->spans, spans_count);
+}
+
+int32_t skb_text_get_utf32_count(const skb_text_t* text)
+{
+	return text ? text->text_count : 0;
 }
 
 const uint32_t* skb_text_get_utf32(const skb_text_t* text)
 {
-	assert(text);
-	return text->text;
+	return text ? text->text : NULL;
 }
 
 int32_t skb_text_get_attribute_spans_count(const skb_text_t* text)
 {
-	assert(text);
-	return text->spans_count;
+	return text ? text->spans_count : 0;
 }
 
 const skb_attribute_span_t* skb_text_get_attribute_spans(const skb_text_t* text)
 {
-	assert(text);
-	return text->spans;
+	return text ? text->spans : NULL;
 }
 
 
-static skb_range_t skb__clamp_text_range(skb_text_t* text, skb_range_t range)
+static skb_range_t skb__clamp_text_range(const skb_text_t* text, skb_range_t range)
 {
 	return (skb_range_t) {
 		.start = skb_clampi(range.start, 0, text->text_count),
@@ -79,7 +82,7 @@ static void skb__span_remove(skb_text_t* text, int32_t idx)
 	text->spans_count--;
 }
 
-static int32_t skb__spans_lower_bound(skb_text_t* text, int32_t pos)
+static int32_t skb__spans_lower_bound(const skb_text_t* text, int32_t pos)
 {
 	int32_t low = 0;
 	int32_t high = text->spans_count;
@@ -301,12 +304,11 @@ void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_c
 }
 
 
-void skb_text_append(skb_text_t* text, skb_text_t* text_from)
+void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 {
 	assert(text);
-	assert(text_from);
 
-	if (!text_from->text_count)
+	if (!text_from || !text_from->text_count)
 		return;
 
 	SKB_ARRAY_RESERVE(text->text, text->text_count + text_from->text_count);
@@ -314,7 +316,7 @@ void skb_text_append(skb_text_t* text, skb_text_t* text_from)
 
 	// Copy text
 	memcpy(text->text + start_offset, text_from->text, text_from->text_count * sizeof(uint32_t));
-	text->text_count += text->text_count;
+	text->text_count += text_from->text_count;
 
 	// Copy attributes
 	if (text_from->spans_count > 0) {
@@ -329,34 +331,35 @@ void skb_text_append(skb_text_t* text, skb_text_t* text_from)
 	}
 }
 
-void skb_text_append_range(skb_text_t* text, skb_text_t* from_text, skb_range_t range)
+void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t range)
 {
 	assert(text);
-	assert(from_text);
 
-	if (!from_text->text_count)
+	if (!from_text || !from_text->text_count)
 		return;
 
 	range = skb__clamp_text_range(from_text, range);
-	int32_t copy_count = range.end - range.start;
+	const int32_t copy_offset = range.start;
+	const int32_t copy_count = range.end - range.start;
 
 	if (copy_count <= 0)
 		return;
 
-	SKB_ARRAY_RESERVE(text->text, text->text_count + from_text->text_count);
+	SKB_ARRAY_RESERVE(text->text, text->text_count + copy_count);
 	const int32_t start_offset = text->text_count;
 
 	// Copy text
-	memcpy(text->text + start_offset, from_text->text, from_text->text_count * sizeof(uint32_t));
-	text->text_count += text->text_count;
+	memcpy(text->text + start_offset, from_text->text + copy_offset, copy_count * sizeof(uint32_t));
+	text->text_count += copy_count;
 
 	// Copy attributes
 	if (from_text->spans_count > 0) {
+		const int32_t span_offset = start_offset - copy_offset;
 		for (int32_t i = 0; i < from_text->spans_count; i++) {
 			const skb_attribute_span_t* span = &from_text->spans[i];
 			skb_range_t span_range = {
-				.start = skb_maxi(span->text_range.start, range.start) - range.start + start_offset,
-				.end = skb_mini(span->text_range.end, range.end) - range.start + start_offset,
+				.start = skb_maxi(span->text_range.start, range.start) + span_offset,
+				.end = skb_mini(span->text_range.end, range.end) + span_offset,
 			};
 			if (span_range.end > span_range.start)
 				skb__span_insert(text, span_range, span->attribute);
@@ -535,7 +538,7 @@ void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t
 	skb__attributes_merge_adjacent(text);
 }
 
-void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_iterator_func_t* callback, void* context)
+void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_iterator_func_t* callback, void* context)
 {
 	assert(text);
 	assert(callback);

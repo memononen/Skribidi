@@ -154,17 +154,25 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
  */
 void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
 
+/**
+ * Sets the text of the editor from an attributed text.
+ * @param editor editor to change.
+ * @param temp_alloc temp allocator used while setting layouting the text.
+ * @param text pointer to the attributed text to set.
+ */
+void skb_editor_set_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_t* text);
+
 /** @return length of the edited text as utf-8. */
 int32_t skb_editor_get_text_utf8_count(const skb_editor_t* editor);
 
 /**
  * Gets the edited text as utf-8.
  * @param editor editor to query.
- * @param buf buffer where to store the text.
- * @param buf_cap capacity of the buffer.
+ * @param utf8 buffer where to store the text.
+ * @param utf8_cap capacity of the buffer.
  * @return total length of the string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_text_utf8(const skb_editor_t* editor, char* buf, int32_t buf_cap);
+int32_t skb_editor_get_text_utf8(const skb_editor_t* editor, char* utf8, int32_t utf8_cap);
 
 /** @return length of the edited text as utf-32. */
 int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor);
@@ -172,11 +180,18 @@ int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor);
 /**
  * Gets the edited text as utf-32.
  * @param editor editor to query.
- * @param buf buffer where to store the text.
- * @param buf_cap capacity of the buffer.
+ * @param utf32 buffer where to store the text.
+ * @param utf32_cap capacity of the buffer.
  * @return total length of the string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* buf, int32_t buf_cap);
+int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, int32_t utf32_cap);
+
+/**
+ * Gets the edited attributed text.
+ * @param editor editor to query
+ * @param text pointer to the text where the text should be stored.
+ */
+void skb_editor_get_text(const skb_editor_t* editor, skb_text_t* text);
 
 /** @return number of paragraphs in the editor. */
 int32_t skb_editor_get_paragraph_count(skb_editor_t* editor);
@@ -265,24 +280,32 @@ int32_t skb_editor_get_selection_text_utf8_count(const skb_editor_t* editor, skb
  * Gets the text of the specified selection text as utf-8.
  * @param editor editor to query.
  * @param selection range of text to get.
- * @param buf buffer where to store the text.
- * @param buf_cap capacity of the buffer.
+ * @param utf8 buffer where to store the selected text.
+ * @param utf8_cap capacity of the buffer.
  * @return total length of the selected string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_selection_text_utf8(const skb_editor_t* editor, skb_text_selection_t selection, char* buf, int32_t buf_cap);
+int32_t skb_editor_get_selection_text_utf8(const skb_editor_t* editor, skb_text_selection_t selection, char* utf8, int32_t utf8_cap);
 
 /** @return return the text length in utf-32 of specified selection. */
 int32_t skb_editor_get_selection_text_utf32_count(const skb_editor_t* editor, skb_text_selection_t selection);
 
 /**
- * Gets the text of the specified selection text as utf-8.
+ * Gets the text of the specified selection text as utf-32.
  * @param editor editor to query.
  * @param selection range of text to get.
- * @param buf buffer where to store the text.
- * @param buf_cap capacity of the buffer.
+ * @param utf32 buffer where to store the selected text.
+ * @param utf32_cap capacity of the buffer.
  * @return total length of the selected string (can be larger than buf_cap).
  */
-int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* buf, int32_t buf_cap);
+int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* utf32, int32_t utf32_cap);
+
+/**
+ * Gets the text of the specified selection attributed text.
+ * @param editor editor to query.
+ * @param selection range of text to get.
+ * @param text text where to store the selected text.
+ */
+void skb_editor_get_selection_text(const skb_editor_t* editor, skb_text_selection_t selection, skb_text_t* text);
 
 /**
  * Processes mouse click, and updates internal state.
@@ -338,11 +361,82 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
 
 /**
+ * Paste attributed text to the current caret position.
+ * @param editor editor to update.
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text attributed text to paste
+ */
+void skb_editor_paste_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_text_t* text);
+
+/**
  * Deletes current selection.
  * @param editor editor to update.
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  */
 void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Toggles attribute for the current selection.
+ * If the whole current selection range has the specified attribute, the attribute is cleared, else the attribute is set.
+ * If the current selection is empty, the active attributes will be changed instead. Active attributes define what style is applied to the next text that is inserted.
+ * This is useful for attributes like bold, italic, and underline.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param attribute attribute to toggle.
+ */
+void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute);
+
+/**
+ * Applies attribute for the current selection.
+ * Sets attribute the whole current selection range, overriding any attribute of same kind.
+ * If the current selection is empty, the active attributes will be changed instead. Active attributes define what style is applied to the next text that is inserted.
+ * This is useful for attributes like font size or color.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param attribute attribute to apply.
+ */
+void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute);
+
+/**
+ * Sets attribute for specified range, overriding any attribute of same kind.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout
+ * @param selection range of text to change
+ * @param attribute attribute to set.
+ */
+void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+
+/**
+ * Clears attribute for specified selection range.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout
+ * @param selection range of text to change
+ * @param attribute_kind the kind of attribute to clear.
+ */
+void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, uint32_t attribute_kind);
+
+/**
+ * Clears all attributes for specified selection range.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout
+ * @param selection range of text to change
+ */
+void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection);
+
+/**
+ * Counts number of codepoints the attribute is applied in the selection range.
+ * @param editor editor to update
+ * @param selection range of text to query
+ * @param attribute_kind attribute to query
+ * @return number of codepoints the attribute is applied to
+ */
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t attribute_kind);
+
+/** @return number of active attributes. Active attributes define what style is applied to the next text that is inserted. */
+int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);
+
+/** @return constpointer to active attributes. Active attributes define what style is applied to the next text that is inserted. */
+const skb_attribute_t* skb_editor_get_active_attributes(const skb_editor_t* editor);
 
 /** @return True, if the last change can be undone. */
 bool skb_editor_can_undo(skb_editor_t* editor);
@@ -391,6 +485,7 @@ void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t*
  * @param temp_alloc temp allocator used for updating the editor text.
  */
 void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
 
 
 /** @} */
