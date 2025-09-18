@@ -1717,7 +1717,7 @@ static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 		skb__editor_paragraph_t* new_start_paragraph = &editor->paragraphs[paragraph_idx++];
 		skb__paragraph_init(new_start_paragraph);
 		skb_text_append_range(&new_start_paragraph->text, &start_paragraph.text, (skb_range_t){ .start = 0, .end = start_paragraph_copy_count });
-		skb_text_append_range(&new_start_paragraph->text, text, (skb_range_t){ .start = 0, .end = start_paragraph_copy_count });
+		skb_text_append_range(&new_start_paragraph->text, text, start_paragraph_range);
 
 		// Middle
 		for (int32_t i = 1; i < new_paragraph_count - 1; i++) {
@@ -1731,8 +1731,8 @@ static void skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 		const skb_range_t end_paragraph_range = new_paragraph_ranges[new_paragraph_count - 1];
 		skb__editor_paragraph_t* new_end_paragraph = &editor->paragraphs[paragraph_idx++];
 		skb__paragraph_init(new_end_paragraph);
-		skb_text_append_range(&new_start_paragraph->text, text, (skb_range_t){ .start = end_paragraph_copy_offset, .end = end_paragraph_copy_offset + end_paragraph_copy_count });
-		skb_text_append_range(&new_start_paragraph->text, &end_paragraph.text, (skb_range_t){ .start = end_paragraph_copy_offset, .end = end_paragraph_copy_offset + end_paragraph_copy_count });
+		skb_text_append_range(&new_end_paragraph->text, text, end_paragraph_range);
+		skb_text_append_range(&new_end_paragraph->text, &end_paragraph.text, (skb_range_t){ .start = end_paragraph_copy_offset, .end = end_paragraph_copy_offset + end_paragraph_copy_count });
 
 		// Keep track of last paragraph and last codepoint inserted for caret positioning.
 		last_paragraph = new_end_paragraph;
@@ -2405,6 +2405,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 		editor->allow_append_undo = false;
 		skb__update_layout(editor, temp_alloc);
+
 		// The call to skb_editor_replace_selection() changes selection to after the inserted text.
 		// The caret is placed on the leading edge, which is usually good, but for new line we want trailing.
 		skb__editor_text_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_SANITIZE_ADJUST_AFFINITY);
