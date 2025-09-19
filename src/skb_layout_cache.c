@@ -168,7 +168,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs(
 		} else if (fixed_runs[i].type == SKB_CONTENT_RUN_ICON) {
 			hash = skb_hash64_append_float(hash, fixed_runs[i].icon.width);
 			hash = skb_hash64_append_float(hash, fixed_runs[i].icon.height);
-			hash = skb_hash64_append_str(hash, fixed_runs[i].icon.name);
+			hash = skb_hash64_append_uint32(hash, fixed_runs[i].icon.icon_handle);
 		}
 		hash = skb_layout_params_hash_append(hash, params);
 		hash = skb_attributes_hash_append(hash, fixed_runs[i].attributes);

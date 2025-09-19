@@ -107,7 +107,7 @@ typedef struct skb_content_object_t {
 typedef struct skb_content_icon_t {
 	float width;
 	float height;
-	const char* name;
+	skb_icon_handle_t icon_handle;
 } skb_content_icon_t;
 
 /** Enum describing content run type. */
@@ -206,14 +206,14 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * Note: the function does not take copy of the data. The passed pointers (including attribute slice)
  * must be valid until a function taking the runs is called, e.g. skb_layout_create_from_runs().
  *
- * @param name name of the icon to add, the icon is looked in the icon_collection specified in the layout params.
+ * @param icon_handle handle of the icon to add, the handle must point to the icon_collection specified in the layout params.
  * @param width width of the icon, if SKB_SIZE_AUTO the width will be calculated from height keeping aspect ratio.
  * @param height height of the icon, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
  * @param attributes attributes to apply for the icon.
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(const char* name, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
 
 
 /** Enum describing flags for skb_layout_line_t. */

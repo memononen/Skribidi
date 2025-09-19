@@ -151,13 +151,13 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
 	};
 }
 
-skb_content_run_t skb_content_run_make_icon(const char* icon_name, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_ICON,
 		.run_id = run_id,
 		.icon = {
-			.name = icon_name,
+			.icon_handle = icon_handle,
 			.width = width,
 			.height = height,
 		},
@@ -2255,12 +2255,11 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 			const uint32_t object_str = SKB_CHAR_REPLACEMENT_OBJECT;
 			count = skb__append_text_utf32(layout, &object_str, 1);
 			if (layout->params.icon_collection) {
-				skb_icon_handle_t icon_handle = skb_icon_collection_find_icon(layout->params.icon_collection, run->icon.name);
-				if (icon_handle) {
-					const skb_vec2_t icon_size = skb_icon_collection_calc_proportional_size(layout->params.icon_collection, icon_handle, run->icon.width, run->icon.height);
+				if (run->icon.icon_handle) {
+					const skb_vec2_t icon_size = skb_icon_collection_calc_proportional_size(layout->params.icon_collection, run->icon.icon_handle, run->icon.width, run->icon.height);
 					content_width = icon_size.x;
 					content_height = icon_size.y;
-					content_data = icon_handle;
+					content_data = run->icon.icon_handle;
 				}
 			}
 		}

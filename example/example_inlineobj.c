@@ -177,9 +177,9 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 		skb_content_run_make_object(3, object_size, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_object3), 0),
 		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text2), 0),
 
-		skb_content_run_make_icon("astro", SKB_SIZE_AUTO, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
+		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "astro"), SKB_SIZE_AUTO, object_size, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
 		skb_content_run_make_utf8("Icon and two", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_text), 0),
-		skb_content_run_make_icon("pen", SKB_SIZE_AUTO, object_size * 0.75f, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
+		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, object_size * 0.75f, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
