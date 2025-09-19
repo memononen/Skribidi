@@ -115,7 +115,7 @@ void* culling_create(GLFWwindow* window, render_context_t* rc)
 
 	const char* text = "Hamburgerfontstiv 🤣🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸 این یک تست است 😬👀🚨🏡🕊️🏆😻🌟私はその人を常に先生と 呼んでいた。";
 
-	ctx->layout = skb_layout_create_utf8(ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
+	ctx->layout = skb_layout_create_utf8(ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
 	assert(ctx->layout);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };

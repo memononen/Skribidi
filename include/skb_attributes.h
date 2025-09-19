@@ -16,11 +16,11 @@ extern "C" {
  *
  * Attributes are used to describe text appearance, such of font family, size or weight.
  *
- * The aatributes are passed to the layout functions using an attribute slice, which has non-owning pointer to array of attributes, number of attributes,
- * and pointer to parent attribute slice, which forms an attribute chain. The first item in the chain, is the first item of the furthest parent. And the last item
- * is the last attribute of the slice. The parent can be thought as data inheritance parent.
+ * The attributes are passed to the layout functions using an attribute set, which has non-owning pointer to array of attributes, number of attributes,
+ * and pointer to parent attribute set, which forms an attribute chain. The first item in the chain, is the first item of the furthest parent. And the last item
+ * is the last attribute of the set. The parent can be thought as data inheritance parent.
  *
- * If an attribute is encountered multiple times in the chain, the last attribute is selected. That a slice can override a parent attribute.
+ * If an attribute is encountered multiple times in the chain, the last attribute is selected. That a set can override a parent attribute.
  *
  * When attributes are copied to a layout, the whole attribute chain is copied flattened.
  *
@@ -278,13 +278,19 @@ typedef union skb_attribute_t {
 	skb_attribute_object_padding_t object_padding;
 } skb_attribute_t;
 
-typedef struct skb_attribute_slice_t {
-	const skb_attribute_t* items;
-	int32_t count;
-	struct skb_attribute_slice_t* parent;
-} skb_attribute_slice_t;
+/**
+ * Struct describing a view to set of attributes. The attribute set does not own the attributes,
+ * but it used in the API to pass in or get array of attributes.
+ *
+ * The parent pointer allows attribute sets to create chains.
+ */
+typedef struct skb_attribute_set_t {
+	const skb_attribute_t* attributes;
+	int32_t attributes_count;
+	struct skb_attribute_set_t* parent;
+} skb_attribute_set_t;
 
-#define SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(array) (skb_attribute_slice_t) { .items = (array), .count = SKB_COUNTOF(array) }
+#define SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(array) (skb_attribute_set_t) { .attributes = (array), .attributes_count = SKB_COUNTOF(array) }
 
 /** @returns new text direction attribute. See skb_attribute_text_direction_t */
 skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction);
@@ -341,7 +347,7 @@ skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float ver
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_slice_t attributes);
+skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes);
 
 /**
  * Returns language attribute or default value if not found.
@@ -349,7 +355,7 @@ skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_slice
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default avalue.
  */
-const char* skb_attributes_get_lang(const skb_attribute_slice_t attributes);
+const char* skb_attributes_get_lang(const skb_attribute_set_t attributes);
 
 /**
  * Returns first font attribute or default value if not found.
@@ -357,7 +363,7 @@ const char* skb_attributes_get_lang(const skb_attribute_slice_t attributes);
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-uint8_t skb_attributes_get_font_family(const skb_attribute_slice_t attributes);
+uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes);
 
 /**
  * Returns first font text attribute or default value if not found.
@@ -365,7 +371,7 @@ uint8_t skb_attributes_get_font_family(const skb_attribute_slice_t attributes);
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_font_size(const skb_attribute_slice_t attributes);
+float skb_attributes_get_font_size(const skb_attribute_set_t attributes);
 
 /**
  * Returns first font text attribute or default value if not found.
@@ -373,7 +379,7 @@ float skb_attributes_get_font_size(const skb_attribute_slice_t attributes);
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_weight_t skb_attributes_get_font_weight(const skb_attribute_slice_t attributes);
+skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes);
 
 /**
  * Returns first font text attribute or default value if not found.
@@ -381,7 +387,7 @@ skb_weight_t skb_attributes_get_font_weight(const skb_attribute_slice_t attribut
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_style_t skb_attributes_get_font_style(const skb_attribute_slice_t attributes);
+skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes);
 
 /**
  * Returns first font text attribute or default value if not found.
@@ -389,7 +395,7 @@ skb_style_t skb_attributes_get_font_style(const skb_attribute_slice_t attributes
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_slice_t attributes);
+skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes);
 
 /**
  * Returns letter spacing attribute or default value if not found.
@@ -397,7 +403,7 @@ skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_slice_t attrib
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_letter_spacing(const skb_attribute_slice_t attributes);
+float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes);
 
 /**
  * Returns letter spacing attribute or default value if not found.
@@ -405,7 +411,7 @@ float skb_attributes_get_letter_spacing(const skb_attribute_slice_t attributes);
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_word_spacing(const skb_attribute_slice_t attributes);
+float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes);
 
 /**
  * Returns first line height attribute or default value if not found.
@@ -413,7 +419,7 @@ float skb_attributes_get_word_spacing(const skb_attribute_slice_t attributes);
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_slice_t attributes);
+skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes);
 
 /**
  * Returns first fill attribute or default value if not found.
@@ -421,7 +427,7 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_s
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_slice_t attributes);
+skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes);
 
 /**
  * Returns first object align attribute or default value if not found.
@@ -430,7 +436,7 @@ skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_slice_t attribu
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_slice_t attributes);
+skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes);
 
 /**
  * Returns first object padding attribute or default value if not found.
@@ -438,14 +444,14 @@ skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute
  * @param attributes attribute slice where to look for the attributes from.
  * @return first found attribute or default value.
  */
-skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_slice_t attributes);
+skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_set_t attributes);
 
 /**
  * Returns number of attributes in the attribute slice and it's parent chain.
  * @param attributes attribute slice to use
  * @return attribute count.
  */
-int32_t skb_attributes_get_count(const skb_attribute_slice_t attributes);
+int32_t skb_attributes_get_count(const skb_attribute_set_t attributes);
 
 /**
  * Copies attributes from the attribute slice, and it's parent chain to flat attribute list 'target'.
@@ -456,7 +462,7 @@ int32_t skb_attributes_get_count(const skb_attribute_slice_t attributes);
  * @param target_cap capacity of the target array.
  * @return number of attributes copied.
  */
-int32_t skb_attributes_copy(const skb_attribute_slice_t attributes, skb_attribute_t* target, const int32_t target_cap);
+int32_t skb_attributes_copy(const skb_attribute_set_t attributes, skb_attribute_t* target, const int32_t target_cap);
 
 /** @} */
 

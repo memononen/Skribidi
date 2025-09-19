@@ -314,32 +314,32 @@ static void skb__copy_params(skb_editor_params_t* target, const skb_editor_param
 	assert(target);
 	assert(params);
 
-	if (target->text_attributes.items) {
-		skb_free((skb_attribute_t*)target->text_attributes.items);
-		target->text_attributes = (skb_attribute_slice_t){0};
+	if (target->text_attributes.attributes) {
+		skb_free((skb_attribute_t*)target->text_attributes.attributes);
+		target->text_attributes = (skb_attribute_set_t){0};
 	}
-	if (target->composition_attributes.items) {
-		skb_free((skb_attribute_t*)target->composition_attributes.items);
-		target->composition_attributes = (skb_attribute_slice_t){0};
+	if (target->composition_attributes.attributes) {
+		skb_free((skb_attribute_t*)target->composition_attributes.attributes);
+		target->composition_attributes = (skb_attribute_set_t){0};
 	}
 
 	*target = *params;
-	target->text_attributes = (skb_attribute_slice_t){0};
-	target->composition_attributes = (skb_attribute_slice_t){0};
+	target->text_attributes = (skb_attribute_set_t){0};
+	target->composition_attributes = (skb_attribute_set_t){0};
 
 	// TODO copy params->layout_params.base_attributes? currently it is completely ignored.
-	target->layout_params.base_attributes = (skb_attribute_slice_t){0};
+	target->layout_params.base_attributes = (skb_attribute_set_t){0};
 
 	const int32_t text_attributes_count = skb_attributes_get_count(params->text_attributes);
 	if (text_attributes_count > 0) {
-		target->text_attributes.items = skb_malloc(sizeof(skb_attribute_t) * text_attributes_count);
-		target->text_attributes.count = skb_attributes_copy(params->text_attributes, (skb_attribute_t*)target->text_attributes.items, text_attributes_count);
+		target->text_attributes.attributes = skb_malloc(sizeof(skb_attribute_t) * text_attributes_count);
+		target->text_attributes.attributes_count = skb_attributes_copy(params->text_attributes, (skb_attribute_t*)target->text_attributes.attributes, text_attributes_count);
 	}
 
 	const int32_t composition_attributes_count = skb_attributes_get_count(params->composition_attributes);
 	if (composition_attributes_count > 0) {
-		target->composition_attributes.items = skb_malloc(sizeof(skb_attribute_t) * composition_attributes_count);
-		target->composition_attributes.count = skb_attributes_copy(params->composition_attributes, (skb_attribute_t*)target->composition_attributes.items, composition_attributes_count);
+		target->composition_attributes.attributes = skb_malloc(sizeof(skb_attribute_t) * composition_attributes_count);
+		target->composition_attributes.attributes_count = skb_attributes_copy(params->composition_attributes, (skb_attribute_t*)target->composition_attributes.attributes, composition_attributes_count);
 	}
 }
 
@@ -391,8 +391,8 @@ void skb_editor_destroy(skb_editor_t* editor)
 
 	skb_free(editor->paragraphs);
 	skb_free(editor->composition_text);
-	skb_free((skb_attribute_t*)editor->params.text_attributes.items);
-	skb_free((skb_attribute_t*)editor->params.composition_attributes.items);
+	skb_free((skb_attribute_t*)editor->params.text_attributes.attributes);
+	skb_free((skb_attribute_t*)editor->params.composition_attributes.attributes);
 	skb_free(editor->active_attributes);
 
 	memset(editor, 0, sizeof(skb_editor_t));
@@ -444,7 +444,7 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 		skb__paragraph_init(new_paragraph);
 
 		const int32_t text_count = paragraph_range.end - paragraph_range.start;
-		skb_text_append_utf32(&new_paragraph->text, utf32 + paragraph_range.start, text_count, (skb_attribute_slice_t){0});
+		skb_text_append_utf32(&new_paragraph->text, utf32 + paragraph_range.start, text_count, (skb_attribute_set_t){0});
 
 		new_paragraph->text_start_offset = paragraph_range.start;
 	}
@@ -479,7 +479,7 @@ void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 		skb__paragraph_init(new_paragraph);
 
 		const int32_t text_count = paragraph_range.end - paragraph_range.start;
-		skb_text_append_utf32(&new_paragraph->text, utf32 + paragraph_range.start, text_count, (skb_attribute_slice_t){0});
+		skb_text_append_utf32(&new_paragraph->text, utf32 + paragraph_range.start, text_count, (skb_attribute_set_t){0});
 
 		new_paragraph->text_start_offset = paragraph_range.start;
 	}
@@ -2391,9 +2391,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		uint32_t cp = SKB_CHAR_LINE_FEED;
 
 		skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
-		skb_attribute_slice_t attributes = {
-			.items = editor->active_attributes,
-			.count = editor->active_attributes_count,
+		skb_attribute_set_t attributes = {
+			.attributes = editor->active_attributes,
+			.attributes_count = editor->active_attributes_count,
 		};
 		skb_text_t* text = skb_text_create_temp(temp_alloc);
 		skb_text_append_utf32(text, &cp, 1, attributes);
@@ -2424,9 +2424,9 @@ void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	assert(editor);
 
 	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
-	skb_attribute_slice_t attributes = {
-		.items = editor->active_attributes,
-		.count = editor->active_attributes_count,
+	skb_attribute_set_t attributes = {
+		.attributes = editor->active_attributes,
+		.attributes_count = editor->active_attributes_count,
 	};
 	skb_text_t* text = skb_text_create_temp(temp_alloc);
 	skb_text_append_utf32(text, &codepoint, 1, attributes);
@@ -2449,9 +2449,9 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
 	skb_text_t* text = skb_text_create_temp(temp_alloc);
 
-	skb_attribute_slice_t attributes = {
-		.items = editor->active_attributes,
-		.count = editor->active_attributes_count,
+	skb_attribute_set_t attributes = {
+		.attributes = editor->active_attributes,
+		.attributes_count = editor->active_attributes_count,
 	};
 	skb_text_append_utf8(text, utf8, utf8_len, attributes);
 
@@ -2472,9 +2472,9 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
 	assert(editor);
 
 	skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
-	skb_attribute_slice_t attributes = {
-		.items = editor->active_attributes,
-		.count = editor->active_attributes_count,
+	skb_attribute_set_t attributes = {
+		.attributes = editor->active_attributes,
+		.attributes_count = editor->active_attributes_count,
 	};
 	skb_text_t* text = skb_text_create_temp(temp_alloc);
 	skb_text_append_utf32(text, utf32, utf32_len, attributes);

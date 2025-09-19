@@ -144,11 +144,11 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_solid), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_double), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_dotted), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_dashed), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_deco_wavy), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_solid), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_double), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_dotted), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_dashed), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_wavy), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));

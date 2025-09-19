@@ -86,7 +86,7 @@ static void set_text(fallback_context_t* ctx, const char* text)
 		skb_attribute_make_fill(ink_color),
 	};
 
-	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
+	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
 
 }
 

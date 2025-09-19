@@ -235,8 +235,8 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 			.text_wrap = SKB_WRAP_WORD_CHAR,
 			.tab_stop_increment = 92.f * 2.f,
 		},
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
-		.composition_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(composition_attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
+		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
 	};
 
 	ctx->editor = skb_editor_create(&edit_params);

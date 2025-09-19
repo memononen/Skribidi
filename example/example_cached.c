@@ -206,7 +206,7 @@ static void render_cached_text(cached_context_t* ctx, float x, float y, float fo
 		skb_attribute_make_fill(color),
 	};
 
-	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
+	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
 	assert(layout);
 
 	// Draw layout

@@ -16,7 +16,7 @@ static int test_init(void)
 		 .layout_params = {
 		 	.font_collection = NULL,
 		 },
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 	};
@@ -47,7 +47,7 @@ static int test_command_line_navigation_macos(void)
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -108,7 +108,7 @@ static int test_command_document_navigation_macos(void)
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -196,7 +196,7 @@ static int test_shift_command_text_selection_macos(void)
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,
@@ -301,7 +301,7 @@ static int test_option_word_navigation_macos(void)
 		 .layout_params = {
 		 	.font_collection = font_collection,
 		 },
-		.text_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
 		.base_direction = SKB_DIRECTION_LTR,
 		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
 		.editor_behavior = SKB_BEHAVIOR_MACOS,

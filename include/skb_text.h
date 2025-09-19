@@ -103,7 +103,7 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
  * @param utf8_count length of the utf-8 string, or -1 if the string is zero terminated.
  * @param attributes slice of attributes to apply to the appended text.
  */
-void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_slice_t attributes);
+void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes);
 
 /**
  * Appends utf-32 string with attributes.
@@ -112,7 +112,7 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
  * @param utf32_count length of the utf-32 string, or -1 if the string is zero terminated.
  * @param attributes slice of attributes to apply to the appended text.
  */
-void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_slice_t attributes);
+void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
 
 
 /**
@@ -131,7 +131,7 @@ void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* oth
  * @param utf8_count length of the utf-8 string, or -1 if the string is zero terminated.
  * @param attributes slice of attributes to apply to the inserted text.
  */
-void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8, int32_t utf8_count, skb_attribute_slice_t attributes);
+void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes);
 
 /**
  * Replaces portion of text with the contents of given utf-32 string and attributes.
@@ -141,7 +141,7 @@ void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8
  * @param utf32_count length of the utf-32 string, or -1 if the string is zero terminated.
  * @param attributes slice of attributes to apply to the inserted text.
  */
-void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_slice_t attributes);
+void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
 
 /**
  * Removes range of text.

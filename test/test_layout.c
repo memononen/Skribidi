@@ -36,7 +36,7 @@ static int test_missing_script(void)
 	};
 
 	// The loaded font should not support the script of the text. We should still get a valid layout, but with invalid glyphs.
-	skb_layout_t* layout = skb_layout_create_utf8(temp_alloc, &layout_params, "今天天气晴朗", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes));
+	skb_layout_t* layout = skb_layout_create_utf8(temp_alloc, &layout_params, "今天天气晴朗", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
 	ENSURE(layout != NULL);
 	ENSURE(skb_layout_get_glyphs_count(layout) > 0);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);

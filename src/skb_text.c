@@ -339,13 +339,13 @@ void skb__attributes_replace_with_empty(skb_text_t* text, skb_range_t range, int
 	}
 }
 
-void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_count, skb_attribute_slice_t attributes)
+void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_count, skb_attribute_set_t attributes)
 {
 	skb__attributes_replace_with_empty(text, range, text_count);
 
 	skb_range_t insert_range = {.start = range.start, .end = range.start + text_count};
-	for (int32_t i = 0; i < attributes.count; i++)
-		skb__span_insert(text, insert_range, attributes.items[i]);
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		skb__span_insert(text, insert_range, attributes.attributes[i]);
 
 	skb__attributes_merge_adjacent(text);
 }
@@ -415,7 +415,7 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 	}
 }
 
-void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_slice_t attributes)
+void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
 {
 	assert(text);
 	assert(utf8);
@@ -433,12 +433,12 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	skb_utf8_to_utf32(utf8, utf8_count, text->text + text->text_count, utf32_count);
 	text->text_count += utf32_count;
 
-	skb__spans_reserve(text, text->spans_count + attributes.count);
-	for (int32_t i = 0; i < attributes.count; i++)
-		skb__span_insert(text, range, attributes.items[i]);
+	skb__spans_reserve(text, text->spans_count + attributes.attributes_count);
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		skb__span_insert(text, range, attributes.attributes[i]);
 }
 
-void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_slice_t attributes)
+void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
 {
 	assert(text);
 	assert(utf32);
@@ -455,9 +455,9 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	memcpy(text->text + text->text_count, utf32, utf32_count * sizeof(uint32_t));
 	text->text_count += utf32_count;
 
-	skb__spans_reserve(text, text->spans_count + attributes.count);
-	for (int32_t i = 0; i < attributes.count; i++)
-		skb__span_insert(text, range, attributes.items[i]);
+	skb__spans_reserve(text, text->spans_count + attributes.attributes_count);
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		skb__span_insert(text, range, attributes.attributes[i]);
 }
 
 void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* other)
@@ -495,7 +495,7 @@ void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* oth
 	skb__attributes_merge_adjacent(text);
 }
 
-void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8, int32_t utf8_count, skb_attribute_slice_t attributes)
+void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
 {
 	assert(text);
 	assert(utf8);
@@ -520,7 +520,7 @@ void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8
 	skb__attributes_replace(text, range, utf32_count, attributes);
 }
 
-void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_slice_t attributes)
+void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
 {
 	assert(text);
 	assert(utf32);
@@ -556,7 +556,7 @@ void skb_text_remove(skb_text_t* text, skb_range_t range)
 	text->text_count -= range.end - range.start;
 
 	// Remove attributes
-	skb__attributes_replace(text, range, 0, (skb_attribute_slice_t){0});
+	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0});
 }
 
 void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, uint32_t attribute_kind)

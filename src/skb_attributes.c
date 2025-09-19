@@ -207,11 +207,11 @@ skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float ver
 }
 
 
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_slice_t attributes)
+skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_TEXT_DIRECTION)
-			return attributes.items[i].text_direction.direction;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_TEXT_DIRECTION)
+			return attributes.attributes[i].text_direction.direction;
 	}
 
 	if (attributes.parent)
@@ -220,11 +220,11 @@ skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_slice
 	return SKB_DIRECTION_AUTO;
 }
 
-const char* skb_attributes_get_lang(const skb_attribute_slice_t attributes)
+const char* skb_attributes_get_lang(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_LANG)
-			return attributes.items[i].lang.lang;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LANG)
+			return attributes.attributes[i].lang.lang;
 	}
 
 	if (attributes.parent)
@@ -233,11 +233,11 @@ const char* skb_attributes_get_lang(const skb_attribute_slice_t attributes)
 	return NULL;
 }
 
-uint8_t skb_attributes_get_font_family(const skb_attribute_slice_t attributes)
+uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_FAMILY)
-			return attributes.items[i].font_family.family;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_FAMILY)
+			return attributes.attributes[i].font_family.family;
 	}
 
 	if (attributes.parent)
@@ -246,11 +246,11 @@ uint8_t skb_attributes_get_font_family(const skb_attribute_slice_t attributes)
 	return SKB_FONT_FAMILY_DEFAULT;
 }
 
-float skb_attributes_get_font_size(const skb_attribute_slice_t attributes)
+float skb_attributes_get_font_size(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_SIZE)
-			return attributes.items[i].font_size.size;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_SIZE)
+			return attributes.attributes[i].font_size.size;
 	}
 
 	if (attributes.parent)
@@ -259,11 +259,11 @@ float skb_attributes_get_font_size(const skb_attribute_slice_t attributes)
 	return 16.f;
 }
 
-skb_weight_t skb_attributes_get_font_weight(const skb_attribute_slice_t attributes)
+skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_WEIGHT)
-			return attributes.items[i].font_weight.weight;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_WEIGHT)
+			return attributes.attributes[i].font_weight.weight;
 	}
 
 	if (attributes.parent)
@@ -272,11 +272,11 @@ skb_weight_t skb_attributes_get_font_weight(const skb_attribute_slice_t attribut
 	return SKB_WEIGHT_NORMAL;
 }
 
-skb_style_t skb_attributes_get_font_style(const skb_attribute_slice_t attributes)
+skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_STYLE)
-			return attributes.items[i].font_style.style;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_STYLE)
+			return attributes.attributes[i].font_style.style;
 	}
 
 	if (attributes.parent)
@@ -285,11 +285,11 @@ skb_style_t skb_attributes_get_font_style(const skb_attribute_slice_t attributes
 	return SKB_STYLE_NORMAL;
 }
 
-skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_slice_t attributes)
+skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_STRETCH)
-			return attributes.items[i].font_stretch.stretch;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_STRETCH)
+			return attributes.attributes[i].font_stretch.stretch;
 	}
 
 	if (attributes.parent)
@@ -298,11 +298,11 @@ skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_slice_t attrib
 	return SKB_STRETCH_NORMAL;
 }
 
-float skb_attributes_get_letter_spacing(const skb_attribute_slice_t attributes)
+float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_LETTER_SPACING)
-			return attributes.items[i].letter_spacing.spacing;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LETTER_SPACING)
+			return attributes.attributes[i].letter_spacing.spacing;
 	}
 
 	if (attributes.parent)
@@ -311,11 +311,11 @@ float skb_attributes_get_letter_spacing(const skb_attribute_slice_t attributes)
 	return 0.f;
 }
 
-float skb_attributes_get_word_spacing(const skb_attribute_slice_t attributes)
+float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_WORD_SPACING)
-			return attributes.items[i].word_spacing.spacing;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_WORD_SPACING)
+			return attributes.attributes[i].word_spacing.spacing;
 	}
 
 	if (attributes.parent)
@@ -324,11 +324,11 @@ float skb_attributes_get_word_spacing(const skb_attribute_slice_t attributes)
 	return 0.f;
 }
 
-skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_slice_t attributes)
+skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_LINE_HEIGHT)
-			return attributes.items[i].line_height;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LINE_HEIGHT)
+			return attributes.attributes[i].line_height;
 	}
 
 	if (attributes.parent)
@@ -340,11 +340,11 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_s
 	return default_line_height;
 }
 
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_slice_t attributes)
+skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FILL)
-			return attributes.items[i].fill;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FILL)
+			return attributes.attributes[i].fill;
 	}
 
 	if (attributes.parent)
@@ -356,11 +356,11 @@ skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_slice_t attribu
 	return default_fill;
 }
 
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_slice_t attributes)
+skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_OBJECT_ALIGN)
-			return attributes.items[i].object_align;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_OBJECT_ALIGN)
+			return attributes.attributes[i].object_align;
 	}
 
 	if (attributes.parent)
@@ -374,11 +374,11 @@ skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute
 	return default_object_align;
 }
 
-skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_slice_t attributes)
+skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_set_t attributes)
 {
-	for (int32_t i = attributes.count-1; i >= 0; i--) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_OBJECT_PADDING)
-			return attributes.items[i].object_padding;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_OBJECT_PADDING)
+			return attributes.attributes[i].object_padding;
 	}
 
 	if (attributes.parent)
@@ -388,23 +388,23 @@ skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attri
 	return default_object_padding;
 }
 
-int32_t skb_attributes_get_count(const skb_attribute_slice_t attributes)
+int32_t skb_attributes_get_count(const skb_attribute_set_t attributes)
 {
-	int32_t count = attributes.count;
+	int32_t count = attributes.attributes_count;
 	if (attributes.parent)
 		count += skb_attributes_get_count(*attributes.parent);
 	return count;
 }
 
-int32_t skb_attributes_copy(const skb_attribute_slice_t attributes, skb_attribute_t* target, int32_t target_cap)
+int32_t skb_attributes_copy(const skb_attribute_set_t attributes, skb_attribute_t* target, int32_t target_cap)
 {
 	int32_t copied = 0;
 	if (attributes.parent)
 		copied += skb_attributes_copy(*attributes.parent, target, target_cap);
 
-	int32_t count = skb_mini(attributes.count, target_cap - copied);
+	int32_t count = skb_mini(attributes.attributes_count, target_cap - copied);
 	if (count > 0) {
-		memcpy(target + copied, attributes.items, sizeof(skb_attribute_t) * count);
+		memcpy(target + copied, attributes.attributes, sizeof(skb_attribute_t) * count);
 		copied += count;
 	}
 

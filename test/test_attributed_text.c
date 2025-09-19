@@ -52,7 +52,7 @@ static int test_add_remove(void)
 		skb_attribute_make_font_size(15.f),
 	};
 	const char* str1 = "Hello";
-	skb_text_append_utf8(text, str1, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes1));
+	skb_text_append_utf8(text, str1, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes1));
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 5);
@@ -87,7 +87,7 @@ static int test_add_remove(void)
 		skb_attribute_make_font_size(30.f),
 	};
 	const char* str2 = "Turb";
-	skb_text_replace_utf8(text, (skb_range_t){0, 2}, str2, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes2));
+	skb_text_replace_utf8(text, (skb_range_t){0, 2}, str2, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes2));
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 5);
@@ -110,7 +110,7 @@ static int test_add_remove(void)
 		skb_attribute_make_font_size(90.f),
 	};
 	const char* str3 = "ku Å";
-	skb_text_replace_utf8(text, (skb_range_t){3, 3}, str3, -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes3));
+	skb_text_replace_utf8(text, (skb_range_t){3, 3}, str3, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes3));
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 9);
@@ -188,7 +188,7 @@ static int test_iter(void)
 	ENSURE(text);
 
 	const char* str1 = "Hamburgerfontstiv";
-	skb_text_append_utf8(text, str1, -1, (skb_attribute_slice_t){0});
+	skb_text_append_utf8(text, str1, -1, (skb_attribute_set_t){0});
 
 	skb_text_add_attribute(text, (skb_range_t){ .start = 1, .end = 9 }, skb_attribute_make_font_size(30.f));
 	skb_text_add_attribute(text, (skb_range_t){ .start = 4, .end = 7 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));

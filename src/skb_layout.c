@@ -32,7 +32,7 @@ typedef struct skb__content_run_t {
 	intptr_t content_data;				// Data of object or icon specified by the run
 	intptr_t run_id;					// Custom identifier for a content run.
 	skb_range_t text_range;				// Range of text the attributes apply to.
-	skb_attribute_slice_t attributes;	// The content attributes.
+	skb_attribute_set_t attributes;	// The content attributes.
 	float font_size;					// Cached font size for the run.
 	uint8_t type;						// Type of the content run which described the attributes. See skb_content_run_type_t.
 } skb__content_run_t;
@@ -111,7 +111,7 @@ typedef struct skb__layout_build_context_t {
 // Content
 //
 
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF8,
@@ -124,7 +124,7 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
 	};
 }
 
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF32,
@@ -137,7 +137,7 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
 	};
 }
 
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_OBJECT,
@@ -151,7 +151,7 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
 	};
 }
 
-skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t run_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_ICON,
@@ -192,11 +192,11 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
 	return hash;
 }
 
-uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_slice_t attributes)
+uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_set_t attributes)
 {
 	// Note: The attributes are zero initialized (including padding)
-	for (int32_t i = 0; i < attributes.count; i++)
-		hash = skb_hash64_append(hash, &attributes.items[i], sizeof(skb_attribute_t));
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		hash = skb_hash64_append(hash, &attributes.attributes[i], sizeof(skb_attribute_t));
 
 	if (attributes.parent)
 		hash = skb_attributes_hash_append(hash, *attributes.parent);
@@ -593,11 +593,11 @@ static void skb__add_font_feature(hb_feature_t* features, int32_t* features_coun
 	*features_count = *features_count + 1;
 }
 
-static void skb__collect_font_features(const skb_attribute_slice_t attributes, hb_feature_t* features, int32_t* features_count)
+static void skb__collect_font_features(const skb_attribute_set_t attributes, hb_feature_t* features, int32_t* features_count)
 {
-	for (int32_t i = 0; i < attributes.count; i++) {
-		if (attributes.items[i].kind == SKB_ATTRIBUTE_FONT_FEATURE)
-			skb__add_font_feature(features, features_count, attributes.items[i].font_feature.tag, attributes.items[i].font_feature.value);
+	for (int32_t i = 0; i < attributes.attributes_count; i++) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_FEATURE)
+			skb__add_font_feature(features, features_count, attributes.attributes[i].font_feature.tag, attributes.attributes[i].font_feature.value);
 	}
 	if (attributes.parent)
 		skb__collect_font_features(*attributes.parent, features, features_count);
@@ -1323,7 +1323,7 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 	} else {
 		// If we end up here, we're dealing with last empty new line.
-		skb_attribute_slice_t attributes = {0};
+		skb_attribute_set_t attributes = {0};
 		float font_size = 0.f;
 		if (layout->content_runs_count > 0) {
 			const skb__content_run_t* last_content_run = &layout->content_runs[layout->content_runs_count - 1];
@@ -1683,14 +1683,14 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 			// For each decoration.
 			const float font_size = layout->layout_runs[decoration_run_range.start].font_size;
-			const skb_attribute_slice_t* attribute_slice = &layout->layout_runs[decoration_run_range.start].attributes;
+			const skb_attribute_set_t* attribute_slice = &layout->layout_runs[decoration_run_range.start].attributes;
 
 			while (attribute_slice) {
-				for (int32_t i = attribute_slice->count - 1; i >= 0; i--) {
-					if (attribute_slice->items[i].kind != SKB_ATTRIBUTE_DECORATION)
+				for (int32_t i = attribute_slice->attributes_count - 1; i >= 0; i--) {
+					if (attribute_slice->attributes[i].kind != SKB_ATTRIBUTE_DECORATION)
 						continue;
 
-					const skb_attribute_decoration_t attr_decoration = attribute_slice->items[i].decoration;
+					const skb_attribute_decoration_t attr_decoration = attribute_slice->attributes[i].decoration;
 
 					// Find line position.
 					float line_position = 0.f; // At baseline
@@ -1964,7 +1964,7 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 	memset(layout, 0, sizeof(skb_layout_t));
 
 	layout->params = *params;
-	layout->params.base_attributes = (skb_attribute_slice_t){0};
+	layout->params.base_attributes = (skb_attribute_set_t){0};
 	int32_t base_attribute_count = skb_attributes_get_count(params->base_attributes);
 	if (base_attribute_count > 0) {
 		SKB_ARRAY_RESERVE(layout->attributes, layout->attributes_count + base_attribute_count);
@@ -1972,20 +1972,20 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 		layout->attributes_count += base_attribute_count;
 
 		skb_attributes_copy(params->base_attributes, base_attributes, base_attribute_count);
-		layout->params.base_attributes.items = base_attributes;
-		layout->params.base_attributes.count = base_attribute_count;
+		layout->params.base_attributes.attributes = base_attributes;
+		layout->params.base_attributes.attributes_count = base_attribute_count;
 	}
 
 	return layout;
 }
 
-skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_slice_t attributes)
+skb_layout_t* skb_layout_create_utf8(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_set_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, 0);
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
 }
 
-skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
+skb_layout_t* skb_layout_create_utf32(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, 0);
 	return skb_layout_create_from_runs(temp_alloc, params, &run, 1);
@@ -2005,13 +2005,13 @@ skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const sk
 	return layout;
 }
 
-void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_slice_t attributes)
+void skb_layout_set_utf8(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_set_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf8(text, text_count, attributes, 0);
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
 }
 
-void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes)
+void skb_layout_set_utf32(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes)
 {
 	const skb_content_run_t run = skb_content_run_make_utf32(text, text_count, attributes, 0);
 	skb_layout_set_from_runs(layout, temp_alloc, params, &run, 1);
@@ -2029,7 +2029,7 @@ void skb_layout_reset(skb_layout_t* layout)
 	layout->lines_count = 0;
 	layout->content_runs_count = 0;
 	layout->shaping_runs_count = 0;
-	layout->attributes_count = layout->params.base_attributes.count;
+	layout->attributes_count = layout->params.base_attributes.attributes_count;
 	layout->bounds = skb_rect2_make_undefined();
 	layout->resolved_direction = SKB_DIRECTION_AUTO;
 }
@@ -2162,13 +2162,13 @@ static void iter_test(const skb_text_t* text, skb_range_t range, skb_attribute_s
 	SKB_TEMP_RESERVE(ctx->temp_alloc, ctx->content_runs, ctx->content_runs_count + 1);
 	skb_content_run_t* run = &ctx->content_runs[ctx->content_runs_count++];
 
-	skb_attribute_slice_t attribute_slice = { 0 };
+	skb_attribute_set_t attribute_slice = { 0 };
 	if (active_spans_count > 0) {
 		skb_attribute_t* attributes = SKB_TEMP_ALLOC(ctx->temp_alloc, skb_attribute_t, active_spans_count);
 		for (int32_t i = 0; i < active_spans_count; i++)
 			attributes[i] = active_spans[i]->attribute;
-		attribute_slice.items = attributes;
-		attribute_slice.count = active_spans_count;
+		attribute_slice.attributes = attributes;
+		attribute_slice.attributes_count = active_spans_count;
 		// TODO text base style.
 	}
 
@@ -2285,8 +2285,8 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 
 			skb_attributes_copy(run->attributes, run_attributes, run_attributes_count);
 
-			content_run->attributes.items = run_attributes;
-			content_run->attributes.count = run_attributes_count;
+			content_run->attributes.attributes = run_attributes;
+			content_run->attributes.attributes_count = run_attributes_count;
 		}
 		// Attributes inherit layout's base attributes.
 		content_run->attributes.parent = &layout->params.base_attributes;
@@ -2295,12 +2295,12 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	// Patch pointers in case we ended up reallocating attributes.
 	int32_t count = 0;
 	// Base attributes
-	layout->params.base_attributes.items = &layout->attributes[count];
-	count += layout->params.base_attributes.count;
+	layout->params.base_attributes.attributes = &layout->attributes[count];
+	count += layout->params.base_attributes.attributes_count;
 	// Per run attributes
 	for (int32_t i = 0; i < layout->content_runs_count; i++) {
-		layout->content_runs[i].attributes.items = &layout->attributes[count];
-		count += layout->content_runs[i].attributes.count;
+		layout->content_runs[i].attributes.attributes = &layout->attributes[count];
+		count += layout->content_runs[i].attributes.attributes_count;
 		// Cache font size as it is used a lot.
 		layout->content_runs[i].font_size = skb_attributes_get_font_size(layout->content_runs[i].attributes);
 	}

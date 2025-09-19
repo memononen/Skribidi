@@ -80,7 +80,7 @@ typedef struct skb_layout_params_t {
 	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
 	/** Attributes to apply for all the content. Each content run can add or override these attributes. */
-	skb_attribute_slice_t base_attributes;
+	skb_attribute_set_t base_attributes;
 } skb_layout_params_t;
 
 
@@ -142,7 +142,7 @@ typedef struct skb_content_run_t {
 	/** ID of the run, which can be later used to identify content in the layout. 0 is treated as invalid value. */
 	intptr_t run_id;
 	/** Slice to the attributes. */
-	skb_attribute_slice_t attributes;
+	skb_attribute_set_t attributes;
 	/** Type of the content, see skb_content_run_type_t. */
 	uint8_t type;
 } skb_content_run_t;
@@ -159,7 +159,7 @@ typedef struct skb_content_run_t {
  * @param run_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id);
 
 /**
  * Makes utf-32 content run.
@@ -173,7 +173,7 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id);
 
 /**
  * Makes inline object content run.
@@ -192,7 +192,7 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
  * @return initialized content run.
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  */
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t run_id);
 
 /**
  * Makes inline icon content run.
@@ -213,7 +213,7 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_slice_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t run_id);
 
 
 /** Enum describing flags for skb_layout_line_t. */
@@ -289,7 +289,7 @@ typedef struct skb_layout_run_t {
 	/** Cached font size. */
 	float font_size;
 	/** Attributes assigned to the run. */
-	skb_attribute_slice_t attributes;
+	skb_attribute_set_t attributes;
 	/** ID of the content run where the layout run originates. */
 	intptr_t content_run_id;
 	union {
@@ -399,7 +399,7 @@ uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t*
  * @param attributes attributes to hash.
  * @return combined hash.
  */
-uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_slice_t attributes);
+uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_set_t attributes);
 
 /**
  * Creates empty layout with specified parameters.
@@ -420,7 +420,7 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
 skb_layout_t* skb_layout_create_utf8(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count,
-	skb_attribute_slice_t attributes);
+	skb_attribute_set_t attributes);
 
 /**
  * Creates new layout from the provided parameters, text and text attributes.
@@ -434,7 +434,7 @@ skb_layout_t* skb_layout_create_utf8(
 skb_layout_t* skb_layout_create_utf32(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count,
-	skb_attribute_slice_t attributes);
+	skb_attribute_set_t attributes);
 
 /**
  * Creates new layout from the provided parameters and text runs.
@@ -471,7 +471,7 @@ skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const sk
 void skb_layout_set_utf8(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count,
-	skb_attribute_slice_t attributes);
+	skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -486,7 +486,7 @@ void skb_layout_set_utf8(
 void skb_layout_set_utf32(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count,
-	skb_attribute_slice_t attributes);
+	skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters and text runs.

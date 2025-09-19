@@ -123,7 +123,7 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 		.text_wrap = SKB_WRAP_WORD_CHAR,
 		.horizontal_align = SKB_ALIGN_START,
 		.baseline_align = SKB_BASELINE_MIDDLE,
-		.base_attributes = SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_base),
+		.base_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_base),
 	};
 
 	const skb_attribute_t attributes_underline[] = {
@@ -141,13 +141,13 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Some text with ", -1, (skb_attribute_slice_t){0}, 0),
-		skb_content_run_make_utf8("bold", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_bold), 0),
-		skb_content_run_make_utf8(" and ", -1, (skb_attribute_slice_t){0}, 0),
-		skb_content_run_make_utf8("italic", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_italic), 0),
-		skb_content_run_make_utf8(" and ", -1, (skb_attribute_slice_t){0}, 0),
-		skb_content_run_make_utf8("underline", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_underline), 0),
-		skb_content_run_make_utf8(".", -1, (skb_attribute_slice_t){0}, 0),
+		skb_content_run_make_utf8("Some text with ", -1, (skb_attribute_set_t){0}, 0),
+		skb_content_run_make_utf8("bold", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_bold), 0),
+		skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
+		skb_content_run_make_utf8("italic", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_italic), 0),
+		skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
+		skb_content_run_make_utf8("underline", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_underline), 0),
+		skb_content_run_make_utf8(".", -1, (skb_attribute_set_t){0}, 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -159,7 +159,7 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_text_t* text = skb_text_create();
 
-	skb_text_append_utf8(text, "Yellow mellow submarine", -1, (skb_attribute_slice_t){0});
+	skb_text_append_utf8(text, "Yellow mellow submarine", -1, (skb_attribute_set_t){0});
 
 	skb_text_add_attribute(text, (skb_range_t){ 0, 13 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
 	skb_text_add_attribute(text, (skb_range_t){ 7, 17 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));

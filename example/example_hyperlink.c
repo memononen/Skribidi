@@ -299,13 +299,13 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		};
 
 		skb_content_run_t runs[] = {
-			skb_content_run_make_utf8("You could potentially click over ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_utf8("here", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(link_attrs), 1),
-			skb_content_run_make_utf8(" or maybe ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, 24.f, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(attributes_icon), 2),
-			skb_content_run_make_utf8(" or eventually try ", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_utf8("this other one", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(link_attrs), 3),
-			skb_content_run_make_utf8(".", -1, SKB_ATTRIBUTE_SLICE_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("You could potentially click over ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("here", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attrs), 1),
+			skb_content_run_make_utf8(" or maybe ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, 24.f, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_icon), 2),
+			skb_content_run_make_utf8(" or eventually try ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("this other one", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attrs), 3),
+			skb_content_run_make_utf8(".", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
 		};
 
 		const skb_layout_t* layout = skb_layout_cache_get_from_runs(ctx->layout_cache, ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
