@@ -151,6 +151,23 @@ void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t*
 void skb_text_remove(skb_text_t* text, skb_range_t range);
 
 /**
+ * Signature of remove_if predicate.
+ * @param codepoint codepoint to filter
+ * @param index index of the codepoint in the string
+ * @param context pointer to context passed to skb_text_remove_if
+ * @return true of the codepoint should be removed
+ */
+typedef bool skb_remove_func_t(uint32_t codepoint, int32_t index, void* context);
+
+/**
+ * Removes codepoints that do not pass the filter function
+ * @param text text to change.
+ * @param filter_func pointer to filter function.
+ * @param context context pointer passed to filter functions.
+ */
+void skb_text_remove_if(skb_text_t* text, skb_remove_func_t* filter_func, void* context);
+
+/**
  * Clears attribute of specific type from specified range.
  * @param text pointer to the text to modify
  * @param range text range of attributes to remove (in utf-32 codepoints)

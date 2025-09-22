@@ -40,6 +40,18 @@ typedef struct skb_editor_t skb_editor_t;
  */
 typedef void skb_editor_on_change_func_t(skb_editor_t* editor, void* context);
 
+/**
+ * Signature of input filter function.
+ * The input filter is called when text is being input to the editor, but before it is actually placed.
+ * The filter function can adjust the input_text as it sees fit.
+ * Not called during undo, or when the editor text is reset using set text.
+ * @param editor editor that changed.
+ * @param input_text text that is being input (mutable).
+ * @param selection Location of text that will be replaced with the input text.
+ * @param context context pointer that was passed to skb_editor_set_input_filter_callback().
+ */
+typedef void skb_editor_input_filter_func_t(skb_editor_t* editor, skb_text_t* input_text, skb_text_selection_t selection, void* context);
+
 /** Enum describing the caret movement mode. */
 typedef enum {
 	/** Skribidi mode, the caret is move in logical order, but the caret makes extra stop when the writing direction
@@ -125,10 +137,19 @@ skb_editor_t* skb_editor_create(const skb_editor_params_t* params);
 /**
  * Sets change callback function.
  * @param editor editor to change.
- * @param callback pointer to the callback function
+ * @param on_change_func pointer to the on change callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* callback, void* context);
+void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
+
+/**
+ * Sets input filter function.
+ * The function is called when text is input to the editor. The filter function can change the text as needed.
+ * @param editor editor to change
+ * @param filter_func pointer to the filter functions
+ * @param context context pointer that is passed to the callback function each time it is called.
+ */
+void skb_editor_set_input_filter_callback(skb_editor_t* editor, skb_editor_input_filter_func_t* filter_func, void* context);
 
 /**
  * Destroys a text editor.
@@ -206,6 +227,9 @@ int32_t skb_editor_get_paragraph_count(skb_editor_t* editor);
 const skb_layout_t* skb_editor_get_paragraph_layout(skb_editor_t* editor, int32_t index);
 /** @return y-offset of the specified paragraph. */
 float skb_editor_get_paragraph_offset_y(skb_editor_t* editor, int32_t index);
+
+const skb_text_t* skb_editor_get_paragraph_text(skb_editor_t* editor, int32_t index);
+
 /** @return text offset of specified paragraph. */
 int32_t skb_editor_get_paragraph_text_offset(skb_editor_t* editor, int32_t index);
 /** @return the parameters used to create the editor. */

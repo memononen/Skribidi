@@ -575,6 +575,29 @@ void skb_text_remove(skb_text_t* text, skb_range_t range)
 	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0});
 }
 
+void skb_text_remove_if(skb_text_t* text, skb_remove_func_t* filter_func, void* context)
+{
+	assert(filter_func);
+
+	int32_t remove_start = SKB_INVALID_INDEX;
+	for (int32_t i = 0; i < text->text_count; i++) {
+		const bool should_remove = filter_func(text->text[i], i, context);
+		if (should_remove) {
+			if (remove_start == SKB_INVALID_INDEX)
+				remove_start = i;
+		} else {
+			if (remove_start != SKB_INVALID_INDEX) {
+				skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = i });
+				i = remove_start;
+			}
+			remove_start = SKB_INVALID_INDEX;
+		}
+	}
+
+	if (remove_start != SKB_INVALID_INDEX)
+		skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = text->text_count });
+}
+
 void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
 {
 	assert(text);
@@ -655,8 +678,8 @@ void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_i
 		}
 	}
 
-	// The rest of the text
-	if (start_pos < text->text_count) {
+	// The rest of the text, or if empty report at least one empty run.
+	if (start_pos < text->text_count || text->text_count == 0) {
 		const skb_range_t range = { .start = start_pos, .end = text->text_count };
 		callback(text, range, NULL, 0, context);
 	}
