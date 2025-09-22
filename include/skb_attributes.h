@@ -20,7 +20,9 @@ extern "C" {
  * and pointer to parent attribute set, which forms an attribute chain. The first item in the chain, is the first item of the furthest parent. And the last item
  * is the last attribute of the set. The parent can be thought as data inheritance parent.
  *
- * If an attribute is encountered multiple times in the chain, the last attribute is selected. That a set can override a parent attribute.
+ * If an attribute is encountered multiple times in the chain, the last attribute is selected. That allows to override a parent attribute.
+ *
+ * Attributes marked with (layout only) only have affect on layout attribut set.
  *
  * When attributes are copied to a layout, the whole attribute chain is copied flattened.
  *
@@ -62,7 +64,6 @@ typedef struct skb_attribute_font_family_t {
 
 /**
  * Font size attribute.
- * If multiple font size attributes are defined, only the last one is used.
  * Subset of https://drafts.csswg.org/css-fonts/
  */
 typedef struct skb_attribute_font_size_t {
@@ -74,7 +75,6 @@ typedef struct skb_attribute_font_size_t {
 
 /**
  * Font weight attribute.
- * If multiple font weight attributes are defined, only the last one is used.
  * Subset of https://drafts.csswg.org/css-fonts/
  */
 typedef struct skb_attribute_font_weight_t {
@@ -86,7 +86,6 @@ typedef struct skb_attribute_font_weight_t {
 
 /**
  * Font style attribute.
- * If multiple font style attributes are defined, only the last one is used.
  * Subset of https://drafts.csswg.org/css-fonts/
  */
 typedef struct skb_attribute_font_style_t {
@@ -109,7 +108,7 @@ typedef struct skb_attribute_font_stretch_t {
 
 /**
  * Font feature text attribute.
- * The attribute array can contain multiple font feature attributes.
+ * The attribute set chain can contain multiple font feature attributes, all of which are applied.
  * See https://learn.microsoft.com/en-us/typography/opentype/spec/featuretags
  */
 typedef struct skb_attribute_font_feature_t {
@@ -123,7 +122,6 @@ typedef struct skb_attribute_font_feature_t {
 
 /**
  * Letter spacing attribute.
- * If multiple spacing attributes are defined, only the last one is used.
  * Subset of https://drafts.csswg.org/css-text/
  */
 typedef struct skb_attribute_letter_spacing_t {
@@ -135,7 +133,6 @@ typedef struct skb_attribute_letter_spacing_t {
 
 /**
  * Word spacing attribute.
- * If multiple spacing attributes are defined, only the last one is used.
  * Subset of https://drafts.csswg.org/css-text/
  */
 typedef struct skb_attribute_word_spacing_t {
@@ -147,7 +144,6 @@ typedef struct skb_attribute_word_spacing_t {
 
 /**
  * Line height attribute.
- * If multiple line height attributes are defined, only the first one is used.
  */
 typedef struct skb_attribute_line_height_t {
 	// Attribute kind tag, must be first.
@@ -157,6 +153,66 @@ typedef struct skb_attribute_line_height_t {
 	/** Line height, see line_height_type how the value is interpreted. */
 	float height;
 } skb_attribute_line_height_t;
+
+/**
+ * Tab stop increment attribute. (layout only)
+ */
+typedef struct skb_attribute_tab_stop_increment_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Defines the spacing between tab stops (px). If zero, the tab will have same width as space. */
+	float increment;
+} skb_attribute_tab_stop_increment_t;
+
+/**
+ * Text wrap attribute. (layout only)
+ */
+typedef struct skb_attribute_text_wrap_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Text wrapping. Used together with layout box to wrap the text to lines. See skb_text_wrap_t */
+	skb_text_wrap_t text_wrap;
+} skb_attribute_text_wrap_t;
+
+/**
+ * Text overflow attribute (layout only)
+ */
+typedef struct skb_attribute_text_overflow_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Text overflow. Used together with layout box to trim glyphs outside the layout bounds. See skb_text_overflow_t */
+	skb_text_overflow_t text_overflow;
+} skb_attribute_text_overflow_t;
+
+/**
+ * Vertical trim attribute. (layout only)
+ */
+typedef struct skb_attribute_vertical_trim_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Vertical trim controls which edges of the text is used to align the text vertically. See skb_vertical_trim_t */
+	skb_vertical_trim_t vertical_trim;
+} skb_attribute_vertical_trim_t;
+
+/**
+ * Align attribute, used for both horizontal and vertical alignment. (layout only)
+ */
+typedef struct skb_attribute_align_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Alignment relative to layout box. See skb_align_t. */
+	skb_align_t align;
+} skb_attribute_align_t;
+
+/**
+ * Baseline align attribute. (layout only)
+ */
+typedef struct skb_attribute_baseline_align_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
+	skb_baseline_t baseline;
+} skb_attribute_baseline_align_t;
 
 /**
  * Text fill color attribute.
@@ -221,6 +277,20 @@ typedef struct skb_attribute_object_padding_t {
 	float bottom;
 } skb_attribute_object_padding_t;
 
+// Forward declaration
+typedef uint64_t skb_attribute_set_handle_t;
+
+/**
+ * Attribute collection reference attribute.
+ * The referenced attribute set from the attribute collection is used at the place of the reference attribute.
+ */
+typedef struct skb_attribute_reference_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	skb_attribute_set_handle_t handle;
+} skb_attribute_reference_t;
+
+
 /** Enum describing tags for each of the attributes. */
 typedef enum {
 	/** Tag for skb_attribute_text_direction_t */
@@ -245,6 +315,20 @@ typedef enum {
 	SKB_ATTRIBUTE_WORD_SPACING = SKB_TAG('w','o','s','p'),
 	/** Tag for skb_attribute_line_height_t */
 	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
+	/** Tag for skb_attribute_tab_stop_increment_t */
+	SKB_ATTRIBUTE_TAB_STOP_INCREMENT = SKB_TAG('t','a','b','s'),
+	/** Tag for skb_attribute_tab_stop_increment_t */
+	SKB_ATTRIBUTE_TEXT_WRAP = SKB_TAG('t','w','r','p'),
+	/** Tag for skb_attribute_text_overflow_t */
+	SKB_ATTRIBUTE_TEXT_OVERFLOW = SKB_TAG('t','o','f','l'),
+	/** Tag for skb_attribute_vertical_trim_t */
+	SKB_ATTRIBUTE_VERTICAL_TRIM = SKB_TAG('v','t','r','m'),
+	/** Tag for skb_attribute_align_t (horizontal) */
+	SKB_ATTRIBUTE_HORIZONTAL_ALIGN = SKB_TAG('h','a','l','n'),
+	/** Tag for skb_attribute_align_t (vertical) */
+	SKB_ATTRIBUTE_VERTICAL_ALIGN = SKB_TAG('v','a','l','n'),
+	/** Tag for skb_attribute_baseline_align_t */
+	SKB_ATTRIBUTE_BASELINE_ALIGN = SKB_TAG('b','a','l','n'),
 	/** Tag for skb_attribute_fill_t */
 	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
 	/** Tag for skb_attribute_decoration_t */
@@ -253,6 +337,8 @@ typedef enum {
 	SKB_ATTRIBUTE_OBJECT_ALIGN = SKB_TAG('o','b','a','l'),
 	/** Tag for skb_attribute_object_padding_t */
 	SKB_ATTRIBUTE_OBJECT_PADDING = SKB_TAG('o','b','p','a'),
+	/** Tag for skb_attribute_reference_t */
+	SKB_ATTRIBUTE_REFERENCE = SKB_TAG('a','r','e','f'),
 } skb_attribute_type_t;
 
 /**
@@ -272,25 +358,46 @@ typedef union skb_attribute_t {
 	skb_attribute_letter_spacing_t letter_spacing;
 	skb_attribute_word_spacing_t word_spacing;
 	skb_attribute_line_height_t line_height;
+	skb_attribute_tab_stop_increment_t tab_stop_increment;
+	skb_attribute_text_wrap_t text_wrap;
+	skb_attribute_text_overflow_t text_overflow;
+	skb_attribute_vertical_trim_t vertical_trim;
+	skb_attribute_align_t horizontal_align;
+	skb_attribute_align_t vertical_align;
+	skb_attribute_baseline_align_t baseline_align;
 	skb_attribute_fill_t fill;
 	skb_attribute_decoration_t decoration;
 	skb_attribute_object_align_t object_align;
 	skb_attribute_object_padding_t object_padding;
+	skb_attribute_reference_t reference;
 } skb_attribute_t;
+
+// Forward declaration
+typedef struct skb_attribute_collection_t skb_attribute_collection_t;
 
 /**
  * Struct describing a view to set of attributes. The attribute set does not own the attributes,
  * but it used in the API to pass in or get array of attributes.
+ *
+ * Functions accepting skb_attribute_set_t either take copy of the data, or use it immediately during the call.
  *
  * The parent pointer allows attribute sets to create chains.
  */
 typedef struct skb_attribute_set_t {
 	const skb_attribute_t* attributes;
 	int32_t attributes_count;
-	struct skb_attribute_set_t* parent;
+	skb_attribute_set_handle_t set_handle;
+	struct skb_attribute_set_t* parent_set;
 } skb_attribute_set_t;
 
 #define SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(array) (skb_attribute_set_t) { .attributes = (array), .attributes_count = SKB_COUNTOF(array) }
+
+/** Creates attribute set that is a reference to specified set in a collection. */
+skb_attribute_set_t skb_attribute_set_make_reference(skb_attribute_set_handle_t handle);
+
+/** Creates attribute set that is a reference to specified set in a collection. */
+skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
+
 
 /** @returns new text direction attribute. See skb_attribute_text_direction_t */
 skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction);
@@ -298,32 +405,53 @@ skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction
 /** @returns new language attribute. See skb_attribute_lang_t */
 skb_attribute_t skb_attribute_make_lang(const char* lang);
 
-/** @returns new font text attribute. See skb_attribute_font_t */
+/** @returns new font family attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_family(uint8_t family);
 
-/** @returns new font size text attribute. See skb_attribute_font_t */
+/** @returns new font size attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_size(float size);
 
-/** @returns new font weight text attribute. See skb_attribute_font_t */
+/** @returns new font weight attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_weight(skb_weight_t weight);
 
-/** @returns new font style text attribute. See skb_attribute_font_t */
+/** @returns new font style attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_style(skb_style_t style);
 
-/** @returns new font text attribute. See skb_attribute_font_t */
+/** @returns new font attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_stretch(skb_stretch_t stretch);
 
-/** @returns new font feature text attribute. See skb_attribute_font_feature_t */
+/** @returns new font feature attribute. See skb_attribute_font_feature_t */
 skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value);
 
-/** @returns new spacing text attribute. See skb_attribute_letter_spacing_t */
+/** @returns new spacing attribute. See skb_attribute_letter_spacing_t */
 skb_attribute_t skb_attribute_make_letter_spacing(float letter_spacing);
 
-/** @returns new spacing text attribute. See skb_attribute_word_spacing_t */
+/** @returns new spacing attribute. See skb_attribute_word_spacing_t */
 skb_attribute_t skb_attribute_make_word_spacing(float word_spacing);
 
-/** @returns new line height text attribute. See skb_attribute_line?height_t */
+/** @returns new line height attribute. See skb_attribute_line_height_t */
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
+
+/** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
+skb_attribute_t skb_attribute_make_tab_stop_increment(float increment);
+
+/** @returns new text wrap attribute. See skb_attribute_text_wrap_t */
+skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap);
+
+/** @returns new text overflow attribute. See skb_attribute_text overflow_t */
+skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overflow);
+
+/** @returns new vertical trim attribute. See skb_attribute_vertical trim_t */
+skb_attribute_t skb_attribute_make_vertical_trim(skb_vertical_trim_t vertical_trim);
+
+/** @returns new horizontal align attribute. See skb_attribute_align_t */
+skb_attribute_t skb_attribute_make_horizontal_align(skb_align_t horizontal_align);
+
+/** @returns new vertical align attribute. See skb_attribute_align_t */
+skb_attribute_t skb_attribute_make_vertical_align(skb_align_t vertical_align);
+
+/** @returns new baseline align attribute. See skb_attribute_baseline_align_t */
+skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align);
 
 /** @returns new fill color text attribute. See skb_attribute_fill_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
@@ -340,129 +468,232 @@ skb_attribute_t skb_attribute_make_object_padding(float start, float end, float 
 /** @returns new object padding attribute. See skb_attribute_object_padding_t */
 skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical);
 
+/** @returns new reference attribute. See skb_attribute_reference_t */
+skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle);
+
+/** @returns new reference attribute. See skb_attribute_reference_t */
+skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
 
 /**
  * Returns text direction attribute or default value if not found.
  * The default value is empty, which causes no change.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes);
+skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns language attribute or default value if not found.
  * The default value is empty, which causes no change.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default avalue.
  */
-const char* skb_attributes_get_lang(const skb_attribute_set_t attributes);
+const char* skb_attributes_get_lang(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font attribute or default value if not found.
  * The default value is: SKB_FONT_FAMILY_DEFAULT, SKB_STRETCH_NORMAL.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes);
+uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font text attribute or default value if not found.
  * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_font_size(const skb_attribute_set_t attributes);
+float skb_attributes_get_font_size(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font text attribute or default value if not found.
  * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes);
+skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font text attribute or default value if not found.
  * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes);
+skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font text attribute or default value if not found.
  * The default value is: SKB_STRETCH_NORMAL.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes);
+skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns letter spacing attribute or default value if not found.
  * The default value is 0.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes);
+float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns letter spacing attribute or default value if not found.
  * The default value is 0.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes);
+float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first line height attribute or default value if not found.
  * The default value is: line spacing multiplier 1.0.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes);
+skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first fill attribute or default value if not found.
  * The default value is opaque black.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes);
+skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first object align attribute or default value if not found.
  * The default value is: SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL, 0.5f,
  * that is, align the object or icon centered to the central baseline of surrounding text.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes);
+skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first object padding attribute or default value if not found.
  * The default value is 0.0 on all sides.
- * @param attributes attribute slice where to look for the attributes from.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_set_t attributes);
+skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
- * Returns number of attributes in the attribute slice and it's parent chain.
- * @param attributes attribute slice to use
+ * Returns first tab stop increment attribute or default value if not found.
+ * The default value is 0.0 (which will make the tab the same width as space).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first text wrap attribute or default value if not found.
+ * The default value is SKB_WRAP_NONE.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_text_wrap_t skb_attributes_get_text_wrap(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first text overflow attribute or default value if not found.
+ * The default value is SKB_OVERFLOW_NONE.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_text_overflow_t skb_attributes_get_text_overflow(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first vertical trim attribute or default value if not found.
+ * The default value is SKB_VERTICAL_TRIM_DEFAULT.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_vertical_trim_t skb_attributes_get_vertical_trim(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first horizontal align attribute or default value if not found.
+ * The default value is SKB_ALIGN_START.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_align_t skb_attributes_get_horizontal_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first vertical align attribute or default value if not found.
+ * The default value is SKB_ALIGN_START.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_align_t skb_attributes_get_vertical_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first baseline align attribute or default value if not found.
+ * The default value is SKB_BASELINE_ALPHABETIC.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Collects attributes of specified type in results array from specified attribute set.
+ * @param attributes attribute set to query.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @param kind the kind of attribute to query (see skb_attribute_type_t)
+ * @param results array where to store the results.
+ * @param results_cap capacity of the results array.
+ * @return number of results stored in the results array.
+ */
+int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap);
+
+/**
+ * Returns number of attributes in the attribute set and it's parent chain.
+ * @param attributes attribute set to use
  * @return attribute count.
  */
-int32_t skb_attributes_get_count(const skb_attribute_set_t attributes);
+int32_t skb_attributes_get_copy_flat_count(const skb_attribute_set_t attributes);
 
 /**
- * Copies attributes from the attribute slice, and it's parent chain to flat attribute list 'target'.
- * At maximum 'target_cap' attributes are copied. See skb_attributes_get_count().
+ * Copies attributes from the attribute set, and it's parent chain to flat attribute list 'dest'.
+ * Attribute references will not be flattened.
+ * If an attribute set is reference, the reference will be flattened to the list as a reference attribute.
+ * At maximum 'target_cap' attributes are copied. See skb_attributes_get_copy_flat_count().
  * The first attribute of the furthest parent is the first attribute in the target array.
- * @param attributes attribute slice to use.
- * @param target array of attributes to copy the attributes to.
+ * @param attributes attribute set to use.
+ * @param dest array of attributes to copy the attributes to.
  * @param target_cap capacity of the target array.
  * @return number of attributes copied.
  */
-int32_t skb_attributes_copy(const skb_attribute_set_t attributes, skb_attribute_t* target, const int32_t target_cap);
+int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, const int32_t target_cap);
+
+
+/**
+ * Appends the hash of the text attributes to the provided hash.
+ * @param hash hash to append to.
+ * @param attributes attributes to hash.
+ * @return combined hash.
+ */
+uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_set_t attributes);
 
 /** @} */
 

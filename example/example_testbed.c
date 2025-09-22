@@ -215,9 +215,15 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
-	const skb_attribute_t attributes[] = {
-		skb_attribute_make_font_size(92.f),
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_lang("zh-hans"),
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_tab_stop_increment(92.f * 2.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
+	};
+
+	const skb_attribute_t text_attributes[] = {
+		skb_attribute_make_font_size(92.f),
 		skb_attribute_make_fill(ink_color),
 	};
 
@@ -227,15 +233,10 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	skb_editor_params_t edit_params = {
-		.layout_params = {
-			.lang = "zh-hans",
-			.base_direction = SKB_DIRECTION_AUTO,
-			.font_collection = ctx->font_collection,
-			.layout_width = 1200.f,
-			.text_wrap = SKB_WRAP_WORD_CHAR,
-			.tab_stop_increment = 92.f * 2.f,
-		},
-		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
+		.editor_width = 1200.f,
+		.font_collection = ctx->font_collection,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
+		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
 	};
 
@@ -541,7 +542,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	{
 		// line break boundaries
-		const float line_break_width = skb_editor_get_params(ctx->editor)->layout_params.layout_width;
+		const float line_break_width = skb_editor_get_params(ctx->editor)->editor_width;
 		debug_render_dashed_line(ctx->rc, 0, -50, 0, layout_height+50, 6, ink_color_trans, -1.f);
 		debug_render_dashed_line(ctx->rc, line_break_width, 50, line_break_width, layout_height+50, 6, ink_color_trans, -1.f);
 
@@ -599,7 +600,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes);
+					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes, layout_params->attribute_collection);
 					const float font_size = layout_run->font_size;
 
 					if (ctx->show_run_details) {
@@ -812,11 +813,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	// Draw logical string info
 	{
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
-		const uint8_t font_family = skb_attributes_get_font_family(edit_params->text_attributes);
-		const float font_size = skb_attributes_get_font_size(edit_params->text_attributes);
-		const skb_weight_t font_weight = skb_attributes_get_font_weight(edit_params->text_attributes);
-		const skb_style_t font_style = skb_attributes_get_font_style(edit_params->text_attributes);
-		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(edit_params->text_attributes);
+		const uint8_t font_family = skb_attributes_get_font_family(edit_params->text_attributes, edit_params->attribute_collection);
+		const float font_size = skb_attributes_get_font_size(edit_params->text_attributes, edit_params->attribute_collection);
+		const skb_weight_t font_weight = skb_attributes_get_font_weight(edit_params->text_attributes, edit_params->attribute_collection);
+		const skb_style_t font_style = skb_attributes_get_font_style(edit_params->text_attributes, edit_params->attribute_collection);
+		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(edit_params->text_attributes, edit_params->attribute_collection);
 
 		float ox = 0.f;
 		float oy = 30.f + layout_height + 80.f;

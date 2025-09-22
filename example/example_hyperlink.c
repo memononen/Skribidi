@@ -272,40 +272,42 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_color_t link_color_trans = skb_rgba(32,32,255,32);
 		const skb_color_t active_link_color_trans = skb_rgba(220,32,255,32);
 
-		skb_layout_params_t params = {
-			.base_direction = SKB_DIRECTION_AUTO,
-			.font_collection = ctx->font_collection,
-			.icon_collection = ctx->icon_collection,
-			.horizontal_align = SKB_ALIGN_START,
-			.baseline_align = SKB_BASELINE_CENTRAL,
-			.layout_width = 300.f,
-			.text_wrap = SKB_WRAP_WORD_CHAR,
+		const skb_attribute_t layout_attributes[] = {
+			skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+			skb_attribute_make_baseline_align(SKB_BASELINE_CENTRAL),
 		};
 
-		const skb_attribute_t text_attrs[] = {
+		skb_layout_params_t params = {
+			.font_collection = ctx->font_collection,
+			.icon_collection = ctx->icon_collection,
+			.layout_width = 300.f,
+			.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
+		};
+
+		const skb_attribute_t text_attributes[] = {
 			skb_attribute_make_font_size(24.f),
 			skb_attribute_make_fill(text_color),
 		};
 
-		const skb_attribute_t link_attrs[] = {
+		const skb_attribute_t link_attributes[] = {
 			skb_attribute_make_font_size(24.f),
 			skb_attribute_make_fill(link_color),
 			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, skb_rgba(0,0,0,0)),
 		};
 
-		const skb_attribute_t attributes_icon[] = {
+		const skb_attribute_t icon_attributes[] = {
 			skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
 			skb_attribute_make_fill(link_color),
 		};
 
 		skb_content_run_t runs[] = {
-			skb_content_run_make_utf8("You could potentially click over ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_utf8("here", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attrs), 1),
-			skb_content_run_make_utf8(" or maybe ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, 24.f, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_icon), 2),
-			skb_content_run_make_utf8(" or eventually try ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
-			skb_content_run_make_utf8("this other one", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attrs), 3),
-			skb_content_run_make_utf8(".", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attrs), 0),
+			skb_content_run_make_utf8("You could potentially click over ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+			skb_content_run_make_utf8("here", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attributes), 1),
+			skb_content_run_make_utf8(" or maybe ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+			skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, 24.f, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(icon_attributes), 2),
+			skb_content_run_make_utf8(" or eventually try ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+			skb_content_run_make_utf8("this other one", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attributes), 3),
+			skb_content_run_make_utf8(".", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
 		};
 
 		const skb_layout_t* layout = skb_layout_cache_get_from_runs(ctx->layout_cache, ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -343,7 +345,7 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			glfwSetCursor(ctx->window, NULL);
 		}
 
-		render_draw_layout_with_color_overrides(ctx->rc, layout, SKB_RASTERIZE_ALPHA_SDF, color_overrides);
+		render_draw_layout_with_color_overrides(ctx->rc, 0, 0, layout, SKB_RASTERIZE_ALPHA_SDF, color_overrides);
 
 		/*
 		{

@@ -274,18 +274,19 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			debug_render_text(ctx->rc, tx + layout_width * 0.5f, ty - 10.f, 13, RENDER_ALIGN_CENTER, skb_rgba(0,0,0,128), align_labels[halign]);
 			debug_render_stroked_rect(ctx->rc, tx, ty, layout_width, layout_height, skb_rgba(255,192,0,255), -1.f);
 
+			const skb_attribute_t layout_attributes[] = {
+				skb_attribute_make_horizontal_align(halign),
+				skb_attribute_make_vertical_align(valign),
+				skb_attribute_make_text_wrap(ctx->wrap),
+				skb_attribute_make_text_overflow(ctx->overflow),
+				skb_attribute_make_vertical_trim(ctx->overflow),
+			};
+
 			skb_layout_params_t params = {
-				.origin = { tx, ty },
-				.base_direction = SKB_DIRECTION_AUTO,
 				.font_collection = ctx->font_collection,
 				.layout_width = layout_width,
 				.layout_height = layout_height,
-				.horizontal_align = halign,
-				.vertical_align = valign,
-				.text_wrap = ctx->wrap,
-				.text_overflow = ctx->overflow,
-				.baseline_align = SKB_BASELINE_ALPHABETIC,
-				.vertical_trim = ctx->vert_trim,
+				.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 			};
 
 			const skb_attribute_t attributes[] = {
@@ -297,10 +298,10 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			assert(layout);
 
 			skb_rect2_t bounds = skb_layout_get_bounds(layout);
-			debug_render_stroked_rect(ctx->rc, bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,64), -1.f);
+			debug_render_stroked_rect(ctx->rc, tx + bounds.x, ty + bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,64), -1.f);
 
 			// Draw layout
-			render_draw_layout(ctx->rc, layout, SKB_RASTERIZE_ALPHA_SDF);
+			render_draw_layout(ctx->rc, tx, ty, layout, SKB_RASTERIZE_ALPHA_SDF);
 		}
 		y += layout_height + 120.f;
 	}

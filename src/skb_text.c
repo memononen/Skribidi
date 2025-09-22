@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "skb_attribute_collection.h"
+
 skb_text_t* skb_text_create(void)
 {
 	skb_text_t* result = skb_malloc(sizeof(skb_text_t));
@@ -29,11 +31,6 @@ skb_text_t* skb_text_create_temp(skb_temp_alloc_t* temp_alloc)
 skb_text_t skb_text_make_empty(void)
 {
 	return (skb_text_t){0};
-}
-
-skb_text_t skb_text_make_empty_temp(skb_temp_alloc_t* temp_alloc)
-{
-	return (skb_text_t){ .temp_alloc = temp_alloc };
 }
 
 void skb_text_destroy(skb_text_t* text)
@@ -242,8 +239,18 @@ static void skb__attributes_merge_adjacent(skb_text_t* text)
 	}
 }
 
+
+static bool skb__attributes_match(const skb_attribute_t* a, const skb_attribute_t* b)
+{
+	if (a->kind != b->kind)
+		return false;
+	if (a->kind == SKB_ATTRIBUTE_REFERENCE)
+		return skb_attribute_set_handle_get_group(a->reference.handle) == skb_attribute_set_handle_get_group(b->reference.handle);
+	return true;
+}
+
 // Clear removes attribute from specified range. Does not alter length.
-static void skb__attributes_clear(skb_text_t* text, skb_range_t range, uint32_t attribute_kind)
+static void skb__attributes_clear(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
 {
 	assert(text);
 
@@ -254,7 +261,7 @@ static void skb__attributes_clear(skb_text_t* text, skb_range_t range, uint32_t 
 	for (int32_t i = 0; i < text->spans_count; i++) {
 		skb_attribute_span_t* span = &text->spans[i];
 
-		if (span->attribute.kind != attribute_kind || attribute_kind == 0)
+		if (!skb__attributes_match(&span->attribute, &attribute))
 			continue;
 
 		// If clear completely range is before, skip.
@@ -339,13 +346,24 @@ void skb__attributes_replace_with_empty(skb_text_t* text, skb_range_t range, int
 	}
 }
 
+static void skb__insert_attributes(skb_text_t* text, skb_range_t range, skb_attribute_set_t attributes)
+{
+	if (attributes.parent_set)
+		skb__insert_attributes(text, range, *attributes.parent_set);
+
+	if (attributes.set_handle)
+		skb__span_insert(text, range, skb_attribute_make_reference(attributes.set_handle));
+
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		skb__span_insert(text, range, attributes.attributes[i]);
+}
+
 void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_count, skb_attribute_set_t attributes)
 {
 	skb__attributes_replace_with_empty(text, range, text_count);
 
 	skb_range_t insert_range = {.start = range.start, .end = range.start + text_count};
-	for (int32_t i = 0; i < attributes.attributes_count; i++)
-		skb__span_insert(text, insert_range, attributes.attributes[i]);
+	skb__insert_attributes(text, insert_range, attributes);
 
 	skb__attributes_merge_adjacent(text);
 }
@@ -433,9 +451,8 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	skb_utf8_to_utf32(utf8, utf8_count, text->text + text->text_count, utf32_count);
 	text->text_count += utf32_count;
 
-	skb__spans_reserve(text, text->spans_count + attributes.attributes_count);
-	for (int32_t i = 0; i < attributes.attributes_count; i++)
-		skb__span_insert(text, range, attributes.attributes[i]);
+	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
+	skb__insert_attributes(text, range, attributes);
 }
 
 void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
@@ -455,9 +472,8 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	memcpy(text->text + text->text_count, utf32, utf32_count * sizeof(uint32_t));
 	text->text_count += utf32_count;
 
-	skb__spans_reserve(text, text->spans_count + attributes.attributes_count);
-	for (int32_t i = 0; i < attributes.attributes_count; i++)
-		skb__span_insert(text, range, attributes.attributes[i]);
+	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
+	skb__insert_attributes(text, range, attributes);
 }
 
 void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* other)
@@ -559,13 +575,13 @@ void skb_text_remove(skb_text_t* text, skb_range_t range)
 	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0});
 }
 
-void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, uint32_t attribute_kind)
+void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
 {
 	assert(text);
 
 	range = skb__clamp_text_range(text, range);
 
-	skb__attributes_clear(text, range, attribute_kind);
+	skb__attributes_clear(text, range, attribute);
 }
 
 void skb_text_clear_all_attributes(skb_text_t* text, skb_range_t range)
@@ -574,7 +590,7 @@ void skb_text_clear_all_attributes(skb_text_t* text, skb_range_t range)
 
 	range = skb__clamp_text_range(text, range);
 
-	skb__attributes_clear(text, range, 0);
+	skb__attributes_clear(text, range, (skb_attribute_t){0});
 }
 
 void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
@@ -583,7 +599,7 @@ void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t
 
 	range = skb__clamp_text_range(text, range);
 
-	skb__attributes_clear(text, range, attribute.kind);
+	skb__attributes_clear(text, range, attribute);
 	skb__span_insert(text, range, attribute);
 	skb__attributes_merge_adjacent(text);
 }

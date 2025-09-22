@@ -97,45 +97,46 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
-	skb_layout_params_t params = {
-		.lang = "zh-hans",
-		.base_direction = SKB_DIRECTION_AUTO,
-		.font_collection = ctx->font_collection,
-		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 	};
 
-	const skb_attribute_t attributes_deco_solid[] = {
+	skb_layout_params_t params = {
+		.font_collection = ctx->font_collection,
+		.layout_width = 600.f,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
+	};
+
+	const skb_attribute_t deco_solid_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_deco_double[] = {
+	const skb_attribute_t deco_double_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_deco_dotted[] = {
+	const skb_attribute_t deco_dotted_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_deco_dashed[] = {
+	const skb_attribute_t deco_dashed_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
-	const skb_attribute_t attributes_deco_wavy[] = {
+	const skb_attribute_t deco_wavy_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
@@ -144,11 +145,11 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_solid), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_double), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_dotted), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_dashed), 0),
-		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco_wavy), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco_solid_attributes), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco_double_attributes), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco_dotted_attributes), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco_dashed_attributes), 0),
+		skb_content_run_make_utf8("Quick fox jumps over lazy dog.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco_wavy_attributes), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -257,7 +258,7 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
 	// Draw visual result
-	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw examples of the decoration patterns.
 	{

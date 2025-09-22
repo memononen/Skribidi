@@ -154,9 +154,9 @@ void skb_text_remove(skb_text_t* text, skb_range_t range);
  * Clears attribute of specific type from specified range.
  * @param text pointer to the text to modify
  * @param range text range of attributes to remove (in utf-32 codepoints)
- * @param attribute_kind tag of the attribute to remove.
+ * @param attribute attribute to remove.
  */
-void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, uint32_t attribute_kind);
+void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute);
 
 /**
  * Clears all attributes from specified range.

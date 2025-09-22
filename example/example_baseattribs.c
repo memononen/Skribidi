@@ -16,6 +16,7 @@
 
 #include "skb_common.h"
 #include "skb_font_collection.h"
+#include "skb_attribute_collection.h"
 #include "skb_rasterizer.h"
 #include "skb_layout.h"
 #include "skb_image_atlas.h"
@@ -25,11 +26,14 @@ typedef struct baseattribs_context_t {
 	example_t base;
 
 	skb_font_collection_t* font_collection;
+	skb_attribute_collection_t* attribute_collection;
+
 	skb_temp_alloc_t* temp_alloc;
 	render_context_t* rc;
 
 	skb_layout_t* layout;
 	skb_layout_t* layout_text;
+	skb_layout_t* layout_ref;
 
 	view_t view;
 	bool drag_view;
@@ -110,53 +114,50 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 
 	// Base style for the whole layout, each run can override these attributes.
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
-	const skb_attribute_t attributes_base[] = {
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	skb_layout_params_t params = {
-		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
-		.base_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_base),
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 	};
 
-	const skb_attribute_t attributes_underline[] = {
+	const skb_attribute_t underline_attributes[] = {
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 3.f, 0.f, skb_rgba(220,32,0,192)),
 	};
 
-	const skb_attribute_t attributes_italic[] = {
+	const skb_attribute_t italic_attributes[] = {
 		skb_attribute_make_font_style(SKB_STYLE_ITALIC),
 		skb_attribute_make_fill(skb_rgba(0,160,92,255)),
 	};
 
-	const skb_attribute_t attributes_bold[] = {
+	const skb_attribute_t bold_attributes[] = {
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_fill(skb_rgba(0,64,220,255)),
 	};
 
 	skb_content_run_t runs[] = {
 		skb_content_run_make_utf8("Some text with ", -1, (skb_attribute_set_t){0}, 0),
-		skb_content_run_make_utf8("bold", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_bold), 0),
+		skb_content_run_make_utf8("bold", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(bold_attributes), 0),
 		skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
-		skb_content_run_make_utf8("italic", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_italic), 0),
+		skb_content_run_make_utf8("italic", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes), 0),
 		skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
-		skb_content_run_make_utf8("underline", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_underline), 0),
+		skb_content_run_make_utf8("underline", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(underline_attributes), 0),
 		skb_content_run_make_utf8(".", -1, (skb_attribute_set_t){0}, 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 	assert(ctx->layout);
 
-
+	//
 	// Base style with attributed text.
-	params.origin.y = 100.f;
-
+	//
 	skb_text_t* text = skb_text_create();
 
 	skb_text_append_utf8(text, "Yellow mellow submarine", -1, (skb_attribute_set_t){0});
@@ -164,11 +165,50 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 	skb_text_add_attribute(text, (skb_range_t){ 0, 13 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
 	skb_text_add_attribute(text, (skb_range_t){ 7, 17 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
 
-	ctx->layout_text = skb_layout_create_from_text(ctx->temp_alloc, &params, text);
+	ctx->layout_text = skb_layout_create_from_text(ctx->temp_alloc, &params, text, (skb_attribute_set_t){0});
 	assert(ctx->layout_text);
 
 	skb_text_destroy(text);
 
+	//
+	// Attribute collection
+	//
+	ctx->attribute_collection = skb_attribute_collection_create();
+	{
+		// Add attribute sets
+		skb_attribute_collection_add_set(ctx->attribute_collection, "BODY", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes));
+		skb_attribute_collection_add_set(ctx->attribute_collection, "u", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(underline_attributes));
+		skb_attribute_collection_add_set(ctx->attribute_collection, "i", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes));
+		skb_attribute_collection_add_set(ctx->attribute_collection, "b", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(bold_attributes));
+	}
+
+	{
+		skb_attribute_set_t body = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "BODY");
+		skb_attribute_set_t underline = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "u");
+		skb_attribute_set_t italic = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "i");
+		skb_attribute_set_t bold = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "b");
+
+		skb_layout_params_t params_ref = {
+			.font_collection = ctx->font_collection,
+			.attribute_collection = ctx->attribute_collection,
+			.layout_width = 600.f,
+			.layout_attributes = body,
+		};
+
+		skb_content_run_t runs_ref[] = {
+			skb_content_run_make_utf8("Some text with ", -1, (skb_attribute_set_t){0}, 0),
+			skb_content_run_make_utf8("bold", -1, bold, 0),
+			skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
+			skb_content_run_make_utf8("italic", -1, italic, 0),
+			skb_content_run_make_utf8(" and ", -1, (skb_attribute_set_t){0}, 0),
+			skb_content_run_make_utf8("underline", -1, underline, 0),
+			skb_content_run_make_utf8(".", -1, (skb_attribute_set_t){0}, 0),
+		};
+
+		ctx->layout_ref = skb_layout_create_from_runs(ctx->temp_alloc, &params_ref, runs_ref, SKB_COUNTOF(runs_ref));
+		assert(ctx->layout_ref);
+
+	}
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
@@ -186,6 +226,7 @@ void baseattribs_destroy(void* ctx_ptr)
 
 	skb_layout_destroy(ctx->layout);
 	skb_font_collection_destroy(ctx->font_collection);
+	skb_attribute_collection_destroy(ctx->attribute_collection);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
 	memset(ctx, 0, sizeof(baseattribs_context_t));
@@ -278,9 +319,11 @@ void baseattribs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
-	render_draw_layout(ctx->rc, ctx->layout_text, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0.f, 100.f, ctx->layout_text, SKB_RASTERIZE_ALPHA_SDF);
+
+	render_draw_layout(ctx->rc, 0.f, 200.f, ctx->layout_ref, SKB_RASTERIZE_ALPHA_SDF);
 
 	if (ctx->show_glyph_bounds) {
 		// Draw layout details

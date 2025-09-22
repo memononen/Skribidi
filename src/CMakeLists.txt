@@ -97,6 +97,7 @@ FetchContent_MakeAvailable(budouxc)
 set(SKRIBIDI_SOURCE_FILES
 	emoji_data.h
 	skb_attributes.c
+	skb_attribute_collection.c
 	skb_canvas.c
 	skb_common.c
 	skb_common_internal.h
@@ -115,6 +116,7 @@ set(SKRIBIDI_SOURCE_FILES
 
 set(SKRIBIDI_API_FILES
 	../include/skb_attributes.h
+	../include/skb_attribute_collection.h
 	../include/skb_canvas.h
 	../include/skb_common.h
 	../include/skb_editor.h

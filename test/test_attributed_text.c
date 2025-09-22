@@ -137,7 +137,9 @@ static int test_add_remove(void)
 		ENSURE(spans[3].attribute.font_size.size == 15.f);
 	}
 
-	skb_text_clear_attribute(text, (skb_range_t){ 3,8}, SKB_ATTRIBUTE_FONT_SIZE);
+	skb_attribute_t attr_font_size = skb_attribute_make_font_size(90.f);
+
+	skb_text_clear_attribute(text, (skb_range_t){ 3,8}, attr_font_size);
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 9);
 

@@ -59,14 +59,21 @@ typedef enum {
 
 /** Struct describing parameters for the text editor. */
 typedef struct skb_editor_params_t {
-	/** Layout parameters used for each paragraph layout. */
-	skb_layout_params_t layout_params;
-	/** Text attributes for all the text. */
+
+	/** Pointer to font collection to use. */
+	skb_font_collection_t* font_collection;
+	/** Pointer to the icon collection to use. */
+	skb_icon_collection_t* icon_collection;
+	/** Pointer to the attribute collection to use. */
+	skb_attribute_collection_t* attribute_collection;
+	/** Layout box width. Used for alignment, wrapping, and overflow (will be passed to layout width) */
+	float editor_width;
+	/** Attributes to apply for the layout. Text attributes, and attributes from attributed text are added on top. */
+	skb_attribute_set_t layout_attributes;
+	/** Attributes to apply for all the text. */
 	skb_attribute_set_t text_attributes;
-	/** Text attributes for the IME composition text. */
+	/** Attributes added for the IME composition text. */
 	skb_attribute_set_t composition_attributes;
-	/** Base direction of the text editor. */
-	uint8_t base_direction;
 	/** Care movement mode */
 	skb_editor_caret_mode_t caret_mode;
 	/** Behavior mode for editor operations (default vs macOS style). This includes how keyboard
@@ -413,7 +420,7 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
  * @param selection range of text to change
  * @param attribute_kind the kind of attribute to clear.
  */
-void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, uint32_t attribute_kind);
+void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
 
 /**
  * Clears all attributes for specified selection range.

@@ -192,12 +192,13 @@ void cached_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float d
 
 static void render_cached_text(cached_context_t* ctx, float x, float y, float font_size, skb_weight_t font_weight, skb_color_t color, const char* text)
 {
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
+	};
+
 	skb_layout_params_t params = {
-		.origin = { x, y },
-		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 	};
 
 	const skb_attribute_t attributes[] = {
@@ -210,7 +211,7 @@ static void render_cached_text(cached_context_t* ctx, float x, float y, float fo
 	assert(layout);
 
 	// Draw layout
-	render_draw_layout(ctx->rc, layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, x, y, layout, SKB_RASTERIZE_ALPHA_SDF);
 }
 
 void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)

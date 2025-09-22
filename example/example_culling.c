@@ -98,17 +98,21 @@ void* culling_create(GLFWwindow* window, render_context_t* rc)
 
 
 	// Render text
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
+	};
+
 	const skb_color_t ink_color = skb_rgba(32,32,32,255);
 	skb_layout_params_t params = {
-		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
 		.layout_width = 400.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 	};
 
 	const skb_attribute_t attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 		skb_attribute_make_font_size(24.f),
 		skb_attribute_make_fill(ink_color),
 	};
@@ -284,7 +288,7 @@ void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	}
 
 	// Draw layout
-	render_draw_layout_with_culling(ctx->rc, local_view, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout_with_culling(ctx->rc, local_view, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	render_pop_transform(ctx->rc);
 

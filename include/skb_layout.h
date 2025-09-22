@@ -11,6 +11,7 @@
 #include "skb_text.h"
 #include "skb_font_collection.h"
 #include "skb_icon_collection.h"
+#include "skb_attribute_collection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,22 @@ typedef const struct hb_language_impl_t *hb_language_t;
  * Functions and structs that describe text position have the offset as utf-32. If it is needed to
  * convert back to utf-8, use skb_utf8_codepoint_offset().
  *
+ * _Attributes_
+ *
+ * The attributes for the layout and text are described as a stack. When looking for attributes, like font size,
+ * the stack is traversed from top to bottom and matching attribute is used. The stack looks like this, top to bottom:
+ *
+ * - Attributes from text (skb_text_t)
+ * - Run attributes (skb_content_run_t)
+ * - Layout attributes (skb_layout_params_t)
+ *
+ * The last attribute at the top most level is the topmost attribute.
+ *
+ * The stack allows to define common default values for the attributes at the lower levels, and override them per run or text span.
+ *
+ * Some attributes are looked up at specific level. For example layout specific attributes, like text alignment
+ * are looked up starting from the layout level in the stack.
+ *
  * @{
  */
 
@@ -53,34 +70,16 @@ typedef struct skb_layout_params_t {
 	skb_font_collection_t* font_collection;
 	/** Pointer to the icon collection to use. */
 	skb_icon_collection_t* icon_collection;
-	/** BCP 47 language tag, e.g. fi-FI. */
-	const char* lang;
-	/** Origin of the layout. */
-	skb_vec2_t origin;
+	/** Pointer to the attribute collection to use. */
+	skb_attribute_collection_t* attribute_collection;
 	/** Layout box width. Used for alignment, wrapping, and overflow */
 	float layout_width;
 	/** Layout box height. Used for alignment, wrapping, and overflow */
 	float layout_height;
-	/** Tab stop increment. If zero, the tab will have same width as space. */
-	float tab_stop_increment;
-	/** Base writing direction. */
-	uint8_t base_direction;
-	/** Text wrapping. Used together with layout box to wrap the text to lines. See skb_text_wrap_t */
-	uint8_t text_wrap;
-	/** Text overflow. Used together with layout box to trim glyphs outside the layout bounds. See skb_text_overflow_t */
-	uint8_t text_overflow;
-	/** Vertical trim controls which part of the text is used to align the text. See skb_vertical_trim_t */
-	uint8_t vertical_trim;
-	/** Horizontal alignment relative to layout box. See skb_align_t. */
-	uint8_t horizontal_align;
-	/** Vertical alignment relative to layout box. See skb_align_t. */
-	uint8_t vertical_align;
-	/** Baseline alignment. Works similarly as dominant-baseline in CSS. */
-	uint8_t baseline_align;
 	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
-	/** Attributes to apply for all the content. Each content run can add or override these attributes. */
-	skb_attribute_set_t base_attributes;
+	/** Attributes to apply for the whole layout. Each content run can add or override these attributes. */
+	skb_attribute_set_t layout_attributes;
 } skb_layout_params_t;
 
 
@@ -141,7 +140,7 @@ typedef struct skb_content_run_t {
 	};
 	/** ID of the run, which can be later used to identify content in the layout. 0 is treated as invalid value. */
 	intptr_t run_id;
-	/** Slice to the attributes. */
+	/** Attribute set to apply for the run. */
 	skb_attribute_set_t attributes;
 	/** Type of the content, see skb_content_run_type_t. */
 	uint8_t type;
@@ -214,7 +213,6 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * @return initialized content run.
  */
 skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t run_id);
-
 
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
@@ -394,14 +392,6 @@ typedef struct skb_layout_t skb_layout_t;
 uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t* params);
 
 /**
- * Appends the hash of the text attributes to the provided hash.
- * @param hash hash to append to.
- * @param attributes attributes to hash.
- * @return combined hash.
- */
-uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_set_t attributes);
-
-/**
  * Creates empty layout with specified parameters.
  * @param params parameters to use for the layout.
  * @return newly create empty layout.
@@ -419,8 +409,7 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
  */
 skb_layout_t* skb_layout_create_utf8(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const char* text, int32_t text_count,
-	skb_attribute_set_t attributes);
+	const char* text, int32_t text_count, skb_attribute_set_t attributes);
 
 /**
  * Creates new layout from the provided parameters, text and text attributes.
@@ -433,8 +422,7 @@ skb_layout_t* skb_layout_create_utf8(
  */
 skb_layout_t* skb_layout_create_utf32(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const uint32_t* text, int32_t text_count,
-	skb_attribute_set_t attributes);
+	const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes);
 
 /**
  * Creates new layout from the provided parameters and text runs.
@@ -456,7 +444,7 @@ skb_layout_t* skb_layout_create_from_runs(
  * @param text pointer to the text to copy the text and attributes from.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text);
+skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text, skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -470,8 +458,7 @@ skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const sk
  */
 void skb_layout_set_utf8(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const char* text, int32_t text_count,
-	skb_attribute_set_t attributes);
+	const char* text, int32_t text_count, skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -485,8 +472,7 @@ void skb_layout_set_utf8(
  */
 void skb_layout_set_utf32(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const uint32_t* text, int32_t text_count,
-	skb_attribute_set_t attributes);
+	const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters and text runs.
@@ -511,7 +497,7 @@ void skb_layout_set_from_runs(
  */
 void skb_layout_set_from_text(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const skb_text_t* text);
+	const skb_text_t* text, skb_attribute_set_t attributes);
 
 /**
  * Empties the specified layout. Keeps the existing allocations.

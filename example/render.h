@@ -202,7 +202,7 @@ void render_draw_decoration(render_context_t* rc,
  * @param layout layout to draw
  * @param alpha_mode whether to render as SDF or alpha mask.
  */
-void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
+void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
 
 
 typedef enum {
@@ -226,7 +226,7 @@ typedef struct render_override_slice_t {
 render_override_t render_color_override_make_fill(intptr_t content_data, skb_color_t color);
 render_override_t render_color_override_make_decoration(intptr_t content_data, skb_color_t color);
 
-void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides);
+void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides);
 
 /**
  * Draws text layout with culling.
@@ -237,7 +237,7 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_lay
  * @param layout layout to draw
  * @param alpha_mode whether to render as SDF or alpha mask.
  */
-void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
+void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
 
 
 #endif // RENDERER_H

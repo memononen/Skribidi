@@ -463,19 +463,16 @@ void render_draw_decoration(render_context_t* rc,
 	render_draw_quad(rc, &quad);
 }
 
-void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
+void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(rc);
 	assert(layout);
 
-	skb_image_atlas_t* atlas = render_get_atlas(rc);
-
 	// Draw layout
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
 	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
 	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
-	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
-
 	const int32_t decorations_count = skb_layout_get_decorations_count(layout);
 	const skb_decoration_t* decorations = skb_layout_get_decorations(layout);
 
@@ -483,7 +480,7 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 	for (int32_t i = 0; i < decorations_count; i++) {
 		const skb_decoration_t* decoration = &decorations[i];
 		if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+			render_draw_decoration(rc, offset_x + decoration->offset_x,  offset_y + decoration->offset_y,
 				decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 				decoration->color, alpha_mode);
 		}
@@ -492,20 +489,20 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 	// Draw glyphs
 	for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 		const skb_layout_run_t* run = &layout_runs[ri];
-		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes);
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
 
 		if (run->type == SKB_CONTENT_RUN_OBJECT) {
 			// Object
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
 			// Icon
-			render_draw_icon(rc, run->bounds.x, run->bounds.y,
+			render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
 				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
 				attr_fill.color, alpha_mode);
 		} else {
 			// Text
 			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
-				render_draw_glyph(rc, glyph->offset_x, glyph->offset_y,
+				render_draw_glyph(rc, offset_x + glyph->offset_x, offset_y + glyph->offset_y,
 					layout_params->font_collection, run->font_handle, glyph->gid, run->font_size,
 					attr_fill.color, alpha_mode);
 			}
@@ -516,7 +513,7 @@ void render_draw_layout(render_context_t* rc, const skb_layout_t* layout, skb_ra
 	for (int32_t i = 0; i < decorations_count; i++) {
 		const skb_decoration_t* decoration = &decorations[i];
 		if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+			render_draw_decoration(rc, offset_x + decoration->offset_x, offset_y + decoration->offset_y,
 				decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 				decoration->color, alpha_mode);
 		}
@@ -559,19 +556,16 @@ render_override_t render_color_override_make_decoration(intptr_t content_data, s
 	};
 }
 
-void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides)
+void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides)
 {
 	assert(rc);
 	assert(layout);
 
-	skb_image_atlas_t* atlas = render_get_atlas(rc);
-
 	// Draw layout
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
 	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
 	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
-	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
-
 	const int32_t decorations_count = skb_layout_get_decorations_count(layout);
 	const skb_decoration_t* decorations = skb_layout_get_decorations(layout);
 
@@ -586,7 +580,7 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_lay
 			skb_color_t color = decoration->color;
 			if (has_decoration_overrides)
 				override_color(RENDER_OVERRIDE_DECORATION, run->content_run_id, &color, color_overrides);
-			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+			render_draw_decoration(rc, offset_x + decoration->offset_x, offset_y + decoration->offset_y,
 				decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 				color, alpha_mode);
 		}
@@ -595,7 +589,7 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_lay
 	// Draw glyphs
 	for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 		const skb_layout_run_t* run = &layout_runs[ri];
-		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes);
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
 
 		// TODO: handle color glyph/icon
 		skb_color_t color = attr_fill.color;
@@ -606,14 +600,14 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_lay
 			// Object
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
 			// Icon
-			render_draw_icon(rc, run->bounds.x, run->bounds.y,
+			render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
 				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
 				color, alpha_mode);
 		} else {
 			// Text
 			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
 				const skb_glyph_t* glyph = &glyphs[gi];
-				render_draw_glyph(rc, glyph->offset_x, glyph->offset_y,
+				render_draw_glyph(rc, offset_x + glyph->offset_x, offset_y + glyph->offset_y,
 					layout_params->font_collection, run->font_handle, glyph->gid, run->font_size,
 					color, alpha_mode);
 			}
@@ -628,41 +622,40 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, const skb_lay
 			skb_color_t color = decoration->color;
 			if (has_decoration_overrides)
 				override_color(RENDER_OVERRIDE_DECORATION, run->content_run_id, &color, color_overrides);
-			render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+			render_draw_decoration(rc, offset_x + decoration->offset_x, offset_y + decoration->offset_y,
 				decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 				color, alpha_mode);
 		}
 	}
 }
 
-void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
+void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(rc);
 	assert(layout);
 
-	skb_image_atlas_t* atlas = render_get_atlas(rc);
-
 	// Draw layout
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
 	const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
 	const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
 	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
 	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
 	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
-	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
-
 	const int32_t decorations_count = skb_layout_get_decorations_count(layout);
 	const skb_decoration_t* decorations = skb_layout_get_decorations(layout);
 
+	const skb_vec2_t offset = { .x = offset_x, .y = offset_y };
+
 	for (int32_t li = 0; li < layout_lines_count; li++) {
 		const skb_layout_line_t* line = &layout_lines[li];
-		if (!arb_rect2_overlap(view_bounds, line->culling_bounds))
+		if (!arb_rect2_overlap(view_bounds, skb_rect2_translate(line->culling_bounds, offset)))
 			continue;
 
 		// Draw underlines
 		for (int32_t i = line->decorations_range.start; i < line->decorations_range.end; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
 			if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-				render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+				render_draw_decoration(rc, offset_x + decoration->offset_x, offset_x + decoration->offset_y,
 					decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 					decoration->color, alpha_mode);
 			}
@@ -671,13 +664,13 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		// Draw glyphs
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Object
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
 				// Icon
-				render_draw_icon(rc, run->bounds.x, run->bounds.y,
+				render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
 					layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
 					attr_fill.color, alpha_mode);
 			} else {
@@ -688,10 +681,10 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 					skb_rect2_t coarse_glyph_bounds = line->common_glyph_bounds;
 					coarse_glyph_bounds.x += glyph->offset_x;
 					coarse_glyph_bounds.y += glyph->offset_y;
-					if (!arb_rect2_overlap(view_bounds, coarse_glyph_bounds))
+					if (!arb_rect2_overlap(view_bounds, skb_rect2_translate(coarse_glyph_bounds, offset)))
 						continue;
 
-					render_draw_glyph(rc, glyph->offset_x, glyph->offset_y,
+					render_draw_glyph(rc, offset_x + glyph->offset_x, offset_y + glyph->offset_y,
 						layout_params->font_collection, run->font_handle, glyph->gid, run->font_size,
 						attr_fill.color, alpha_mode);
 				}
@@ -702,7 +695,7 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		for (int32_t i = 0; i < decorations_count; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
 			if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-				render_draw_decoration(rc, decoration->offset_x, decoration->offset_y,
+				render_draw_decoration(rc, offset_x + decoration->offset_x, offset_y + decoration->offset_y,
 					decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 					decoration->color, alpha_mode);
 			}

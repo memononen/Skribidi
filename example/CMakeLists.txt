@@ -30,6 +30,7 @@ set(SKRIBIDI_EXAMPLE_FILES
 	example_hyperlink.c
 	example_icons.c
 	example_inlineobj.c
+	example_notes.c
 	example_richtext.c
 	example_testbed.c
 	ime.c

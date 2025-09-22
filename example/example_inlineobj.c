@@ -115,71 +115,72 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+	};
+
 	skb_layout_params_t params = {
-		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.icon_collection = ctx->icon_collection,
 		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_ALPHABETIC,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 	};
 
-	const skb_attribute_t attributes_text[] = {
+	const skb_attribute_t text_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
-	const skb_attribute_t attributes_text2[] = {
+	const skb_attribute_t text2_attributes[] = {
 		skb_attribute_make_font_size(50.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
 	static const float object_size = 50.f;
-	const skb_attribute_t attributes_object[] = {
+	const skb_attribute_t object_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_BEFORE, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(255,128,128,255)),
 	};
 
-	const skb_attribute_t attributes_object2[] = {
+	const skb_attribute_t object2_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(128,220,128,255)),
 	};
 
-	const skb_attribute_t attributes_object3[] = {
+	const skb_attribute_t object3_attributes[] = {
 		skb_attribute_make_object_align(0.65f, SKB_OBJECT_ALIGN_SELF, SKB_BASELINE_ALPHABETIC),
 		skb_attribute_make_object_padding_hv(10.f, 0.f),
 		skb_attribute_make_fill(skb_rgba(128,128,255,255)),
 	};
 
-	const skb_attribute_t attributes_icon[] = {
+	const skb_attribute_t icon_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_object_padding_hv(5.f, 5.f),
 		skb_attribute_make_fill(skb_rgba(32,32,220,255)),
 	};
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text), 0),
-		skb_content_run_make_object(1, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_object), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+		skb_content_run_make_object(1, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(object_attributes), 0),
 //		skb_text_run_make_utf8(" این یک.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
 //		skb_text_run_make_utf8(" 呼んでいた.\n", -1, attributes_text2, SKB_COUNTOF(attributes_text2)),
-		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text2), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text2_attributes), 0),
 
-		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text), 0),
-		skb_content_run_make_object(2, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_object2), 0),
-		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text2), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+		skb_content_run_make_object(2, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(object2_attributes), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text2_attributes), 0),
 
-		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text), 0),
-		skb_content_run_make_object(3, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_object3), 0),
-		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text2), 0),
+		skb_content_run_make_utf8("Djúpur", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+		skb_content_run_make_object(3, object_size, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(object3_attributes), 0),
+		skb_content_run_make_utf8("Fjörður.\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text2_attributes), 0),
 
-		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "astro"), SKB_SIZE_AUTO, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_icon), 0),
-		skb_content_run_make_utf8("Icon and two", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_text), 0),
-		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, object_size * 0.75f, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_icon), 0),
+		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "astro"), SKB_SIZE_AUTO, object_size, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(icon_attributes), 0),
+		skb_content_run_make_utf8("Icon and two", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes), 0),
+		skb_content_run_make_icon(skb_icon_collection_find_icon(ctx->icon_collection, "pen"), SKB_SIZE_AUTO, object_size * 0.75f, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(icon_attributes), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -292,20 +293,21 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
 	// Draw visual result
-	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw objects
 	{
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
 		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
+		const skb_layout_params_t* params = skb_layout_get_params(ctx->layout);
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Draw object
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run->attributes);
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run->attributes, params->attribute_collection);
 				debug_render_filled_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, attr_fill.color);
 
 				// Draw baseline
@@ -322,6 +324,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const int32_t lines_count = skb_layout_get_lines_count(ctx->layout);
 		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(ctx->layout);
 		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(ctx->layout);
+		const skb_layout_params_t* params = skb_layout_get_params(ctx->layout);
 
 		// Draw line baselines
 		for (int32_t li = 0; li < lines_count; li++) {
@@ -337,7 +340,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_layout_run_t* run = &layout_runs[ri];
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes, params->attribute_collection);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,
@@ -346,7 +349,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				};
 				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255), -1.f);
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes, params->attribute_collection);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,

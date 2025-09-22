@@ -104,8 +104,8 @@ const skb_layout_t* skb_layout_cache_get_utf8(
 		text_count = (int32_t)strlen(text);
 
 	uint64_t hash = skb_hash64_empty();
-	hash = skb_hash64_append(hash, text, text_count);
 	hash = skb_layout_params_hash_append(hash, params);
+	hash = skb_hash64_append(hash, text, text_count);
 	hash = skb_attributes_hash_append(hash, attributes);
 
 	skb__cached_layout_t* cached_layout = skb__layout_cache_get_or_insert(cache, hash);
@@ -119,8 +119,8 @@ const skb_layout_t* skb_layout_cache_get_utf8(
 }
 
 const skb_layout_t* skb_layout_cache_get_utf32(
-	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes)
+	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
+	const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes)
 {
 	assert(cache);
 
@@ -128,8 +128,8 @@ const skb_layout_t* skb_layout_cache_get_utf32(
 		text_count = skb_utf32_strlen(text);
 
 	uint64_t hash = skb_hash64_empty();
-	hash = skb_hash64_append(hash, text, text_count * sizeof(uint32_t));
 	hash = skb_layout_params_hash_append(hash, params);
+	hash = skb_hash64_append(hash, text, text_count * sizeof(uint32_t));
 	hash = skb_attributes_hash_append(hash, attributes);
 
 	skb__cached_layout_t* cached_layout = skb__layout_cache_get_or_insert(cache, hash);
@@ -143,12 +143,14 @@ const skb_layout_t* skb_layout_cache_get_utf32(
 }
 
 const skb_layout_t* skb_layout_cache_get_from_runs(
-	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
-	const skb_content_run_t* runs, int32_t runs_count)
+	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
+	const skb_layout_params_t* params, const skb_content_run_t* runs, int32_t runs_count)
 {
 	assert(cache);
 
 	uint64_t hash = skb_hash64_empty();
+
+	hash = skb_layout_params_hash_append(hash, params);
 
 	skb_content_run_t* fixed_runs = SKB_TEMP_ALLOC(temp_alloc, skb_content_run_t, runs_count);
 	for (int32_t i = 0; i < runs_count; i++) {
@@ -170,7 +172,6 @@ const skb_layout_t* skb_layout_cache_get_from_runs(
 			hash = skb_hash64_append_float(hash, fixed_runs[i].icon.height);
 			hash = skb_hash64_append_uint32(hash, fixed_runs[i].icon.icon_handle);
 		}
-		hash = skb_layout_params_hash_append(hash, params);
 		hash = skb_attributes_hash_append(hash, fixed_runs[i].attributes);
 	}
 

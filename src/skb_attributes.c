@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "skb_attributes.h"
+#include "skb_attribute_collection.h"
 #include "skb_common.h"
 
 #include <assert.h>
@@ -15,6 +16,22 @@ static const char* skb__make_hb_lang(const char* lang)
 	hb_language_t hb_lang = hb_language_from_string(lang, -1);
 	return hb_language_to_string(hb_lang);
 }
+
+
+skb_attribute_set_t skb_attribute_set_make_reference(skb_attribute_set_handle_t handle)
+{
+	return (skb_attribute_set_t) {
+		.set_handle = handle,
+	};
+}
+
+skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name)
+{
+	return (skb_attribute_set_t) {
+		.set_handle = skb_attribute_collection_find_set_by_name(attribute_collection, name),
+	};
+}
+
 
 skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction)
 {
@@ -87,7 +104,7 @@ skb_attribute_t skb_attribute_make_font_stretch(skb_stretch_t stretch)
 	skb_attribute_t attribute;
 	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
 	attribute.font_stretch = (skb_attribute_font_stretch_t) {
-		.kind = SKB_ATTRIBUTE_FONT_STYLE,
+		.kind = SKB_ATTRIBUTE_FONT_STRETCH,
 		.stretch = stretch,
 	};
 	return attribute;
@@ -135,6 +152,86 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 		.kind = SKB_ATTRIBUTE_LINE_HEIGHT,
 		.type = (uint8_t)type,
 		.height = height,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.tab_stop_increment = (skb_attribute_tab_stop_increment_t) {
+		.kind = SKB_ATTRIBUTE_TAB_STOP_INCREMENT,
+		.increment = increment,
+	};
+	return attribute;
+
+}
+
+skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.text_wrap = (skb_attribute_text_wrap_t) {
+		.kind = SKB_ATTRIBUTE_TEXT_WRAP,
+		.text_wrap = text_wrap,
+	};
+	return attribute;
+
+}
+
+skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overflow)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.text_overflow = (skb_attribute_text_overflow_t) {
+		.kind = SKB_ATTRIBUTE_TEXT_OVERFLOW,
+		.text_overflow = text_overflow,
+	};
+	return attribute;
+
+}
+
+skb_attribute_t skb_attribute_make_vertical_trim(skb_vertical_trim_t vertical_trim)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.vertical_trim = (skb_attribute_vertical_trim_t) {
+		.kind = SKB_ATTRIBUTE_VERTICAL_TRIM,
+		.vertical_trim = vertical_trim,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_horizontal_align(skb_align_t horizontal_align)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.horizontal_align = (skb_attribute_align_t) {
+		.kind = SKB_ATTRIBUTE_HORIZONTAL_ALIGN,
+		.align = horizontal_align,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_vertical_align(skb_align_t vertical_align)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.vertical_align = (skb_attribute_align_t) {
+		.kind = SKB_ATTRIBUTE_VERTICAL_ALIGN,
+		.align = vertical_align,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.baseline_align = (skb_attribute_baseline_align_t) {
+		.kind = SKB_ATTRIBUTE_BASELINE_ALIGN,
+		.baseline = baseline_align,
 	};
 	return attribute;
 }
@@ -206,207 +303,256 @@ skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float ver
 	return attribute;
 }
 
-
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes)
+skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_TEXT_DIRECTION)
-			return attributes.attributes[i].text_direction.direction;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_text_direction(*attributes.parent);
-
-	return SKB_DIRECTION_AUTO;
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.reference = (skb_attribute_reference_t) {
+		.kind = SKB_ATTRIBUTE_REFERENCE,
+		.handle = set_handle,
+	};
+	return attribute;
 }
 
-const char* skb_attributes_get_lang(const skb_attribute_set_t attributes)
+skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name)
 {
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.reference = (skb_attribute_reference_t) {
+		.kind = SKB_ATTRIBUTE_REFERENCE,
+		.handle = skb_attribute_collection_find_set_by_name(attribute_collection, name),
+	};
+	return attribute;
+}
+
+int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap)
+{
+	int32_t count = 0;
 	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LANG)
-			return attributes.attributes[i].lang.lang;
+		if (attributes.attributes[i].kind == kind) {
+			if (count < results_cap)
+				results[count++] = &attributes.attributes[i];
+		}
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_REFERENCE) {
+			skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.attributes[i].reference.handle);
+			count += skb_attributes_get_by_kind(ref_attributes, collection, kind, results + count, results_cap - count);
+		}
 	}
 
-	if (attributes.parent)
-		return skb_attributes_get_lang(*attributes.parent);
+	if (attributes.set_handle) {
+		skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.set_handle);
+		count += skb_attributes_get_by_kind(ref_attributes, collection, kind, results + count, results_cap - count);
+	}
+
+	if (attributes.parent_set)
+		count += skb_attributes_get_by_kind(*attributes.parent_set, collection, kind, results + count, results_cap - count);
+
+	return count;
+}
+
+static const skb_attribute_t* skb__get_attribute_by_kind(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind)
+{
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == kind)
+			return &attributes.attributes[i];
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_REFERENCE) {
+			skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.attributes[i].reference.handle);
+			const skb_attribute_t* attr = skb__get_attribute_by_kind(ref_attributes, collection, kind);
+			if (attr)
+				return attr;
+		}
+	}
+
+	if (attributes.parent_set) {
+		const skb_attribute_t* attr = skb__get_attribute_by_kind(*attributes.parent_set, collection, kind);
+		if (attr)
+			return attr;
+	}
+	if (attributes.set_handle) {
+		skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.set_handle);
+		return skb__get_attribute_by_kind(ref_attributes, collection, kind);
+	}
 
 	return NULL;
 }
 
-uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes)
+skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_FAMILY)
-			return attributes.attributes[i].font_family.family;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_font_family(*attributes.parent);
-
-	return SKB_FONT_FAMILY_DEFAULT;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_DIRECTION);
+	return attr ? attr->text_direction.direction : SKB_DIRECTION_AUTO;
 }
 
-float skb_attributes_get_font_size(const skb_attribute_set_t attributes)
+const char* skb_attributes_get_lang(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_SIZE)
-			return attributes.attributes[i].font_size.size;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_font_size(*attributes.parent);
-
-	return 16.f;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LANG);
+	return attr ? attr->lang.lang : NULL;
 }
 
-skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes)
+uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_WEIGHT)
-			return attributes.attributes[i].font_weight.weight;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_font_weight(*attributes.parent);
-
-	return SKB_WEIGHT_NORMAL;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_FAMILY);
+	return attr ? attr->font_family.family : SKB_FONT_FAMILY_DEFAULT;
 }
 
-skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes)
+float skb_attributes_get_font_size(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_STYLE)
-			return attributes.attributes[i].font_style.style;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_font_style(*attributes.parent);
-
-	return SKB_STYLE_NORMAL;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_SIZE);
+	return attr ? attr->font_size.size : 16.f;
 }
 
-skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes)
+skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FONT_STRETCH)
-			return attributes.attributes[i].font_stretch.stretch;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_font_stretch(*attributes.parent);
-
-	return SKB_STRETCH_NORMAL;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_WEIGHT);
+	return attr ? attr->font_weight.weight : SKB_WEIGHT_NORMAL;
 }
 
-float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes)
+skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LETTER_SPACING)
-			return attributes.attributes[i].letter_spacing.spacing;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_letter_spacing(*attributes.parent);
-
-	return 0.f;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_STYLE);
+	return attr ? attr->font_style.style : SKB_STYLE_NORMAL;
 }
 
-float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes)
+skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_WORD_SPACING)
-			return attributes.attributes[i].word_spacing.spacing;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_word_spacing(*attributes.parent);
-
-	return 0.f;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_STRETCH);
+	return attr ? attr->font_stretch.stretch : SKB_STRETCH_NORMAL;
 }
 
-skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes)
+float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_LINE_HEIGHT)
-			return attributes.attributes[i].line_height;
-	}
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LETTER_SPACING);
+	return attr ? attr->letter_spacing.spacing : 0.f;
+}
 
-	if (attributes.parent)
-		return skb_attributes_get_line_height(*attributes.parent);
+float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_WORD_SPACING);
+	return attr ? attr->word_spacing.spacing : 0.f;
+}
 
+skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
 	static const skb_attribute_line_height_t default_line_height = {
 		.type = SKB_LINE_HEIGHT_NORMAL,
 	};
-	return default_line_height;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LINE_HEIGHT);
+	return attr ? attr->line_height : default_line_height;
 }
 
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes)
+skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_FILL)
-			return attributes.attributes[i].fill;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_fill(*attributes.parent);
-
 	static const skb_attribute_fill_t default_fill = {
 		.color = {0, 0, 0, 255 },
 	};
-	return default_fill;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FILL);
+	return attr ? attr->fill : default_fill;
 }
 
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes)
+skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_OBJECT_ALIGN)
-			return attributes.attributes[i].object_align;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_object_align(*attributes.parent);
-
 	static const skb_attribute_object_align_t default_object_align = {
 		.align_ref = SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE,
 		.align_baseline = SKB_BASELINE_CENTRAL,
 		.baseline_ratio = 0.5f,
 	};
-	return default_object_align;
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_ALIGN);
+	return attr ? attr->object_align : default_object_align;
 }
 
-skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_set_t attributes)
+skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
-		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_OBJECT_PADDING)
-			return attributes.attributes[i].object_padding;
-	}
-
-	if (attributes.parent)
-		return skb_attributes_get_object_padding(*attributes.parent);
-
 	static const skb_attribute_object_padding_t default_object_padding = { 0 };
-	return default_object_padding;
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_PADDING);
+	return attr ? attr->object_padding : default_object_padding;
 }
 
-int32_t skb_attributes_get_count(const skb_attribute_set_t attributes)
+float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TAB_STOP_INCREMENT);
+	return attr ? attr->tab_stop_increment.increment : 0.f;
+}
+
+skb_text_wrap_t skb_attributes_get_text_wrap(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_WRAP);
+	return attr ? attr->text_wrap.text_wrap : SKB_WRAP_NONE;
+}
+
+skb_text_overflow_t skb_attributes_get_text_overflow(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_OVERFLOW);
+	return attr ? attr->text_overflow.text_overflow : SKB_OVERFLOW_NONE;
+}
+
+skb_vertical_trim_t skb_attributes_get_vertical_trim(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_TRIM);
+	return attr ? attr->vertical_trim.vertical_trim : SKB_VERTICAL_TRIM_DEFAULT;
+}
+
+skb_align_t skb_attributes_get_horizontal_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_HORIZONTAL_ALIGN);
+	return attr ? attr->horizontal_align.align : SKB_ALIGN_START;
+}
+
+skb_align_t skb_attributes_get_vertical_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_ALIGN);
+	return attr ? attr->vertical_align.align : SKB_ALIGN_START;
+}
+
+skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BASELINE_ALIGN);
+	return attr ? attr->baseline_align.baseline : SKB_BASELINE_ALPHABETIC;
+}
+
+
+int32_t skb_attributes_get_copy_flat_count(const skb_attribute_set_t attributes)
 {
 	int32_t count = attributes.attributes_count;
-	if (attributes.parent)
-		count += skb_attributes_get_count(*attributes.parent);
+	if (attributes.set_handle)
+		count++;
+	if (attributes.parent_set)
+		count += skb_attributes_get_copy_flat_count(*attributes.parent_set);
 	return count;
 }
 
-int32_t skb_attributes_copy(const skb_attribute_set_t attributes, skb_attribute_t* target, int32_t target_cap)
+int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, int32_t target_cap)
 {
 	int32_t copied = 0;
-	if (attributes.parent)
-		copied += skb_attributes_copy(*attributes.parent, target, target_cap);
+
+	if (attributes.parent_set)
+		copied += skb_attributes_copy_flat(*attributes.parent_set, dest + copied, target_cap - copied);
+
+	if (attributes.set_handle && (copied + 1) <= target_cap) {
+		dest[copied] = skb_attribute_make_reference(attributes.set_handle);
+		copied++;
+	}
 
 	int32_t count = skb_mini(attributes.attributes_count, target_cap - copied);
 	if (count > 0) {
-		memcpy(target + copied, attributes.attributes, sizeof(skb_attribute_t) * count);
+		memcpy(dest + copied, attributes.attributes, sizeof(skb_attribute_t) * count);
 		copied += count;
 	}
 
 	return copied;
+}
+
+uint64_t skb_attributes_hash_append(uint64_t hash, skb_attribute_set_t attributes)
+{
+	if (attributes.parent_set)
+		hash = skb_attributes_hash_append(hash, *attributes.parent_set);
+
+	if (attributes.set_handle)
+		hash = skb_hash64_append(hash, &attributes.set_handle, sizeof(skb_attribute_set_handle_t));
+
+	// Note: The attributes are zero initialized (including padding)
+	for (int32_t i = 0; i < attributes.attributes_count; i++)
+		hash = skb_hash64_append(hash, &attributes.attributes[i], sizeof(skb_attribute_t));
+
+	return hash;
 }

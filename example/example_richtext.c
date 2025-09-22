@@ -98,44 +98,46 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
-	skb_layout_params_t params = {
-		.lang = "zh-hans",
-		.base_direction = SKB_DIRECTION_AUTO,
-		.font_collection = ctx->font_collection,
-		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_lang("zh-hans"),
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 	};
 
-	const skb_attribute_t attributes_small[] = {
+	skb_layout_params_t params = {
+		.font_collection = ctx->font_collection,
+		.layout_width = 600.f,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes)
+	};
+
+	const skb_attribute_t small_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 	};
 
-	const skb_attribute_t attributes_ja_jp[] = {
+	const skb_attribute_t ja_jp_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_lang("ja-jp"),
 		skb_attribute_make_fill(ink_color),
 	};
 
-	const skb_attribute_t attributes_deco1[] = {
+	const skb_attribute_t deco1_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,128)),
 	};
 
-	const skb_attribute_t attributes_deco2[] = {
+	const skb_attribute_t deco2_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,192)),
 	};
 
-	const skb_attribute_t attributes_deco3[] = {
+	const skb_attribute_t deco3_attributes[] = {
 		skb_attribute_make_font_size(18.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
@@ -145,21 +147,21 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_decoration(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, skb_rgba(0,192,64,255)),
 	};
 
-	const skb_attribute_t attributes_italic[] = {
+	const skb_attribute_t italic_attributes[] = {
 		skb_attribute_make_font_size(64.f),
 		skb_attribute_make_font_style(SKB_STYLE_ITALIC),
 		skb_attribute_make_fill(ink_color),
 		skb_attribute_make_letter_spacing(20.f),
 	};
 
-	const skb_attribute_t attributes_big[] = {
+	const skb_attribute_t big_attributes[] = {
 		skb_attribute_make_font_size(128.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 0.75f),
 		skb_attribute_make_fill(skb_rgba(220,40,40,255)),
 	};
 
-	const skb_attribute_t attributes_fracts[] = {
+	const skb_attribute_t fracts_attributes[] = {
 		skb_attribute_make_font_size(48.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_fill(skb_rgba(180,110,190,255)),
@@ -181,20 +183,20 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.\n";
 
 	skb_content_run_t runs[] = {
-		skb_content_run_make_utf8(ipsum, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_small), 0),
-		skb_content_run_make_utf8("moikkelis!\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_italic), 0),
+		skb_content_run_make_utf8(ipsum, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(small_attributes), 0),
+		skb_content_run_make_utf8("moikkelis!\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes), 0),
 
-		skb_content_run_make_utf8("این یک 😬👀🚨 تست است\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco2), 0),
+		skb_content_run_make_utf8("این یک 😬👀🚨 تست است\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco2_attributes), 0),
 
-		skb_content_run_make_utf8("Donec sodales ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco1), 0),
-		skb_content_run_make_utf8("vitae odio ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco2), 0),
-		skb_content_run_make_utf8("dapibus pulvinar\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_deco3), 0),
+		skb_content_run_make_utf8("Donec sodales ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco1_attributes), 0),
+		skb_content_run_make_utf8("vitae odio ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco2_attributes), 0),
+		skb_content_run_make_utf8("dapibus pulvinar\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(deco3_attributes), 0),
 
-		skb_content_run_make_utf8("ہے۔ kofi یہ ایک\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_small), 0),
-		skb_content_run_make_utf8("POKS! 🧁\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_big), 0),
-		skb_content_run_make_utf8("11/17\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_fracts), 0),
-		skb_content_run_make_utf8("शकति शक्ति ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_italic), 0),
-		skb_content_run_make_utf8("こんにちは世界。 ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes_ja_jp), 0),
+		skb_content_run_make_utf8("ہے۔ kofi یہ ایک\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(small_attributes), 0),
+		skb_content_run_make_utf8("POKS! 🧁\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(big_attributes), 0),
+		skb_content_run_make_utf8("11/17\n", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(fracts_attributes), 0),
+		skb_content_run_make_utf8("शकति शक्ति ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes), 0),
+		skb_content_run_make_utf8("こんにちは世界。 ", -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(ja_jp_attributes), 0),
 	};
 
 	ctx->layout = skb_layout_create_from_runs(ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
@@ -308,7 +310,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	if (ctx->show_glyph_bounds) {
 		// Draw layout details

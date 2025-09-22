@@ -71,14 +71,15 @@ static void set_text(fallback_context_t* ctx, const char* text)
 {
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
+	};
+
 	skb_layout_params_t params = {
-		.lang = "",
-		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.horizontal_align = SKB_ALIGN_START,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes)
 	};
 
 	const skb_attribute_t attributes[] = {
@@ -190,12 +191,12 @@ void* fallback_create(GLFWwindow* window, render_context_t* rc)
 	assert(ctx->temp_alloc);
 
 	skb_layout_params_t params = {
-		.lang = "",
-		.base_direction = SKB_DIRECTION_AUTO,
+//		.lang = "",
+//		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.layout_width = 600.f,
-		.text_wrap = SKB_WRAP_WORD_CHAR,
-		.baseline_align = SKB_BASELINE_MIDDLE,
+//		.text_wrap = SKB_WRAP_WORD_CHAR,
+//		.baseline_align = SKB_BASELINE_MIDDLE,
 	};
 
 	ctx->layout = skb_layout_create(&params);
@@ -318,7 +319,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
-	render_draw_layout(ctx->rc, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw visual result
 
