@@ -1024,14 +1024,7 @@ static bool skb__is_rtl(const skb_editor_t* editor, skb__editor_text_position_t 
 	if (edit_pos.paragraph_text_offset > line->last_grapheme_offset)
 		return layout_is_rtl;
 
-	const int32_t text_count = skb_layout_get_text_count(paragraph->layout);
-
-	if (text_count == 0)
-		return layout_is_rtl;
-
-	const skb_text_property_t* text_props = skb_layout_get_text_properties(paragraph->layout);
-
-	return skb_is_rtl(text_props[edit_pos.paragraph_text_offset].direction);
+	return skb_is_rtl(skb_layout_get_text_direction_at(paragraph->layout, (skb_text_position_t){.offset = edit_pos.paragraph_text_offset}));
 }
 
 static bool skb__are_on_same_line(skb__editor_text_position_t a, skb__editor_text_position_t b)

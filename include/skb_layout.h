@@ -376,8 +376,6 @@ typedef struct skb_text_property_t {
 	uint8_t flags;
 	/** Script of the codepoint. */
 	uint8_t script;
-	/** Text direction. */
-	uint8_t direction;
 } skb_text_property_t;
 
 /** Opaque type for the text layout. Use skb_layout_create*() to create. */

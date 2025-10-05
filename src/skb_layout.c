@@ -1455,7 +1455,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 					// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 					// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
 					// Treat tab as non-whitespace so that it allocates space at the end of the line too.
-					const bool codepoint_is_rtl = skb_is_rtl(layout->text_props[cp_offset].direction);
+					const bool codepoint_is_rtl = skb_is_rtl(shaping_run->direction);
 					const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
 					const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
 					if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control) && !codepoint_is_tab) {
@@ -1858,7 +1858,7 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 		const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
 		for (int32_t j = shaping_run->text_range.start; j < shaping_run->text_range.end; j++) {
 			SKB_SET_FLAG(layout->text_props[j].flags, SKB_TEXT_PROP_EMOJI, shaping_run->is_emoji);
-			layout->text_props[j].direction = shaping_run->direction;
+//			layout->text_props[j].direction = shaping_run->direction;
 			layout->text_props[j].script = shaping_run->script;
 		}
 	}
@@ -2526,11 +2526,46 @@ int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position
 	return skb_clampi(pos.offset, 0, layout->text_count);
 }
 
+static skb_range_t skb__get_layout_run_text_range(const skb_layout_t* layout, int32_t run_idx)
+{
+	const skb_layout_run_t* layout_run = &layout->layout_runs[run_idx];
+	if (skb_range_is_empty(layout_run->cluster_range))
+		return (skb_range_t){0};
+
+	const skb_cluster_t* first_cluster = &layout->clusters[layout_run->cluster_range.start];
+	const skb_cluster_t* last_cluster = &layout->clusters[layout_run->cluster_range.end - 1];
+	return (skb_range_t) {
+		.start = first_cluster->text_offset,
+		.end = last_cluster->text_offset + last_cluster->text_count,
+	};
+}
+
+static int32_t skb__get_layout_run_index(const skb_layout_t* layout, skb_text_position_t pos)
+{
+	if (pos.offset < 0 || pos.offset >= layout->text_count)
+		return SKB_INVALID_INDEX;
+
+	for (int32_t li = 0; li < layout->lines_count; li++) {
+		const skb_layout_line_t* line = &layout->lines[li];
+		if (pos.offset >= line->text_range.start && pos.offset < line->text_range.end) {
+			for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+				const skb_range_t run_text_range = skb__get_layout_run_text_range(layout, ri);
+				if (pos.offset >= run_text_range.start && pos.offset < run_text_range.end)
+					return ri;
+			}
+			break;
+		}
+	}
+
+	return SKB_INVALID_INDEX;
+}
+
 skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
 	assert(layout);
-	if (pos.offset >= 0 && pos.offset < layout->text_count)
-		return layout->text_props[pos.offset].direction;
+	const int32_t run_idx = skb__get_layout_run_index(layout, pos);
+	if (run_idx != SKB_INVALID_INDEX)
+		return layout->layout_runs[run_idx].direction;
 	return layout->resolved_direction;
 }
 

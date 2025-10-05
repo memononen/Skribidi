@@ -958,7 +958,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					debug_render_text(ctx->rc, lx+1.5f, ly+0.5f, 11, RENDER_ALIGN_START, log_color, "%c%c%c%c %s", SKB_UNTAG(skb_script_to_iso15924_tag(script)), (text_props[cp_idx].flags & SKB_TEXT_PROP_EMOJI) ? ":)" : "");
 					ly += 13.f;
 					// Direction
-					debug_render_text(ctx->rc, lx+1.5f, ly+0.5f, 11, RENDER_ALIGN_START, log_color, skb_is_rtl(text_props[cp_idx].direction) ? "<R" : "L>");
+					debug_render_text(ctx->rc, lx+1.5f, ly+0.5f, 11, RENDER_ALIGN_START, log_color, skb_is_rtl(skb_layout_get_text_direction_at(edit_layout, (skb_text_position_t){.offset = cp_idx})) ? "<R" : "L>");
 					ly += 13.f;
 
 					// Next block
