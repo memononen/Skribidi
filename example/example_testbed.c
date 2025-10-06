@@ -567,7 +567,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
@@ -735,7 +735,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
