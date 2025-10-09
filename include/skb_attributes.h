@@ -387,7 +387,7 @@ typedef struct skb_attribute_set_t {
 	const skb_attribute_t* attributes;
 	int32_t attributes_count;
 	skb_attribute_set_handle_t set_handle;
-	struct skb_attribute_set_t* parent_set;
+	const struct skb_attribute_set_t* parent_set;
 } skb_attribute_set_t;
 
 #define SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(array) (skb_attribute_set_t) { .attributes = (array), .attributes_count = SKB_COUNTOF(array) }
@@ -681,10 +681,10 @@ int32_t skb_attributes_get_copy_flat_count(const skb_attribute_set_t attributes)
  * The first attribute of the furthest parent is the first attribute in the target array.
  * @param attributes attribute set to use.
  * @param dest array of attributes to copy the attributes to.
- * @param target_cap capacity of the target array.
+ * @param dest_cap capacity of the target array.
  * @return number of attributes copied.
  */
-int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, const int32_t target_cap);
+int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, const int32_t dest_cap);
 
 
 /**

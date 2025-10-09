@@ -521,19 +521,19 @@ int32_t skb_attributes_get_copy_flat_count(const skb_attribute_set_t attributes)
 	return count;
 }
 
-int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, int32_t target_cap)
+int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attribute_t* dest, int32_t dest_cap)
 {
 	int32_t copied = 0;
 
 	if (attributes.parent_set)
-		copied += skb_attributes_copy_flat(*attributes.parent_set, dest + copied, target_cap - copied);
+		copied += skb_attributes_copy_flat(*attributes.parent_set, dest + copied, dest_cap - copied);
 
-	if (attributes.set_handle && (copied + 1) <= target_cap) {
+	if (attributes.set_handle && (copied + 1) <= dest_cap) {
 		dest[copied] = skb_attribute_make_reference(attributes.set_handle);
 		copied++;
 	}
 
-	int32_t count = skb_mini(attributes.attributes_count, target_cap - copied);
+	int32_t count = skb_mini(attributes.attributes_count, dest_cap - copied);
 	if (count > 0) {
 		memcpy(dest + copied, attributes.attributes, sizeof(skb_attribute_t) * count);
 		copied += count;
