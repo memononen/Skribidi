@@ -109,7 +109,7 @@ const skb_attribute_span_t* skb_text_get_attribute_spans(const skb_text_t* text)
 }
 
 
-static skb_range_t skb__clamp_text_range(const skb_text_t* text, skb_range_t range)
+skb_range_t skb_text_sanitize_range(const skb_text_t* text, skb_range_t range)
 {
 	return (skb_range_t) {
 		.start = skb_clampi(range.start, 0, text->text_count),
@@ -403,7 +403,7 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 	if (!from_text || !from_text->text_count)
 		return;
 
-	range = skb__clamp_text_range(from_text, range);
+	range = skb_text_sanitize_range(from_text, range);
 	const int32_t copy_offset = range.start;
 	const int32_t copy_count = range.end - range.start;
 
@@ -481,7 +481,7 @@ void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* oth
 	assert(text);
 	assert(other);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	const int32_t remove_count = range.end - range.start;
 
@@ -516,7 +516,7 @@ void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8
 	assert(text);
 	assert(utf8);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	const int32_t remove_count = range.end - range.start;
 
@@ -541,7 +541,7 @@ void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t*
 	assert(text);
 	assert(utf32);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	const int32_t remove_count = range.end - range.start;
 
@@ -564,7 +564,7 @@ void skb_text_remove(skb_text_t* text, skb_range_t range)
 {
 	assert(text);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 	if (range.end <= range.start) return;
 
 	// Remove text
@@ -575,7 +575,7 @@ void skb_text_remove(skb_text_t* text, skb_range_t range)
 	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0});
 }
 
-void skb_text_remove_if(skb_text_t* text, skb_remove_func_t* filter_func, void* context)
+void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, void* context)
 {
 	assert(filter_func);
 
@@ -602,7 +602,7 @@ void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute
 {
 	assert(text);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	skb__attributes_clear(text, range, attribute);
 }
@@ -611,7 +611,7 @@ void skb_text_clear_all_attributes(skb_text_t* text, skb_range_t range)
 {
 	assert(text);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	skb__attributes_clear(text, range, (skb_attribute_t){0});
 }
@@ -620,7 +620,7 @@ void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t
 {
 	assert(text);
 
-	range = skb__clamp_text_range(text, range);
+	range = skb_text_sanitize_range(text, range);
 
 	skb__attributes_clear(text, range, attribute);
 	skb__span_insert(text, range, attribute);

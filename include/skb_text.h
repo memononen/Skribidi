@@ -76,6 +76,8 @@ int32_t skb_text_get_utf32_count(const skb_text_t* text);
 /** @return const pointer to the utf-32 string. */
 const uint32_t * skb_text_get_utf32(const skb_text_t* text);
 
+skb_range_t skb_text_sanitize_range(const skb_text_t* text, skb_range_t range);
+
 /** @return number of attribute spans of the text. */
 int32_t skb_text_get_attribute_spans_count(const skb_text_t* text);
 /** @return const pointer to the attribute spans of the text. */
@@ -157,7 +159,7 @@ void skb_text_remove(skb_text_t* text, skb_range_t range);
  * @param context pointer to context passed to skb_text_remove_if
  * @return true of the codepoint should be removed
  */
-typedef bool skb_remove_func_t(uint32_t codepoint, int32_t index, void* context);
+typedef bool skb_text_remove_func_t(uint32_t codepoint, int32_t index, void* context);
 
 /**
  * Removes codepoints that do not pass the filter function
@@ -165,7 +167,7 @@ typedef bool skb_remove_func_t(uint32_t codepoint, int32_t index, void* context)
  * @param filter_func pointer to filter function.
  * @param context context pointer passed to filter functions.
  */
-void skb_text_remove_if(skb_text_t* text, skb_remove_func_t* filter_func, void* context);
+void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, void* context);
 
 /**
  * Clears attribute of specific type from specified range.
