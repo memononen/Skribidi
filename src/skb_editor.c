@@ -1001,7 +1001,7 @@ skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
 		return skb__advance_word_backward(editor, edit_pos);
 	return skb__advance_word_forward(editor, edit_pos);
@@ -1012,7 +1012,7 @@ skb_text_position_t skb_editor_move_to_prev_word(const skb_editor_t* editor, skb
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
 		return skb__advance_word_forward(editor, edit_pos);
 	return skb__advance_word_backward(editor, edit_pos);
