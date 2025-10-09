@@ -71,7 +71,7 @@ skb_range_t skb_rich_layout_text_selection_to_range(const skb_rich_layout_t* ric
 {
 	skb_paragraph_position_t start_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.start_pos, SKB_AFFINITY_USE);
 	skb_paragraph_position_t end_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.end_pos, SKB_AFFINITY_USE);
-	if (start_pos.global_text_offset > start_pos.global_text_offset)
+	if (start_pos.global_text_offset > end_pos.global_text_offset)
 		return (skb_range_t) { .start = end_pos.global_text_offset, .end = start_pos.global_text_offset };
 	return (skb_range_t) { .start = start_pos.global_text_offset, .end = end_pos.global_text_offset };
 }
