@@ -912,3 +912,11 @@ int32_t skb_utf32_strlen(const uint32_t* utf32)
 		count++;
 	return count;
 }
+
+int32_t skb_utf32_copy(const uint32_t* src, int32_t src_len, uint32_t* dst, int32_t dst_cap)
+{
+	const int32_t copy_count = skb_mini(dst_cap, src_len);
+	if (copy_count > 0)
+		memcpy(dst, src, copy_count * sizeof(uint32_t));
+	return src_len;
+}

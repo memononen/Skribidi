@@ -582,36 +582,6 @@ int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t off
 // Text Selection
 //
 
-/** Enum describing the caret's position in relation a codepoint, in logical text order. */
-typedef enum skb_caret_affinity_t {
-	/** Not specified. Generally translates to SKB_AFFINITY_TRAILING. */
-	SKB_AFFINITY_NONE,
-	/** The caret is at the trailing edge of the codepoint. */
-	SKB_AFFINITY_TRAILING,
-	/** The caret is at the leading edge of the codepoint. */
-	SKB_AFFINITY_LEADING,
-	/** The caret is at the start of the line. This can be different than trailing when line direction and text direction do not match. */
-	SKB_AFFINITY_SOL,
-	/** The caret is at the end of the line. This can be different than leading when line direction and text direction do not match. */
-	SKB_AFFINITY_EOL,
-} skb_caret_affinity_t;
-
-/** Struct describing position within the text in a layout. */
-typedef struct skb_text_position_t {
-	/** Offset (codepoints) within the text. */
-	int32_t offset;
-	/** Relation to the codepoint. See skb_caret_affinity_t */
-	skb_caret_affinity_t affinity;
-} skb_text_position_t;
-
-/** Struct describing a selection range of the text in a layout. There's no expectation of the order of start and end positions. */
-typedef struct skb_text_selection_t {
-	/** Start position of the selection. */
-	skb_text_position_t start_pos;
-	/** End position of the selection. */
-	skb_text_position_t end_pos;
-} skb_text_selection_t;
-
 /** Struct describing visual caret location.
  * The caret line can be described as: (x+descender*slope, y+descender) - (x+ascender*slope, y+ascender).
  */
