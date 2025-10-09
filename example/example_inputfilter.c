@@ -102,13 +102,14 @@ typedef struct is_not_numeric_context_t {
 	bool allow_sign;
 } is_not_numeric_context_t;
 
-static bool is_not_numeric(uint32_t codepoint, int32_t index, void* context)
+static bool is_not_numeric(uint32_t codepoint, int32_t paragraph_idx, int32_t text_offset, void* context)
 {
 	is_not_numeric_context_t* ctx = context;
-	return !((codepoint >= '0' && codepoint <= '9') || (ctx->allow_sign && index == 0 && codepoint == '-') || (ctx->allow_sign && index == 0 && codepoint == '+') || (ctx->allow_period && codepoint == '.'));
+	const bool is_first_char = paragraph_idx == 0 && text_offset == 0;
+	return !((codepoint >= '0' && codepoint <= '9') || (ctx->allow_sign && is_first_char && codepoint == '-') || (ctx->allow_sign && is_first_char && codepoint == '+') || (ctx->allow_period && codepoint == '.'));
 }
 
-static void numeric_filter(skb_editor_t* editor, skb_text_t* input_text, skb_text_selection_t selection, void* context)
+static void numeric_filter(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_selection_t selection, void* context)
 {
 	is_not_numeric_context_t ctx = {0};
 
@@ -118,7 +119,7 @@ static void numeric_filter(skb_editor_t* editor, skb_text_t* input_text, skb_tex
 	// Only allow one sign as first character
 	ctx.allow_sign = selection.start_pos.offset == 0 && !text_contains(editor, '+') && !text_contains(editor, '-');
 
-	skb_text_remove_if(input_text, is_not_numeric, &ctx);
+	skb_rich_text_remove_if(input_text, is_not_numeric, &ctx);
 }
 
 #define LOAD_FONT_OR_FAIL(path, font_family) \

@@ -108,8 +108,13 @@ set(SKRIBIDI_SOURCE_FILES
 	skb_icon_collection_internal.h
 	skb_image_atlas.c
 	skb_layout.c
+	skb_layout_internal.h
 	skb_layout_cache.c
 	skb_rasterizer.c
+	skb_rich_layout.c
+	skb_rich_layout_internal.h
+	skb_rich_text.c
+	skb_rich_text_internal.h
 	skb_text.c
 	skb_text_internal.h
 )
@@ -126,6 +131,8 @@ set(SKRIBIDI_API_FILES
 	../include/skb_layout.h
 	../include/skb_layout_cache.h
 	../include/skb_rasterizer.h
+	../include/skb_rich_layout.h
+	../include/skb_rich_text.h
 	../include/skb_text.h
 )
 

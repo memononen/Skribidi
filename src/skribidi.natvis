@@ -419,7 +419,7 @@
     <Type Name="skb_text_t">
         <Expand>
 
-            <Item Name="text">text,[text_count] s32</Item> -->
+            <Item Name="text">text,[text_count] s32</Item>
             <Item Name="text_count">text_count</Item>
             <Item Name="text_cap">text_cap</Item>
 
@@ -434,6 +434,64 @@
                     </ArrayItems>
                 </Expand>
             </Synthetic>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_text_paragraph_t">
+        <Expand>
+
+            <Item Name="text">text</Item>
+            <Item Name="global_text_offset">global_text_offset</Item>
+            <Item Name="id">id</Item>
+
+            <Synthetic Name="attributes">
+                <DisplayString>{{count: {attributes_count}, cap: {attributes_cap}}}</DisplayString>
+                <Expand>
+                    <Item Name="attributes_count">attributes_count</Item>
+                    <Item Name="attributes_cap">attributes_cap</Item>
+                    <ArrayItems>
+                        <Size>attributes_count</Size>
+                        <ValuePointer>attributes</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_rich_text_t">
+        <Expand>
+            <Synthetic Name="paragraphs">
+                <DisplayString>{{count: {paragraphs_count}, cap: {paragraphs_cap}}}</DisplayString>
+                <Expand>
+                    <Item Name="paragraphs_count">paragraphs_count</Item>
+                    <Item Name="paragraphs_cap">paragraphs_cap</Item>
+                    <ArrayItems>
+                        <Size>paragraphs_count</Size>
+                        <ValuePointer>paragraphs</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Item Name="id_counter">id_counter</Item>
+            <Item Name="should_free_instance">should_free_instance</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_rich_layout_t">
+        <Expand>
+            <Synthetic Name="paragraphs">
+                <DisplayString>{{count: {paragraphs_count}, cap: {paragraphs_cap}}}</DisplayString>
+                <Expand>
+                    <Item Name="paragraphs_count">paragraphs_count</Item>
+                    <Item Name="paragraphs_cap">paragraphs_cap</Item>
+                    <ArrayItems>
+                        <Size>paragraphs_count</Size>
+                        <ValuePointer>paragraphs</ValuePointer>
+                    </ArrayItems>
+                </Expand>
+            </Synthetic>
+
+            <Item Name="should_free_instance">should_free_instance</Item>
         </Expand>
     </Type>
 
@@ -491,7 +549,7 @@
             <Item Name="drag_moved">drag_moved</Item>
             <Item Name="drag_mode">drag_mode</Item>
 
-            <Item Name="composition_text">composition_text,[composition_text_count] s32</Item> -->
+            <Item Name="composition_text">composition_text,[composition_text_count] s32</Item>
             <Item Name="composition_text_count">composition_text_count</Item>
             <Item Name="composition_text_cap">composition_text_cap</Item>
 
@@ -515,5 +573,6 @@
             <Item Name="allow_append_undo">allow_append_undo</Item>
         </Expand>
     </Type>
+
 
 </AutoVisualizer>

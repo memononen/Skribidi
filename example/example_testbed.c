@@ -32,6 +32,9 @@ typedef struct testbed_context_t {
 
 	skb_editor_t* editor;
 
+	skb_rich_text_t* rich_text_clipboard;
+	uint64_t rich_text_clipboard_hash;
+
 	bool allow_char;
 	view_t view;
 	bool drag_view;
@@ -216,6 +219,7 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	skb_color_t ink_color = skb_rgba(64,64,64,255);
 
 	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_tab_stop_increment(92.f * 2.f),
 		skb_attribute_make_lang("zh-hans"),
 		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
 		skb_attribute_make_tab_stop_increment(92.f * 2.f),
@@ -244,6 +248,9 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 	assert(ctx->editor);
 	skb_editor_set_text_utf8(ctx->editor, ctx->temp_alloc, bidi_text, -1);
 
+	ctx->rich_text_clipboard = skb_rich_text_create();
+	ctx->rich_text_clipboard_hash = 0;
+
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f };
 
 	ime_set_handler(ime_handler, ctx);
@@ -265,6 +272,7 @@ void testbed_destroy(void* ctx_ptr)
 	skb_editor_destroy(ctx->editor);
 	skb_font_collection_destroy(ctx->font_collection);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
+	skb_rich_text_destroy(ctx->rich_text_clipboard);
 
 	memset(ctx, 0, sizeof(testbed_context_t));
 
@@ -290,7 +298,14 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 		if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL)) {
 			// Paste
 			const char* clipboard_text = glfwGetClipboardString(window);
-			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
+			const uint64_t clipboard_hash = skb_hash64_append_str(skb_hash64_empty(), clipboard_text);
+			if (clipboard_hash == ctx->rich_text_clipboard_hash) {
+				// The text matches what we copied, paste the rich text version instead.
+				skb_editor_paste_rich_text(ctx->editor, ctx->temp_alloc,ctx->rich_text_clipboard);
+			} else {
+				// Paste plain text from clipboard.
+				skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
+			}
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT) == 0)
@@ -354,6 +369,11 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
+
+			// Keep copy of the selection as rich text, so that we can paste as rich text.
+			skb_editor_get_selection_rich_text(ctx->editor, selection, ctx->rich_text_clipboard);
+			ctx->rich_text_clipboard_hash = skb_hash64_append_str(skb_hash64_empty(), text);
+
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
 			skb_editor_cut(ctx->editor, ctx->temp_alloc);
 			ctx->allow_char = false;
@@ -366,6 +386,11 @@ void testbed_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int 
 			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
+
+			// Keep copy of the selection as rich text, so that we can paste as rich text.
+			skb_editor_get_selection_rich_text(ctx->editor, selection, ctx->rich_text_clipboard);
+			ctx->rich_text_clipboard_hash = skb_hash64_append_str(skb_hash64_empty(), text);
+
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
 			ctx->allow_char = false;
 		}

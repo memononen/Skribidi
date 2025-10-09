@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include "skb_layout.h"
+#include "skb_rich_text.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +51,7 @@ typedef void skb_editor_on_change_func_t(skb_editor_t* editor, void* context);
  * @param selection Location of text that will be replaced with the input text.
  * @param context context pointer that was passed to skb_editor_set_input_filter_callback().
  */
-typedef void skb_editor_input_filter_func_t(skb_editor_t* editor, skb_text_t* input_text, skb_text_selection_t selection, void* context);
+typedef void skb_editor_input_filter_func_t(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_selection_t selection, void* context);
 
 /** Enum describing the caret movement mode. */
 typedef enum {
@@ -71,7 +72,6 @@ typedef enum {
 
 /** Struct describing parameters for the text editor. */
 typedef struct skb_editor_params_t {
-
 	/** Pointer to font collection to use. */
 	skb_font_collection_t* font_collection;
 	/** Pointer to the icon collection to use. */
@@ -334,9 +334,9 @@ int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text
  * Gets the text of the specified selection attributed text.
  * @param editor editor to query.
  * @param selection range of text to get.
- * @param text text where to store the selected text.
+ * @param rich_text rich text where to store the selected text.
  */
-void skb_editor_get_selection_text(const skb_editor_t* editor, skb_text_selection_t selection, skb_text_t* text);
+void skb_editor_get_selection_rich_text(const skb_editor_t* editor, skb_text_selection_t selection, skb_rich_text_t* rich_text);
 
 /**
  * Processes mouse click, and updates internal state.
@@ -398,6 +398,14 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
  * @param text attributed text to paste
  */
 void skb_editor_paste_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_text_t* text);
+
+/**
+ * Paste attributed text to the current caret position.
+ * @param editor editor to update.
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param rich_text rich text to paste
+ */
+void skb_editor_paste_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text);
 
 /**
  * Deletes current selection.
