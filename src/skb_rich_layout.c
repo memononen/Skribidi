@@ -162,7 +162,20 @@ void skb_rich_layout_update(
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
 	int32_t ime_text_offset, skb_text_t* ime_text)
 {
-	assert(skb_rich_text_get_paragraphs_count(rich_text) == rich_layout->paragraphs_count);
+	// Make sure the paragraph counts are in sync. skb_rich_layout_update_with_change() can adjust the array so that
+	// paragraphs that are changed in the middle will shift, so that existing paragraphs can be reused.
+	const int32_t rich_text_paragraph_count =  skb_rich_text_get_paragraphs_count(rich_text);
+	if (rich_text_paragraph_count < rich_layout->paragraphs_count) {
+		for (int32_t i = rich_text_paragraph_count; i < rich_layout->paragraphs_count; i++)
+			skb__layout_paragraph_clear(&rich_layout->paragraphs[i]);
+		rich_layout->paragraphs_count = rich_text_paragraph_count;
+	}
+	if (rich_text_paragraph_count > rich_layout->paragraphs_count) {
+		SKB_ARRAY_RESERVE(rich_layout->paragraphs, rich_text_paragraph_count);
+		for (int32_t i = rich_layout->paragraphs_count; i < rich_text_paragraph_count; i++)
+			skb__layout_paragraph_init(&rich_layout->paragraphs[i]);
+		rich_layout->paragraphs_count = rich_text_paragraph_count;
+	}
 
 	skb_layout_params_t layout_params = *params;
 	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
@@ -175,7 +188,7 @@ void skb_rich_layout_update(
 
 	float y = 0.f;
 
-	for (int32_t i = 0; i < skb_rich_text_get_paragraphs_count(rich_text); i++) {
+	for (int32_t i = 0; i < rich_text_paragraph_count; i++) {
 		skb_layout_paragraph_t* layout_paragraph = &rich_layout->paragraphs[i];
 
 		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i);
