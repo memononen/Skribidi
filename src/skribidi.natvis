@@ -383,6 +383,13 @@
 
     <Type Name="skb_content_text_utf32_t">
         <Expand>
+            <Item Name="type">(skb_content_run_type_t)type</Item>
+            <Item Name="direction">(skb_text_direction_t)direction</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_content_text_utf32_t">
+        <Expand>
             <Item Name="text">text,s32</Item>
             <Item Name="text_count">text_count</Item>
         </Expand>
@@ -401,15 +408,23 @@
     </Type>
 
     <Type Name="skb_layout_run_t">
+        <DisplayString Condition="type==0">Text UTF-8 {{dir:{(skb_text_direction_t)direction}, clusters:{cluster_range.start}..{cluster_range.end}, glyphs:{glyph_range.start}..{glyph_range.end} }}</DisplayString>
+        <DisplayString Condition="type==1">Text UTF-32  {{dir:{(skb_text_direction_t)direction}, clusters:{cluster_range.start}..{cluster_range.end}, glyphs:{glyph_range.start}..{glyph_range.end} }}</DisplayString>
+        <DisplayString Condition="type==2">Object</DisplayString>
+        <DisplayString Condition="type==3">Icon</DisplayString>
         <Expand>
             <Item Name="type">(skb_content_run_type_t)type</Item>
             <Item Name="direction">(skb_text_direction_t)direction</Item>
-            <Item Name="attribute_span_idx">attribute_span_idx</Item>
+            <Item Name="script">script</Item>
+            <Item Name="bidi_level">bidi_level</Item>
+            <Item Name="content_run_idx">content_run_idx</Item>
             <Item Name="glyph_range">glyph_range</Item>
+            <Item Name="cluster_range">cluster_range</Item>
             <Item Name="bounds">bounds</Item>
             <Item Name="ref_baseline">ref_baseline</Item>
-            <Item Name="culling_bounds">culling_bounds</Item>
-            <Item Name="common_glyph_bounds">common_glyph_bounds</Item>
+            <Item Name="font_size">font_size</Item>
+            <Item Name="attributes">attributes</Item>
+            <Item Name="content_run_id">content_run_id</Item>
             <Item Name="font_handle" Condition="type==0 || type==1">font_handle</Item>
             <Item Name="object_data" Condition="type==2">object_data</Item>
             <Item Name="icon_handle" Condition="type==3">icon_handle</Item>

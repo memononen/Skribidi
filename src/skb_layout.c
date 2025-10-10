@@ -890,16 +890,60 @@ static void skb__update_glyph_range(const skb_layout_t* layout, skb_layout_run_t
 		const skb_cluster_t* first_cluster = &layout->clusters[layout_run->cluster_range.start];
 		const skb_cluster_t* last_cluster = &layout->clusters[layout_run->cluster_range.end - 1];
 
-		layout_run->glyph_range.start = skb_mini(first_cluster->glyphs_offset, last_cluster->glyphs_offset);
-		layout_run->glyph_range.end = skb_maxi(first_cluster->glyphs_offset + first_cluster->glyphs_count, last_cluster->glyphs_offset + last_cluster->glyphs_count);
+		if (first_cluster->glyphs_offset <= last_cluster->glyphs_offset) {
+			layout_run->glyph_range.start = first_cluster->glyphs_offset;
+			layout_run->glyph_range.end = last_cluster->glyphs_offset + last_cluster->glyphs_count;
+		} else {
+			layout_run->glyph_range.start = last_cluster->glyphs_offset;
+			layout_run->glyph_range.end = first_cluster->glyphs_offset + first_cluster->glyphs_count;
+		}
 	}
 }
 
-static skb_layout_run_t* skb__line_append_run(skb_layout_t* layout, skb_layout_line_t* line, skb_layout_run_t* cur_layout_run, const skb__shaping_run_t* shaping_run, skb_range_t cluster_range)
+// Iterator to iterate over clusters of shaping runs.
+typedef struct skb__shaping_run_cluster_iter_t {
+	int32_t cluster_idx;
+	int32_t cluster_end_idx;
+	int32_t shaping_run_idx;
+} skb__shaping_run_cluster_iter_t;
+
+skb__shaping_run_cluster_iter_t skb__shaping_run_cluster_iter_make(const skb_layout_t* layout)
 {
+	const skb_range_t cluster_range = layout->shaping_runs_count > 0 ? layout->shaping_runs[0].cluster_range : (skb_range_t){0};
+	return (skb__shaping_run_cluster_iter_t) {
+		.cluster_idx = cluster_range.start,
+		.cluster_end_idx = cluster_range.end,
+		.shaping_run_idx = 0,
+	};
+}
+
+bool skb__shaping_run_cluster_iter_is_valid(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
+{
+	return it->shaping_run_idx < layout->shaping_runs_count;
+}
+
+void skb__shaping_run_cluster_iter_next(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
+{
+	if (it->shaping_run_idx >= layout->shaping_runs_count)
+		return;
+	it->cluster_idx++;
+	if (it->cluster_idx >= it->cluster_end_idx) {
+		it->shaping_run_idx++;
+		const skb_range_t cluster_range = (it->shaping_run_idx < layout->shaping_runs_count) ? layout->shaping_runs[it->shaping_run_idx].cluster_range : (skb_range_t){0};
+		it->cluster_idx = cluster_range.start;
+		it->cluster_end_idx = cluster_range.end;
+	}
+}
+
+static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_layout_line_t* line, skb_layout_run_t* cur_layout_run, const skb__shaping_run_t* shaping_run, skb_range_t cluster_range)
+{
+	assert(!skb_range_is_empty(cluster_range));
+
 	// Try to append to current run.
 	if (cur_layout_run) {
-		if (shaping_run->script == cur_layout_run->script && shaping_run->font_handle == cur_layout_run->font_handle && shaping_run->content_run_idx == cur_layout_run->content_run_idx) {
+		// Note: we're not using script here as might cause too many splits e.g. for Hira/Hani sequences, which come from same font, but different script.
+		// Text direction is important due to how cluster vs glyphs are arranged.
+		if (shaping_run->direction == cur_layout_run->direction && shaping_run->font_handle == cur_layout_run->font_handle && shaping_run->content_run_idx == cur_layout_run->content_run_idx) {
 			// Must be adjacent to the current run
 			if (cluster_range.start == cur_layout_run->cluster_range.end) {
 				cur_layout_run->cluster_range.end = cluster_range.end;
@@ -946,6 +990,47 @@ static skb_layout_run_t* skb__line_append_run(skb_layout_t* layout, skb_layout_l
 	}
 
 	return layout_run;
+}
+
+static skb_layout_run_t* skb__line_append_shaping_run_range(skb_layout_t* layout, skb_layout_line_t* line, skb_layout_run_t* cur_layout_run, skb__shaping_run_cluster_iter_t start_it, skb__shaping_run_cluster_iter_t end_it)
+{
+	const int32_t shaping_runs_count = end_it.shaping_run_idx - start_it.shaping_run_idx + 1;
+
+	if (shaping_runs_count == 1) {
+		const skb__shaping_run_t* shaping_run = &layout->shaping_runs[start_it.shaping_run_idx];
+		skb_range_t cluster_range = {
+			.start = start_it.cluster_idx,
+			.end =  end_it.cluster_idx,
+		};
+		return skb__line_append_shaping_run(layout, line, cur_layout_run, shaping_run, cluster_range);
+	}
+
+	// Start
+	const skb__shaping_run_t* start_shaping_run = &layout->shaping_runs[start_it.shaping_run_idx];
+	skb_range_t start_cluster_range = {
+		.start = start_it.cluster_idx,
+		.end =  start_shaping_run->cluster_range.end,
+	};
+	cur_layout_run = skb__line_append_shaping_run(layout, line, cur_layout_run, start_shaping_run, start_cluster_range);
+
+	// Middle
+	for (int32_t i = start_it.shaping_run_idx + 1; i < end_it.shaping_run_idx; i++) {
+		const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
+		cur_layout_run = skb__line_append_shaping_run(layout, line, cur_layout_run, shaping_run, shaping_run->cluster_range);
+	}
+
+	// End
+	if (end_it.shaping_run_idx < layout->shaping_runs_count) {
+		const skb__shaping_run_t* end_shaping_run = &layout->shaping_runs[end_it.shaping_run_idx];
+		skb_range_t end_cluster_range = {
+			.start = end_shaping_run->cluster_range.start,
+			.end =  end_it.cluster_idx,
+		};
+		if (!skb_range_is_empty(end_cluster_range))
+			cur_layout_run = skb__line_append_shaping_run(layout, line, cur_layout_run, end_shaping_run, end_cluster_range);
+	}
+
+	return cur_layout_run;
 }
 
 static float skb__get_cluster_width(const skb_layout_t* layout, int32_t cluster_idx)
@@ -1308,165 +1393,148 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->shaping_runs_count);
 
-	if (text_wrap == SKB_WRAP_NONE) {
-		// No wrapping, all glyphs in one line.
+	// Wrapping
+	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
+	bool max_heigh_reached = false;
 
-		// Create layout runs from shaping runs directly.
-		cur_line->layout_run_range.start = layout->layout_runs_count;
-		cur_line->bounds.width = 0.f;
-		for (int32_t i = 0; i < layout->shaping_runs_count; i++) {
-			const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
-			skb_layout_run_t* layout_run = skb__line_append_run(layout, cur_line, NULL, shaping_run, shaping_run->cluster_range);
-			for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++)
-				cur_line->bounds.width += layout->glyphs[gi].advance_x;
-		}
-		cur_line->layout_run_range.end = layout->layout_runs_count;
-		skb__finalize_line(layout, cur_line, true, &layout_size);
+	skb_layout_run_t* cur_layout_run = NULL;
+	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
 
-	} else {
-		// Wrapping
-		const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
-		bool max_heigh_reached = false;
-		for (int32_t i = 0; i < layout->shaping_runs_count && !max_heigh_reached; i++) {
-			const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
+	while (skb__shaping_run_cluster_iter_is_valid(&it, layout) && !max_heigh_reached) {
+		// Calc run up to the next line break.
+		skb__shaping_run_cluster_iter_t start_it = it;
+		skb__shaping_run_cluster_iter_t end_it = it;
 
-			skb_layout_run_t* cur_layout_run = NULL;
+		float run_end_whitespace_width = 0.f;
+		float run_width = 0.f;
 
-			int32_t cluster_idx = shaping_run->cluster_range.start;
-			while (cluster_idx < shaping_run->cluster_range.end) {
+		bool tab_overflows = false;
+		bool must_break = false;
+		while (skb__shaping_run_cluster_iter_is_valid(&end_it, layout)) {
 
-				// Calc run up to the next line break.
-				int32_t cluster_run_start = cluster_idx;
-				int32_t cluster_run_end = cluster_idx;
+			// Advance whole glyph cluster, cannot split in between.
+			const skb_cluster_t* cluster = &layout->clusters[end_it.cluster_idx]; //cluster_run_end];
+			float cluster_width = skb__get_cluster_width(layout, end_it.cluster_idx); //cluster_run_end);
 
-				float run_end_whitespace_width = 0.f;
-				float run_width = 0.f;
+			const int cp_offset = cluster->text_offset + cluster->text_count - 1;
 
-				bool tab_overflows = false;
-				bool must_break = false;
-				while (cluster_run_end < shaping_run->cluster_range.end) {
+			// Handle tabs
+			bool codepoint_is_tab = false;
+			if (layout->text[cp_offset] == SKB_CHAR_HORIZONTAL_TAB && tab_stop_increment > 0.f) {
+				// Calculate the next tab stop.
+				const float cur_pos = cur_line->bounds.width + run_width + run_end_whitespace_width;
+				const float next_tab_stop = floorf((cur_pos + tab_stop_increment) / tab_stop_increment) * tab_stop_increment;
 
-					// Advance whole glyph cluster, cannot split in between.
-					const skb_cluster_t* cluster = &layout->clusters[cluster_run_end];
-					float cluster_width = skb__get_cluster_width(layout, cluster_run_end);
-
-					const int cp_offset = cluster->text_offset + cluster->text_count - 1;
-
-					// Handle tabs
-					bool codepoint_is_tab = false;
-					if (layout->text[cp_offset] == SKB_CHAR_HORIZONTAL_TAB && tab_stop_increment > 0.f) {
-						// Calculate the next tab stop.
-						const float cur_pos = cur_line->bounds.width + run_width + run_end_whitespace_width;
-						const float next_tab_stop = floorf((cur_pos + tab_stop_increment) / tab_stop_increment) * tab_stop_increment;
-
-						// Check if the tab will overflow the width, if so reset to the first tab on new line and signal to break line.
-						float tab_width = 0.f;
-						if (next_tab_stop > line_break_width) {
-							tab_overflows = true;
-							tab_width = tab_stop_increment;
-						} else {
-							tab_width = next_tab_stop - cur_pos;
-						}
-
-						// Update glyph width to match the tab width.
-						const int32_t cluster_last_glyph_idx = cluster->glyphs_offset + cluster->glyphs_count - 1;
-						layout->glyphs[cluster_last_glyph_idx].advance_x = tab_width;
-						cluster_width = tab_width;
-						codepoint_is_tab = true;
-					}
-
-					cluster_run_end++;
-
-					// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
-					// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
-					// Treat tab as non-whitespace so that it allocates space at the end of the line too.
-					const bool codepoint_is_rtl = skb_is_rtl(shaping_run->direction);
-					const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
-					const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
-					if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control) && !codepoint_is_tab) {
-						run_end_whitespace_width += cluster_width;
-					} else {
-						if (run_end_whitespace_width > 0.f) {
-							run_width += run_end_whitespace_width;
-							run_end_whitespace_width = 0.f;
-						}
-						run_width += cluster_width;
-					}
-
-					if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
-						must_break = true;
-						break;
-					}
-					if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK)
-						break;
-				}
-
-				if (text_wrap == SKB_WRAP_WORD_CHAR && run_width > line_break_width) {
-					// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
-
-					// Start a new line
-					max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
-					cur_line = NULL;
-					if (max_heigh_reached)
-						break;
-					cur_line = skb__add_line(layout);
-					cur_layout_run = NULL;
-
-					// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
-					run_width = 0.f;
-					for (int32_t ci = cluster_run_start; ci < cluster_run_end; ci++) {
-						float cluster_width = skb__get_cluster_width(layout, ci);
-						if ((cur_line->bounds.width + run_width + cluster_width) > line_break_width) {
-							// This glyph would overflow, stop here. run_end is exclusive, so one past the last valid index.
-							cluster_run_end = ci;
-							break;
-						}
-						run_width += layout->glyphs[i].advance_x;
-					}
-					// Consume at least one cluster so that we don't get stuck.
-					if (cluster_run_start == cluster_run_end) {
-						run_width = skb__get_cluster_width(layout, cluster_run_start);
-						cluster_run_end = cluster_run_start + 1;
-					}
-
-					// Update width so far.
-					cur_line->bounds.width += run_width;
-					cur_layout_run = skb__line_append_run(layout, cur_line, cur_layout_run, shaping_run, (skb_range_t){ .start = cluster_run_start, .end = cluster_run_end });
-
+				// Check if the tab will overflow the width, if so reset to the first tab on new line and signal to break line.
+				float tab_width = 0.f;
+				if (next_tab_stop > line_break_width) {
+					tab_overflows = true;
+					tab_width = tab_stop_increment;
 				} else {
-					// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
-					const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
-					if (width_overflows || tab_overflows) {
-						max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
-						cur_line = NULL;
-						if (max_heigh_reached)
-							break;
-						cur_line = skb__add_line(layout);
-						cur_layout_run = NULL;
-					}
-
-					// Update width so far.
-					cur_line->bounds.width += run_width + run_end_whitespace_width;
-					cur_layout_run = skb__line_append_run(layout, cur_line, cur_layout_run, shaping_run, (skb_range_t){ .start = cluster_run_start, .end = cluster_run_end });
-
-					if (must_break && !ignore_must_breaks) {
-						// Line break character start a new line.
-						max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
-						cur_line = NULL;
-						if (max_heigh_reached)
-							break;
-						cur_line = skb__add_line(layout);
-						cur_layout_run = NULL;
-					}
+					tab_width = next_tab_stop - cur_pos;
 				}
 
-				cluster_idx = cluster_run_end;
+				// Update glyph width to match the tab width.
+				const int32_t cluster_last_glyph_idx = cluster->glyphs_offset + cluster->glyphs_count - 1;
+				layout->glyphs[cluster_last_glyph_idx].advance_x = tab_width;
+				cluster_width = tab_width;
+				codepoint_is_tab = true;
+			}
+
+			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
+			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
+			// Treat tab as non-whitespace so that it allocates space at the end of the line too.
+			const bool codepoint_is_rtl = skb_is_rtl(layout->shaping_runs[end_it.shaping_run_idx].direction); // shaping_run->direction);
+			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
+			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
+			if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control) && !codepoint_is_tab) {
+				run_end_whitespace_width += cluster_width;
+			} else {
+				if (run_end_whitespace_width > 0.f) {
+					run_width += run_end_whitespace_width;
+					run_end_whitespace_width = 0.f;
+				}
+				run_width += cluster_width;
+			}
+
+			// Advance to next cluster.
+			skb__shaping_run_cluster_iter_next(&end_it, layout);
+
+			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_MUST_LINE_BREAK) {
+				must_break = true;
+				break;
+			}
+			if (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_ALLOW_LINE_BREAK)
+				break;
+		}
+
+		if (text_wrap == SKB_WRAP_WORD_CHAR && run_width > line_break_width) {
+			// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
+
+			// Start a new line
+			max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+			cur_line = NULL;
+			if (max_heigh_reached)
+				break;
+			cur_line = skb__add_line(layout);
+			cur_layout_run = NULL;
+
+			// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
+			run_width = 0.f;
+			skb__shaping_run_cluster_iter_t cit = start_it;
+			while (cit.cluster_idx < end_it.cluster_idx) {
+				float cluster_width = skb__get_cluster_width(layout, cit.cluster_idx);
+				if ((cur_line->bounds.width + run_width + cluster_width) > line_break_width) {
+					// This glyph would overflow, stop here. run_end is exclusive, so one past the last valid index.
+					end_it = cit;
+					break;
+				}
+				run_width += layout->glyphs[cit.cluster_idx].advance_x;
+				skb__shaping_run_cluster_iter_next(&cit, layout);
+			}
+			// Consume at least one cluster so that we don't get stuck.
+			if (start_it.cluster_idx == end_it.cluster_idx) {
+				run_width = skb__get_cluster_width(layout, end_it.cluster_idx);
+				skb__shaping_run_cluster_iter_next(&end_it, layout);
+			}
+
+			// Update width so far.
+			cur_line->bounds.width += run_width;
+			cur_layout_run = skb__line_append_shaping_run_range(layout, cur_line, cur_layout_run, start_it, end_it);
+
+		} else {
+			// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
+			const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
+			if (text_wrap != SKB_WRAP_NONE && (width_overflows || tab_overflows)) {
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+				cur_line = NULL;
+				if (max_heigh_reached)
+					break;
+				cur_line = skb__add_line(layout);
+				cur_layout_run = NULL;
+			}
+
+			// Update width so far.
+			cur_line->bounds.width += run_width + run_end_whitespace_width;
+			cur_layout_run = skb__line_append_shaping_run_range(layout, cur_line, cur_layout_run, start_it, end_it);
+
+			if (must_break && !ignore_must_breaks) {
+				// Line break character start a new line.
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+				cur_line = NULL;
+				if (max_heigh_reached)
+					break;
+				cur_line = skb__add_line(layout);
+				cur_layout_run = NULL;
 			}
 		}
-		// Finalize last line
-		if (cur_line)
-			skb__finalize_line(layout, cur_line, true, &layout_size);
+
+		// We have consumed the clusters up to end_it-1, continue new word from end_t.
+		it = end_it;
 	}
+	// Finalize last line
+	if (cur_line)
+		skb__finalize_line(layout, cur_line, true, &layout_size);
 
 	//
 	// Align layout and lines
