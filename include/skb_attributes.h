@@ -6,6 +6,7 @@
 
 #include "skb_common.h"
 #include "skb_font_collection.h"
+#include "skb_icon_collection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,6 +166,84 @@ typedef struct skb_attribute_tab_stop_increment_t {
 } skb_attribute_tab_stop_increment_t;
 
 /**
+ * Vertical paragraph padding attribute.
+ */
+typedef struct skb_attribute_vertical_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Padding before the paragraph. */
+	float before;
+	/** Padding after the paragraph. */
+	float after;
+} skb_attribute_vertical_padding_t;
+
+/**
+ * Horizontal paragraph padding attribute.
+ */
+typedef struct skb_attribute_horizontal_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Padding at the start of the paragraph (text direction dependent) */
+	float start;
+	/** Padding at the end of the paragraph (text direction dependent) */
+	float end;
+} skb_attribute_horizontal_padding_t;
+
+/**
+ * Indent level of a paragraph attribute. (see skb_attribute_indent_increment_t)
+ */
+typedef struct skb_attribute_indent_level_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Paragraph indent level. */
+	int32_t level;
+} skb_attribute_indent_level_t;
+
+/**
+ * Indent increments attribute. (see skb_attribute_indent_increment_t)
+ */
+typedef struct skb_attribute_indent_increment_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Spacing between indent levels (px). */
+	float level_increment;
+	/** Offset of the first line (can be negative). */
+	float first_line_increment;
+} skb_attribute_indent_increment_t;
+
+/**
+ * Enum describing marker styles.
+ */
+typedef enum {
+	/** No marker */
+	SKB_LIST_MARKER_NONE,
+	/** Marker is a specific character (codepoint). */
+	SKB_LIST_MARKER_CODEPOINT,
+	/** Marker is decimal counter. */
+	SKB_LIST_MARKER_COUNTER_DECIMAL,
+	/** Marker is lower case latin alphabet counter. */
+	SKB_LIST_MARKER_COUNTER_LOWER_LATIN,
+	/** Marker is upper case latin alphabet counter. */
+	SKB_LIST_MARKER_COUNTER_UPPER_LATIN,
+} skb_list_marker_style_t;
+
+/**
+ * List marker attribute.
+ * The marker is placed outside the text, before the text start (depending on text direction).
+ * Note: The marker will be added to the first line of a skb_layout_t, to create a list, use skb_rich_layout_t and create a paragraph per list item.
+ */
+typedef struct skb_attribute_list_marker_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Spacing between the marker and start of the text. */
+	float spacing;
+	/** Codepoint of the character to use as a bullet, if style is SKB_MARKER_STYLE_CODEPOINT. */
+	uint32_t codepoint;
+	/** Style of the marker, see skb_list_marker_style_t */
+	uint8_t style;
+} skb_attribute_list_marker_t;
+
+/**
  * Text wrap attribute. (layout only)
  */
 typedef struct skb_attribute_text_wrap_t {
@@ -317,6 +396,16 @@ typedef enum {
 	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
 	/** Tag for skb_attribute_tab_stop_increment_t */
 	SKB_ATTRIBUTE_TAB_STOP_INCREMENT = SKB_TAG('t','a','b','s'),
+	/** Tag for skb_attribute_vertical_padding_t */
+	SKB_ATTRIBUTE_VERTICAL_PADDING = SKB_TAG('v','p','a','d'),
+	/** Tag for skb_attribute_horizontal_padding_t */
+	SKB_ATTRIBUTE_HORIZONTAL_PADDING = SKB_TAG('h','p','a','d'),
+	/** Tag for skb_attribute_indent_level_t */
+	SKB_ATTRIBUTE_INDENT_LEVEL = SKB_TAG('i','l','v','l'),
+	/** Tag for skb_attribute_indent_increment_t */
+	SKB_ATTRIBUTE_INDENT_INCREMENT = SKB_TAG('i','i','n','c'),
+	/** Tag for skb_attribute_list_marker_t */
+	SKB_ATTRIBUTE_LIST_MARKER = SKB_TAG('l','i','m','k'),
 	/** Tag for skb_attribute_tab_stop_increment_t */
 	SKB_ATTRIBUTE_TEXT_WRAP = SKB_TAG('t','w','r','p'),
 	/** Tag for skb_attribute_text_overflow_t */
@@ -359,6 +448,11 @@ typedef union skb_attribute_t {
 	skb_attribute_word_spacing_t word_spacing;
 	skb_attribute_line_height_t line_height;
 	skb_attribute_tab_stop_increment_t tab_stop_increment;
+	skb_attribute_vertical_padding_t vertical_padding;
+	skb_attribute_horizontal_padding_t horizontal_padding;
+	skb_attribute_indent_level_t indent_level;
+	skb_attribute_indent_increment_t indent_increment;
+	skb_attribute_list_marker_t list_marker;
 	skb_attribute_text_wrap_t text_wrap;
 	skb_attribute_text_overflow_t text_overflow;
 	skb_attribute_vertical_trim_t vertical_trim;
@@ -398,7 +492,6 @@ skb_attribute_set_t skb_attribute_set_make_reference(skb_attribute_set_handle_t 
 /** Creates attribute set that is a reference to specified set in a collection. */
 skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
 
-
 /** @returns new text direction attribute. See skb_attribute_text_direction_t */
 skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction);
 
@@ -434,6 +527,21 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 
 /** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment);
+
+/** @returns new vertical paragraph padding attribute. See skb_attribute_vertical_padding_t */
+skb_attribute_t skb_attribute_make_vertical_padding(float top, float bottom);
+
+/** @returns new horizontal paragraph padding attribute. See skb_attribute_horizontal_padding_t */
+skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end);
+
+/** @returns new idnent level attribute. See skb_attribute_indent_level_t */
+skb_attribute_t skb_attribute_make_indent_level(int32_t level);
+
+/** @returns new indent increment attribute. See skb_attribute_indent_increment_t */
+skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float first_line_increment);
+
+/** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
+skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float spacing, uint32_t codepoint);
 
 /** @returns new text wrap attribute. See skb_attribute_text_wrap_t */
 skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap);
@@ -565,6 +673,60 @@ float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, cons
 skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
+ * Returns first tab stop increment attribute or default value if not found.
+ * The default value is 0.0 (which will make the tab the same width as space).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first vertical paragraph padding attribute or default value if not found.
+ * The default value is 0.0 (no padding).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_vertical_padding_t skb_attributes_get_vertical_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first horizontal paragraph padding attribute or default value if not found.
+ * The default value is 0.0 (no padding).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_horizontal_padding_t skb_attributes_get_horizontal_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first paragraph indent level attribute or default value if not found.
+ * The default value is 0.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+int32_t skb_attributes_get_indent_level(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first indent increment attribute or default value if not found.
+ * The default value is 0.0 (no indent).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_indent_increment_t skb_attributes_get_indent_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first list marker attribute or default value if not found.
+ * The default value is SKB_LIST_MARKER_NONE (no list marker).
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
  * Returns first fill attribute or default value if not found.
  * The default value is opaque black.
  * @param attributes attribute set where to look for the attributes from.
@@ -591,15 +753,6 @@ skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute
  * @return first found attribute or default value.
  */
 skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first tab stop increment attribute or default value if not found.
- * The default value is 0.0 (which will make the tab the same width as space).
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first text wrap attribute or default value if not found.

@@ -38,6 +38,8 @@ void* hyperlink_create(GLFWwindow* window, render_context_t* rc);
 void* baseattribs_create(GLFWwindow* window, render_context_t* rc);
 void* notes_create(GLFWwindow* window, render_context_t* rc);
 void* inputfilter_create(GLFWwindow* window, render_context_t* rc);
+void* paragraphs_create(GLFWwindow* window, render_context_t* rc);
+
 
 static example_stub_t g_examples[] = {
 	{ .create = richtext_create, .name = "Rich text" },
@@ -53,6 +55,7 @@ static example_stub_t g_examples[] = {
 	{ .create = baseattribs_create, .name = "Base Attributes" },
 	{ .create = notes_create, .name = "Notes" },
 	{ .create = inputfilter_create, .name = "Input Filter" },
+	{ .create = paragraphs_create, .name = "Paragraphs" },
 };
 static const int32_t g_examples_count = SKB_COUNTOF(g_examples);
 int32_t g_example_idx = SKB_INVALID_INDEX;
@@ -215,7 +218,7 @@ int main(int argc, char** args)
 	}
 
 	// Init first example
-	set_example(1);
+	set_example(g_examples_count-1);
 
 	while (!g_done) {
 		main_loop(0);

@@ -135,6 +135,38 @@ skb_mat2_t skb_mat2_inverse(skb_mat2_t t)
 }
 
 //
+// Align
+//
+
+float skb_calc_align_offset(skb_align_t align, float item_size, float container_size)
+{
+	if (align == SKB_ALIGN_START || align == SKB_ALIGN_LEFT || align == SKB_ALIGN_TOP)
+		return 0.f;
+	if (align == SKB_ALIGN_END || align == SKB_ALIGN_RIGHT || align == SKB_ALIGN_BOTTOM)
+		return container_size - item_size;
+	if (align == SKB_ALIGN_CENTER)
+		return (container_size - item_size) / 2.f;
+	return 0.f;
+}
+
+skb_align_t skb_get_directional_align(bool is_rtl, skb_align_t align)
+{
+	if (is_rtl) {
+		if (align == SKB_ALIGN_START)
+			return SKB_ALIGN_RIGHT;
+		if (align == SKB_ALIGN_END)
+			return SKB_ALIGN_LEFT;
+	} else {
+		if (align == SKB_ALIGN_START)
+			return SKB_ALIGN_LEFT;
+		if (align == SKB_ALIGN_END)
+			return SKB_ALIGN_RIGHT;
+	}
+	return align;
+}
+
+
+//
 // Temp allocator
 //
 

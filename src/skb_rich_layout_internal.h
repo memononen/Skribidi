@@ -15,12 +15,23 @@ typedef struct skb_layout_paragraph_t {
 	int32_t global_text_offset;
 	float offset_y;						// Y offset of the layout.
 	uint32_t version;					// Version of the paragraph, if different from rich text paragraph, needs update.
+	int32_t list_marker_counter;
 } skb_layout_paragraph_t;
 
 typedef struct skb_rich_layout_t {
-	skb_layout_paragraph_t* paragraphs;
+	skb_layout_paragraph_t* paragraphs;	// Paragraphs
 	int32_t paragraphs_count;
 	int32_t paragraphs_cap;
+
+	skb_layout_params_t params;			// Layout params for the whole layout.
+	uint64_t params_hash;				// Hash of the Layout params, used to detect if the parmas changes.
+
+	skb_attribute_t* attributes;		// Attributes used by the params
+	int32_t attributes_count;
+	int32_t attributes_cap;
+
+	skb_rect2_t bounds;					// Bounds of the whole layout.
+
 	uint8_t should_free_instance;
 } skb_rich_layout_t;
 

@@ -801,6 +801,24 @@ static inline bool skb_rect2i_is_empty(const skb_rect2i_t r)
 	return r.width <= 0 || r.height <= 0;
 }
 
+
+/**
+ * Calculates offset that aligns item relative to the container.
+ * @param align align type to use.
+ * @param item_size size of the item to align.
+ * @param container_size size of the container to align to.
+ * @return
+ */
+float skb_calc_align_offset(skb_align_t align, float item_size, float container_size);
+
+/**
+ * Converts start or end align to left or right depending on text direction.
+ * @param is_rtl true if the use case is right-to-left
+ * @param align aling type to change
+ * @return changed align type.
+ */
+skb_align_t skb_get_directional_align(bool is_rtl, skb_align_t align);
+
 /** @} */
 
 

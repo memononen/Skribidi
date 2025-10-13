@@ -683,28 +683,6 @@ static float skb_calculate_line_height(skb_attribute_line_height_t attr_line_hei
 	return attr_line_height.height;
 }
 
-static float skb__calc_align(skb_align_t align, float size, float container_size)
-{
-	if (align == SKB_ALIGN_START || align == SKB_ALIGN_LEFT || align == SKB_ALIGN_TOP)
-		return 0.f;
-	if (align == SKB_ALIGN_END || align == SKB_ALIGN_RIGHT || align == SKB_ALIGN_BOTTOM)
-		return container_size - size;
-	if (align == SKB_ALIGN_CENTER)
-		return (container_size - size) / 2.f;
-	return 0.f;
-}
-
-static skb_align_t skb_get_directional_align(bool is_rtl, skb_align_t align)
-{
-	if (is_rtl) {
-		if (align == SKB_ALIGN_START)
-			return SKB_ALIGN_END;
-		if (align == SKB_ALIGN_END)
-			return SKB_ALIGN_START;
-	}
-	return align;
-}
-
 static float skb__calc_run_end_whitespace(const skb_layout_t* layout, skb_range_t run_range)
 {
 	if (run_range.start == run_range.end)
@@ -1042,6 +1020,204 @@ static float skb__get_cluster_width(const skb_layout_t* layout, int32_t cluster_
 	return cluster_width;
 }
 
+enum { SKB_MAX_COUNTER_GLYPH_COUNT = 8 };
+
+static void skb__reverse(uint32_t* glyph_ids, int32_t count)
+{
+	for (int j = 0, k = count - 1; j < k; j++, k--) {
+		uint32_t temp = glyph_ids[j];
+		glyph_ids[j] = glyph_ids[k];
+		glyph_ids[k] = temp;
+	}
+}
+
+// Based on CSS counters - https://drafts.csswg.org/css-counter-styles-3/#numeric-system
+static int32_t skb__construct_counter_numeric(int32_t value, const uint32_t* symbols, int32_t symbols_count, uint32_t* codepoints)
+{
+	value = skb_maxi(0, value);
+
+	int32_t count = 0;
+	if (value == 0) {
+		codepoints[count++] = symbols[0];
+	} else {
+		while (value != 0 && count < SKB_MAX_COUNTER_GLYPH_COUNT - 1) {
+			codepoints[count++] = symbols[value % symbols_count];
+			value /= symbols_count;
+		}
+	}
+	skb__reverse(codepoints, count);
+
+	return count;
+}
+
+// Based on CSS counters - https://drafts.csswg.org/css-counter-styles-3/#alphabetic-system
+static int32_t skb__construct_counter_alphabetic(int32_t value, const uint32_t* symbols, int32_t symbols_count, uint32_t* codepoints)
+{
+	value = skb_maxi(0, value);
+
+	int32_t count = 0;
+	while (value != 0 && count < SKB_MAX_COUNTER_GLYPH_COUNT - 1) {
+		value = skb_maxi(0, value - 1);
+		codepoints[count++] = symbols[value % symbols_count];
+		value /= symbols_count;
+	}
+	skb__reverse(codepoints, count);
+
+	return count;
+}
+
+static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_line_t* line, const skb_attribute_list_marker_t* list_marker)
+{
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+
+	// Get the font to use from the layout/paragraph attributes.
+	const uint8_t font_family = skb_attributes_get_font_family(layout->params.layout_attributes, layout->params.attribute_collection);
+	const float font_size = skb_attributes_get_font_size(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_font_handle_t font_handle = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
+	if (!font_handle)
+		return;
+	const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, font_handle);
+	assert(font);
+	const uint8_t script = SBScriptLATN;
+	const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, font_handle, layout->resolved_direction, script, font_size);
+
+	const float offset_y = -baseline_set.baselines[baseline_align];
+	const float ref_baseline = baseline_set.alphabetic - baseline_set.baselines[baseline_align];
+
+	int32_t marker_glyph_count = 0;
+	hb_codepoint_t marker_glyph_ids[SKB_MAX_COUNTER_GLYPH_COUNT] = {0};
+
+	if (list_marker->style == SKB_LIST_MARKER_CODEPOINT) {
+		if (hb_font_get_glyph(font->hb_font, list_marker->codepoint, 0, &marker_glyph_ids[0]))
+			marker_glyph_count = 1;
+	} else {
+		uint32_t marker_codepoints[SKB_MAX_COUNTER_GLYPH_COUNT] = {0};
+		int32_t marker_codepoints_count = 0;
+		if (list_marker->style == SKB_LIST_MARKER_COUNTER_DECIMAL) {
+			const uint32_t pattern[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+			const int32_t pattern_count = SKB_COUNTOF(pattern);
+			marker_codepoints_count = skb__construct_counter_numeric(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
+		} else if (list_marker->style == SKB_LIST_MARKER_COUNTER_LOWER_LATIN) {
+			const uint32_t pattern[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
+			const int32_t pattern_count = 2;//SKB_COUNTOF(pattern);
+			marker_codepoints_count = skb__construct_counter_alphabetic(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
+		} else if (list_marker->style == SKB_LIST_MARKER_COUNTER_UPPER_LATIN) {
+			const uint32_t pattern[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
+			const int32_t pattern_count = 2;//SKB_COUNTOF(pattern);
+			marker_codepoints_count = skb__construct_counter_alphabetic(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
+		}
+
+		// Suffix
+		assert(marker_codepoints_count < SKB_MAX_COUNTER_GLYPH_COUNT-1);
+		const uint32_t suffix = '.';
+		if (layout_is_rtl) {
+			for (int32_t i = marker_codepoints_count; i > 0; i--)
+				marker_codepoints[i] = marker_codepoints[i-1];
+			marker_codepoints[0] = suffix;
+			marker_codepoints_count++;
+		} else {
+			marker_codepoints[marker_codepoints_count++] = suffix;
+		}
+
+		// Convert codepoints to glyph ids.
+		for (int32_t i = 0; i < marker_codepoints_count; i++) {
+			if (hb_font_get_glyph(font->hb_font, marker_codepoints[i], 0, &marker_glyph_ids[marker_glyph_count]))
+				marker_glyph_count++;
+		}
+	}
+
+	if (!marker_glyph_count)
+		return;
+
+	// Calculate advances
+	const float scale = font_size * font->upem_scale;
+	float total_x_advance = 0.f;
+
+	float marker_glyph_advance[SKB_MAX_COUNTER_GLYPH_COUNT] = {0};
+	skb_vec2_t marker_glyph_offset[SKB_MAX_COUNTER_GLYPH_COUNT] = {0};
+
+	for (int32_t i = 0; i < marker_glyph_count; i++) {
+		marker_glyph_advance[i] = (float)hb_font_get_glyph_h_advance(font->hb_font, marker_glyph_ids[i]) * scale;
+
+		hb_position_t x, y;
+		if (hb_font_get_glyph_h_origin (font->hb_font, marker_glyph_ids[i], &x, &y)) {
+			marker_glyph_offset[i].x = x * scale;
+			marker_glyph_offset[i].y = y * scale;
+		} else {
+			marker_glyph_offset[i] = (skb_vec2_t){0};
+		}
+
+		total_x_advance += marker_glyph_advance[i];
+	}
+
+	// Place the marker glyphs.
+	SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count + 1);
+	skb_layout_run_t* layout_run = &layout->layout_runs[layout->layout_runs_count++];
+	memset(layout_run, 0, sizeof(skb_layout_run_t));
+	if (line->layout_run_range.start == line->layout_run_range.end) {
+		line->layout_run_range.start = layout->layout_runs_count - 1;
+		line->layout_run_range.end = layout->layout_runs_count;
+	} else {
+		line->layout_run_range.end = layout->layout_runs_count;
+	}
+	assert(line->layout_run_range.end == layout->layout_runs_count);
+
+	// Add the marker layout run front or back depending on the layout direction.
+	skb_layout_run_t* marker_run = NULL;
+	if (layout_is_rtl) {
+		// Add back
+		marker_run = &layout->layout_runs[line->layout_run_range.end - 1];
+	} else {
+		// Add front
+		for (int32_t i = line->layout_run_range.end - 1; i > line->layout_run_range.start; i--)
+			layout->layout_runs[i] = layout->layout_runs[i-1];
+		marker_run = &layout->layout_runs[line->layout_run_range.start];
+	}
+	memset(marker_run, 0, sizeof(skb_layout_run_t));
+
+	marker_run->type = SKB_CONTENT_RUN_UTF32;
+	marker_run->direction = layout->resolved_direction;
+	marker_run->script = script;
+	marker_run->bidi_level = 0;
+	marker_run->font_size = font_size;
+	marker_run->ref_baseline = ref_baseline;
+	marker_run->font_handle = font_handle;
+	marker_run->content_run_idx = 0;
+	marker_run->content_run_id = 0;
+	marker_run->attributes = layout->params.layout_attributes;
+	marker_run->glyph_range.start = layout->glyphs_count;
+	marker_run->glyph_range.end = layout->glyphs_count + marker_glyph_count;
+	marker_run->cluster_range.start = layout->clusters_count;
+	marker_run->cluster_range.end = layout->clusters_count + 1;
+
+	SKB_ARRAY_RESERVE(layout->clusters, layout->clusters_count + 1);
+	skb_cluster_t* marker_cluster = &layout->clusters[layout->clusters_count++];
+	memset(marker_cluster, 0, sizeof(skb_cluster_t));
+	marker_cluster->text_offset = 0;
+	marker_cluster->text_count = 0;
+	marker_cluster->glyphs_offset = layout->glyphs_count;
+	marker_cluster->glyphs_count = (uint8_t)marker_glyph_count;
+
+	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + marker_glyph_count);
+
+	float offset_x = 0.f;
+	if (layout_is_rtl)
+		offset_x = list_marker->spacing;
+	else
+		offset_x = -total_x_advance - list_marker->spacing;
+
+	for (int32_t gi = 0; gi < marker_glyph_count; gi++) {
+		skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
+		memset(glyph, 0, sizeof(skb_glyph_t));
+		glyph->offset_x = offset_x + marker_glyph_offset[gi].x;
+		glyph->offset_y = offset_y + marker_glyph_offset[gi].y;
+		glyph->advance_x = 0.f;
+		glyph->gid = (uint16_t)marker_glyph_ids[gi];
+		offset_x += marker_glyph_advance[gi];
+	}
+}
+
 static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, float line_break_width, bool add_ellipsis)
 {
 	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
@@ -1185,6 +1361,13 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	const int32_t line_idx = (int32_t)(line - layout->lines);
+
+	// List marker
+	if (line_idx == 0) {
+		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
+		if (list_marker.style != SKB_LIST_MARKER_NONE)
+			skb__line_append_list_marker_run(layout, line, &list_marker);
+	}
 
 	// The line is still in logical order and not truncated for overflow, grab the text range.
 	if (line->layout_run_range.start != line->layout_run_range.end) {
@@ -1388,17 +1571,29 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	skb_layout_line_t* cur_line = skb__add_line(layout);
 
 	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
-	const float line_break_width = layout->params.layout_width;
 	const skb_text_wrap_t text_wrap = skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection);
+
+	// Handle horizontal padding and indent
+	const skb_attribute_horizontal_padding_t horizontal_padding = skb_attributes_get_horizontal_padding(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
+	const int32_t indent_level = skb_attributes_get_indent_level(layout->params.layout_attributes, layout->params.attribute_collection);
+
+	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment, layout->params.layout_width);
+	const float horizontal_padding_end = skb_minf(horizontal_padding.end, layout->params.layout_width - horizontal_padding_start);
+
+	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
+	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->shaping_runs_count);
 
 	// Wrapping
-	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 	bool max_heigh_reached = false;
 
 	skb_layout_run_t* cur_layout_run = NULL;
 	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
+
+	// Init the line break width to the first line width (will be reset to inner_layout_width after first line).
+	float line_break_width = skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment);
 
 	while (skb__shaping_run_cluster_iter_is_valid(&it, layout) && !max_heigh_reached) {
 		// Calc run up to the next line break.
@@ -1478,6 +1673,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 				break;
 			cur_line = skb__add_line(layout);
 			cur_layout_run = NULL;
+			line_break_width = inner_layout_width;
 
 			// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
 			run_width = 0.f;
@@ -1512,6 +1708,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 					break;
 				cur_line = skb__add_line(layout);
 				cur_layout_run = NULL;
+				line_break_width = inner_layout_width;
 			}
 
 			// Update width so far.
@@ -1526,6 +1723,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 					break;
 				cur_line = skb__add_line(layout);
 				cur_layout_run = NULL;
+				line_break_width = inner_layout_width;
 			}
 		}
 
@@ -1543,6 +1741,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_align_t horizontal_align = skb_attributes_get_horizontal_align(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_align_t vertical_align = skb_attributes_get_vertical_align(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_vertical_trim_t vertical_trim = skb_attributes_get_vertical_trim(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_attribute_vertical_padding_t vertical_padding = skb_attributes_get_vertical_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust the calculated_height so that first line only accounts for cap height (not all the way to ascender), and last line does not count descender.
@@ -1554,12 +1753,23 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 
 	// Align layout
-	layout->bounds.x = skb__calc_align(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, layout->params.layout_width);
-	layout->bounds.y = skb__calc_align(vertical_align, layout_size.height, layout->params.layout_height);
+	layout_size.height += vertical_padding.before + vertical_padding.after;
+
+	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, layout->params.layout_width);
+	if (layout_is_rtl)
+		layout->bounds.x -= horizontal_padding_start;
+	else
+		layout->bounds.x += horizontal_padding_start;
+
+	if (layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN)
+		layout->bounds.y = 0.f;
+	else
+		layout->bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
+
 	layout->bounds.width = layout_size.width;
 	layout->bounds.height = layout_size.height;
 
-	float start_y = layout->bounds.y;
+	float start_y = layout->bounds.y + vertical_padding.before;
 
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust start position so that the top is aligned to cap height.
@@ -1572,12 +1782,17 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
-		float start_x = 0.f;
-
 		// Trim white space from end of the line.
 		const float whitespace_width = skb__calc_run_end_whitespace(layout, line->layout_run_range);
 		line->bounds.width -= whitespace_width;
-		line->bounds.x = layout->bounds.x + skb__calc_align(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
+		line->bounds.x = layout->bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
+		// Handle first line indent.
+		if (li == 0) {
+			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment);
+			line->bounds.x += layout_is_rtl ? -delta_x : delta_x;
+		}
+
+		float start_x = 0.f;
 		if (layout_is_rtl)
 			start_x = line->bounds.x - whitespace_width;
 		else
@@ -2425,65 +2640,65 @@ skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layou
 	return layout->resolved_direction;
 }
 
-int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t offset)
+int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
-	offset = skb_clampi(offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
+	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	// Find end of the current grapheme.
-	while (offset < layout->text_count && !(layout->text_props[offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
-		offset++;
+	while (text_offset < layout->text_count && !(layout->text_props[text_offset].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset++;
 
-	if (offset >= layout->text_count)
+	if (text_offset >= layout->text_count)
 		return layout->text_count;
 
 	// Step over.
-	offset++;
+	text_offset++;
 
-	return offset;
+	return text_offset;
 }
 
-int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t offset)
+int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
-	offset = skb_clampi(offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
+	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	if (!layout->text_count)
-		return offset;
+		return text_offset;
 
 	// Find begining of the current grapheme.
 	if (layout->text_count) {
-		while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
-			offset--;
+		while ((text_offset - 1) >= 0 && !(layout->text_props[text_offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+			text_offset--;
 	}
 
-	if (offset <= 0)
+	if (text_offset <= 0)
 		return 0;
 
 	// Step over.
-	offset--;
+	text_offset--;
 
 	// Find beginning of the previous grapheme.
-	while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
-		offset--;
+	while ((text_offset - 1) >= 0 && !(layout->text_props[text_offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset--;
 
-	return offset;
+	return text_offset;
 }
 
 
-int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t offset)
+int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
-	offset = skb_clampi(offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
+	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	if (!layout->text_count)
-		return offset;
+		return text_offset;
 
 	// Find beginning of the current grapheme.
-	while ((offset - 1) >= 0 && !(layout->text_props[offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
-		offset--;
+	while ((text_offset - 1) >= 0 && !(layout->text_props[text_offset - 1].flags & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset--;
 
-	if (offset <= 0)
+	if (text_offset <= 0)
 		return 0;
 
-	return offset;
+	return text_offset;
 }
 
 

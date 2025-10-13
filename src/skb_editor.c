@@ -110,7 +110,7 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	layout_params.layout_attributes = editor->params.layout_attributes;
 	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
 
-	skb_rich_layout_update_with_change(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, change, editor->composition_position.global_text_offset, &editor->composition_text);
+	skb_rich_layout_set_from_rich_text_with_change(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, change, editor->composition_position.global_text_offset, &editor->composition_text);
 
 	// Make sure the selection conforms the new layout.
 	skb_paragraph_position_t selection_start_pos = skb__get_sanitized_position(editor, editor->selection.start_pos, SKB_AFFINITY_IGNORE);
@@ -122,11 +122,6 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 static const skb_layout_t* skb__get_layout(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	return skb_rich_layout_get_layout(&editor->rich_layout, paragraph_idx);
-}
-
-static float skb__get_layout_offset_y(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	return skb_rich_layout_get_offset_y(&editor->rich_layout, paragraph_idx);
 }
 
 static skb_text_direction_t skb__get_layout_resolved_direction(const skb_editor_t* editor, int32_t paragraph_idx)
@@ -144,7 +139,7 @@ static int32_t skb__get_text_count(const skb_editor_t* editor, int32_t paragraph
 	return skb_rich_text_get_paragraph_text_utf32_count(&editor->rich_text, paragraph_idx);
 }
 
-static int32_t skb__get_text_start_offset(const skb_editor_t* editor, int32_t paragraph_idx)
+static int32_t skb__get_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	return skb_rich_text_get_paragraph_text_offset(&editor->rich_text, paragraph_idx);
 }
@@ -385,7 +380,7 @@ float skb_editor_get_paragraph_offset_y(skb_editor_t* editor, int32_t index)
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_layout_offset_y(editor, index);
+	return skb_rich_layout_get_layout_offset_y(&editor->rich_layout, index);
 }
 
 const skb_text_t* skb_editor_get_paragraph_text(skb_editor_t* editor, int32_t index)
@@ -399,7 +394,7 @@ int32_t skb_editor_get_paragraph_text_offset(skb_editor_t* editor, int32_t index
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_text_start_offset(editor, index);
+	return skb__get_global_text_offset(editor, index);
 }
 
 const skb_editor_params_t* skb_editor_get_params(skb_editor_t* editor)
@@ -543,7 +538,7 @@ static skb_paragraph_position_t skb__get_next_grapheme_pos(const skb_editor_t* e
 		}
 	}
 
-	edit_pos.global_text_offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + edit_pos.text_offset;
+	edit_pos.global_text_offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + edit_pos.text_offset;
 
 	return edit_pos;
 }
@@ -561,7 +556,7 @@ static skb_paragraph_position_t skb__get_prev_grapheme_pos(const skb_editor_t* e
 
 	edit_pos.text_offset = skb_layout_prev_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
 
-	edit_pos.global_text_offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + edit_pos.text_offset;
+	edit_pos.global_text_offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + edit_pos.text_offset;
 
 	return edit_pos;
 }
@@ -578,7 +573,7 @@ skb_text_position_t skb_editor_get_line_start_at(const skb_editor_t* editor, skb
 	const skb_layout_line_t* line = &lines[edit_line_idx];
 
 	skb_text_position_t result = {
-		.offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + line->text_range.start,
+		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + line->text_range.start,
 		.affinity = SKB_AFFINITY_SOL,
 	};
 	return result;
@@ -595,7 +590,7 @@ skb_text_position_t skb_editor_get_line_end_at(const skb_editor_t* editor, skb_t
 	const skb_layout_line_t* line = &lines[edit_line_idx];
 
 	skb_text_position_t result = {
-		.offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + line->last_grapheme_offset,
+		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + line->last_grapheme_offset,
 		.affinity = SKB_AFFINITY_EOL,
 	};
 	return skb__caret_prune_control_eol(skb__get_layout(editor, edit_pos.paragraph_idx), line, result);
@@ -627,7 +622,7 @@ skb_text_position_t skb_editor_get_word_start_at(const skb_editor_t* editor, skb
 		offset = 0;
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
 }
@@ -659,7 +654,7 @@ skb_text_position_t skb_editor_get_word_end_at(const skb_editor_t* editor, skb_t
 		offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), text_count-1);
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_LEADING,
 	};
 }
@@ -808,7 +803,7 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
+		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
 		.affinity = affinity,
 	};
 }
@@ -852,7 +847,7 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
+		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
 		.affinity = affinity,
 	};
 }
@@ -922,14 +917,14 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 		} else {
 			offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), text_count-1);
 			return (skb_text_position_t) {
-				.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + offset,
+				.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + offset,
 				.affinity = SKB_AFFINITY_EOL,
 			};
 		}
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
 }
@@ -948,13 +943,13 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 			const int32_t text_count = skb_layout_get_text_count(skb__get_layout(editor, cur_edit_pos.paragraph_idx));
 			offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), text_count-1); // Last grapheme of the paragraph.
 			return (skb_text_position_t) {
-				.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + offset,
+				.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + offset,
 				.affinity = SKB_AFFINITY_TRAILING,
 			};
 		}
 		offset = 0;
 		return (skb_text_position_t) {
-			.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + offset,
+			.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + offset,
 			.affinity = SKB_AFFINITY_SOL,
 		};
 	}
@@ -991,7 +986,7 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
 }
@@ -1044,7 +1039,7 @@ skb_text_position_t skb_editor_move_to_next_line(const skb_editor_t* editor, skb
 	}
 
 	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_edit_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_edit_line_idx, preferred_x);
-	hit_pos.offset += skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx);
+	hit_pos.offset += skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx);
 
 	return hit_pos;
 }
@@ -1077,7 +1072,7 @@ skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb
 	}
 
 	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_edit_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_edit_line_idx, preferred_x);
-	hit_pos.offset += skb__get_text_start_offset(editor, cur_edit_pos.paragraph_idx);
+	hit_pos.offset += skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx);
 
 	return hit_pos;
 }
@@ -1103,7 +1098,7 @@ static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* edit
 
 	const int32_t last_paragraph_idx = skb__get_paragraph_count(editor) - 1;
 	skb_text_position_t result = {
-		.offset = skb__get_text_start_offset(editor, last_paragraph_idx) + skb__get_text_count(editor, last_paragraph_idx),
+		.offset = skb__get_global_text_offset(editor, last_paragraph_idx) + skb__get_text_count(editor, last_paragraph_idx),
 		.affinity = SKB_AFFINITY_EOL
 	};
 	return result;
@@ -1174,7 +1169,7 @@ void skb_editor_select_all(skb_editor_t* editor)
 		const int32_t last_paragraph_idx = skb__get_paragraph_count(editor) - 1;
 		const int32_t last_text_count = skb__get_text_count(editor, last_paragraph_idx);
 		const int32_t last_grapheme_offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, last_paragraph_idx), last_text_count-1);
-		editor->selection.end_pos = (skb_text_position_t) { .offset = skb__get_text_start_offset(editor, last_paragraph_idx) + last_grapheme_offset, .affinity = SKB_AFFINITY_EOL };
+		editor->selection.end_pos = (skb_text_position_t) { .offset = skb__get_global_text_offset(editor, last_paragraph_idx) + last_grapheme_offset, .affinity = SKB_AFFINITY_EOL };
 	} else {
 		editor->selection.start_pos = (skb_text_position_t) { 0 };
 		editor->selection.end_pos = (skb_text_position_t) { 0 };
@@ -1533,7 +1528,7 @@ static skb_paragraph_position_t skb__get_backspace_start_offset(const skb_editor
 		if (pos.paragraph_idx > 0) {
 			pos.paragraph_idx--;
 			pos.text_offset = skb__get_text_count(editor, pos.paragraph_idx);
-			pos.global_text_offset = skb__get_text_start_offset(editor, pos.paragraph_idx) + pos.text_offset;
+			pos.global_text_offset = skb__get_global_text_offset(editor, pos.paragraph_idx) + pos.text_offset;
 		}
 	}
 
@@ -1683,7 +1678,7 @@ static skb_paragraph_position_t skb__get_backspace_start_offset(const skb_editor
 	} while (cur_offset > 0 && state != BACKSPACE_STATE_FINISHED);
 
 	pos.text_offset -= delete_char_count;
-	pos.global_text_offset = skb__get_text_start_offset(editor, pos.paragraph_idx) + pos.text_offset;
+	pos.global_text_offset = skb__get_global_text_offset(editor, pos.paragraph_idx) + pos.text_offset;
 
 	return pos;
 }

@@ -98,66 +98,83 @@ skb_rich_layout_t skb_rich_layout_make_empty(void)
 
 skb_rich_layout_t* skb_rich_layout_create(void)
 {
-	skb_rich_layout_t* layout = skb_malloc(sizeof(skb_rich_layout_t));
-	memset(layout, 0, sizeof(skb_rich_layout_t));
-	layout->should_free_instance = true;
-	return layout;
+	skb_rich_layout_t* rich_layout = skb_malloc(sizeof(skb_rich_layout_t));
+	memset(rich_layout, 0, sizeof(skb_rich_layout_t));
+	rich_layout->should_free_instance = true;
+	return rich_layout;
 }
 
-void skb_rich_layout_destroy(skb_rich_layout_t* layout)
+void skb_rich_layout_destroy(skb_rich_layout_t* rich_layout)
 {
-	if (!layout) return;
-	for (int32_t i = 0; i < layout->paragraphs_count; i++)
-		skb__layout_paragraph_clear(&layout->paragraphs[i]);
-	skb_free(layout->paragraphs);
-	memset(layout, 0, sizeof(skb_rich_layout_t));
-	if (layout->should_free_instance)
-		skb_free(layout);
+	if (!rich_layout) return;
+
+	for (int32_t i = 0; i < rich_layout->paragraphs_count; i++)
+		skb__layout_paragraph_clear(&rich_layout->paragraphs[i]);
+	skb_free(rich_layout->paragraphs);
+
+	skb_free(rich_layout->attributes);
+
+	memset(rich_layout, 0, sizeof(skb_rich_layout_t));
+
+	if (rich_layout->should_free_instance)
+		skb_free(rich_layout);
 }
 
-void skb_rich_layout_reset(skb_rich_layout_t* layout)
+void skb_rich_layout_reset(skb_rich_layout_t* rich_layout)
 {
-	if (!layout) return;
-	for (int32_t i = 0; i < layout->paragraphs_count; i++)
-		skb__layout_paragraph_clear(&layout->paragraphs[i]);
-	layout->paragraphs_count = 0;
+	if (!rich_layout) return;
+	for (int32_t i = 0; i < rich_layout->paragraphs_count; i++)
+		skb__layout_paragraph_clear(&rich_layout->paragraphs[i]);
+	rich_layout->paragraphs_count = 0;
 }
 
-int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* layout)
+int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* rich_layout)
 {
-	assert(layout);
-	return layout->paragraphs_count;
+	assert(rich_layout);
+	return rich_layout->paragraphs_count;
 }
 
-const skb_layout_paragraph_t* skb_rich_layout_get_paragraph(const skb_rich_layout_t* layout, int32_t index)
+const skb_layout_paragraph_t* skb_rich_layout_get_paragraph(const skb_rich_layout_t* rich_layout, int32_t index)
 {
-	assert(layout);
-	assert(index >= 0 && index < layout->paragraphs_count);
-	return &layout->paragraphs[index];
+	assert(rich_layout);
+	assert(index >= 0 && index < rich_layout->paragraphs_count);
+	return &rich_layout->paragraphs[index];
 }
 
-const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* layout, int32_t index)
+const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t index)
 {
-	assert(layout);
-	assert(index >= 0 && index < layout->paragraphs_count);
-	return &layout->paragraphs[index].layout;
+	assert(rich_layout);
+	assert(index >= 0 && index < rich_layout->paragraphs_count);
+	return &rich_layout->paragraphs[index].layout;
 }
 
-float skb_rich_layout_get_offset_y(const skb_rich_layout_t* layout, int32_t index)
+float skb_rich_layout_get_layout_offset_y(const skb_rich_layout_t* rich_layout, int32_t index)
 {
-	assert(layout);
-	assert(index >= 0 && index < layout->paragraphs_count);
-	return layout->paragraphs[index].offset_y;
+	assert(rich_layout);
+	assert(index >= 0 && index < rich_layout->paragraphs_count);
+	return rich_layout->paragraphs[index].offset_y;
 }
 
-skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* layout, int32_t index)
+skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t index)
 {
-	assert(layout);
-	assert(index >= 0 && index < layout->paragraphs_count);
-	return layout->paragraphs[index].direction;
+	assert(rich_layout);
+	assert(index >= 0 && index < rich_layout->paragraphs_count);
+	return rich_layout->paragraphs[index].direction;
 }
 
-void skb_rich_layout_update(
+const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout)
+{
+	assert(rich_layout);
+	return &rich_layout->params;
+}
+
+skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout)
+{
+	assert(rich_layout);
+	return rich_layout->bounds;
+}
+
+void skb_rich_layout_set_from_rich_text(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
 	int32_t ime_text_offset, skb_text_t* ime_text)
@@ -177,8 +194,25 @@ void skb_rich_layout_update(
 		rich_layout->paragraphs_count = rich_text_paragraph_count;
 	}
 
-	skb_layout_params_t layout_params = *params;
-	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
+	// Copy parameters.
+	uint64_t params_hash = skb_layout_params_hash_append(skb_hash64_empty(), params);
+	bool rebuild_all = params_hash != rich_layout->params_hash; // If parameters have changed, we'll rebuild all.
+	rich_layout->params_hash = params_hash;
+	rich_layout->params = *params;
+	rich_layout->params.layout_attributes = (skb_attribute_set_t){0};
+	rich_layout->params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS | SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN;
+
+	rich_layout->attributes_count = skb_attributes_get_copy_flat_count(params->layout_attributes);
+	if (rich_layout->attributes_count > 0) {
+		SKB_ARRAY_RESERVE(rich_layout->attributes, rich_layout->attributes_count);
+		skb_attributes_copy_flat(params->layout_attributes, rich_layout->attributes, rich_layout->attributes_count);
+		rich_layout->params.layout_attributes = (skb_attribute_set_t) {
+			.attributes = rich_layout->attributes,
+			.attributes_count = rich_layout->attributes_count,
+		};
+	}
+
+	skb_layout_params_t layout_params = rich_layout->params;
 
 	skb_text_direction_t direction = SKB_DIRECTION_AUTO;
 	skb_attribute_t dir_override_attribute = {0};
@@ -186,13 +220,17 @@ void skb_rich_layout_update(
 	if (!ime_text || skb_text_get_utf32_count(ime_text) == 0)
 		ime_text_offset = SKB_INVALID_INDEX;
 
-	float y = 0.f;
+	float calculated_width = 0.f;
+	float calculated_height = 0.f;
+
+	enum { SKB_MAX_COUNTER_LEVELS = 8 };
+	int32_t marker_counters[SKB_MAX_COUNTER_LEVELS] = {0};
 
 	for (int32_t i = 0; i < rich_text_paragraph_count; i++) {
 		skb_layout_paragraph_t* layout_paragraph = &rich_layout->paragraphs[i];
 
 		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i);
-		paragraph_attributes.parent_set = &params->layout_attributes;
+		paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
 		if (i > 0) {
 			// Copy the paragraph direction from the first paragraph to all later paragraphs.
 			dir_override_attribute = skb_attribute_make_text_direction(direction);
@@ -204,6 +242,25 @@ void skb_rich_layout_update(
 		} else {
 			layout_params.layout_attributes = paragraph_attributes;
 		}
+
+		// Update ordered list counters.
+		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(paragraph_attributes, rich_layout->params.attribute_collection);
+		const int32_t indent_level = skb_clampi(skb_attributes_get_indent_level(paragraph_attributes, rich_layout->params.attribute_collection), 0, SKB_MAX_COUNTER_LEVELS - 1);
+		const bool is_list_marker_counter = (list_marker.style == SKB_LIST_MARKER_COUNTER_DECIMAL || list_marker.style == SKB_LIST_MARKER_COUNTER_LOWER_LATIN || list_marker.style == SKB_LIST_MARKER_COUNTER_UPPER_LATIN);
+
+		// Reset counters on deeper levels.
+		for (int32_t ci = indent_level + 1; ci < SKB_MAX_COUNTER_LEVELS; ci++)
+			marker_counters[ci] = 0;
+
+		int32_t list_marker_counter = 0;
+		if (is_list_marker_counter) {
+			list_marker_counter = marker_counters[indent_level];
+			marker_counters[indent_level]++;
+		} else {
+			layout_params.list_marker_counter = 0;
+			marker_counters[indent_level] = 0;
+		}
+		layout_params.list_marker_counter = list_marker_counter;
 
 		const skb_text_t* paragraph_text = skb_rich_text_get_paragraph_text(rich_text, i);
 		const int32_t paragraph_text_count = skb_text_get_utf32_count(paragraph_text);
@@ -237,7 +294,7 @@ void skb_rich_layout_update(
 			// Reset ID so that when the IME state changes the paragraph will update.
 			layout_paragraph->version = 0;
 		} else {
-			bool rebuild = false;
+			bool rebuild = rebuild_all;
 
 			// If the paragraph direction has changed, relayout.
 			if (layout_paragraph->direction != direction)
@@ -247,10 +304,14 @@ void skb_rich_layout_update(
 			if (layout_paragraph->version != paragraph_id)
 				rebuild = true;
 
+			if (layout_paragraph->list_marker_counter != list_marker_counter)
+				rebuild = true;
+
 			if (rebuild) {
 				skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, paragraph_text, (skb_attribute_set_t){0});
 				layout_paragraph->direction = (uint8_t)direction;
 				layout_paragraph->version = paragraph_id;
+				layout_paragraph->list_marker_counter = list_marker_counter;
 			}
 		}
 
@@ -258,14 +319,33 @@ void skb_rich_layout_update(
 		if (i == 0)
 			direction = skb_layout_get_resolved_direction(&layout_paragraph->layout);
 
-		layout_paragraph->offset_y = y;
-
 		skb_rect2_t layout_bounds = skb_layout_get_bounds(&layout_paragraph->layout);
-		y += layout_bounds.height;
+
+		layout_paragraph->offset_y = calculated_height;
+
+		calculated_width = skb_maxf(calculated_width, layout_bounds.width);
+		calculated_height += layout_bounds.height;
 	}
+
+	rich_layout->bounds.x = 0.f;
+	rich_layout->bounds.y = 0.f;
+	rich_layout->bounds.width = rich_layout->params.layout_width;
+	rich_layout->bounds.height = calculated_height;
+
+	// Vertical align
+	const skb_align_t vertical_align = skb_attributes_get_vertical_align(rich_layout->params.layout_attributes, rich_layout->params.attribute_collection);
+	const float delta_y = skb_calc_align_offset(vertical_align, calculated_height, rich_layout->params.layout_height);
+	if (skb_absf(delta_y) > 1e-6f) {
+		for (int32_t i = 0; i < rich_text_paragraph_count; i++) {
+			skb_layout_paragraph_t* layout_paragraph = &rich_layout->paragraphs[i];
+			layout_paragraph->offset_y += delta_y;
+		}
+		rich_layout->bounds.y += delta_y;
+	}
+
 }
 
-void skb_rich_layout_update_with_change(
+void skb_rich_layout_set_from_rich_text_with_change(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* text, skb_rich_text_change_t change,
 	int32_t ime_text_offset, skb_text_t* ime_text)
@@ -292,7 +372,7 @@ void skb_rich_layout_update_with_change(
 		skb__layout_paragraph_init(&rich_layout->paragraphs[i]);
 
 	// call update
-	skb_rich_layout_update(rich_layout, temp_alloc, params, text, ime_text_offset, ime_text);
+	skb_rich_layout_set_from_rich_text(rich_layout, temp_alloc, params, text, ime_text_offset, ime_text);
 }
 
 skb_visual_caret_t skb_rich_layout_get_visual_caret(const skb_rich_layout_t* rich_layout, skb_text_position_t pos)

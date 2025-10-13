@@ -62,6 +62,8 @@ typedef const struct hb_language_impl_t *hb_language_t;
 enum skb_layout_params_flags_t {
 	/** Ignored line breaks from control characters. */
 	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
+	/** Ignores vertical align against the layout box. */
+	SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN = 1 << 1,
 };
 
 /** Struct describing parameters that apply to the whole text layout. */
@@ -80,6 +82,8 @@ typedef struct skb_layout_params_t {
 	uint8_t flags;
 	/** Attributes to apply for the whole layout. Each content run can add or override these attributes. */
 	skb_attribute_set_t layout_attributes;
+	/** Counter value to used for list marker. */
+	int32_t list_marker_counter;
 } skb_layout_params_t;
 
 
@@ -557,26 +561,26 @@ skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layou
 /**
  * Get the start of the next grapheme in the layout based on text offset.
  * @param layout layout to use
- * @param offset offset (codepoints) in the text where to start looking.
+ * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the next grapheme.
  */
-int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t offset);
+int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the previous grapheme in the layout based on text offset.
  * @param layout layout to use
- * @param offset offset (codepoints) in the text where to start looking.
+ * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the previous grapheme.
  */
-int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t offset);
+int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the current grapheme in the layout based on text offset.
  * @param layout layout to use
- * @param offset offset (codepoints) in the text where to start looking.
+ * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the current grapheme.
  */
-int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t offset);
+int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 //
 // Text Selection

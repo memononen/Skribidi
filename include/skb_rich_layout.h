@@ -26,20 +26,23 @@ extern "C" {
 typedef struct skb_rich_layout_t skb_rich_layout_t;
 
 skb_rich_layout_t* skb_rich_layout_create(void);
-void skb_rich_layout_destroy(skb_rich_layout_t* layout);
-void skb_rich_layout_reset(skb_rich_layout_t* layout);
+void skb_rich_layout_destroy(skb_rich_layout_t* rich_layout);
+void skb_rich_layout_reset(skb_rich_layout_t* rich_layout);
 
-int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* layout);
-const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* layout, int32_t index);
-float skb_rich_layout_get_offset_y(const skb_rich_layout_t* layout, int32_t index);
-skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* layout, int32_t index);
+int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* rich_layout);
+const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t index);
+float skb_rich_layout_get_layout_offset_y(const skb_rich_layout_t* rich_layout, int32_t index);
+skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t index);
+const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout);
 
-void skb_rich_layout_update(
+skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout);
+
+void skb_rich_layout_set_from_rich_text(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
 	int32_t ime_text_offset, skb_text_t* ime_text);
 
-void skb_rich_layout_update_with_change(
+void skb_rich_layout_set_from_rich_text_with_change(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* text, skb_rich_text_change_t change,
 	int32_t ime_text_offset, skb_text_t* ime_text);

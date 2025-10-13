@@ -222,8 +222,13 @@
         <DisplayString Condition="kind=='lesp'">Letter Spacing</DisplayString>
         <DisplayString Condition="kind=='wosp'">Word Spacing</DisplayString>
         <DisplayString Condition="kind=='lnhe'">Line height</DisplayString>
-
         <DisplayString Condition="kind=='tabs'">Tab Stop Increment</DisplayString>
+
+        <DisplayString Condition="kind=='vpad'">Vertical Padding</DisplayString>
+        <DisplayString Condition="kind=='hpad'">Horizontal Padding</DisplayString>
+        <DisplayString Condition="kind=='ilvl'">Indent Level</DisplayString>
+        <DisplayString Condition="kind=='iinc'">Idnent Increment</DisplayString>
+
         <DisplayString Condition="kind=='twrp'">Text Wrap</DisplayString>
         <DisplayString Condition="kind=='tofl'">Text Overflow</DisplayString>
         <DisplayString Condition="kind=='vtrm'">Vertical Trim</DisplayString>
@@ -250,6 +255,10 @@
             <ExpandedItem Condition="kind=='wosp'">word_spacing</ExpandedItem>
             <ExpandedItem Condition="kind=='lnhe'">line_height</ExpandedItem>
             <ExpandedItem Condition="kind=='tabs'">tab_stop_increment</ExpandedItem>
+            <ExpandedItem Condition="kind=='vpad'">vertical_padding</ExpandedItem>
+            <ExpandedItem Condition="kind=='hpad'">horizontal_padding</ExpandedItem>
+            <ExpandedItem Condition="kind=='ilvl'">indent_level</ExpandedItem>
+            <ExpandedItem Condition="kind=='iinc'">indent_increment</ExpandedItem>
             <ExpandedItem Condition="kind=='twrp'">text_wrap</ExpandedItem>
             <ExpandedItem Condition="kind=='tofl'">text_overflow</ExpandedItem>
             <ExpandedItem Condition="kind=='vtrm'">vertical_trim</ExpandedItem>

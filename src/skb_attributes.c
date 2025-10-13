@@ -165,7 +165,66 @@ skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
 		.increment = increment,
 	};
 	return attribute;
+}
 
+skb_attribute_t skb_attribute_make_vertical_padding(float top, float bottom)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.vertical_padding = (skb_attribute_vertical_padding_t) {
+		.kind = SKB_ATTRIBUTE_VERTICAL_PADDING,
+		.before = top,
+		.after = bottom,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.horizontal_padding = (skb_attribute_horizontal_padding_t) {
+		.kind = SKB_ATTRIBUTE_HORIZONTAL_PADDING,
+		.start = start,
+		.end = end
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_indent_level(int32_t level)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.indent_level = (skb_attribute_indent_level_t) {
+		.kind = SKB_ATTRIBUTE_INDENT_LEVEL,
+		.level = level,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float first_line_increment)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.indent_increment = (skb_attribute_indent_increment_t) {
+		.kind = SKB_ATTRIBUTE_INDENT_INCREMENT,
+		.level_increment = level_increment,
+		.first_line_increment = first_line_increment,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float spacing, uint32_t codepoint)
+{
+	skb_attribute_t attribute;
+	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	attribute.list_marker = (skb_attribute_list_marker_t) {
+		.kind = SKB_ATTRIBUTE_LIST_MARKER,
+		.style = (uint8_t)style,
+		.spacing = spacing,
+		.codepoint = codepoint,
+	};
+	return attribute;
 }
 
 skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap)
@@ -177,7 +236,6 @@ skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap)
 		.text_wrap = text_wrap,
 	};
 	return attribute;
-
 }
 
 skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overflow)
@@ -189,7 +247,6 @@ skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overfl
 		.text_overflow = text_overflow,
 	};
 	return attribute;
-
 }
 
 skb_attribute_t skb_attribute_make_vertical_trim(skb_vertical_trim_t vertical_trim)
@@ -439,6 +496,55 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_s
 	return attr ? attr->line_height : default_line_height;
 }
 
+float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TAB_STOP_INCREMENT);
+	return attr ? attr->tab_stop_increment.increment : 0.f;
+}
+
+skb_attribute_vertical_padding_t skb_attributes_get_vertical_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_vertical_padding_t default_vertical_padding = {
+		.before = 0.f,
+		.after = 0.f,
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_PADDING);
+	return attr ? attr->vertical_padding : default_vertical_padding;
+}
+
+skb_attribute_horizontal_padding_t skb_attributes_get_horizontal_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_horizontal_padding_t default_horizontal_padding = {
+		.start = 0.f,
+		.end = 0.f,
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_HORIZONTAL_PADDING);
+	return attr ? attr->horizontal_padding : default_horizontal_padding;
+}
+
+int32_t skb_attributes_get_indent_level(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_LEVEL);
+	return attr ? attr->indent_level.level : 0;
+}
+
+skb_attribute_indent_increment_t skb_attributes_get_indent_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_indent_increment_t default_indent_increment = {
+		.first_line_increment = 0.f,
+		.level_increment = 0.f,
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_INCREMENT);
+	return attr ? attr->indent_increment : default_indent_increment;
+}
+
+skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_list_marker_t default_list_marker = { 0 };
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LIST_MARKER);
+	return attr ? attr->list_marker : default_list_marker;
+}
+
 skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_fill_t default_fill = {
@@ -466,12 +572,6 @@ skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attri
 
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_PADDING);
 	return attr ? attr->object_padding : default_object_padding;
-}
-
-float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TAB_STOP_INCREMENT);
-	return attr ? attr->tab_stop_increment.increment : 0.f;
 }
 
 skb_text_wrap_t skb_attributes_get_text_wrap(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)

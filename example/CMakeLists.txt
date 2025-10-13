@@ -30,10 +30,11 @@ set(SKRIBIDI_EXAMPLE_FILES
 	example_hyperlink.c
 	example_icons.c
 	example_inlineobj.c
+	example_inputfilter.c
 	example_notes.c
+	example_paragraphs.c
 	example_richtext.c
 	example_testbed.c
-	example_inputfilter.c
 	ime.c
 	ime.h
 	main.c
