@@ -122,18 +122,6 @@ static void numeric_filter(skb_editor_t* editor, skb_rich_text_t* input_text, sk
 	skb_rich_text_remove_if(input_text, is_not_numeric, &ctx);
 }
 
-#define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
-#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
 void inputfilter_destroy(void* ctx_ptr);
 void inputfilter_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
 void inputfilter_on_char(void* ctx_ptr, unsigned int codepoint);
@@ -488,7 +476,7 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
@@ -515,7 +503,7 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}

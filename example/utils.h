@@ -84,6 +84,19 @@ static inline void view_scroll_zoom(view_t* view, float mouse_x, float mouse_y, 
 }
 
 
+#define LOAD_FONT_OR_FAIL(path, font_family) \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
+		skb_debug_log("Failed to load " path "\n"); \
+		goto error; \
+	}
+
+#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
+	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
+		skb_debug_log("Failed to load " path "\n"); \
+		goto error; \
+	}
+
+
 typedef struct render_context_t render_context_t;
 typedef struct GLFWwindow GLFWwindow;
 

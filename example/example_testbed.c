@@ -91,18 +91,6 @@ void testbed_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void testbed_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
-#define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
-#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
 void* testbed_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);

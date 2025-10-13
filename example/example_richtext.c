@@ -40,12 +40,6 @@ typedef struct richtext_context_t {
 } richtext_context_t;
 
 
-#define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
 void richtext_destroy(void* ctx_ptr);
 void richtext_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
 void richtext_on_char(void* ctx_ptr, unsigned int codepoint);

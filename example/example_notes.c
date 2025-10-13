@@ -97,18 +97,6 @@ static void ime_handler(ime_event_t event, const uint32_t* text, int32_t text_le
 	update_ime_rect(ctx);
 }
 
-#define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
-#define LOAD_FONT_PARAMS_OR_FAIL(path, font_family, params) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, params)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
 void notes_destroy(void* ctx_ptr);
 void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
 void notes_on_char(void* ctx_ptr, unsigned int codepoint);
@@ -604,7 +592,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}
@@ -631,7 +619,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, decoration->offset_y,
+					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
 						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
 						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
 				}

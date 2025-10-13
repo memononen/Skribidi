@@ -49,12 +49,6 @@ typedef struct hyperlink_context_t {
 } hyperlink_context_t;
 
 
-#define LOAD_FONT_OR_FAIL(path, font_family) \
-	if (!skb_font_collection_add_font(ctx->font_collection, path, font_family, NULL)) { \
-		skb_debug_log("Failed to load " path "\n"); \
-		goto error; \
-	}
-
 void hyperlink_destroy(void* ctx_ptr);
 void hyperlink_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods);
 void hyperlink_on_char(void* ctx_ptr, unsigned int codepoint);
