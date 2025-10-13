@@ -555,6 +555,13 @@ const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
 /** @return typographic bounds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
 
+/**
+ * Returns how much to advance the y position when layouts are stacked.
+ * @param layout layout to query
+ * @return y advance
+ */
+float skb_layout_get_advance_y(const skb_layout_t* layout);
+
 /** @return text direction of the layout, if the direction was auto, the direction inferred from the text. */
 skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout);
 

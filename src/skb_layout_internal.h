@@ -35,6 +35,7 @@ typedef struct skb_layout_t {
 	skb_layout_params_t params;	// Note: params has 'base_attributes' slice which points to attributes in the 'attributes' array.
 
 	skb_rect2_t bounds;
+	float advance_y;
 	uint8_t resolved_direction;
 
 	// Text, text props, content_runs, and attributes are create based on the input text.

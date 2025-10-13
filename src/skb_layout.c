@@ -1563,6 +1563,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	layout->bounds.y = 0.f;
 	layout->bounds.width = 0.f;
 	layout->bounds.height = 0.f;
+	layout->advance_y = 0.f;
 
 	layout->layout_runs_count = 0;
 
@@ -1753,8 +1754,6 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 
 	// Align layout
-	layout_size.height += vertical_padding.before + vertical_padding.after;
-
 	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, layout->params.layout_width);
 	if (layout_is_rtl)
 		layout->bounds.x -= horizontal_padding_start;
@@ -1765,11 +1764,13 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		layout->bounds.y = 0.f;
 	else
 		layout->bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
+	layout->bounds.y += vertical_padding.before;
 
 	layout->bounds.width = layout_size.width;
 	layout->bounds.height = layout_size.height;
+	layout->advance_y = vertical_padding.before + layout_size.height + vertical_padding.after;
 
-	float start_y = layout->bounds.y + vertical_padding.before;
+	float start_y = layout->bounds.y;
 
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust start position so that the top is aligned to cap height.
@@ -2632,6 +2633,12 @@ skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->bounds;
+}
+
+float skb_layout_get_advance_y(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->advance_y;
 }
 
 skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout)

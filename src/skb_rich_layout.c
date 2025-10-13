@@ -222,6 +222,7 @@ void skb_rich_layout_set_from_rich_text(
 
 	float calculated_width = 0.f;
 	float calculated_height = 0.f;
+	float start_y = 0.f;
 
 	enum { SKB_MAX_COUNTER_LEVELS = 8 };
 	int32_t marker_counters[SKB_MAX_COUNTER_LEVELS] = {0};
@@ -319,12 +320,15 @@ void skb_rich_layout_set_from_rich_text(
 		if (i == 0)
 			direction = skb_layout_get_resolved_direction(&layout_paragraph->layout);
 
-		skb_rect2_t layout_bounds = skb_layout_get_bounds(&layout_paragraph->layout);
+		const skb_rect2_t layout_bounds = skb_layout_get_bounds(&layout_paragraph->layout);
+		const float layout_advance_y =  skb_layout_get_advance_y(&layout_paragraph->layout);
 
 		layout_paragraph->offset_y = calculated_height;
 
 		calculated_width = skb_maxf(calculated_width, layout_bounds.width);
-		calculated_height += layout_bounds.height;
+		calculated_height = start_y + layout_bounds.y + layout_bounds.height;
+
+		start_y += layout_advance_y;
 	}
 
 	rich_layout->bounds.x = 0.f;
