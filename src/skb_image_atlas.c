@@ -1519,21 +1519,21 @@ bool skb_image_atlas_rasterize_missing_items(skb_image_atlas_t* atlas, skb_temp_
 					if (item->flags & SKB__ITEM_IS_COLOR) {
 						skb_rasterizer_draw_color_glyph(
 							rasterizer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
-							item->geom_offset_x, item->geom_offset_y, &target);
+							-item->geom_offset_x, -item->geom_offset_y, &target);
 					} else {
 						skb_rasterizer_draw_alpha_glyph(
 							rasterizer, temp_alloc, item->glyph.gid, item->glyph.font, item->glyph.clamped_font_size, alpha_mode,
-							item->geom_offset_x, item->geom_offset_y, &target);
+							-item->geom_offset_x, -item->geom_offset_y, &target);
 					}
 				} else if (item->type == SKB__ITEM_TYPE_ICON) {
 					// Rasterize icon
 					if (item->flags & SKB__ITEM_IS_COLOR) {
-						skb_rasterizer_draw_color_icon( rasterizer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->geom_offset_x, item->geom_offset_y, &target);
+						skb_rasterizer_draw_color_icon( rasterizer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, -item->geom_offset_x, -item->geom_offset_y, &target);
 					} else {
-						skb_rasterizer_draw_alpha_icon( rasterizer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, item->geom_offset_x, item->geom_offset_y, &target);
+						skb_rasterizer_draw_alpha_icon( rasterizer, temp_alloc, item->icon.icon, item->icon.icon_scale, alpha_mode, -item->geom_offset_x, -item->geom_offset_y, &target);
 					}
 				} else if (item->type == SKB__ITEM_TYPE_PATTERN) {
-					skb_rasterizer_draw_decoration_pattern( rasterizer, temp_alloc, item->pattern.style, item->pattern.thickness, alpha_mode, item->geom_offset_x, item->geom_offset_y, &target);
+					skb_rasterizer_draw_decoration_pattern( rasterizer, temp_alloc, item->pattern.style, item->pattern.thickness, alpha_mode, -item->geom_offset_x, -item->geom_offset_y, &target);
 				}
 
 				texture->dirty_bounds = skb_rect2i_union(texture->dirty_bounds, atlas_bounds);
