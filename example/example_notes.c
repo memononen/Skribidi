@@ -269,6 +269,119 @@ void notes_destroy(void* ctx_ptr)
 	skb_free(ctx);
 }
 
+
+static bool notes__selection_has_paragraph_attribute(const skb_editor_t* editor, skb_attribute_t attribute)
+{
+	skb_text_selection_t edit_selection = skb_editor_get_current_selection(editor);
+	skb_range_t paragraph_range = skb_editor_get_selection_paragraphs_range(editor, edit_selection);
+	int32_t match_count = 0;
+	for (int32_t i = paragraph_range.start; i < paragraph_range.end; i++) {
+		skb_attribute_set_t paragraph_attributes = skb_editor_get_paragraph_attributes(editor, i);
+		for (int32_t j = 0; j < paragraph_attributes.attributes_count; j++) {
+			if (paragraph_attributes.attributes[j].kind == attribute.kind && memcmp(&paragraph_attributes.attributes[j], &attribute, sizeof(skb_attribute_t)) == 0) {
+				match_count++;
+				break;
+			}
+		}
+	}
+	int32_t paragraph_count = paragraph_range.end - paragraph_range.start;
+	return paragraph_count == match_count;
+}
+
+static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
+{
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
+
+	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
+	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
+
+	// Indent && Outdent
+	if (notes__selection_has_paragraph_attribute(editor, list)) {
+		skb_attribute_t indent_level_delta = skb_attribute_make_indent_level((edit_mods & SKB_MOD_SHIFT) ? -1 : 1);
+		skb_editor_apply_paragraph_attribute_delta(editor, temp_alloc, selection, indent_level_delta);
+		return;
+	}
+	if (notes__selection_has_paragraph_attribute(editor, body)) {
+		if (selection_count == 0 && paragraph_pos.text_offset == 0) {
+			skb_attribute_t indent_level_delta = skb_attribute_make_indent_level((edit_mods & SKB_MOD_SHIFT) ? -1 : 1);
+			skb_editor_apply_paragraph_attribute_delta(editor, temp_alloc, selection, indent_level_delta);
+			return;
+		}
+	}
+
+	// Insert tab
+	skb_editor_insert_codepoint(editor, temp_alloc, '\t');
+}
+
+static void notes__handle_backspace(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
+{
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
+
+	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
+	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
+
+	// Outdent
+	if (notes__selection_has_paragraph_attribute(editor, list)) {
+		if (selection_count == 0 && paragraph_pos.text_offset == 0) {
+			skb_attribute_set_t paragraph_attributes = skb_editor_get_paragraph_attributes(editor, paragraph_pos.paragraph_idx);
+			const int32_t indent_level = skb_attributes_get_indent_level(paragraph_attributes, attribute_collection);
+			if (indent_level == 0) {
+				// Convert to body when no indent left.
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, body);
+			} else {
+				// Outdent
+				skb_attribute_t indent_level_delta = skb_attribute_make_indent_level(-1);
+				skb_editor_apply_paragraph_attribute_delta(editor, temp_alloc, selection, indent_level_delta);
+			}
+			return;
+		}
+	}
+
+	// Process backspace
+	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
+}
+
+static void notes__handle_enter(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
+{
+	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
+	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+
+	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
+	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
+	int32_t paragraph_text_count = skb_editor_get_paragraph_text_count(editor, paragraph_pos.paragraph_idx);
+
+	// List undent
+	if (notes__selection_has_paragraph_attribute(editor, list)) {
+		if (selection_count == 0) {
+			if (paragraph_text_count <= 1) { // Empty paragraph
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, body);
+				return;
+			}
+		}
+	}
+
+	// H1,H2 -> body
+	if (notes__selection_has_paragraph_attribute(editor, h1) || notes__selection_has_paragraph_attribute(editor, h2)) {
+		if (selection_count == 0) {
+			if (paragraph_pos.text_offset >= (paragraph_text_count - 1)) {
+				skb_editor_insert_paragraph(editor, temp_alloc, body);
+				return;
+			}
+		}
+	}
+
+	// Process enter
+	skb_editor_process_key_pressed(editor, temp_alloc, SKB_KEY_ENTER, edit_mods);
+}
+
+
 void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
 {
 	notes_context_t* ctx = ctx_ptr;
@@ -304,12 +417,14 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_HOME, edit_mods);
 		if (key == GLFW_KEY_END)
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_END, edit_mods);
-		if (key == GLFW_KEY_BACKSPACE)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_BACKSPACE, edit_mods);
 		if (key == GLFW_KEY_DELETE)
 			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_DELETE, edit_mods);
+		if (key == GLFW_KEY_BACKSPACE)
+			notes__handle_backspace(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
 		if (key == GLFW_KEY_ENTER)
-			skb_editor_process_key_pressed(ctx->editor, ctx->temp_alloc, SKB_KEY_ENTER, edit_mods);
+			notes__handle_enter(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
+		if (key == GLFW_KEY_TAB)
+			notes__handle_tab(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
 
 		update_ime_rect(ctx);
 	}
@@ -334,9 +449,6 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			// Underline
 			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_reference_by_name(ctx->attribute_collection, "u"));
 			ctx->allow_char = false;
-		}
-		if (key == GLFW_KEY_TAB) {
-			skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, '\t');
 		}
 		if (key == GLFW_KEY_ESCAPE) {
 			// Clear selection
@@ -609,24 +721,6 @@ static bool notes__selection_has_attribute(const skb_editor_t* editor, skb_attri
 	return false;
 }
 
-static bool notes__selection_has_paragraph_attribute(const skb_editor_t* editor, skb_attribute_t attribute)
-{
-	skb_text_selection_t edit_selection = skb_editor_get_current_selection(editor);
-	skb_range_t paragraph_range = skb_editor_get_selection_paragraphs_range(editor, edit_selection);
-	int32_t match_count = 0;
-	for (int32_t i = paragraph_range.start; i < paragraph_range.end; i++) {
-		skb_attribute_set_t paragraph_attributes = skb_editor_get_paragraph_attributes(editor, i);
-		for (int32_t j = 0; j < paragraph_attributes.attributes_count; j++) {
-			if (paragraph_attributes.attributes[j].kind == attribute.kind && memcmp(&paragraph_attributes.attributes[j], &attribute, sizeof(skb_attribute_t)) == 0) {
-				match_count++;
-				break;
-			}
-		}
-	}
-	int32_t paragraph_count = paragraph_range.end - paragraph_range.start;
-	return paragraph_count == match_count;
-}
-
 void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
 	notes_context_t* ctx = ctx_ptr;
@@ -760,7 +854,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 
 		// Caret location
-		const int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
+		const int32_t insert_idx = skb_editor_text_position_to_text_offset(ctx->editor, edit_selection.end_pos);
 		skb_text_position_t insert_pos = {
 			.offset = insert_idx,
 			.affinity = SKB_AFFINITY_TRAILING,

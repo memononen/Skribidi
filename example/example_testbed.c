@@ -764,7 +764,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			cx = debug_render_text(ctx->rc, cx + 5,layout_height + 30, 13, RENDER_ALIGN_START, caret_color_dark, "Caret: %s%d",  affinity_str[edit_selection.end_pos.affinity], edit_selection.end_pos.offset);
 
 			// Caret location
-			int32_t insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
+			int32_t insert_idx = skb_editor_text_position_to_text_offset(ctx->editor, edit_selection.end_pos);
 			skb_text_position_t insert_pos = {
 				.offset = insert_idx,
 				.affinity = SKB_AFFINITY_TRAILING,
@@ -841,12 +841,12 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		uint8_t prev_script = 0;
 		skb_font_handle_t font_handle = 0;
 
-		int32_t caret_insert_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.end_pos);
+		int32_t caret_insert_idx = skb_editor_text_position_to_text_offset(ctx->editor, edit_selection.end_pos);
 
-		int caret_selection_start_idx = -1;
-		int caret_selection_end_idx = -1;
+		int32_t caret_selection_start_idx = -1;
+		int32_t caret_selection_end_idx = -1;
 		if (skb_editor_get_selection_count(ctx->editor, edit_selection) > 0) {
-			int caret_start_idx = skb_editor_get_text_offset_at(ctx->editor, edit_selection.start_pos);
+			int32_t caret_start_idx = skb_editor_text_position_to_text_offset(ctx->editor, edit_selection.start_pos);
 			caret_selection_start_idx = skb_mini(caret_start_idx, caret_insert_idx);
 			caret_selection_end_idx = skb_maxi(caret_start_idx, caret_insert_idx);
 		}
@@ -856,7 +856,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		for (int32_t pi = 0; pi < edit_layout_count; pi++) {
 			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
-			const int32_t edit_text_offset = skb_editor_get_paragraph_text_offset(ctx->editor, pi);
+			const int32_t edit_text_offset = skb_editor_get_paragraph_global_text_offset(ctx->editor, pi);
 			const bool is_last_edit_line = pi == edit_layout_count - 1;
 
 			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);

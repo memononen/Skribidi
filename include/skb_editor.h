@@ -236,11 +236,15 @@ float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t par
 /** @return const pointer to the text of the specified paragraph. */
 const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int32_t paragraph_idx);
 
+/** @return text count of specified paragraph. */
+int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t paragraph_idx);
+
 /** @return attribute set applied to specified paragraph. */
 skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx);
 
-/** @return text offset of specified paragraph. */
-int32_t skb_editor_get_paragraph_text_offset(const skb_editor_t* editor, int32_t index);
+/** @return global text offset of specified paragraph. */
+int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx);
+
 /** @return the parameters used to create the editor. */
 const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor);
 
@@ -251,7 +255,16 @@ int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_positi
 int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos);
 
 /** @return text offset of specified text position. */
-int32_t skb_editor_get_text_offset_at(const skb_editor_t* editor, skb_text_position_t pos);
+int32_t skb_editor_text_position_to_text_offset(const skb_editor_t* editor, skb_text_position_t pos);
+
+/**
+ * Returns paragraph position based on text position.
+ * Paragraph position contains more information how the text position relates to the paragraph at the text position.
+ * @param editor editor to query.
+ * @param pos the text position to convert
+ * @return paragraph position info of the specified text position.
+ */
+skb_paragraph_position_t skb_editor_text_position_to_paragraph_position(const skb_editor_t* editor, skb_text_position_t pos);
 
 /** @return text direction at specified text position. */
 skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor, skb_text_position_t pos);
@@ -385,6 +398,14 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y);
  * @param mods key modifiers.
  */
 void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_editor_key_t key, uint32_t mods);
+
+/**
+ * Inserts new paragraph at the current selection location. This is equivalent of pressing enter at the current caret position.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param paragraph_attribute attribute to set on the new paragraph, empty attribute will be ignored.
+ */
+void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t paragraph_attribute);
 
 /**
  * Inserts codepoint to the text at current caret position.

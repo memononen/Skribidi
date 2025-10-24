@@ -405,6 +405,13 @@ const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int3
 	return skb__get_text(editor, paragraph_idx);
 }
 
+int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_text_count(editor, paragraph_idx);
+}
+
 skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	assert(editor);
@@ -412,11 +419,11 @@ skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* edit
 	return skb_rich_text_get_paragraph_attributes(&editor->rich_text, paragraph_idx);
 }
 
-int32_t skb_editor_get_paragraph_text_offset(const skb_editor_t* editor, int32_t index)
+int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_global_text_offset(editor, index);
+	return skb__get_global_text_offset(editor, paragraph_idx);
 }
 
 const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor)
@@ -502,7 +509,7 @@ static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* 
 	assert(skb__get_paragraph_count(editor) > 0);
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	return skb_rich_layout_get_paragraph_position(&editor->rich_layout, pos, affinity_usage);
+	return skb_rich_layout_text_position_to_paragraph_position(&editor->rich_layout, pos, affinity_usage);
 }
 
 static skb_paragraph_range_t skb__get_sanitized_range(const skb_editor_t* editor, skb_text_selection_t selection)
@@ -1738,6 +1745,35 @@ static skb_rich_text_t* skb__make_scratch_text_input_utf32(skb_editor_t* editor,
 	return &editor->scratch_rich_text;
 }
 
+void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t paragraph_attribute)
+{
+	uint32_t cp = SKB_CHAR_LINE_FEED;
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
+
+	if (paragraph_attribute.kind != 0)
+		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){0}, paragraph_attribute);
+
+	if (editor->input_filter_callback)
+		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
+
+	if (skb_rich_text_get_utf32_count(input_text) > 0) {
+		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
+		editor->allow_append_undo = false;
+		skb__update_layout(editor, temp_alloc, change);
+
+		// The call to skb_editor_replace_selection() changes selection to after the inserted text.
+		// The caret is placed on the leading edge, which is usually good, but for new line we want trailing.
+		skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+		editor->selection.end_pos = (skb_text_position_t) {
+			.offset = range_start.global_text_offset,
+			.affinity = SKB_AFFINITY_TRAILING,
+		};
+		editor->selection.start_pos = editor->selection.end_pos;
+		skb__pick_active_attributes(editor);
+		skb__emit_on_change(editor);
+	}
+}
+
 void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_editor_key_t key, uint32_t mods)
 {
 	assert(editor);
@@ -2425,12 +2461,18 @@ int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_posi
 	return edit_pos.text_offset - line->text_range.start;
 }
 
-int32_t skb_editor_get_text_offset_at(const skb_editor_t* editor, skb_text_position_t pos)
+int32_t skb_editor_text_position_to_text_offset(const skb_editor_t* editor, skb_text_position_t pos)
 {
 	assert(editor);
 
 	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
 	return edit_pos.global_text_offset;
+}
+
+skb_paragraph_position_t skb_editor_text_position_to_paragraph_position(const skb_editor_t* editor, skb_text_position_t pos)
+{
+	assert(editor);
+	return skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
 }
 
 skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor, skb_text_position_t pos)

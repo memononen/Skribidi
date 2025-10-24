@@ -1015,7 +1015,7 @@ static bool skb__iter_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, 
 	if (!modified) {
 		SKB_ARRAY_RESERVE(text_paragraph->attributes, text_paragraph->attributes_count+1);
 		if (ctx->attribute.kind == SKB_ATTRIBUTE_INDENT_LEVEL) {
-			ctx->attribute.indent_level.level = skb_maxi(0, ctx->attribute.indent_level.level);
+			text_paragraph->attributes[text_paragraph->attributes_count] = skb_attribute_make_indent_level(skb_maxi(0, ctx->attribute.indent_level.level));
 		} else {
 			text_paragraph->attributes[text_paragraph->attributes_count] = ctx->attribute;
 		}

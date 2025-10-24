@@ -53,7 +53,7 @@ typedef enum {
 	SKB_AFFINITY_IGNORE = 1,
 } skb_affinity_usage_t;
 
-skb_paragraph_position_t skb_rich_layout_get_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage);
+skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage);
 int32_t skb_rich_layout_text_position_to_offset(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
 skb_range_t skb_rich_layout_text_selection_to_range(const skb_rich_layout_t* rich_layout, skb_text_selection_t selection);
 

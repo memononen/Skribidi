@@ -12,7 +12,7 @@
 #include <string.h>
 
 
-skb_paragraph_position_t skb_rich_layout_get_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)
+skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)
 {
 	assert(rich_layout);
 
@@ -63,14 +63,14 @@ skb_paragraph_position_t skb_rich_layout_get_paragraph_position(const skb_rich_l
 
 int32_t skb_rich_layout_text_position_to_offset(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos)
 {
-	skb_paragraph_position_t pos = skb_rich_layout_get_paragraph_position(rich_layout, text_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, text_pos, SKB_AFFINITY_USE);
 	return pos.global_text_offset;
 }
 
 skb_range_t skb_rich_layout_text_selection_to_range(const skb_rich_layout_t* rich_layout, skb_text_selection_t selection)
 {
-	skb_paragraph_position_t start_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.start_pos, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t start_pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, selection.start_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, selection.end_pos, SKB_AFFINITY_USE);
 	if (start_pos.global_text_offset > end_pos.global_text_offset)
 		return (skb_range_t) { .start = end_pos.global_text_offset, .end = start_pos.global_text_offset };
 	return (skb_range_t) { .start = start_pos.global_text_offset, .end = end_pos.global_text_offset };
@@ -393,7 +393,7 @@ skb_visual_caret_t skb_rich_layout_get_visual_caret(const skb_rich_layout_t* ric
 	if (rich_layout->paragraphs_count == 0)
 		return (skb_visual_caret_t) {0};
 
-	skb_paragraph_position_t paragraph_pos = skb_rich_layout_get_paragraph_position(rich_layout, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t paragraph_pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, pos, SKB_AFFINITY_IGNORE);
 	const skb_layout_paragraph_t* paragraph = &rich_layout->paragraphs[paragraph_pos.paragraph_idx];
 
 	pos.offset = paragraph_pos.text_offset;
@@ -408,8 +408,8 @@ void skb_rich_layout_get_selection_bounds(const skb_rich_layout_t* rich_layout, 
 {
 	assert(rich_layout);
 
-	skb_paragraph_position_t start_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.start_pos, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb_rich_layout_get_paragraph_position(rich_layout, selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t start_pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, selection.start_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb_rich_layout_text_position_to_paragraph_position(rich_layout, selection.end_pos, SKB_AFFINITY_USE);
 	if (start_pos.global_text_offset > end_pos.global_text_offset) {
 		skb_paragraph_position_t tmp = start_pos;
 		start_pos = end_pos;
