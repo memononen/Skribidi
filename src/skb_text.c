@@ -240,15 +240,6 @@ static void skb__attributes_merge_adjacent(skb_text_t* text)
 }
 
 
-static bool skb__attributes_match(const skb_attribute_t* a, const skb_attribute_t* b)
-{
-	if (a->kind != b->kind)
-		return false;
-	if (a->kind == SKB_ATTRIBUTE_REFERENCE)
-		return skb_attribute_set_handle_get_group(a->reference.handle) == skb_attribute_set_handle_get_group(b->reference.handle);
-	return true;
-}
-
 // Clear removes attribute from specified range. Does not alter length.
 static void skb__attributes_clear(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
 {
@@ -261,7 +252,7 @@ static void skb__attributes_clear(skb_text_t* text, skb_range_t range, skb_attri
 	for (int32_t i = 0; i < text->spans_count; i++) {
 		skb_attribute_span_t* span = &text->spans[i];
 
-		if (!skb__attributes_match(&span->attribute, &attribute))
+		if (attribute.kind != 0 && !skb_attributes_match(&span->attribute, &attribute))
 			continue;
 
 		// If clear completely range is before, skip.
@@ -396,16 +387,16 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 	}
 }
 
-void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t range)
+void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range)
 {
 	assert(text);
 
 	if (!from_text || !from_text->text_count)
 		return;
 
-	range = skb_text_sanitize_range(from_text, range);
-	const int32_t copy_offset = range.start;
-	const int32_t copy_count = range.end - range.start;
+	from_range = skb_text_sanitize_range(from_text, from_range);
+	const int32_t copy_offset = from_range.start;
+	const int32_t copy_count = from_range.end - from_range.start;
 
 	if (copy_count <= 0)
 		return;
@@ -423,8 +414,8 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 		for (int32_t i = 0; i < from_text->spans_count; i++) {
 			const skb_attribute_span_t* span = &from_text->spans[i];
 			skb_range_t span_range = {
-				.start = skb_maxi(span->text_range.start, range.start) + span_offset,
-				.end = skb_mini(span->text_range.end, range.end) + span_offset,
+				.start = skb_maxi(span->text_range.start, from_range.start) + span_offset,
+				.end = skb_mini(span->text_range.end, from_range.end) + span_offset,
 			};
 			if (span_range.end > span_range.start)
 				skb__span_insert(text, span_range, span->attribute);
@@ -476,36 +467,36 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	skb__insert_attributes(text, range, attributes);
 }
 
-void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* other)
+void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* from_text)
 {
 	assert(text);
-	assert(other);
+	assert(from_text);
 
 	range = skb_text_sanitize_range(text, range);
 
 	const int32_t remove_count = range.end - range.start;
 
-	skb__text_reserve(text, text->text_count + other->text_count - remove_count);
+	skb__text_reserve(text, text->text_count + from_text->text_count - remove_count);
 
 	const int32_t start_offset = text->text_count;
 
 	// Make space for the inserted text
-	memmove(text->text + range.start + other->text_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
+	memmove(text->text + range.start + from_text->text_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
 
 	// Copy
-	memcpy(text->text + range.start, other->text, other->text_count * sizeof(uint32_t));
-	text->text_count += other->text_count - remove_count;
+	memcpy(text->text + range.start, from_text->text, from_text->text_count * sizeof(uint32_t));
+	text->text_count += from_text->text_count - remove_count;
 
 	// Make space for attributes.
 	skb__attributes_replace_with_empty(text, range, text->text_count);
 
 	// Insert existing spans
-	skb__spans_reserve(text, text->spans_count + other->spans_count);
-	for (int32_t i = 0; i < other->spans_count; i++) {
-		skb_range_t span_range = other->spans[i].text_range;
+	skb__spans_reserve(text, text->spans_count + from_text->spans_count);
+	for (int32_t i = 0; i < from_text->spans_count; i++) {
+		skb_range_t span_range = from_text->spans[i].text_range;
 		span_range.start += start_offset;
 		span_range.end += start_offset;
-		skb__span_insert(text, span_range, other->spans[i].attribute);
+		skb__span_insert(text, span_range, from_text->spans[i].attribute);
 	}
 
 	skb__attributes_merge_adjacent(text);
@@ -596,6 +587,65 @@ void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, v
 
 	if (remove_start != SKB_INVALID_INDEX)
 		skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = text->text_count });
+}
+
+void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range)
+{
+	assert(text);
+
+	if (!from_text || !from_text->text_count)
+		return;
+
+	from_range = skb_text_sanitize_range(from_text, from_range);
+	const int32_t copy_offset = from_range.start;
+	const int32_t copy_count = from_range.end - from_range.start;
+
+	if (copy_count <= 0)
+		return;
+
+	skb_text_reset(text);
+
+	// Copy attributes
+	if (from_text->spans_count > 0) {
+		const int32_t span_offset = -copy_offset;
+		for (int32_t i = 0; i < from_text->spans_count; i++) {
+			const skb_attribute_span_t* span = &from_text->spans[i];
+			const skb_range_t span_range = {
+				.start = skb_maxi(span->text_range.start, from_range.start) + span_offset,
+				.end = skb_mini(span->text_range.end, from_range.end) + span_offset,
+			};
+			if (span_range.end > span_range.start)
+				skb__span_insert(text, span_range, span->attribute);
+		}
+		skb__attributes_merge_adjacent(text);
+	}
+}
+
+void skb_text_replace_attributes(skb_text_t* text, skb_range_t range, const skb_text_t* from_text)
+{
+	assert(text);
+	assert(from_text);
+
+	range = skb_text_sanitize_range(text, range);
+	if (skb_range_is_empty(range))
+		return;
+
+	// Clear existing attributes.
+	skb__attributes_clear(text, range, (skb_attribute_t){0});
+
+	// Insert existing spans
+	skb__spans_reserve(text, text->spans_count + from_text->spans_count);
+	for (int32_t i = 0; i < from_text->spans_count; i++) {
+		const skb_attribute_span_t* span = &from_text->spans[i];
+		const skb_range_t span_range = {
+			.start = skb_maxi(span->text_range.start + range.start, range.start),
+			.end = skb_mini(span->text_range.end + range.start, range.end),
+		};
+		if (span_range.end > span_range.start)
+			skb__span_insert(text, span_range, span->attribute);
+	}
+
+	skb__attributes_merge_adjacent(text);
 }
 
 void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)

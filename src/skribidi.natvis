@@ -294,11 +294,11 @@
             </Synthetic>
 
             <Synthetic Name="content_runs">
-                <DisplayString>{{count: {content_runs_count}}}</DisplayString>
+                <DisplayString>{{count: {content_runs_count}, cap: {content_runs_cap}}}</DisplayString>
                 <Expand>
                     <ArrayItems>
                         <Size>content_runs_count</Size>
-                        <ValuePointer>content_runs_props</ValuePointer>
+                        <ValuePointer>content_runs</ValuePointer>
                     </ArrayItems>
                 </Expand>
             </Synthetic>
@@ -466,7 +466,7 @@
 
             <Item Name="text">text</Item>
             <Item Name="global_text_offset">global_text_offset</Item>
-            <Item Name="id">id</Item>
+            <Item Name="version">version</Item>
 
             <Synthetic Name="attributes">
                 <DisplayString>{{count: {attributes_count}, cap: {attributes_cap}}}</DisplayString>
@@ -496,7 +496,7 @@
                 </Expand>
             </Synthetic>
 
-            <Item Name="id_counter">id_counter</Item>
+            <Item Name="version_counter">version_counter</Item>
             <Item Name="should_free_instance">should_free_instance</Item>
         </Expand>
     </Type>

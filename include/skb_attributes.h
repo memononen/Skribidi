@@ -235,6 +235,8 @@ typedef enum {
 typedef struct skb_attribute_list_marker_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
+	/** Indent to be added at the start of the text. */
+	float indent;
 	/** Spacing between the marker and start of the text. */
 	float spacing;
 	/** Codepoint of the character to use as a bullet, if style is SKB_MARKER_STYLE_CODEPOINT. */
@@ -541,7 +543,7 @@ skb_attribute_t skb_attribute_make_indent_level(int32_t level);
 skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float first_line_increment);
 
 /** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
-skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float spacing, uint32_t codepoint);
+skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float indent, float spacing, uint32_t codepoint);
 
 /** @returns new text wrap attribute. See skb_attribute_text_wrap_t */
 skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap);
@@ -818,6 +820,14 @@ skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes,
  * @return number of results stored in the results array.
  */
 int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap);
+
+/**
+ * Returns true if the attributes match. Reference attributes are matched by group.
+ * @param a const pointer to first attribute to test
+ * @param b const pointer to second attribute to test
+ * @return true if attributes match.
+ */
+bool skb_attributes_match(const skb_attribute_t* a, const skb_attribute_t* b);
 
 /**
  * Returns number of attributes in the attribute set and it's parent chain.

@@ -96,22 +96,26 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_range_t text
 		return;
 	}
 
+	int32_t paragraph_idx = start_pos.paragraph_idx;
+
 	// First paragraph
 	const skb_range_t first_range = {
 		.start = start_pos.text_offset,
 		.end = start_pos.text_offset + skb_maxi(0, skb_text_get_utf32_count(&rich_text->paragraphs[start_pos.paragraph_idx].text) - start_pos.text_offset),
 	};
-	if (!func(rich_text, start_pos.paragraph_idx, first_range, context))
+	if (!func(rich_text, paragraph_idx, first_range, context))
 		return;
+	paragraph_idx++;
 
 	// Middle paragraphs
-	for (int32_t pi = start_pos.paragraph_idx + 1; pi <= end_pos.paragraph_idx - 1; pi++) {
+	while (paragraph_idx < end_pos.paragraph_idx) {
 		const skb_range_t range = {
 			.start = 0,
-			.end = skb_text_get_utf32_count(&rich_text->paragraphs[pi].text),
+			.end = skb_text_get_utf32_count(&rich_text->paragraphs[paragraph_idx].text),
 		};
-		if (!func(rich_text, pi, range, context))
+		if (!func(rich_text, paragraph_idx, range, context))
 			return;
+		paragraph_idx++;
 	}
 
 	// Last paragraph
@@ -119,7 +123,22 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_range_t text
 		.start = 0,
 		.end = skb_mini(end_pos.text_offset, skb_text_get_utf32_count(&rich_text->paragraphs[end_pos.paragraph_idx].text)),
 	};
-	func(rich_text, start_pos.paragraph_idx, last_range, context);
+	func(rich_text, paragraph_idx, last_range, context);
+}
+
+static void skb__text_paragraph_copy_attributes(skb_text_paragraph_t* text_paragraph, skb_attribute_set_t attributes)
+{
+	text_paragraph->attributes_count = skb_attributes_get_copy_flat_count(attributes);
+	SKB_ARRAY_RESERVE(text_paragraph->attributes, text_paragraph->attributes_count);
+	skb_attributes_copy_flat(attributes, text_paragraph->attributes, text_paragraph->attributes_count);
+}
+
+static skb_attribute_set_t skb__text_paragraph_get_attributes(const skb_text_paragraph_t* text_paragraph)
+{
+	return (skb_attribute_set_t) {
+		.attributes = text_paragraph->attributes,
+		.attributes_count = text_paragraph->attributes_count,
+	};
 }
 
 static void skb__text_paragraph_init(skb_rich_text_t* rich_text, skb_text_paragraph_t* text_paragraph, skb_attribute_set_t attributes)
@@ -128,10 +147,7 @@ static void skb__text_paragraph_init(skb_rich_text_t* rich_text, skb_text_paragr
 
 	text_paragraph->text = skb_text_make_empty();
 	text_paragraph->version = ++rich_text->version_counter;
-
-	text_paragraph->attributes_count = skb_attributes_get_copy_flat_count(attributes);
-	SKB_ARRAY_RESERVE(text_paragraph->attributes, text_paragraph->attributes_count);
-	skb_attributes_copy_flat(attributes, text_paragraph->attributes, text_paragraph->attributes_count);
+	skb__text_paragraph_copy_attributes(text_paragraph, attributes);
 }
 
 static void skb__text_paragraph_clear(skb_text_paragraph_t* text_paragraph)
@@ -301,55 +317,75 @@ int32_t skb_rich_text_get_range_utf32(const skb_rich_text_t* rich_text, skb_rang
 
 }
 
-int32_t skb_rich_text_get_paragraphs_count(const skb_rich_text_t* text)
+skb_range_t skb_rich_text_get_paragraph_range(skb_rich_text_t* rich_text, skb_range_t text_range)
 {
-	return text ? text->paragraphs_count : 0;
-}
+	assert(rich_text);
+	if (rich_text->paragraphs_count == 0)
+		return (skb_range_t){0};
 
-const skb_text_paragraph_t* skb_rich_text_get_paragraph(const skb_rich_text_t* text, int32_t index)
-{
-	assert(text);
-	assert(index >= 0 && index < text->paragraphs_count);
-	return &text->paragraphs[index];
-}
+	const skb_paragraph_position_t start_pos = skb__get_paragraph_position(rich_text, text_range.start);
+	const skb_paragraph_position_t end_pos = skb__get_paragraph_position(rich_text, text_range.end);
 
-const skb_text_t* skb_rich_text_get_paragraph_text(const skb_rich_text_t* text, int32_t index)
-{
-	assert(text);
-	assert(index >= 0 && index < text->paragraphs_count);
-	return &text->paragraphs[index].text;
-}
-
-uint32_t skb_rich_text_get_paragraph_version(const skb_rich_text_t* text, int32_t index)
-{
-	assert(text);
-	assert(index >= 0 && index < text->paragraphs_count);
-	return text->paragraphs[index].version;
-}
-
-skb_attribute_set_t skb_rich_text_get_paragraph_attributes(const skb_rich_text_t* text, int32_t index)
-{
-	assert(text);
-	assert(index >= 0 && index < text->paragraphs_count);
-	return (skb_attribute_set_t) {
-		.attributes = text->paragraphs[index].attributes,
-		.attributes_count = text->paragraphs[index].attributes_count,
+	return (skb_range_t) {
+		.start = start_pos.paragraph_idx,
+		.end = end_pos.paragraph_idx + 1,
 	};
 }
 
-int32_t skb_rich_text_get_paragraph_text_utf32_count(const skb_rich_text_t* text, int32_t index)
+int32_t skb_rich_text_get_paragraphs_count(const skb_rich_text_t* rich_text)
 {
-	if (!text)
-		return 0;
-	assert(index >= 0 && index < text->paragraphs_count);
-	return skb_text_get_utf32_count(&text->paragraphs[index].text);
+	return rich_text ? rich_text->paragraphs_count : 0;
 }
 
-int32_t skb_rich_text_get_paragraph_text_offset(const skb_rich_text_t* text, int32_t index)
+const skb_text_paragraph_t* skb_rich_text_get_paragraph(const skb_rich_text_t* rich_text, int32_t index)
 {
-	assert(text);
-	assert(index >= 0 && index < text->paragraphs_count);
-	return text->paragraphs[index].global_text_offset;
+	assert(rich_text);
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return NULL;
+	return &rich_text->paragraphs[index];
+}
+
+const skb_text_t* skb_rich_text_get_paragraph_text(const skb_rich_text_t* rich_text, int32_t index)
+{
+	assert(rich_text);
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return NULL;
+	return &rich_text->paragraphs[index].text;
+}
+
+uint32_t skb_rich_text_get_paragraph_version(const skb_rich_text_t* rich_text, int32_t index)
+{
+	assert(rich_text);
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return 0;
+	return rich_text->paragraphs[index].version;
+}
+
+skb_attribute_set_t skb_rich_text_get_paragraph_attributes(const skb_rich_text_t* rich_text, int32_t index)
+{
+	assert(rich_text);
+
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return (skb_attribute_set_t){0};
+
+	return skb__text_paragraph_get_attributes(&rich_text->paragraphs[index]);
+}
+
+int32_t skb_rich_text_get_paragraph_text_utf32_count(const skb_rich_text_t* rich_text, int32_t index)
+{
+	if (!rich_text)
+		return 0;
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return 0;
+	return skb_text_get_utf32_count(&rich_text->paragraphs[index].text);
+}
+
+int32_t skb_rich_text_get_paragraph_text_offset(const skb_rich_text_t* rich_text, int32_t index)
+{
+	assert(rich_text);
+	if (index < 0 || index >= rich_text->paragraphs_count)
+		return 0;
+	return rich_text->paragraphs[index].global_text_offset;
 }
 
 skb_rich_text_change_t skb_rich_text_append(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text)
@@ -367,6 +403,152 @@ skb_rich_text_change_t skb_rich_text_append_range(skb_rich_text_t* rich_text, co
 {
 	const int32_t text_count = skb_rich_text_get_utf32_count(rich_text);
 	return skb_rich_text_replace_range(rich_text, (skb_range_t){.start = text_count, .end = text_count}, source_rich_text, source_text_range);
+}
+
+void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_range_t source_text_range)
+{
+	assert(rich_text);
+	skb_rich_text_reset(rich_text);
+
+	if (!source_rich_text)
+		return;
+
+	skb_paragraph_position_t source_start_pos = skb__get_paragraph_position(source_rich_text, source_text_range.start);
+	skb_paragraph_position_t source_end_pos = source_text_range.end > source_text_range.start ? skb__get_paragraph_position(source_rich_text, source_text_range.end) : source_start_pos;
+
+	const skb_text_paragraph_t* source_paragraphs = source_rich_text->paragraphs + source_start_pos.paragraph_idx;
+	const int32_t source_paragraphs_count = skb_mini((source_end_pos.paragraph_idx + 1) - source_start_pos.paragraph_idx, source_rich_text->paragraphs_count);
+
+	if (source_paragraphs_count == 0)
+		return;
+
+	SKB_ARRAY_RESERVE(rich_text->paragraphs, source_paragraphs_count);
+	rich_text->paragraphs_count = source_paragraphs_count;
+
+	int32_t paragraph_idx = 0;
+	int32_t source_paragraph_idx = 0;
+
+	if (source_paragraphs_count == 1) {
+		assert(paragraph_idx < rich_text->paragraphs_count);
+		skb_text_paragraph_t* new_paragraph = &rich_text->paragraphs[paragraph_idx];
+		skb__text_paragraph_init(rich_text, new_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+		skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_range_t){ .start = source_start_pos.text_offset, .end = source_end_pos.text_offset });
+		new_paragraph->global_text_offset = 0;
+
+	} else if (source_paragraphs_count > 1) {
+
+		int32_t global_text_offset = 0;
+
+		// Start
+		{
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* new_start_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			skb__text_paragraph_init(rich_text, new_start_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			const skb_range_t new_start_paragraph_range = {
+				.start = source_start_pos.text_offset,
+				.end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
+			};
+			skb_text_copy_attributes_range(&new_start_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_start_paragraph_range);
+			new_start_paragraph->global_text_offset = global_text_offset;
+			global_text_offset += new_start_paragraph_range.end - new_start_paragraph_range.start;
+			source_paragraph_idx++;
+		}
+
+		// Middle
+		while (source_paragraph_idx < source_paragraphs_count - 1) {
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* new_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			skb__text_paragraph_init(rich_text, new_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			const skb_range_t new_paragraph_range = {
+				.start = 0,
+				.end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
+			};
+			skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_paragraph_range);
+			new_paragraph->global_text_offset = global_text_offset;
+			global_text_offset += new_paragraph_range.end - new_paragraph_range.start;
+			source_paragraph_idx++;
+		}
+
+		// End
+		{
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* new_end_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			skb__text_paragraph_init(rich_text, new_end_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			const skb_range_t new_end_paragraph_range = {
+				.start = 0,
+				.end = source_end_pos.text_offset
+			};
+			skb_text_copy_attributes_range(&new_end_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_end_paragraph_range);
+			new_end_paragraph->global_text_offset = global_text_offset;
+		}
+	}
+}
+
+void skb_rich_text_replace_attributes_range(skb_rich_text_t* rich_text, skb_range_t range, const skb_rich_text_t* source_rich_text)
+{
+	assert(rich_text);
+	if (!source_rich_text)
+		return;
+
+	skb_paragraph_position_t start_pos = skb__get_paragraph_position(rich_text, range.start);
+	skb_paragraph_position_t end_pos = range.end > range.start ? skb__get_paragraph_position(rich_text, range.end) : start_pos;
+	const int32_t range_paragraph_count = (end_pos.paragraph_idx + 1) - start_pos.paragraph_idx;
+
+	const skb_text_paragraph_t* source_paragraphs = source_rich_text->paragraphs;
+	const int32_t source_paragraphs_count = skb_mini(source_rich_text->paragraphs_count, range_paragraph_count);
+
+	int32_t source_paragraph_idx = 0;
+	int32_t paragraph_idx = start_pos.paragraph_idx;
+
+	if (source_paragraphs_count == 1) {
+		assert(paragraph_idx < rich_text->paragraphs_count);
+		skb_text_paragraph_t* paragraph = &rich_text->paragraphs[start_pos.paragraph_idx];
+		skb_text_replace_attributes(&paragraph->text, (skb_range_t){ .start = start_pos.text_offset, .end = end_pos.text_offset }, &source_paragraphs[source_paragraph_idx].text);
+		skb__text_paragraph_copy_attributes(paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+		paragraph->version = ++rich_text->version_counter; // Mark as changed
+	} else if (source_paragraphs_count > 1) {
+
+		// Start
+		{
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* start_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			const skb_range_t start_paragraph_range = {
+				.start = start_pos.text_offset,
+				.end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
+			};
+			skb_text_replace_attributes(&start_paragraph->text, start_paragraph_range, &source_paragraphs[source_paragraph_idx].text);
+			skb__text_paragraph_copy_attributes(start_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			start_paragraph->version = ++rich_text->version_counter; // Mark as changed
+			source_paragraph_idx++;
+		}
+
+		// Middle
+		while (source_paragraph_idx < source_paragraphs_count - 1) {
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* paragraph = &rich_text->paragraphs[paragraph_idx++];
+			const skb_range_t paragraph_range = {
+				.start = 0,
+				.end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
+			};
+			skb_text_replace_attributes(&paragraph->text, paragraph_range, &source_paragraphs[source_paragraph_idx].text);
+			skb__text_paragraph_copy_attributes(paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			paragraph->version = ++rich_text->version_counter; // Mark as changed
+			source_paragraph_idx++;
+		}
+
+		// End
+		{
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* end_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			const skb_range_t end_paragraph_range = {
+				.start = 0,
+				.end = end_pos.text_offset
+			};
+			skb_text_replace_attributes(&end_paragraph->text, end_paragraph_range, &source_paragraphs[source_paragraph_idx].text);
+			skb__text_paragraph_copy_attributes(end_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
+			end_paragraph->version = ++rich_text->version_counter; // Mark as changed
+		}
+	}
 }
 
 skb_rich_text_change_t skb_rich_text_add_paragraph(skb_rich_text_t* rich_text, skb_attribute_set_t paragraph_attributes)
@@ -431,9 +613,6 @@ skb_rich_text_change_t skb_rich_text_append_text_range(skb_rich_text_t* rich_tex
 
 	// If the last block is not terminated, append the first range there.
 	if (rich_text->paragraphs_count > 0) {
-
-//		result.first_text_offset = skb_text_block_get_utf32_count(&text->blocks[text->blocks_count - 1].text);
-
 		skb_text_paragraph_t* last_paragraph = &rich_text->paragraphs[rich_text->paragraphs_count - 1];
 
 		const skb_range_t block_range = {
@@ -519,9 +698,6 @@ skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, sk
 
 	// If the last block is not terminated, append the first range there.
 	if (rich_text->paragraphs_count > 0) {
-
-//		result.first_text_offset = skb_text_block_get_utf32_count(&text->blocks[text->blocks_count - 1].text);
-
 		skb_text_paragraph_t* last_paragraph = &rich_text->paragraphs[rich_text->paragraphs_count - 1];
 
 		const int32_t text_count = inserted_paragraph_ranges[range_idx].end - inserted_paragraph_ranges[range_idx].start;
@@ -566,8 +742,8 @@ skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, sk
 
 static skb_rich_text_change_t skb__rich_text_replace(
 		skb_rich_text_t* rich_text, skb_range_t text_range,
-	const skb_text_paragraph_t* source_paragraphs, int32_t source_paragraphs_count,
-	skb_paragraph_position_t source_start_pos, skb_paragraph_position_t source_end_pos)
+		const skb_text_paragraph_t* source_paragraphs, int32_t source_paragraphs_count,
+		skb_paragraph_position_t source_start_pos, skb_paragraph_position_t source_end_pos)
 {
 	assert(rich_text);
 	assert(source_paragraphs);
@@ -643,16 +819,18 @@ static skb_rich_text_change_t skb__rich_text_replace(
 		int32_t paragraph_idx = start_pos.paragraph_idx;
 
 		// Start
-		skb_attribute_set_t start_paragraph_attributes = {
-			.attributes = start_paragraph_copy.attributes,
-			.attributes_count = start_paragraph_copy.attributes_count,
-		};
-		assert(paragraph_idx < rich_text->paragraphs_count);
-		skb_text_paragraph_t* new_start_paragraph = &rich_text->paragraphs[paragraph_idx++];
-		skb__text_paragraph_init(rich_text, new_start_paragraph, start_paragraph_attributes);
-		skb_text_append_range(&new_start_paragraph->text, &start_paragraph_copy.text, (skb_range_t){ .start = 0, .end = start_paragraph_copy_count });
-		skb_text_append_range(&new_start_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_range_t){ .start = source_start_pos.text_offset, .end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text) });
-		source_paragraph_idx++;
+		{
+			skb_attribute_set_t start_paragraph_attributes = {
+				.attributes = start_paragraph_copy.attributes,
+				.attributes_count = start_paragraph_copy.attributes_count,
+			};
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* new_start_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			skb__text_paragraph_init(rich_text, new_start_paragraph, start_paragraph_attributes);
+			skb_text_append_range(&new_start_paragraph->text, &start_paragraph_copy.text, (skb_range_t){ .start = 0, .end = start_paragraph_copy_count });
+			skb_text_append_range(&new_start_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_range_t){ .start = source_start_pos.text_offset, .end = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text) });
+			source_paragraph_idx++;
+		}
 
 		// Middle
 		while (source_paragraph_idx < source_paragraphs_count - 1) {
@@ -662,25 +840,26 @@ static skb_rich_text_change_t skb__rich_text_replace(
 				.attributes = source_paragraphs[source_paragraph_idx].attributes,
 				.attributes_count = source_paragraphs[source_paragraph_idx].attributes_count,
 			};
-			skb__text_paragraph_init(rich_text, new_start_paragraph, paragraph_attributes);
+			skb__text_paragraph_init(rich_text, new_paragraph, paragraph_attributes);
 			skb_text_append(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text);
 			source_paragraph_idx++;
 		}
 
 		// End
-		assert(paragraph_idx < rich_text->paragraphs_count);
-		skb_text_paragraph_t* new_end_paragraph = &rich_text->paragraphs[paragraph_idx++];
-		skb_attribute_set_t end_paragraph_attributes = {
-			.attributes = source_paragraphs[source_paragraph_idx].attributes,
-			.attributes_count = source_paragraphs[source_paragraph_idx].attributes_count,
-		};
-		skb__text_paragraph_init(rich_text, new_end_paragraph, end_paragraph_attributes);
-		skb_text_append_range(&new_end_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_range_t){ .start = 0, .end = source_end_pos.text_offset/* + 1*/ });
-		skb_text_append_range(&new_end_paragraph->text, &end_paragraph_copy.text, (skb_range_t){ .start = end_paragraph_copy_offset, .end = end_paragraph_copy_offset + end_paragraph_copy_count });
-
-		// Keep track of last paragraph and last codepoint inserted for caret positioning.
-		last_text_paragraph = new_end_paragraph;
-		last_paragraph_offset = source_end_pos.text_offset - 1;
+		{
+			assert(paragraph_idx < rich_text->paragraphs_count);
+			skb_text_paragraph_t* new_end_paragraph = &rich_text->paragraphs[paragraph_idx++];
+			skb_attribute_set_t end_paragraph_attributes = {
+				.attributes = source_paragraphs[source_paragraph_idx].attributes,
+				.attributes_count = source_paragraphs[source_paragraph_idx].attributes_count,
+			};
+			skb__text_paragraph_init(rich_text, new_end_paragraph, end_paragraph_attributes);
+			skb_text_append_range(&new_end_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_range_t){ .start = 0, .end = source_end_pos.text_offset/* + 1*/ });
+			skb_text_append_range(&new_end_paragraph->text, &end_paragraph_copy.text, (skb_range_t){ .start = end_paragraph_copy_offset, .end = end_paragraph_copy_offset + end_paragraph_copy_count });
+			// Keep track of last paragraph and last codepoint inserted for caret positioning.
+			last_text_paragraph = new_end_paragraph;
+			last_paragraph_offset = source_end_pos.text_offset - 1;
+		}
 	}
 
 	// Update start offsets.
@@ -734,7 +913,7 @@ skb_rich_text_change_t skb_rich_text_replace(skb_rich_text_t* rich_text, skb_ran
 	const skb_text_paragraph_t empty_paragraph = {0};
 	const skb_text_paragraph_t* source_paragraphs = &empty_paragraph;
 	int32_t source_paragraphs_count = 1;
-	if (source_rich_text) {
+	if (source_rich_text && source_rich_text->paragraphs_count > 0) {
 		source_paragraphs = source_rich_text->paragraphs;
 		source_paragraphs_count = source_rich_text->paragraphs_count;
 	}
@@ -751,7 +930,7 @@ skb_rich_text_change_t skb_rich_text_replace_range(skb_rich_text_t* rich_text, s
 	const skb_text_paragraph_t empty_paragraph = {0};
 	const skb_text_paragraph_t* source_paragraphs = &empty_paragraph;
 	int32_t source_paragraphs_count = 1;
-	if (source_rich_text) {
+	if (source_rich_text && source_rich_text->paragraphs_count > 0) {
 		source_paragraphs = source_rich_text->paragraphs;
 		source_paragraphs_count = source_rich_text->paragraphs_count;
 	}
@@ -771,6 +950,90 @@ typedef struct skb__paragraph_attribute_context_t {
 	skb_attribute_t attribute;
 	int32_t count;
 } skb__paragraph_attribute_context_t;
+
+static bool skb__iter_set_paragraph_attribute(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
+
+	// Overwrite matching attributes.
+	bool overwritten = false;
+	for (int32_t i = 0; i < text_paragraph->attributes_count; i++) {
+		if (skb_attributes_match(&ctx->attribute, &text_paragraph->attributes[i])) {
+			if (!overwritten) {
+				// Overwrite first.
+				text_paragraph->attributes[i] = ctx->attribute;
+				overwritten = true;
+			} else {
+				// Remove the rest.
+				for (int32_t j = i + 1; j < text_paragraph->attributes_count; j++)
+					text_paragraph->attributes[j-1] = text_paragraph->attributes[j];
+				text_paragraph->attributes_count--;
+				i--;
+			}
+		}
+	}
+
+	if (!overwritten) {
+		SKB_ARRAY_RESERVE(text_paragraph->attributes, text_paragraph->attributes_count+1);
+		text_paragraph->attributes[text_paragraph->attributes_count] = ctx->attribute;
+		text_paragraph->attributes_count++;
+	}
+
+	// Mark as changed
+	text_paragraph->version = ++rich_text->version_counter;
+
+	return true;
+}
+
+void skb_rich_text_set_paragraph_attribute(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute)
+{
+	assert(rich_text);
+	skb__paragraph_attribute_context_t ctx = { .attribute = attribute };
+	skb__iterate_paragraphs(rich_text, text_range, skb__iter_set_paragraph_attribute, &ctx);
+}
+
+static bool skb__iter_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
+
+	// Modify matching attributes.
+	bool modified = false;
+	for (int32_t i = 0; i < text_paragraph->attributes_count; i++) {
+		skb_attribute_t* attribute = &text_paragraph->attributes[i];
+		if (attribute->kind == ctx->attribute.kind) {
+			if (ctx->attribute.kind == SKB_ATTRIBUTE_INDENT_LEVEL) {
+				attribute->indent_level.level = skb_maxi(0, attribute->indent_level.level + ctx->attribute.indent_level.level);
+			} else {
+				*attribute = ctx->attribute;
+			}
+			modified = true;
+		}
+	}
+
+	if (!modified) {
+		SKB_ARRAY_RESERVE(text_paragraph->attributes, text_paragraph->attributes_count+1);
+		if (ctx->attribute.kind == SKB_ATTRIBUTE_INDENT_LEVEL) {
+			ctx->attribute.indent_level.level = skb_maxi(0, ctx->attribute.indent_level.level);
+		} else {
+			text_paragraph->attributes[text_paragraph->attributes_count] = ctx->attribute;
+		}
+		text_paragraph->attributes_count++;
+	}
+
+	// Mark as changed
+	text_paragraph->version = ++rich_text->version_counter;
+
+	return true;
+}
+
+void skb_rich_text_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute)
+{
+	assert(rich_text);
+	skb__paragraph_attribute_context_t ctx = { .attribute = attribute };
+	skb__iterate_paragraphs(rich_text, text_range, skb__iter_set_paragraph_attribute_delta, &ctx);
+}
 
 static bool skb__iter_set_attribute(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_range_t text_range, void* context)
 {
@@ -853,8 +1116,6 @@ int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_
 	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_get_attribute_count, &ctx);
 	return ctx.count;
 }
-
-//typedef bool skb_rich_text_remove_func_t(uint32_t codepoint, int32_t paragraph_idx, int32_t text_offset, void* context);
 
 void skb_rich_text_remove_if(skb_rich_text_t* rich_text, skb_rich_text_remove_func_t* filter_func, void* context)
 {

@@ -116,14 +116,13 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
  */
 void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
 
-
 /**
  * Replaces portion of text with the contents of given text.
  * @param text pointer to the text to modify
  * @param range text range to replace (in utf-32 codepoints)
- * @param other text to insert.
+ * @param from_text text to insert.
  */
-void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* other);
+void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* from_text);
 
 /**
  * Replaces portion of text with the contents of given utf-8 string and attributes.
@@ -168,6 +167,25 @@ typedef bool skb_text_remove_func_t(uint32_t codepoint, int32_t index, void* con
  * @param context context pointer passed to filter functions.
  */
 void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, void* context);
+
+
+/**
+ * Copies attributes from from_text in specified range.
+ * See: skb_text_replace_attributes()
+ * @param text text to copy the attributes to (the text will be emptied).
+ * @param from_text text to copy the attributes to.
+ * @param from_range range on from_text where to copy the attributes.
+ */
+void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range);
+
+/**
+ * Replaces attributes in text in specified range with attributes from from_text.
+ * See skb_text_copy_attributes_range().
+ * @param text
+ * @param range
+ * @param from_text
+ */
+void skb_text_replace_attributes(skb_text_t* text, skb_range_t range, const skb_text_t* from_text);
 
 /**
  * Clears attribute of specific type from specified range.

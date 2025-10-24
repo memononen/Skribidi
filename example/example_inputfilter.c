@@ -192,7 +192,7 @@ void* inputfilter_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_editor_params_t edit_params = {
 		.font_collection = ctx->font_collection,
-		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
+		.paragraph_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
 	};
 

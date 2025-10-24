@@ -228,7 +228,7 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 		.editor_width = 1200.f,
 		.font_collection = ctx->font_collection,
 		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
-		.text_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
+		.paragraph_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
 	};
 
@@ -826,11 +826,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	// Draw logical string info
 	{
 		const skb_editor_params_t* edit_params = skb_editor_get_params(ctx->editor);
-		const uint8_t font_family = skb_attributes_get_font_family(edit_params->text_attributes, edit_params->attribute_collection);
-		const float font_size = skb_attributes_get_font_size(edit_params->text_attributes, edit_params->attribute_collection);
-		const skb_weight_t font_weight = skb_attributes_get_font_weight(edit_params->text_attributes, edit_params->attribute_collection);
-		const skb_style_t font_style = skb_attributes_get_font_style(edit_params->text_attributes, edit_params->attribute_collection);
-		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(edit_params->text_attributes, edit_params->attribute_collection);
+		const uint8_t font_family = skb_attributes_get_font_family(edit_params->paragraph_attributes, edit_params->attribute_collection);
+		const float font_size = skb_attributes_get_font_size(edit_params->paragraph_attributes, edit_params->attribute_collection);
+		const skb_weight_t font_weight = skb_attributes_get_font_weight(edit_params->paragraph_attributes, edit_params->attribute_collection);
+		const skb_style_t font_style = skb_attributes_get_font_style(edit_params->paragraph_attributes, edit_params->attribute_collection);
+		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(edit_params->paragraph_attributes, edit_params->attribute_collection);
 
 		float ox = 0.f;
 		float oy = 30.f + layout_height + 80.f;

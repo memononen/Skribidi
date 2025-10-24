@@ -41,15 +41,19 @@ int32_t skb_rich_text_get_range_utf8(const skb_rich_text_t* rich_text, skb_range
 int32_t skb_rich_text_get_range_utf32_count(const skb_rich_text_t* rich_text, skb_range_t text_range);
 int32_t skb_rich_text_get_range_utf32(const skb_rich_text_t* rich_text, skb_range_t text_range, uint32_t* utf32, int32_t utf32_cap);
 
-int32_t skb_rich_text_get_paragraphs_count(const skb_rich_text_t* text);
-const skb_text_t* skb_rich_text_get_paragraph_text(const skb_rich_text_t* text, int32_t index);
-skb_attribute_set_t skb_rich_text_get_paragraph_attributes(const skb_rich_text_t* text, int32_t index);
-int32_t skb_rich_text_get_paragraph_text_utf32_count(const skb_rich_text_t* text, int32_t index);
+skb_range_t skb_rich_text_get_paragraph_range(skb_rich_text_t* rich_text, skb_range_t text_range);
+int32_t skb_rich_text_get_paragraphs_count(const skb_rich_text_t* rich_text);
+const skb_text_t* skb_rich_text_get_paragraph_text(const skb_rich_text_t* rich_text, int32_t index);
+skb_attribute_set_t skb_rich_text_get_paragraph_attributes(const skb_rich_text_t* rich_text, int32_t index);
+int32_t skb_rich_text_get_paragraph_text_utf32_count(const skb_rich_text_t* rich_text, int32_t index);
 int32_t skb_rich_text_get_paragraph_text_offset(const skb_rich_text_t* text, int32_t index);
-uint32_t skb_rich_text_get_paragraph_version(const skb_rich_text_t* text, int32_t index);
+uint32_t skb_rich_text_get_paragraph_version(const skb_rich_text_t* rich_text, int32_t index);
 
 skb_rich_text_change_t skb_rich_text_append(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text);
 skb_rich_text_change_t skb_rich_text_append_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_range_t source_text_range);
+
+void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_range_t source_text_range);
+void skb_rich_text_replace_attributes_range(skb_rich_text_t* rich_text, skb_range_t range, const skb_rich_text_t* source_rich_text);
 
 skb_rich_text_change_t skb_rich_text_add_paragraph(skb_rich_text_t* rich_text, skb_attribute_set_t paragraph_attributes);
 skb_rich_text_change_t skb_rich_text_append_text(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const skb_text_t* from_tex);
@@ -60,7 +64,11 @@ skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, sk
 skb_rich_text_change_t skb_rich_text_replace(skb_rich_text_t* rich_text, skb_range_t text_range, const skb_rich_text_t* source_rich_text);
 skb_rich_text_change_t skb_rich_text_replace_range(skb_rich_text_t* rich_text, skb_range_t text_range, const skb_rich_text_t* source_rich_text, skb_range_t source_text_range);
 
+void skb_rich_text_set_paragraph_attribute(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
+void skb_rich_text_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
+
 void skb_rich_text_set_attribute(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
+
 void skb_rich_text_clear_attribute(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
 void skb_rich_text_clear_all_attributes(skb_rich_text_t* rich_text, skb_range_t text_range);
 int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_range_t text_range, uint32_t attribute_kind);

@@ -83,7 +83,7 @@ typedef struct skb_editor_params_t {
 	/** Attributes to apply for the layout. Text attributes, and attributes from attributed text are added on top. */
 	skb_attribute_set_t layout_attributes;
 	/** Attributes to apply for all the text. */
-	skb_attribute_set_t text_attributes;
+	skb_attribute_set_t paragraph_attributes;
 	/** Attributes added for the IME composition text. */
 	skb_attribute_set_t composition_attributes;
 	/** Care movement mode */
@@ -222,29 +222,43 @@ int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, i
 void skb_editor_get_text(const skb_editor_t* editor, skb_text_t* text);
 
 /** @return number of paragraphs in the editor. */
-int32_t skb_editor_get_paragraph_count(skb_editor_t* editor);
-/** @return const pointer to specified paragraph. */
-const skb_layout_t* skb_editor_get_paragraph_layout(skb_editor_t* editor, int32_t index);
-/** @return y-offset of the specified paragraph. */
-float skb_editor_get_paragraph_offset_y(skb_editor_t* editor, int32_t index);
+int32_t skb_editor_get_paragraph_count(const skb_editor_t* editor);
 
-const skb_text_t* skb_editor_get_paragraph_text(skb_editor_t* editor, int32_t index);
+/** @return const pointer to layout of specified paragraph. */
+const skb_layout_t* skb_editor_get_paragraph_layout(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return y-offset of the specified paragraph. */
+float skb_editor_get_paragraph_offset_y(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return y-advance (advance to the start of next paragraph) of the specified paragraph. */
+float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return const pointer to the text of the specified paragraph. */
+const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return attribute set applied to specified paragraph. */
+skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return text offset of specified paragraph. */
-int32_t skb_editor_get_paragraph_text_offset(skb_editor_t* editor, int32_t index);
+int32_t skb_editor_get_paragraph_text_offset(const skb_editor_t* editor, int32_t index);
 /** @return the parameters used to create the editor. */
-const skb_editor_params_t* skb_editor_get_params(skb_editor_t* editor);
+const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor);
 
 /** @return line number of specified text position. */
 int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+
 /** @return column number of specified text position. */
 int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+
 /** @return text offset of specified text position. */
 int32_t skb_editor_get_text_offset_at(const skb_editor_t* editor, skb_text_position_t pos);
+
 /** @return text direction at specified text position. */
 skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor, skb_text_position_t pos);
+
 /** @return visual caret at specified text position. */
 skb_visual_caret_t skb_editor_get_visual_caret(const skb_editor_t* editor, skb_text_position_t pos);
+
 /**
  * Hit tests the editor, and returns text position of the nearest character.
  * @param editor editor to query.
@@ -275,7 +289,7 @@ void skb_editor_select_none(skb_editor_t* editor);
 void skb_editor_select(skb_editor_t* editor, skb_text_selection_t selection);
 
 /** @return current selection of the editor. */
-skb_text_selection_t skb_editor_get_current_selection(skb_editor_t* editor);
+skb_text_selection_t skb_editor_get_current_selection(const skb_editor_t* editor);
 
 /**
  * Returns validated text range of specified selection range.
@@ -293,6 +307,13 @@ skb_range_t skb_editor_get_selection_text_offset_range(const skb_editor_t* edito
  */
 int32_t skb_editor_get_selection_count(const skb_editor_t* editor, skb_text_selection_t selection);
 
+/**
+ * Returns the range of paragraphs the selection overlaps.
+ * @param editor editor to qeury
+ * @param selection selection
+ * @return range of paragraphs the selection overlaps.
+ */
+skb_range_t skb_editor_get_selection_paragraphs_range(const skb_editor_t* editor, skb_text_selection_t selection);
 
 /**
  * Returns set of rectangles that represent the specified selection.
@@ -450,7 +471,7 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout
  * @param selection range of text to change
- * @param attribute_kind the kind of attribute to clear.
+ * @param attribute attribute to clear.
  */
 void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
 
@@ -461,6 +482,25 @@ void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
  * @param selection range of text to change
  */
 void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection);
+
+/**
+ * Sets attribute for paragraphs in specified selection range, overriding any attribute of same kind.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout
+ * @param selection range of text to change
+ * @param attribute attribute to set.
+ */
+void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+
+/**
+ * Applies delta change to attribute for paragraphs in specified selection range.
+ * Note: currently only indent level attribute is supported.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout
+ * @param selection range of text to change
+ * @param attribute attribute delta to apply.
+ */
+void skb_editor_apply_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
 
 /**
  * Counts number of codepoints the attribute is applied in the selection range.

@@ -147,8 +147,8 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
 		skb_attribute_make_vertical_padding(5,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
-		skb_attribute_make_indent_level(1),
-		skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 5, 0x2022),
+		skb_attribute_make_indent_level(0),
+		skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 40, 5, 0x2022),
 	};
 
 	const skb_attribute_t list_attributes_l2[] = {
@@ -156,8 +156,8 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
 		skb_attribute_make_vertical_padding(5,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
-		skb_attribute_make_indent_level(2),
-		skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 5, 0),
+		skb_attribute_make_indent_level(1),
+		skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 40, 5, 0),
 	};
 
 	const char* ipsum_1 =

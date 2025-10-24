@@ -709,10 +709,12 @@ static float skb__calc_run_end_whitespace(const skb_layout_t* layout, skb_range_
 		for (int32_t gi = end_run->glyph_range.end-1; gi >= end_run->glyph_range.start; gi--) {
 			const skb_glyph_t* glyph = &layout->glyphs[gi];
 			const skb_cluster_t* cluster= &layout->clusters[glyph->cluster_idx];
-			if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL))
-				whitespace_width += glyph->advance_x;
-			else
-				break;
+			if (cluster->text_count > 0) {
+				if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL))
+					whitespace_width += glyph->advance_x;
+				else
+					break;
+			}
 		}
 	}
 
@@ -1183,7 +1185,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	marker_run->font_size = font_size;
 	marker_run->ref_baseline = ref_baseline;
 	marker_run->font_handle = font_handle;
-	marker_run->content_run_idx = 0;
+	marker_run->content_run_idx = SKB_INVALID_INDEX; // Mark as invalid so that the run can be skipped e.g. by caret iterator.
 	marker_run->content_run_id = 0;
 	marker_run->attributes = layout->params.layout_attributes;
 	marker_run->glyph_range.start = layout->glyphs_count;
@@ -1362,13 +1364,6 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 	const int32_t line_idx = (int32_t)(line - layout->lines);
 
-	// List marker
-	if (line_idx == 0) {
-		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
-		if (list_marker.style != SKB_LIST_MARKER_NONE)
-			skb__line_append_list_marker_run(layout, line, &list_marker);
-	}
-
 	// The line is still in logical order and not truncated for overflow, grab the text range.
 	if (line->layout_run_range.start != line->layout_run_range.end) {
 		const skb_layout_run_t* first_layout_run = &layout->layout_runs[line->layout_run_range.start];
@@ -1392,6 +1387,13 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 	// Sort in visual order
 	skb__reorder_runs(layout, line->layout_run_range);
+
+	// List marker
+	if (line_idx == 0) {
+		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
+		if (list_marker.style != SKB_LIST_MARKER_NONE)
+			skb__line_append_list_marker_run(layout, line, &list_marker);
+	}
 
 	//
 	// Calculate line height and baseline
@@ -1575,23 +1577,23 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_text_wrap_t text_wrap = skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Handle horizontal padding and indent
+	const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_horizontal_padding_t horizontal_padding = skb_attributes_get_horizontal_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 	const int32_t indent_level = skb_attributes_get_indent_level(layout->params.layout_attributes, layout->params.attribute_collection);
-
-	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment, layout->params.layout_width);
-	const float horizontal_padding_end = skb_minf(horizontal_padding.end, layout->params.layout_width - horizontal_padding_start);
-
-	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
-	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->shaping_runs_count);
 
 	// Wrapping
 	bool max_heigh_reached = false;
-
-	skb_layout_run_t* cur_layout_run = NULL;
+ 	skb_layout_run_t* cur_layout_run = NULL;
 	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
+
+	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment + list_marker.indent, layout->params.layout_width);
+	const float horizontal_padding_end = skb_minf(horizontal_padding.end, layout->params.layout_width - horizontal_padding_start);
+
+	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
+	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Init the line break width to the first line width (will be reset to inner_layout_width after first line).
 	float line_break_width = skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment);
@@ -2175,11 +2177,13 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 	skb_layout_t* layout = skb_malloc(sizeof(skb_layout_t));
 	memset(layout, 0, sizeof(skb_layout_t));
 
-	layout->params = *params;
-	layout->params.layout_attributes = (skb_attribute_set_t){0};
-	layout->should_free_instance = true;
+	if (params) {
+		layout->params = *params;
+		layout->params.layout_attributes = (skb_attribute_set_t){0};
+		skb__copy_params_attributes(layout, params);
+	}
 
-	skb__copy_params_attributes(layout, params);
+	layout->should_free_instance = true;
 
 	return layout;
 }
@@ -3433,6 +3437,12 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	// Iterate over layout runs on the line.
 	iter.layout_run_idx = line->layout_run_range.start;
 	iter.layout_run_end = line->layout_run_range.end;
+
+	// Prune layout runs that cannot be selected.
+	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_idx].content_run_idx == SKB_INVALID_INDEX)
+		iter.layout_run_idx++;
+	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_end-1].content_run_idx == SKB_INVALID_INDEX)
+		iter.layout_run_end--;
 
 	// Iterate over clusters on the layout run.
 	if (iter.layout_run_idx != iter.layout_run_end) {

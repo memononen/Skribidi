@@ -214,13 +214,14 @@ skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float spacing, uint32_t codepoint)
+skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float indent, float spacing, uint32_t codepoint)
 {
 	skb_attribute_t attribute;
 	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
 	attribute.list_marker = (skb_attribute_list_marker_t) {
 		.kind = SKB_ATTRIBUTE_LIST_MARKER,
 		.style = (uint8_t)style,
+		.indent = indent,
 		.spacing = spacing,
 		.codepoint = codepoint,
 	};
@@ -405,6 +406,16 @@ int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_att
 		count += skb_attributes_get_by_kind(*attributes.parent_set, collection, kind, results + count, results_cap - count);
 
 	return count;
+}
+
+bool skb_attributes_match(const skb_attribute_t* a, const skb_attribute_t* b)
+{
+	if (a->kind != b->kind)
+		return false;
+	if (a->kind == SKB_ATTRIBUTE_REFERENCE)
+		return skb_attribute_set_handle_get_group(a->reference.handle) == skb_attribute_set_handle_get_group(b->reference.handle);
+	return true;
+
 }
 
 static const skb_attribute_t* skb__get_attribute_by_kind(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind)

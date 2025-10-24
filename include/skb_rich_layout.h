@@ -32,6 +32,7 @@ void skb_rich_layout_reset(skb_rich_layout_t* rich_layout);
 int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* rich_layout);
 const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t index);
 float skb_rich_layout_get_layout_offset_y(const skb_rich_layout_t* rich_layout, int32_t index);
+float skb_rich_layout_get_layout_advance_y(const skb_rich_layout_t* rich_layout, int32_t index);
 skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t index);
 const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout);
 
