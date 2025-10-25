@@ -33,12 +33,12 @@ skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute
 }
 
 
-skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction)
+skb_attribute_t skb_attribute_make_text_base_direction(skb_text_direction_t direction)
 {
 	skb_attribute_t attribute;
 	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
-	attribute.text_direction = (skb_attribute_text_direction_t) {
-		.kind = SKB_ATTRIBUTE_TEXT_DIRECTION,
+	attribute.text_base_direction = (skb_attribute_text_base_direction_t) {
+		.kind = SKB_ATTRIBUTE_TEXT_BASE_DIRECTION,
 		.direction = (uint8_t)direction,
 	};
 	return attribute;
@@ -444,10 +444,10 @@ static const skb_attribute_t* skb__get_attribute_by_kind(const skb_attribute_set
 	return NULL;
 }
 
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+skb_text_direction_t skb_attributes_get_text_base_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_DIRECTION);
-	return attr ? attr->text_direction.direction : SKB_DIRECTION_AUTO;
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_BASE_DIRECTION);
+	return attr ? attr->text_base_direction.direction : SKB_DIRECTION_AUTO;
 }
 
 const char* skb_attributes_get_lang(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)

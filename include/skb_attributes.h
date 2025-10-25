@@ -31,15 +31,15 @@ extern "C" {
  */
 
 /**
- * Text direction attribute.
+ * Paragraph writing base direction attribute.
  * Subset of https://drafts.csswg.org/css-writing-modes-4/
  */
-typedef struct skb_attribute_text_direction_t {
+typedef struct skb_attribute_text_base_direction_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
-	/** Text writing direction, no change if SKB_DIRECTION_AUTO. */
+	/** Text paragraph writing direction, if SKB_DIRECTION_AUTO it will be detect from the first strong character. */
 	skb_text_direction_t direction;
-} skb_attribute_text_direction_t;
+} skb_attribute_text_base_direction_t;
 
 /**
  * Writing mode text attribute.
@@ -374,8 +374,8 @@ typedef struct skb_attribute_reference_t {
 
 /** Enum describing tags for each of the attributes. */
 typedef enum {
-	/** Tag for skb_attribute_text_direction_t */
-	SKB_ATTRIBUTE_TEXT_DIRECTION = SKB_TAG('t','d','i','r'),
+	/** Tag for skb_attribute_text_base_direction_t */
+	SKB_ATTRIBUTE_TEXT_BASE_DIRECTION = SKB_TAG('t','b','d','r'),
 	/** Tag for skb_attribute_lang_t */
 	SKB_ATTRIBUTE_LANG = SKB_TAG('l','a','n','g'),
 	/** Tag for skb_attribute_font_t */
@@ -438,7 +438,7 @@ typedef enum {
 
 typedef union skb_attribute_t {
 	uint32_t kind;
-	skb_attribute_text_direction_t text_direction;
+	skb_attribute_text_base_direction_t text_base_direction;
 	skb_attribute_lang_t lang;
 	skb_attribute_font_family_t font_family;
 	skb_attribute_font_size_t font_size;
@@ -494,8 +494,8 @@ skb_attribute_set_t skb_attribute_set_make_reference(skb_attribute_set_handle_t 
 /** Creates attribute set that is a reference to specified set in a collection. */
 skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
 
-/** @returns new text direction attribute. See skb_attribute_text_direction_t */
-skb_attribute_t skb_attribute_make_text_direction(skb_text_direction_t direction);
+/** @returns new text base direction attribute. See skb_attribute_text_base_direction_t */
+skb_attribute_t skb_attribute_make_text_base_direction(skb_text_direction_t direction);
 
 /** @returns new language attribute. See skb_attribute_lang_t */
 skb_attribute_t skb_attribute_make_lang(const char* lang);
@@ -591,7 +591,7 @@ skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collect
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_text_direction_t skb_attributes_get_text_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+skb_text_direction_t skb_attributes_get_text_base_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns language attribute or default value if not found.

@@ -278,7 +278,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		return;
 
 	SBLevel base_level = SBLevelDefaultLTR;
-	const skb_text_direction_t base_direction = skb_attributes_get_text_direction(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_text_direction_t base_direction = skb_attributes_get_text_base_direction(layout->params.layout_attributes, layout->params.attribute_collection);
 	if (base_direction == SKB_DIRECTION_RTL)
 		base_level = 1;
 	else if (base_direction == SKB_DIRECTION_LTR)
@@ -343,7 +343,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 		for (int32_t i = 0; i < bidi_line_runs_count; ++i) {
 			const SBRun* bidi_run = &bidi_line_runs[i];
 			const skb_range_t bidi_range = { .start = (int32_t)bidi_run->offset, .end = (int32_t)(bidi_run->offset + bidi_run->length) };
-			const uint8_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
+			const skb_text_direction_t bidi_direction = (bidi_run->level & 1) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 
 			// Split bidi runs at shaping style span boundaries.
 			skb__text_style_run_iter_t style_iter = skb__text_style_run_iter_make(bidi_range, layout->content_runs, layout->content_runs_count);
@@ -352,8 +352,6 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 			int32_t content_run_idx = 0;
 			while (skb__text_style_run_iter_next(&style_iter, &style_range, &content_run_idx)) {
 				const skb__content_run_t* content_run = &layout->content_runs[content_run_idx];
-				const skb_text_direction_t text_direction = skb_attributes_get_text_direction(content_run->attributes, layout->params.attribute_collection);
-				const skb_text_direction_t style_direction = text_direction != SKB_DIRECTION_AUTO ? text_direction : bidi_direction;
 
 				if (content_run->type == SKB_CONTENT_RUN_OBJECT || content_run->type == SKB_CONTENT_RUN_ICON) {
 					// Object or icon run.
@@ -361,7 +359,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 					skb__shaping_run_t* shaping_run = &layout->shaping_runs[layout->shaping_runs_count++];
 					shaping_run->script = layout->text_props[style_range.start].script;
 					shaping_run->text_range = style_range;
-					shaping_run->direction = (uint8_t)style_direction;
+					shaping_run->direction = (uint8_t)bidi_direction;
 					shaping_run->is_emoji = false;
 					shaping_run->content_run_idx = content_run_idx;
 					shaping_run->font_handle = 0;
@@ -434,7 +432,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 										shaping_run->script = script;
 										shaping_run->text_range.start = font_run_start;
 										shaping_run->text_range.end = j;
-										shaping_run->direction = (uint8_t)style_direction;
+										shaping_run->direction = (uint8_t)bidi_direction;
 										shaping_run->is_emoji = has_emoji;
 										shaping_run->content_run_idx = content_run_idx;
 										shaping_run->font_handle = cur_font_handle;
@@ -454,7 +452,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 									shaping_run->script = script;
 									shaping_run->text_range.start = font_run_start;
 									shaping_run->text_range.end = text_range.end;
-									shaping_run->direction = (uint8_t)style_direction;
+									shaping_run->direction = (uint8_t)bidi_direction;
 									shaping_run->is_emoji = has_emoji;
 									shaping_run->content_run_idx = content_run_idx;
 									shaping_run->font_handle = cur_font_handle;
@@ -1756,7 +1754,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 
 	// Align layout
-	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, layout->params.layout_width);
+	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
 	if (layout_is_rtl)
 		layout->bounds.x -= horizontal_padding_start;
 	else

@@ -1750,8 +1750,9 @@ void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	uint32_t cp = SKB_CHAR_LINE_FEED;
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
 
-	if (paragraph_attribute.kind != 0)
-		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){0}, paragraph_attribute);
+	if (paragraph_attribute.kind != 0) {
+		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 1 }, paragraph_attribute);
+	}
 
 	if (editor->input_filter_callback)
 		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);

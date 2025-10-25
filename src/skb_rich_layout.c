@@ -167,7 +167,8 @@ skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich
 {
 	assert(rich_layout);
 	assert(index >= 0 && index < rich_layout->paragraphs_count);
-	return rich_layout->paragraphs[index].direction;
+	const skb_layout_t* layout = rich_layout->paragraphs[index].layout;
+	return layout ? skb_layout_get_resolved_direction(layout) : SKB_DIRECTION_LTR;
 }
 
 const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout)
@@ -222,9 +223,6 @@ void skb_rich_layout_set_from_rich_text(
 
 	skb_layout_params_t layout_params = rich_layout->params;
 
-	skb_text_direction_t direction = SKB_DIRECTION_AUTO;
-	skb_attribute_t dir_override_attribute = {0};
-
 	if (!ime_text || skb_text_get_utf32_count(ime_text) == 0)
 		ime_text_offset = SKB_INVALID_INDEX;
 
@@ -240,17 +238,7 @@ void skb_rich_layout_set_from_rich_text(
 
 		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i);
 		paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
-		if (i > 0) {
-			// Copy the paragraph direction from the first paragraph to all later paragraphs.
-			dir_override_attribute = skb_attribute_make_text_direction(direction);
-			layout_params.layout_attributes = (skb_attribute_set_t) {
-				.attributes = &dir_override_attribute,
-				.attributes_count = 1,
-				.parent_set = &paragraph_attributes,
-			};
-		} else {
-			layout_params.layout_attributes = paragraph_attributes;
-		}
+		layout_params.layout_attributes = paragraph_attributes;
 
 		// Update ordered list counters.
 		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(paragraph_attributes, rich_layout->params.attribute_collection);
@@ -305,10 +293,6 @@ void skb_rich_layout_set_from_rich_text(
 		} else {
 			bool rebuild = rebuild_all;
 
-			// If the paragraph direction has changed, relayout.
-			if (layout_paragraph->direction != direction)
-				rebuild = true;
-
 			// If the contents has changed, rebuild.
 			if (layout_paragraph->version != paragraph_id)
 				rebuild = true;
@@ -318,15 +302,10 @@ void skb_rich_layout_set_from_rich_text(
 
 			if (rebuild) {
 				skb_layout_set_from_text(layout_paragraph->layout, temp_alloc, &layout_params, paragraph_text, (skb_attribute_set_t){0});
-				layout_paragraph->direction = (uint8_t)direction;
 				layout_paragraph->version = paragraph_id;
 				layout_paragraph->list_marker_counter = list_marker_counter;
 			}
 		}
-
-		// Take the resolved direction from the first paragraph, and apply to the rest. This matches the behavior of a single layout.
-		if (i == 0)
-			direction = skb_layout_get_resolved_direction(layout_paragraph->layout);
 
 		const skb_rect2_t layout_bounds = skb_layout_get_bounds(layout_paragraph->layout);
 		const float layout_advance_y =  skb_layout_get_advance_y(layout_paragraph->layout);
