@@ -858,7 +858,7 @@ static skb_layout_line_t* skb__add_line(skb_layout_t* layout)
 	// Allocate new line.
 	SKB_ARRAY_RESERVE(layout->lines, layout->lines_count+1);
 	skb_layout_line_t* line = &layout->lines[layout->lines_count++];
-	memset(line, 0, sizeof(skb_layout_line_t));
+	SKB_ZERO_STRUCT(line);
 	return line;
 }
 
@@ -933,7 +933,7 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count + 1);
 	skb_layout_run_t* layout_run = &layout->layout_runs[layout->layout_runs_count++];
-	memset(layout_run, 0, sizeof(skb_layout_run_t));
+	SKB_ZERO_STRUCT(layout_run);
 
 	if (line->layout_run_range.start == line->layout_run_range.end) {
 		line->layout_run_range.start = layout->layout_runs_count - 1;
@@ -1154,7 +1154,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	// Place the marker glyphs.
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count + 1);
 	skb_layout_run_t* layout_run = &layout->layout_runs[layout->layout_runs_count++];
-	memset(layout_run, 0, sizeof(skb_layout_run_t));
+	SKB_ZERO_STRUCT(layout_run);
 	if (line->layout_run_range.start == line->layout_run_range.end) {
 		line->layout_run_range.start = layout->layout_runs_count - 1;
 		line->layout_run_range.end = layout->layout_runs_count;
@@ -1174,7 +1174,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 			layout->layout_runs[i] = layout->layout_runs[i-1];
 		marker_run = &layout->layout_runs[line->layout_run_range.start];
 	}
-	memset(marker_run, 0, sizeof(skb_layout_run_t));
+	SKB_ZERO_STRUCT(marker_run);
 
 	marker_run->type = SKB_CONTENT_RUN_UTF32;
 	marker_run->direction = layout->resolved_direction;
@@ -1193,7 +1193,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 
 	SKB_ARRAY_RESERVE(layout->clusters, layout->clusters_count + 1);
 	skb_cluster_t* marker_cluster = &layout->clusters[layout->clusters_count++];
-	memset(marker_cluster, 0, sizeof(skb_cluster_t));
+	SKB_ZERO_STRUCT(marker_cluster);
 	marker_cluster->text_offset = 0;
 	marker_cluster->text_count = 0;
 	marker_cluster->glyphs_offset = layout->glyphs_count;
@@ -1209,7 +1209,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 
 	for (int32_t gi = 0; gi < marker_glyph_count; gi++) {
 		skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
-		memset(glyph, 0, sizeof(skb_glyph_t));
+		SKB_ZERO_STRUCT(glyph);
 		glyph->offset_x = offset_x + marker_glyph_offset[gi].x;
 		glyph->offset_y = offset_y + marker_glyph_offset[gi].y;
 		glyph->advance_x = 0.f;
@@ -1305,7 +1305,7 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 		// Add back
 		ellipsis_run = &layout->layout_runs[line->layout_run_range.end - 1];
 	}
-	memset(ellipsis_run, 0, sizeof(skb_layout_run_t));
+	SKB_ZERO_STRUCT(ellipsis_run);
 
 	ellipsis_run->type = SKB_CONTENT_RUN_UTF32;
 	ellipsis_run->direction = ref_layout_run.direction;
@@ -1324,7 +1324,7 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 
 	SKB_ARRAY_RESERVE(layout->clusters, layout->clusters_count + 1);
 	skb_cluster_t* ellipsis_cluster = &layout->clusters[layout->clusters_count++];
-	memset(ellipsis_cluster, 0, sizeof(skb_cluster_t));
+	SKB_ZERO_STRUCT(ellipsis_cluster);
 	ellipsis_cluster->text_offset = 0; // TODO: this should account for the missing text, but it may be multiple spans, since we're truncating runs in visual order.
 	ellipsis_cluster->text_count = 0;
 	ellipsis_cluster->glyphs_offset = layout->glyphs_count;
@@ -1333,7 +1333,7 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + ellipsis_glyph_count);
 	for (int32_t ei = 0; ei < ellipsis_glyph_count; ei++) {
 		skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
-		memset(glyph, 0, sizeof(skb_glyph_t));
+		SKB_ZERO_STRUCT(glyph);
 		glyph->offset_x = 0.f;
 		glyph->offset_y = offset_y;
 		glyph->advance_x = ellipsis_x_advance;
@@ -2173,7 +2173,7 @@ skb_layout_t skb_layout_make_empty(void)
 skb_layout_t* skb_layout_create(const skb_layout_params_t* params)
 {
 	skb_layout_t* layout = skb_malloc(sizeof(skb_layout_t));
-	memset(layout, 0, sizeof(skb_layout_t));
+	SKB_ZERO_STRUCT(layout);
 
 	if (params) {
 		layout->params = *params;
@@ -2480,7 +2480,7 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 
 		// Init temporary content run.
 		skb__content_run_t* content_run = &layout->content_runs[i];
-		memset(content_run, 0, sizeof(skb__content_run_t));
+		SKB_ZERO_STRUCT(content_run);
 
 		content_run->type = run->type;
 		content_run->run_id = run->run_id;
@@ -2541,9 +2541,10 @@ void skb_layout_destroy(skb_layout_t* layout)
 	skb_free(layout->text);
 	skb_free(layout->text_props);
 
-	memset(layout, 0, sizeof(skb_layout_t));
+	bool should_free_instance = layout->should_free_instance;
+	SKB_ZERO_STRUCT(layout);
 
-	if (layout->should_free_instance)
+	if (should_free_instance)
 		skb_free(layout);
 }
 

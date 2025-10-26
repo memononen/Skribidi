@@ -46,9 +46,10 @@ void skb_text_destroy(skb_text_t* text)
 		skb_free(text->spans);
 	}
 
-	memset(text, 0, sizeof(skb_text_t));
+	bool should_free_instance = text->should_free_instance;
+	SKB_ZERO_STRUCT(text);
 
-	if (text->should_free_instance) {
+	if (should_free_instance) {
 		if (temp_alloc)
 			skb_temp_alloc_free(temp_alloc, text);
 		else
@@ -587,6 +588,43 @@ void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, v
 
 	if (remove_start != SKB_INVALID_INDEX)
 		skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = text->text_count });
+}
+
+skb_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_range_t search_range, const uint32_t* value_utf32, int32_t value_utf32_count)
+{
+	assert(text);
+
+	search_range = skb_text_sanitize_range(text, search_range);
+
+	if (value_utf32_count < 0)
+		value_utf32_count = skb_utf32_strlen(value_utf32);
+
+	uint32_t value_last = value_utf32[value_utf32_count - 1];
+	int32_t text_offset = skb_clampi(search_range.end - 1, 0, text->text_count - 1); // Make sure the offset is in range.
+
+	while (text_offset >= search_range.start) {
+		if (text->text[text_offset] == value_last) {
+			// Try to match the value
+			int32_t end_text_offset = text_offset;
+			int32_t value_offset = value_utf32_count - 1;
+			while (text_offset >= 0 && value_offset >= 0 && value_utf32[value_offset] == text->text[text_offset]) {
+				value_offset--;
+				text_offset--;
+			}
+
+			if (value_offset == -1) {
+				// Matched all codepoints in the value.
+				return (skb_range_t) {
+					.start = text_offset + 1,
+					.end = end_text_offset + 1,
+				};
+			}
+		} else {
+			text_offset--;
+		}
+	}
+
+	return (skb_range_t){0};
 }
 
 void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range)

@@ -168,6 +168,16 @@ typedef bool skb_text_remove_func_t(uint32_t codepoint, int32_t index, void* con
  */
 void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, void* context);
 
+/**
+ * Tries to find utf-32 string value in the text, and returns the matching range, or empty if not found.
+ * @param text text to query.
+ * @param search_range search range withing the text.
+ * @param value_utf32 pointer to the utf-32 string to find.
+ * @param value_utf32_count length of the utf-32 string to find, or -1 is zero terminated.
+ * @return range of text matching the specfied value, or empty range if value not found.
+ */
+skb_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_range_t search_range, const uint32_t* value_utf32, int32_t value_utf32_count);
+
 
 /**
  * Copies attributes from from_text in specified range.

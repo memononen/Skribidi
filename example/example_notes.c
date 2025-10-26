@@ -110,7 +110,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	assert(rc);
 
 	notes_context_t* ctx = skb_malloc(sizeof(notes_context_t));
-	memset(ctx, 0, sizeof(notes_context_t));
+	SKB_ZERO_STRUCT(ctx);
 
 	ctx->base.create = notes_create;
 	ctx->base.destroy = notes_destroy;
@@ -287,7 +287,7 @@ void notes_destroy(void* ctx_ptr)
 
 	glfwDestroyCursor(ctx->hand_cursor);
 
-	memset(ctx, 0, sizeof(notes_context_t));
+	SKB_ZERO_STRUCT(ctx);
 
 	ime_cancel();
 	ime_set_handler(NULL, NULL);
@@ -312,6 +312,85 @@ static bool notes__selection_has_paragraph_attribute(const skb_editor_t* editor,
 	}
 	int32_t paragraph_count = paragraph_range.end - paragraph_range.start;
 	return paragraph_count == match_count;
+}
+
+static bool nodes__match_prefix_at_paragraph_start(const skb_editor_t* editor, const skb_paragraph_position_t paragraph_pos, const char* value_utf8, skb_text_selection_t* prefix_selection)
+{
+	const skb_text_t* paragraph_text = skb_editor_get_paragraph_text(editor, paragraph_pos.paragraph_idx);
+	if (!paragraph_text)
+		return false;
+
+	const int32_t value_utf8_count = (int32_t)strlen(value_utf8);
+	uint32_t value_utf32[32];
+	int32_t value_utf32_count = skb_utf8_to_utf32(value_utf8, value_utf8_count, value_utf32, SKB_COUNTOF(value_utf32));
+
+	skb_range_t range = skb_text_find_reverse_utf32(paragraph_text, (skb_range_t){ .start = 0, .end = paragraph_pos.text_offset }, value_utf32, value_utf32_count);
+	if (skb_range_is_empty(range))
+		return false;
+
+	// The match must be at the start of the paragraph.
+	if (range.start != 0)
+		return false;
+	// The match bust be just before the queried position.
+	if (range.end != paragraph_pos.text_offset)
+		return false;
+
+	const int32_t prefix_global_start_offset = skb_editor_get_paragraph_global_text_offset(editor, paragraph_pos.paragraph_idx);
+	prefix_selection->start_pos = (skb_text_position_t) { .offset = prefix_global_start_offset + range.start };
+	prefix_selection->end_pos = (skb_text_position_t) { .offset = prefix_global_start_offset + range.end };
+
+	return true;
+}
+
+static void notes__handle_space(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
+{
+	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
+	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+
+	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
+	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
+
+	if (notes__selection_has_paragraph_attribute(editor, body)) {
+		if (selection_count == 0) {
+			skb_text_selection_t prefix_selection;
+			// Body -> H2
+			if (nodes__match_prefix_at_paragraph_start(editor, paragraph_pos, "##", &prefix_selection)) {
+				int32_t transaction_id = skb_editor_undo_transaction_begin(editor);
+				skb_editor_select(editor, prefix_selection);
+				skb_editor_cut(editor, temp_alloc);
+				selection = skb_editor_get_current_selection(editor);
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, h2);
+				skb_editor_undo_transaction_end(editor, transaction_id);
+				return;
+			}
+			// Body -> H1
+			if (nodes__match_prefix_at_paragraph_start(editor, paragraph_pos, "#", &prefix_selection)) {
+				int32_t transaction_id = skb_editor_undo_transaction_begin(editor);
+				skb_editor_select(editor, prefix_selection);
+				skb_editor_cut(editor, temp_alloc);
+				selection = skb_editor_get_current_selection(editor);
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, h1);
+				skb_editor_undo_transaction_end(editor, transaction_id);
+				return;
+			}
+			// Body -> List
+			if (nodes__match_prefix_at_paragraph_start(editor, paragraph_pos, "-", &prefix_selection)) {
+				int32_t transaction_id = skb_editor_undo_transaction_begin(editor);
+				skb_editor_select(editor, prefix_selection);
+				skb_editor_cut(editor, temp_alloc);
+				selection = skb_editor_get_current_selection(editor);
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, list);
+				skb_editor_undo_transaction_end(editor, transaction_id);
+				return;
+			}
+		}
+	}
+
+	// Insert space
+	skb_editor_insert_codepoint(editor, temp_alloc, ' ');
 }
 
 static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
@@ -465,6 +544,10 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			notes__handle_enter(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
 		if (key == GLFW_KEY_TAB)
 			notes__handle_tab(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
+		if (key == GLFW_KEY_SPACE) {
+			notes__handle_space(ctx->editor, ctx->temp_alloc, ctx->attribute_collection, edit_mods);
+			ctx->allow_char = false;
+		}
 
 		update_ime_rect(ctx);
 	}
@@ -475,39 +558,46 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, h1);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_2 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT)) {
 			// H2
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, h2);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_0 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT)) {
 			// Body
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, body);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_8 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
 			// List
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LIST");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_L && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT)) {
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_T && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT)) {
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
+			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_R && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT)) {
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
+			ctx->allow_char = false;
 		}
 
 		if (key == GLFW_KEY_A && (mods & GLFW_MOD_CONTROL)) {

@@ -242,6 +242,9 @@ typedef void skb_destroy_func_t(void *context);
 		arr##_cap = new_cap; \
 	}
 
+/** Helper macro to zero out a struct passed in by a pointer */
+#define SKB_ZERO_STRUCT(ptr) memset(ptr, 0, sizeof((ptr)[0]))
+
 /**
  * @defgroup math Math
  * Common math functions for different types.

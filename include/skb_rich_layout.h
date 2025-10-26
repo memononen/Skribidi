@@ -43,10 +43,7 @@ void skb_rich_layout_set_from_rich_text(
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
 	int32_t ime_text_offset, skb_text_t* ime_text);
 
-void skb_rich_layout_set_from_rich_text_with_change(
-	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
-	const skb_layout_params_t* params, const skb_rich_text_t* text, skb_rich_text_change_t change,
-	int32_t ime_text_offset, skb_text_t* ime_text);
+void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_change_t change);
 
 typedef enum {
 	SKB_AFFINITY_USE = 0,

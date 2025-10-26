@@ -538,6 +538,20 @@ int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);
 /** @return constpointer to active attributes. Active attributes define what style is applied to the next text that is inserted. */
 const skb_attribute_t* skb_editor_get_active_attributes(const skb_editor_t* editor);
 
+/**
+ * Begins undo transaction. All changes done within an transaction will be undo or redo as one change.
+ * @param editor editor to update.
+ * @return transaction id.
+ */
+int32_t skb_editor_undo_transaction_begin(skb_editor_t* editor);
+
+/**
+ * Ends undo transaction. All changes done within an transaction will be undo or redo as one change.
+ * @param editor editor to update.
+ * @param transaction_id transaction id from matching skb_editor_undo_transaction_begin().
+ */
+void skb_editor_undo_transaction_end(skb_editor_t* editor, int32_t transaction_id);
+
 /** @return True, if the last change can be undone. */
 bool skb_editor_can_undo(skb_editor_t* editor);
 

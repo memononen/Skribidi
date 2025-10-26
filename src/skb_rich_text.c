@@ -31,7 +31,7 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 			// Create new paragraph
 			SKB_TEMP_RESERVE(temp_alloc, paragraphs, paragraphs_count + 1);
 			skb_range_t* new_paragraph = &paragraphs[paragraphs_count++];
-			memset(new_paragraph, 0, sizeof(skb_range_t));
+			SKB_ZERO_STRUCT(new_paragraph);
 			new_paragraph->start = start_offset;
 			new_paragraph->end = offset;
 			start_offset = offset;
@@ -43,7 +43,7 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 	// The rest
 	SKB_TEMP_RESERVE(temp_alloc, paragraphs, paragraphs_count + 1);
 	skb_range_t* new_paragraph = &paragraphs[paragraphs_count++];
-	memset(new_paragraph, 0, sizeof(skb_range_t));
+	SKB_ZERO_STRUCT(new_paragraph);
 	new_paragraph->start = start_offset;
 	new_paragraph->end = offset;
 
@@ -143,7 +143,7 @@ static skb_attribute_set_t skb__text_paragraph_get_attributes(const skb_text_par
 
 static void skb__text_paragraph_init(skb_rich_text_t* rich_text, skb_text_paragraph_t* text_paragraph, skb_attribute_set_t attributes)
 {
-	memset(text_paragraph, 0, sizeof(skb_text_paragraph_t));
+	SKB_ZERO_STRUCT(text_paragraph);
 
 	text_paragraph->text = skb_text_make_empty();
 	text_paragraph->version = ++rich_text->version_counter;
@@ -154,7 +154,7 @@ static void skb__text_paragraph_clear(skb_text_paragraph_t* text_paragraph)
 {
 	skb_text_destroy(&text_paragraph->text);
 	skb_free(text_paragraph->attributes);
-	memset(text_paragraph, 0, sizeof(skb_text_paragraph_t));
+	SKB_ZERO_STRUCT(text_paragraph);
 }
 
 skb_rich_text_t skb_rich_text_make_empty(void)
@@ -168,7 +168,7 @@ skb_rich_text_t skb_rich_text_make_empty(void)
 skb_rich_text_t* skb_rich_text_create(void)
 {
 	skb_rich_text_t* rich_text = skb_malloc(sizeof(skb_rich_text_t));
-	memset(rich_text, 0, sizeof(skb_rich_text_t));
+	SKB_ZERO_STRUCT(rich_text);
 	rich_text->should_free_instance = true;
 	return rich_text;
 }
@@ -179,8 +179,11 @@ void skb_rich_text_destroy(skb_rich_text_t* rich_text)
 	for (int32_t i = 0; i < rich_text->paragraphs_count; i++)
 		skb__text_paragraph_clear(&rich_text->paragraphs[i]);
 	skb_free(rich_text->paragraphs);
-	memset(rich_text, 0, sizeof(skb_rich_text_t));
-	if (rich_text->should_free_instance)
+
+	bool should_free_instance = rich_text->should_free_instance;
+	SKB_ZERO_STRUCT(rich_text);
+
+	if (should_free_instance)
 		skb_free(rich_text);
 }
 
@@ -766,9 +769,9 @@ static skb_rich_text_change_t skb__rich_text_replace(
 		end_paragraph_copy = rich_text->paragraphs[end_pos.paragraph_idx];
 
 	if (start_pos.paragraph_idx < rich_text->paragraphs_count)
-		memset(&rich_text->paragraphs[start_pos.paragraph_idx], 0, sizeof(skb_text_paragraph_t));
+		SKB_ZERO_STRUCT(&rich_text->paragraphs[start_pos.paragraph_idx]);
 	if (end_pos.paragraph_idx < rich_text->paragraphs_count)
-		memset(&rich_text->paragraphs[end_pos.paragraph_idx], 0, sizeof(skb_text_paragraph_t));
+		SKB_ZERO_STRUCT(&rich_text->paragraphs[end_pos.paragraph_idx]);
 
 	// Free lines that we'll remove or rebuild.
 	for (int32_t i = start_pos.paragraph_idx; i < skb_mini(end_pos.paragraph_idx+1, rich_text->paragraphs_count); i++)

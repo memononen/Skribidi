@@ -79,14 +79,14 @@ skb_range_t skb_rich_layout_text_selection_to_range(const skb_rich_layout_t* ric
 
 static void skb__layout_paragraph_init(skb_layout_paragraph_t* layout_paragraph)
 {
-	memset(layout_paragraph, 0, sizeof(skb_layout_paragraph_t));
+	SKB_ZERO_STRUCT(layout_paragraph);
 	layout_paragraph->layout = skb_layout_create(NULL);
 }
 
 static void skb__layout_paragraph_clear(skb_layout_paragraph_t* layout_paragraph)
 {
 	skb_layout_destroy(layout_paragraph->layout);
-	memset(layout_paragraph, 0, sizeof(skb_layout_paragraph_t));
+	SKB_ZERO_STRUCT(layout_paragraph);
 }
 
 skb_rich_layout_t skb_rich_layout_make_empty(void)
@@ -99,7 +99,7 @@ skb_rich_layout_t skb_rich_layout_make_empty(void)
 skb_rich_layout_t* skb_rich_layout_create(void)
 {
 	skb_rich_layout_t* rich_layout = skb_malloc(sizeof(skb_rich_layout_t));
-	memset(rich_layout, 0, sizeof(skb_rich_layout_t));
+	SKB_ZERO_STRUCT(rich_layout);
 	rich_layout->should_free_instance = true;
 	return rich_layout;
 }
@@ -114,9 +114,10 @@ void skb_rich_layout_destroy(skb_rich_layout_t* rich_layout)
 
 	skb_free(rich_layout->attributes);
 
-	memset(rich_layout, 0, sizeof(skb_rich_layout_t));
+	bool should_free_instance = rich_layout->should_free_instance;
+	SKB_ZERO_STRUCT(rich_layout);
 
-	if (rich_layout->should_free_instance)
+	if (should_free_instance)
 		skb_free(rich_layout);
 }
 
@@ -336,11 +337,11 @@ void skb_rich_layout_set_from_rich_text(
 
 }
 
-void skb_rich_layout_set_from_rich_text_with_change(
-	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
-	const skb_layout_params_t* params, const skb_rich_text_t* text, skb_rich_text_change_t change,
-	int32_t ime_text_offset, skb_text_t* ime_text)
+void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_change_t change)
 {
+	if (change.removed_paragraph_count == 0 && change.inserted_paragraph_count == 0)
+		return;
+
 	// Allocate new lines or prune.
 	const int32_t new_paragraphs_count = skb_maxi(0, rich_layout->paragraphs_count - change.removed_paragraph_count + change.inserted_paragraph_count);
 	const int32_t old_paragraphs_count = rich_layout->paragraphs_count;
@@ -361,9 +362,6 @@ void skb_rich_layout_set_from_rich_text_with_change(
 	// Init the new paragraphs that were created
 	for (int32_t i = change.start_paragraph_idx + change.removed_paragraph_count; i < change.start_paragraph_idx + change.inserted_paragraph_count; i++)
 		skb__layout_paragraph_init(&rich_layout->paragraphs[i]);
-
-	// call update
-	skb_rich_layout_set_from_rich_text(rich_layout, temp_alloc, params, text, ime_text_offset, ime_text);
 }
 
 skb_visual_caret_t skb_rich_layout_get_visual_caret(const skb_rich_layout_t* rich_layout, skb_text_position_t pos)
