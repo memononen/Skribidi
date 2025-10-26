@@ -194,6 +194,10 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, body_color),
 		};
 
+		const skb_attribute_t strikethrough_attributes[] = {
+			skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 1.5f, 0.f, body_color),
+		};
+
 		const skb_attribute_t italic_attributes[] = {
 			skb_attribute_make_font_style(SKB_STYLE_ITALIC),
 		};
@@ -233,6 +237,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "ltr", "text-dir", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(dir_ltr));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "rtl", "text-dir", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(dir_rtl));
 
+		skb_attribute_collection_add_set(ctx->attribute_collection, "s", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(strikethrough_attributes));
 		skb_attribute_collection_add_set(ctx->attribute_collection, "u", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(underline_attributes));
 		skb_attribute_collection_add_set(ctx->attribute_collection, "i", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes));
 		skb_attribute_collection_add_set(ctx->attribute_collection, "b", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(bold_attributes));
@@ -628,17 +633,23 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			else
 				glfwSetWindowShouldClose(window, GL_TRUE);
 		}
-		if (key == GLFW_KEY_X && (mods & GLFW_MOD_CONTROL)) {
-			// Cut
-			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
-			int32_t text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, NULL, -1);
-			char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
-			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
-			text[text_len] = '\0';
-			glfwSetClipboardString(window, text);
-			SKB_TEMP_FREE(ctx->temp_alloc, text);
-			skb_editor_cut(ctx->editor, ctx->temp_alloc);
-			ctx->allow_char = false;
+		if (key == GLFW_KEY_X) {
+			if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
+				// Strike through
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_reference_by_name(ctx->attribute_collection, "s"));
+				ctx->allow_char = false;
+			} else if (mods & GLFW_MOD_CONTROL) {
+				// Cut
+				skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
+				int32_t text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, NULL, -1);
+				char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
+				text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
+				text[text_len] = '\0';
+				glfwSetClipboardString(window, text);
+				SKB_TEMP_FREE(ctx->temp_alloc, text);
+				skb_editor_cut(ctx->editor, ctx->temp_alloc);
+				ctx->allow_char = false;
+			}
 		}
 		if (key == GLFW_KEY_C && (mods & GLFW_MOD_CONTROL)) {
 			// Copy
@@ -1084,6 +1095,17 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "U", underline_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, underline);
+			}
+			tx += but_size + but_spacing;
+		}
+
+		{
+			// Striketrough
+			skb_attribute_t strikethrough = skb_attribute_make_reference_by_name(ctx->attribute_collection, "s");
+			bool strikethrough_sel = notes__selection_has_attribute(ctx->editor, strikethrough);
+
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", strikethrough_sel)) {
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, strikethrough);
 			}
 			tx += but_size + but_spacing;
 		}
