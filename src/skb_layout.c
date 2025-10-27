@@ -1100,11 +1100,11 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 			marker_codepoints_count = skb__construct_counter_numeric(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
 		} else if (list_marker->style == SKB_LIST_MARKER_COUNTER_LOWER_LATIN) {
 			const uint32_t pattern[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
-			const int32_t pattern_count = 2;//SKB_COUNTOF(pattern);
+			const int32_t pattern_count = SKB_COUNTOF(pattern);
 			marker_codepoints_count = skb__construct_counter_alphabetic(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
 		} else if (list_marker->style == SKB_LIST_MARKER_COUNTER_UPPER_LATIN) {
 			const uint32_t pattern[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
-			const int32_t pattern_count = 2;//SKB_COUNTOF(pattern);
+			const int32_t pattern_count = SKB_COUNTOF(pattern);
 			marker_codepoints_count = skb__construct_counter_alphabetic(layout->params.list_marker_counter+1, pattern, pattern_count, marker_codepoints);
 		}
 
@@ -1349,13 +1349,12 @@ typedef struct skb__calculated_layout_size_t {
 	float first_line_cap_height;
 } skb__calculated_layout_size_t;
 
-static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bool is_last_line, skb__calculated_layout_size_t* layout_size)
+static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bool is_last_line, const skb_attribute_list_marker_t* list_marker, skb__calculated_layout_size_t* layout_size)
 {
 	// Do not finalize line if it's empty.
 	if (!is_last_line && line->layout_run_range.start == line->layout_run_range.end)
 		return false;
 
-	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 	const float line_break_width = layout->params.layout_width;
 	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
@@ -1386,11 +1385,10 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	// Sort in visual order
 	skb__reorder_runs(layout, line->layout_run_range);
 
-	// List marker
+	// Add list marker on first line if it exists.
 	if (line_idx == 0) {
-		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
-		if (list_marker.style != SKB_LIST_MARKER_NONE)
-			skb__line_append_list_marker_run(layout, line, &list_marker);
+		if (list_marker && list_marker->style != SKB_LIST_MARKER_NONE)
+			skb__line_append_list_marker_run(layout, line, list_marker);
 	}
 
 	//
@@ -1575,10 +1573,15 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_text_wrap_t text_wrap = skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Handle horizontal padding and indent
-	const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_horizontal_padding_t horizontal_padding = skb_attributes_get_horizontal_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 	const int32_t indent_level = skb_attributes_get_indent_level(layout->params.layout_attributes, layout->params.attribute_collection);
+
+	// In case of multiple list markers, pick one based on indent level.
+	const skb_attribute_t* list_markers[16];
+	const int32_t list_markers_count = skb_attributes_get_by_kind(layout->params.layout_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_LIST_MARKER, list_markers, SKB_COUNTOF(list_markers));
+	const skb_attribute_list_marker_t* list_marker = list_markers_count > 0 ? &list_markers[indent_level % list_markers_count]->list_marker : NULL;
+	const float list_marker_indent = list_marker ? list_marker->indent : 0.f;
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->shaping_runs_count);
 
@@ -1587,7 +1590,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
  	skb_layout_run_t* cur_layout_run = NULL;
 	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
 
-	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment + list_marker.indent, layout->params.layout_width);
+	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment + list_marker_indent, layout->params.layout_width);
 	const float horizontal_padding_end = skb_minf(horizontal_padding.end, layout->params.layout_width - horizontal_padding_start);
 
 	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
@@ -1668,7 +1671,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
 
 			// Start a new line
-			max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+			max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
 			cur_line = NULL;
 			if (max_heigh_reached)
 				break;
@@ -1703,7 +1706,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
 			const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
 			if (text_wrap != SKB_WRAP_NONE && (width_overflows || tab_overflows)) {
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -1718,7 +1721,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 			if (must_break && !ignore_must_breaks) {
 				// Line break character start a new line.
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -1733,7 +1736,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 	// Finalize last line
 	if (cur_line)
-		skb__finalize_line(layout, cur_line, true, &layout_size);
+		skb__finalize_line(layout, cur_line, true, list_marker, &layout_size);
 
 	//
 	// Align layout and lines

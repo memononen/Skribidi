@@ -187,7 +187,16 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(body_color),
 			skb_attribute_make_vertical_padding(5,5),
-			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2022),
+//			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2013), // en-dash
+			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2022), // bullet
+		};
+
+		const skb_attribute_t ordered_list_attributes[] = {
+			skb_attribute_make_font_size(16.f),
+			skb_attribute_make_fill(body_color),
+			skb_attribute_make_vertical_padding(5,5),
+			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_LOWER_LATIN, 32, 5, 0),
+			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 32, 5, 0), // Most prominent attrib is the last one, this will be picked first.
 		};
 
 		const skb_attribute_t underline_attributes[] = {
@@ -228,7 +237,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "H1", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h1_attributes));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "H2", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h2_attributes));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "BODY", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes));
-		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "LIST", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes));
+		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "LI", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes));
+		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "OL", "paragraph", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(ordered_list_attributes));
 
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "align-start", "align", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(align_start));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "align-center", "align", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(align_center));
@@ -352,7 +362,8 @@ static void notes__handle_space(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
 	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
 	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
 
 	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
 	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
@@ -391,6 +402,16 @@ static void notes__handle_space(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 				skb_editor_undo_transaction_end(editor, transaction_id);
 				return;
 			}
+			// Body -> Ordered List
+			if (nodes__match_prefix_at_paragraph_start(editor, paragraph_pos, ".", &prefix_selection)) {
+				int32_t transaction_id = skb_editor_undo_transaction_begin(editor);
+				skb_editor_select(editor, prefix_selection);
+				skb_editor_cut(editor, temp_alloc);
+				selection = skb_editor_get_current_selection(editor);
+				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, ordered_list);
+				skb_editor_undo_transaction_end(editor, transaction_id);
+				return;
+			}
 		}
 	}
 
@@ -400,7 +421,8 @@ static void notes__handle_space(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 
 static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
 	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
 
 	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
@@ -408,7 +430,7 @@ static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
 
 	// Indent && Outdent
-	if (notes__selection_has_paragraph_attribute(editor, list)) {
+	if (notes__selection_has_paragraph_attribute(editor, list) || notes__selection_has_paragraph_attribute(editor, ordered_list)) {
 		skb_attribute_t indent_level_delta = skb_attribute_make_indent_level((edit_mods & SKB_MOD_SHIFT) ? -1 : 1);
 		skb_editor_apply_paragraph_attribute_delta(editor, temp_alloc, selection, indent_level_delta);
 		return;
@@ -427,15 +449,16 @@ static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 
 static void notes__handle_backspace(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
 	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
 
 	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
 	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
 	const skb_paragraph_position_t paragraph_pos = skb_editor_text_position_to_paragraph_position(editor, selection.end_pos);
 
 	// List outdent
-	if (notes__selection_has_paragraph_attribute(editor, list)) {
+	if (notes__selection_has_paragraph_attribute(editor, list) || notes__selection_has_paragraph_attribute(editor, ordered_list)) {
 		if (selection_count == 0 && paragraph_pos.text_offset == 0) {
 			skb_attribute_set_t paragraph_attributes = skb_editor_get_paragraph_attributes(editor, paragraph_pos.paragraph_idx);
 			const int32_t indent_level = skb_attributes_get_indent_level(paragraph_attributes, attribute_collection);
@@ -474,7 +497,8 @@ static void notes__handle_enter(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
 	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
 	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LIST");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
 
 	skb_text_selection_t selection = skb_editor_get_current_selection(editor);
 	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
@@ -482,7 +506,7 @@ static void notes__handle_enter(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 	int32_t paragraph_text_count = skb_editor_get_paragraph_text_count(editor, paragraph_pos.paragraph_idx);
 
 	// List undent
-	if (notes__selection_has_paragraph_attribute(editor, list)) {
+	if (notes__selection_has_paragraph_attribute(editor, list) || notes__selection_has_paragraph_attribute(editor, ordered_list)) {
 		if (selection_count == 0) {
 			if (paragraph_text_count <= 1) { // Empty paragraph
 				skb_editor_set_paragraph_attribute(editor, temp_alloc, selection, body);
@@ -582,7 +606,14 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 		if (key == GLFW_KEY_8 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
 			// List
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LIST");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI");
+			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
+			ctx->allow_char = false;
+		}
+		if (key == GLFW_KEY_9 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
+			// Ordered list
+			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
 			ctx->allow_char = false;
 		}
@@ -1144,10 +1175,20 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// List
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LIST");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI");
 			bool list_sel = notes__selection_has_paragraph_attribute(ctx->editor, list);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "List", list_sel)) {
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "LI", list_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, edit_selection, list);
+			}
+			tx += but_size*2 + but_spacing;
+		}
+
+		{
+			// Ordered List
+			skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL");
+			bool ordered_list_sel = notes__selection_has_paragraph_attribute(ctx->editor, ordered_list);
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "OL", ordered_list_sel)) {
+				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, edit_selection, ordered_list);
 			}
 			tx += but_size*2 + but_spacing;
 		}
