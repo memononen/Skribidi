@@ -22,6 +22,7 @@
 #include "skb_editor.h"
 #include "skb_image_atlas.h"
 #include "ime.h"
+#include "skb_rich_text.h"
 
 typedef struct testbed_context_t {
 	example_t base;

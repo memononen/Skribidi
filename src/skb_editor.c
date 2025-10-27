@@ -511,16 +511,16 @@ int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, i
 	return count;
 }
 
-void skb_editor_get_text(const skb_editor_t* editor, skb_text_t* text)
+const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor)
 {
 	assert(editor);
-	assert(text);
+	return &editor->rich_text;
+}
 
-	skb_text_reset(text);
-	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
-		const skb_text_t* paragraph_text = skb__get_text(editor, i);
-		skb_text_append(text, paragraph_text);
-	}
+const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor)
+{
+	assert(editor);
+	return &editor->rich_layout;
 }
 
 static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage)

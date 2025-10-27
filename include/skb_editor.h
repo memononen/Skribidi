@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 #include "skb_layout.h"
-#include "skb_rich_text.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,6 +29,10 @@ extern "C" {
  *
  * @{
  */
+
+// Forward declarations
+typedef struct skb_rich_text_t skb_rich_text_t;
+typedef struct skb_rich_layout_t skb_rich_layout_t;
 
 /** Opaque type for the text editor. Use skb_editor_create() to create. */
 typedef struct skb_editor_t skb_editor_t;
@@ -215,11 +218,18 @@ int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor);
 int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, int32_t utf32_cap);
 
 /**
- * Gets the edited attributed text.
+ * Gets the edited rich text.
  * @param editor editor to query
- * @param text pointer to the text where the text should be stored.
+ * @return const pointer to the rich text being edited.
  */
-void skb_editor_get_text(const skb_editor_t* editor, skb_text_t* text);
+const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor);
+
+/**
+ * Gets the rich layout of the edited text.
+ * @param editor editor to query
+ * @return const pointer to the rich layout of edited text.
+ */
+const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor);
 
 /** @return number of paragraphs in the editor. */
 int32_t skb_editor_get_paragraph_count(const skb_editor_t* editor);
