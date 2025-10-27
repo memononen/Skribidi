@@ -64,6 +64,10 @@ enum skb_layout_params_flags_t {
 	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
 	/** Ignores vertical align against the layout box. */
 	SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN = 1 << 1,
+	/** If set, the paragraph before this one has the same group tag. */
+	SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE = 1 << 2,
+	/** If set, the paragraph after this one has the same group tag. */
+	SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER = 1 << 3,
 };
 
 /** Struct describing parameters that apply to the whole text layout. */

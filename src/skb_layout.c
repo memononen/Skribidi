@@ -1747,6 +1747,10 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_vertical_trim_t vertical_trim = skb_attributes_get_vertical_trim(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_vertical_padding_t vertical_padding = skb_attributes_get_vertical_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 
+	// Use group spacing for vertical padding based on if the previous/next paragraph has same tag.
+	const float vertical_padding_before = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE) ? vertical_padding.group_spacing * 0.5f : vertical_padding.before;
+	const float vertical_padding_after = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER) ? vertical_padding.group_spacing * 0.5f : vertical_padding.after;
+
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust the calculated_height so that first line only accounts for cap height (not all the way to ascender), and last line does not count descender.
 		const float first_line_ascender = layout->lines[0].ascender;
@@ -1767,11 +1771,11 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		layout->bounds.y = 0.f;
 	else
 		layout->bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
-	layout->bounds.y += vertical_padding.before;
+	layout->bounds.y += vertical_padding_before;
 
 	layout->bounds.width = layout_size.width;
 	layout->bounds.height = layout_size.height;
-	layout->advance_y = vertical_padding.before + layout_size.height + vertical_padding.after;
+	layout->advance_y = vertical_padding_before + layout_size.height + vertical_padding_after;
 
 	float start_y = layout->bounds.y;
 

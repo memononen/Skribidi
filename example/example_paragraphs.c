@@ -145,19 +145,21 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t list_attributes_l1[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding(5,5),
+		skb_attribute_make_vertical_padding_with_spacing(10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(0),
 		skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 40, 5, 0x2022),
+		skb_attribute_make_group_tag(SKB_TAG_STR("list"))
 	};
 
 	const skb_attribute_t list_attributes_l2[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding(5,5),
+		skb_attribute_make_vertical_padding_with_spacing(10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(1),
 		skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 40, 5, 0),
+		skb_attribute_make_group_tag(SKB_TAG_STR("list"))
 	};
 
 	const char* ipsum_1 =
@@ -245,7 +247,7 @@ void paragraphs_destroy(void* ctx_ptr)
 	skb_attribute_collection_destroy(ctx->attribute_collection);
 	skb_temp_alloc_destroy(ctx->temp_alloc);
 
-	memset(ctx, 0, sizeof(paragraphs_context_t));
+	SKB_ZERO_STRUCT(ctx);
 
 	skb_free(ctx);
 }

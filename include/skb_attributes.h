@@ -167,6 +167,8 @@ typedef struct skb_attribute_tab_stop_increment_t {
 
 /**
  * Vertical paragraph padding attribute.
+ * The a paragraph is assigned to a group, the before/after spacing will be applied to the first and last item in the group,
+ * and items within the group are spaced at group_spacing.
  */
 typedef struct skb_attribute_vertical_padding_t {
 	// Attribute kind tag, must be first.
@@ -175,6 +177,8 @@ typedef struct skb_attribute_vertical_padding_t {
 	float before;
 	/** Padding after the paragraph. */
 	float after;
+	/**  Spacing between paragraphs in a group. */
+	float group_spacing;
 } skb_attribute_vertical_padding_t;
 
 /**
@@ -362,6 +366,17 @@ typedef struct skb_attribute_object_padding_t {
 typedef uint64_t skb_attribute_set_handle_t;
 
 /**
+ * Group tag attribute.
+ * Some attributes create a single effect of a sequence of paragraphs with same group, as if the paragraphs were inside a container.
+ */
+typedef struct skb_attribute_group_tag_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Tag indentifying the group. Value 0 means no group. */
+	uint32_t group_tag;
+} skb_attribute_group_tag_t;
+
+/**
  * Attribute collection reference attribute.
  * The referenced attribute set from the attribute collection is used at the place of the reference attribute.
  */
@@ -428,6 +443,8 @@ typedef enum {
 	SKB_ATTRIBUTE_OBJECT_ALIGN = SKB_TAG('o','b','a','l'),
 	/** Tag for skb_attribute_object_padding_t */
 	SKB_ATTRIBUTE_OBJECT_PADDING = SKB_TAG('o','b','p','a'),
+	/** Tag for skb_attribute_group_t */
+	SKB_ATTRIBUTE_GROUP_TAG = SKB_TAG('g','r','u','p'),
 	/** Tag for skb_attribute_reference_t */
 	SKB_ATTRIBUTE_REFERENCE = SKB_TAG('a','r','e','f'),
 } skb_attribute_type_t;
@@ -465,6 +482,7 @@ typedef union skb_attribute_t {
 	skb_attribute_decoration_t decoration;
 	skb_attribute_object_align_t object_align;
 	skb_attribute_object_padding_t object_padding;
+	skb_attribute_group_tag_t group_tag;
 	skb_attribute_reference_t reference;
 } skb_attribute_t;
 
@@ -531,7 +549,10 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment);
 
 /** @returns new vertical paragraph padding attribute. See skb_attribute_vertical_padding_t */
-skb_attribute_t skb_attribute_make_vertical_padding(float top, float bottom);
+skb_attribute_t skb_attribute_make_vertical_padding(float before, float after);
+
+/** @returns new vertical paragraph padding attribute, including group spacing. See skb_attribute_vertical_padding_t */
+skb_attribute_t skb_attribute_make_vertical_padding_with_spacing(float before, float after, float group_spacing);
 
 /** @returns new horizontal paragraph padding attribute. See skb_attribute_horizontal_padding_t */
 skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end);
@@ -577,6 +598,9 @@ skb_attribute_t skb_attribute_make_object_padding(float start, float end, float 
 
 /** @returns new object padding attribute. See skb_attribute_object_padding_t */
 skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical);
+
+/** @returns new group attribute. See skb_attribute_group_t */
+skb_attribute_t skb_attribute_make_group_tag(uint32_t group_tag);
 
 /** @returns new reference attribute. See skb_attribute_reference_t */
 skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle);
@@ -809,6 +833,8 @@ skb_align_t skb_attributes_get_vertical_align(skb_attribute_set_t attributes, co
  * @return first found attribute or default value.
  */
 skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Collects attributes of specified type in results array from specified attribute set.

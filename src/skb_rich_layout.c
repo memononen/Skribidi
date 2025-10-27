@@ -3,13 +3,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "skb_common.h"
+#include "skb_common_internal.h"
 #include "skb_rich_layout.h"
 #include "skb_rich_layout_internal.h"
 #include "skb_rich_text.h"
 #include "skb_layout.h"
-#include <string.h>
 
 
 skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)
@@ -234,12 +235,32 @@ void skb_rich_layout_set_from_rich_text(
 	enum { SKB_MAX_COUNTER_LEVELS = 8 };
 	int32_t marker_counters[SKB_MAX_COUNTER_LEVELS] = {0};
 
+	uint32_t prev_group_tag = 0;
+	uint32_t cur_group_tag = 0;
+
+	// Init current group tag, as the loop will update the next (to avoid extra queries).
+	if (rich_text_paragraph_count > 0) {
+		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, 0);
+		paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
+		cur_group_tag = skb_attributes_get_group(paragraph_attributes, rich_layout->params.attribute_collection);
+	}
+
 	for (int32_t i = 0; i < rich_text_paragraph_count; i++) {
 		skb_layout_paragraph_t* layout_paragraph = &rich_layout->paragraphs[i];
 
 		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i);
 		paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
 		layout_params.layout_attributes = paragraph_attributes;
+
+		// Group tag
+		uint32_t next_group_tag = 0;
+		if (i+1 < rich_text_paragraph_count) {
+			skb_attribute_set_t next_paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i + 1);
+			next_paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
+			next_group_tag = skb_attributes_get_group(next_paragraph_attributes, rich_layout->params.attribute_collection);
+		}
+		SKB_SET_FLAG(layout_params.flags, SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE, cur_group_tag && prev_group_tag == cur_group_tag);
+		SKB_SET_FLAG(layout_params.flags, SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER, cur_group_tag && cur_group_tag == next_group_tag);
 
 		// Update ordered list counters.
 		const skb_attribute_list_marker_t list_marker = skb_attributes_get_list_marker(paragraph_attributes, rich_layout->params.attribute_collection);
@@ -317,6 +338,9 @@ void skb_rich_layout_set_from_rich_text(
 		calculated_height = start_y + layout_bounds.y + layout_bounds.height;
 
 		start_y += layout_advance_y;
+
+		prev_group_tag = cur_group_tag;
+		cur_group_tag = next_group_tag;
 	}
 
 	rich_layout->bounds.x = 0.f;

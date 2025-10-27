@@ -36,7 +36,7 @@ skb_attribute_set_t skb_attribute_set_make_reference_by_name(const skb_attribute
 skb_attribute_t skb_attribute_make_text_base_direction(skb_text_direction_t direction)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.text_base_direction = (skb_attribute_text_base_direction_t) {
 		.kind = SKB_ATTRIBUTE_TEXT_BASE_DIRECTION,
 		.direction = (uint8_t)direction,
@@ -47,7 +47,7 @@ skb_attribute_t skb_attribute_make_text_base_direction(skb_text_direction_t dire
 skb_attribute_t skb_attribute_make_lang(const char* lang)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.lang = (skb_attribute_lang_t) {
 		.kind = SKB_ATTRIBUTE_LANG,
 		.lang = skb__make_hb_lang(lang),
@@ -58,7 +58,7 @@ skb_attribute_t skb_attribute_make_lang(const char* lang)
 skb_attribute_t skb_attribute_make_font_family(uint8_t family)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_family = (skb_attribute_font_family_t) {
 		.kind = SKB_ATTRIBUTE_FONT_FAMILY,
 		.family = family,
@@ -69,7 +69,7 @@ skb_attribute_t skb_attribute_make_font_family(uint8_t family)
 skb_attribute_t skb_attribute_make_font_size(float size)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_size = (skb_attribute_font_size_t) {
 		.kind = SKB_ATTRIBUTE_FONT_SIZE,
 		.size = size,
@@ -80,7 +80,7 @@ skb_attribute_t skb_attribute_make_font_size(float size)
 skb_attribute_t skb_attribute_make_font_weight(skb_weight_t weight)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_weight = (skb_attribute_font_weight_t) {
 		.kind = SKB_ATTRIBUTE_FONT_WEIGHT,
 		.weight = weight,
@@ -91,7 +91,7 @@ skb_attribute_t skb_attribute_make_font_weight(skb_weight_t weight)
 skb_attribute_t skb_attribute_make_font_style(skb_style_t style)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_style = (skb_attribute_font_style_t) {
 		.kind = SKB_ATTRIBUTE_FONT_STYLE,
 		.style = style,
@@ -102,7 +102,7 @@ skb_attribute_t skb_attribute_make_font_style(skb_style_t style)
 skb_attribute_t skb_attribute_make_font_stretch(skb_stretch_t stretch)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_stretch = (skb_attribute_font_stretch_t) {
 		.kind = SKB_ATTRIBUTE_FONT_STRETCH,
 		.stretch = stretch,
@@ -113,7 +113,7 @@ skb_attribute_t skb_attribute_make_font_stretch(skb_stretch_t stretch)
 skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.font_feature = (skb_attribute_font_feature_t) {
 		.kind = SKB_ATTRIBUTE_FONT_FEATURE,
 		.tag = tag,
@@ -125,7 +125,7 @@ skb_attribute_t skb_attribute_make_font_feature(uint32_t tag, uint32_t value)
 skb_attribute_t skb_attribute_make_letter_spacing(float letter_spacing)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.letter_spacing = (skb_attribute_letter_spacing_t) {
 		.kind = SKB_ATTRIBUTE_LETTER_SPACING,
 		.spacing = letter_spacing,
@@ -136,7 +136,7 @@ skb_attribute_t skb_attribute_make_letter_spacing(float letter_spacing)
 skb_attribute_t skb_attribute_make_word_spacing(float word_spacing)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.word_spacing = (skb_attribute_word_spacing_t) {
 		.kind = SKB_ATTRIBUTE_WORD_SPACING,
 		.spacing = word_spacing,
@@ -147,7 +147,7 @@ skb_attribute_t skb_attribute_make_word_spacing(float word_spacing)
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.line_height = (skb_attribute_line_height_t) {
 		.kind = SKB_ATTRIBUTE_LINE_HEIGHT,
 		.type = (uint8_t)type,
@@ -159,7 +159,7 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.tab_stop_increment = (skb_attribute_tab_stop_increment_t) {
 		.kind = SKB_ATTRIBUTE_TAB_STOP_INCREMENT,
 		.increment = increment,
@@ -167,14 +167,27 @@ skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_vertical_padding(float top, float bottom)
+skb_attribute_t skb_attribute_make_vertical_padding(float before, float after)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.vertical_padding = (skb_attribute_vertical_padding_t) {
 		.kind = SKB_ATTRIBUTE_VERTICAL_PADDING,
-		.before = top,
-		.after = bottom,
+		.before = before,
+		.after = after,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_vertical_padding_with_spacing(float before, float after, float group_spacing)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.vertical_padding = (skb_attribute_vertical_padding_t) {
+		.kind = SKB_ATTRIBUTE_VERTICAL_PADDING,
+		.before = before,
+		.after = after,
+		.group_spacing = group_spacing,
 	};
 	return attribute;
 }
@@ -182,7 +195,7 @@ skb_attribute_t skb_attribute_make_vertical_padding(float top, float bottom)
 skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.horizontal_padding = (skb_attribute_horizontal_padding_t) {
 		.kind = SKB_ATTRIBUTE_HORIZONTAL_PADDING,
 		.start = start,
@@ -194,7 +207,7 @@ skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end)
 skb_attribute_t skb_attribute_make_indent_level(int32_t level)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.indent_level = (skb_attribute_indent_level_t) {
 		.kind = SKB_ATTRIBUTE_INDENT_LEVEL,
 		.level = level,
@@ -205,7 +218,7 @@ skb_attribute_t skb_attribute_make_indent_level(int32_t level)
 skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float first_line_increment)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.indent_increment = (skb_attribute_indent_increment_t) {
 		.kind = SKB_ATTRIBUTE_INDENT_INCREMENT,
 		.level_increment = level_increment,
@@ -217,7 +230,7 @@ skb_attribute_t skb_attribute_make_indent_increment(float level_increment, float
 skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, float indent, float spacing, uint32_t codepoint)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.list_marker = (skb_attribute_list_marker_t) {
 		.kind = SKB_ATTRIBUTE_LIST_MARKER,
 		.style = (uint8_t)style,
@@ -231,7 +244,7 @@ skb_attribute_t skb_attribute_make_list_marker(skb_list_marker_style_t style, fl
 skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.text_wrap = (skb_attribute_text_wrap_t) {
 		.kind = SKB_ATTRIBUTE_TEXT_WRAP,
 		.text_wrap = text_wrap,
@@ -242,7 +255,7 @@ skb_attribute_t skb_attribute_make_text_wrap(skb_text_wrap_t text_wrap)
 skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overflow)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.text_overflow = (skb_attribute_text_overflow_t) {
 		.kind = SKB_ATTRIBUTE_TEXT_OVERFLOW,
 		.text_overflow = text_overflow,
@@ -253,7 +266,7 @@ skb_attribute_t skb_attribute_make_text_overflow(skb_text_overflow_t text_overfl
 skb_attribute_t skb_attribute_make_vertical_trim(skb_vertical_trim_t vertical_trim)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.vertical_trim = (skb_attribute_vertical_trim_t) {
 		.kind = SKB_ATTRIBUTE_VERTICAL_TRIM,
 		.vertical_trim = vertical_trim,
@@ -264,7 +277,7 @@ skb_attribute_t skb_attribute_make_vertical_trim(skb_vertical_trim_t vertical_tr
 skb_attribute_t skb_attribute_make_horizontal_align(skb_align_t horizontal_align)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.horizontal_align = (skb_attribute_align_t) {
 		.kind = SKB_ATTRIBUTE_HORIZONTAL_ALIGN,
 		.align = horizontal_align,
@@ -275,7 +288,7 @@ skb_attribute_t skb_attribute_make_horizontal_align(skb_align_t horizontal_align
 skb_attribute_t skb_attribute_make_vertical_align(skb_align_t vertical_align)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.vertical_align = (skb_attribute_align_t) {
 		.kind = SKB_ATTRIBUTE_VERTICAL_ALIGN,
 		.align = vertical_align,
@@ -286,7 +299,7 @@ skb_attribute_t skb_attribute_make_vertical_align(skb_align_t vertical_align)
 skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.baseline_align = (skb_attribute_baseline_align_t) {
 		.kind = SKB_ATTRIBUTE_BASELINE_ALIGN,
 		.baseline = baseline_align,
@@ -297,7 +310,7 @@ skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align)
 skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.fill = (skb_attribute_fill_t) {
 		.kind = SKB_ATTRIBUTE_FILL,
 		.color = color,
@@ -308,7 +321,7 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.decoration = (skb_attribute_decoration_t) {
 		.kind = SKB_ATTRIBUTE_DECORATION,
 		.position = (uint8_t)position,
@@ -323,7 +336,7 @@ skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position
 skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.object_align = (skb_attribute_object_align_t) {
 		.kind = SKB_ATTRIBUTE_OBJECT_ALIGN,
 		.align_ref = (uint8_t)align_ref,
@@ -336,7 +349,7 @@ skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object
 skb_attribute_t skb_attribute_make_object_padding(float start, float end, float top, float bottom)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.object_padding = (skb_attribute_object_padding_t) {
 		.kind = SKB_ATTRIBUTE_OBJECT_PADDING,
 		.start = start,
@@ -350,7 +363,7 @@ skb_attribute_t skb_attribute_make_object_padding(float start, float end, float 
 skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.object_padding = (skb_attribute_object_padding_t) {
 		.kind = SKB_ATTRIBUTE_OBJECT_PADDING,
 		.start = horizontal,
@@ -361,10 +374,21 @@ skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float ver
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_group_tag(uint32_t group_tag)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.group_tag = (skb_attribute_group_tag_t) {
+		.kind = SKB_ATTRIBUTE_GROUP_TAG,
+		.group_tag = group_tag,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.reference = (skb_attribute_reference_t) {
 		.kind = SKB_ATTRIBUTE_REFERENCE,
 		.handle = set_handle,
@@ -375,7 +399,7 @@ skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_hand
 skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name)
 {
 	skb_attribute_t attribute;
-	memset(&attribute, 0, sizeof(attribute)); // Using memset() so that the padding gets zeroed too.
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.reference = (skb_attribute_reference_t) {
 		.kind = SKB_ATTRIBUTE_REFERENCE,
 		.handle = skb_attribute_collection_find_set_by_name(attribute_collection, name),
@@ -621,6 +645,11 @@ skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes,
 	return attr ? attr->baseline_align.baseline : SKB_BASELINE_ALPHABETIC;
 }
 
+uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_GROUP_TAG);
+	return attr ? attr->group_tag.group_tag : 0;
+}
 
 int32_t skb_attributes_get_copy_flat_count(const skb_attribute_set_t attributes)
 {
