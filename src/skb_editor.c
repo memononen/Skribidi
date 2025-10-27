@@ -2299,7 +2299,7 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 		}
 	} else {
 		// Apply to selection
-		if (skb_editor_get_attribute_count(editor, selection, attribute.kind) == selection_count) {
+		if (skb_editor_get_attribute_count(editor, selection, attribute) == selection_count) {
 			skb_editor_clear_attribute(editor, temp_alloc, selection, attribute);
 		} else {
 			skb_editor_set_attribute(editor, temp_alloc, selection, attribute);
@@ -2443,7 +2443,7 @@ void skb_editor_apply_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_a
 	skb__emit_on_change(editor);
 }
 
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t attribute_kind)
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, skb_attribute_t attribute)
 {
 	assert(editor);
 	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
@@ -2451,7 +2451,7 @@ int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_sele
 		.start = sel_range.start_pos.global_text_offset,
 		.end = sel_range.end_pos.global_text_offset,
 	};
-	return skb_rich_text_get_attribute_count(&editor->rich_text, text_range, attribute_kind);
+	return skb_rich_text_get_attribute_count(&editor->rich_text, text_range, attribute);
 }
 
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor)

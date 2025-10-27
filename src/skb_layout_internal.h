@@ -13,8 +13,7 @@ typedef struct skb__content_run_t {
 	intptr_t content_data;				// Data of object or icon specified by the run
 	intptr_t run_id;					// Custom identifier for a content run.
 	skb_range_t text_range;				// Range of text the attributes apply to.
-	skb_attribute_set_t attributes;	// The content attributes.
-	float font_size;					// Cached font size for the run.
+	skb_attribute_set_t attributes;		// The content attributes.
 	uint8_t type;						// Type of the content run which described the attributes. See skb_content_run_type_t.
 } skb__content_run_t;
 
@@ -28,6 +27,7 @@ typedef struct skb__shaping_run_t {
 	uint8_t direction;
 	uint8_t bidi_level;
 	bool is_emoji;
+	float font_size;					// Cached font size for the run.
 	skb_font_handle_t font_handle;
 } skb__shaping_run_t;
 

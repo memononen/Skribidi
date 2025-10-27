@@ -537,10 +537,10 @@ void skb_editor_apply_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_a
  * Counts number of codepoints the attribute is applied in the selection range.
  * @param editor editor to update
  * @param selection range of text to query
- * @param attribute_kind attribute to query
+ * @param attribute attribute to query
  * @return number of codepoints the attribute is applied to
  */
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t attribute_kind);
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, skb_attribute_t attribute);
 
 /** @return number of active attributes. Active attributes define what style is applied to the next text that is inserted. */
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);

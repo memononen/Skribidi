@@ -75,6 +75,18 @@ typedef struct skb_attribute_font_size_t {
 } skb_attribute_font_size_t;
 
 /**
+ * Font size scaling attribute.
+ */
+typedef struct skb_attribute_font_size_scaling_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Font size scaling type, see skb_font_scaling_t for options. */
+	skb_font_size_scaling_t type;
+	/** Scale factor, see 'type' on how the value is interpreted. */
+	float scale;
+} skb_attribute_font_size_scaling_t;
+
+/**
  * Font weight attribute.
  * Subset of https://drafts.csswg.org/css-fonts/
  */
@@ -150,8 +162,8 @@ typedef struct skb_attribute_line_height_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
 	/** Line height type. See skb_line_height_t for types. */
-	uint8_t type;
-	/** Line height, see line_height_type how the value is interpreted. */
+	skb_line_height_t type;
+	/** Line height, see 'type' on how the value is interpreted. */
 	float height;
 } skb_attribute_line_height_t;
 
@@ -299,6 +311,19 @@ typedef struct skb_attribute_baseline_align_t {
 	skb_baseline_t baseline;
 } skb_attribute_baseline_align_t;
 
+
+/**
+ * Baseline shift attribute.
+ */
+typedef struct skb_attribute_baseline_shift_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Baseline shift type. See skb_baseline_shift_t for types. */
+	skb_baseline_shift_t type;
+	/** Baseline shift offset, see 'type' on how the value is interpreted. */
+	float offset;
+} skb_attribute_baseline_shift_t;
+
 /**
  * Text fill color attribute.
  * It is up to the client code to decide if multiple fill attributes are supported.
@@ -399,6 +424,8 @@ typedef enum {
 	SKB_ATTRIBUTE_FONT_STRETCH = SKB_TAG('f','s','t','r'),
 	/** Tag for skb_attribute_font_size_t */
 	SKB_ATTRIBUTE_FONT_SIZE = SKB_TAG('f','s','i','z'),
+	/** Tag for skb_attribute_font_size_scaling_t */
+	SKB_ATTRIBUTE_FONT_SIZE_SCALING = SKB_TAG('f','s','c','l'),
 	/** Tag for skb_attribute_font_weight_t */
 	SKB_ATTRIBUTE_FONT_WEIGHT = SKB_TAG('f','w','e','i'),
 	/** Tag for skb_attribute_font_size_t */
@@ -435,6 +462,8 @@ typedef enum {
 	SKB_ATTRIBUTE_VERTICAL_ALIGN = SKB_TAG('v','a','l','n'),
 	/** Tag for skb_attribute_baseline_align_t */
 	SKB_ATTRIBUTE_BASELINE_ALIGN = SKB_TAG('b','a','l','n'),
+	/** Tag for skb_attribute_baseline_shift_t */
+	SKB_ATTRIBUTE_BASELINE_SHIFT = SKB_TAG('b','l','s','f'),
 	/** Tag for skb_attribute_fill_t */
 	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
 	/** Tag for skb_attribute_decoration_t */
@@ -459,6 +488,7 @@ typedef union skb_attribute_t {
 	skb_attribute_lang_t lang;
 	skb_attribute_font_family_t font_family;
 	skb_attribute_font_size_t font_size;
+	skb_attribute_font_size_scaling_t font_size_scaling;
 	skb_attribute_font_weight_t font_weight;
 	skb_attribute_font_style_t font_style;
 	skb_attribute_font_stretch_t font_stretch;
@@ -478,6 +508,7 @@ typedef union skb_attribute_t {
 	skb_attribute_align_t horizontal_align;
 	skb_attribute_align_t vertical_align;
 	skb_attribute_baseline_align_t baseline_align;
+	skb_attribute_baseline_shift_t baseline_shift;
 	skb_attribute_fill_t fill;
 	skb_attribute_decoration_t decoration;
 	skb_attribute_object_align_t object_align;
@@ -523,6 +554,9 @@ skb_attribute_t skb_attribute_make_font_family(uint8_t family);
 
 /** @returns new font size attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_size(float size);
+
+/** @returns new font size scaling attribute. See skb_attribute_font_scaling_t */
+skb_attribute_t skb_attribute_make_font_size_scaling(skb_font_size_scaling_t type, float scale);
 
 /** @returns new font weight attribute. See skb_attribute_font_t */
 skb_attribute_t skb_attribute_make_font_weight(skb_weight_t weight);
@@ -584,6 +618,9 @@ skb_attribute_t skb_attribute_make_vertical_align(skb_align_t vertical_align);
 /** @returns new baseline align attribute. See skb_attribute_baseline_align_t */
 skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align);
 
+/** @returns new baseline shift attribute. See skb_attribute_baseline_shift_t */
+skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, float shift);
+
 /** @returns new fill color text attribute. See skb_attribute_fill_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
 
@@ -637,12 +674,21 @@ uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes, con
 
 /**
  * Returns first font text attribute or default value if not found.
- * The default value is: font size 16.0, SKB_FONT_FAMILY_DEFAULT, SKB_WEIGHT_NORMAL, SKB_STYLE_NORMAL, SKB_STRETCH_NORMAL.
+ * The default value is: font size 16.0.
  * @param attributes attribute set where to look for the attributes from.
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
 float skb_attributes_get_font_size(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first font size attribute or default value if not found.
+ * The default value is: SKB_FONT_SIZE_SCALING_NONE.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_font_size_scaling_t skb_attributes_get_font_size_scaling(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first font text attribute or default value if not found.
@@ -834,6 +880,22 @@ skb_align_t skb_attributes_get_vertical_align(skb_attribute_set_t attributes, co
  */
 skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
+/**
+ * Returns first baseline align shift or default value if not found.
+ * The default value is SKB_BASELINE_SHIFT_NONE.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_baseline_shift_t skb_attributes_get_baseline_shift(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first group tag attribute or default value if not found.
+ * The default value is 0.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
 uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**

@@ -78,6 +78,32 @@ typedef enum {
 	SKB_LINE_HEIGHT_ABSOLUTE,
 } skb_line_height_t;
 
+/** Enum describing how baseline shift is calculated */
+typedef enum {
+	/** No baseline shift. */
+	SKB_BASELINE_SHIFT_NONE = 0,
+	/** Superscript baseline shift from font metrics. */
+	SKB_BASELINE_SHIFT_SUPERSCRIPT,
+	/** Subscript baseline shift from font metrics. */
+	SKB_BASELINE_SHIFT_SUBSCRIPT,
+	/** Baseline shift is multiple of font size. */
+	SKB_BASELINE_SHIFT_FONT_SIZE_RELATIVE,
+	/** Baseline shift is the specified value.  */
+	SKB_BASELINE_SHIFT_ABSOLUTE,
+} skb_baseline_shift_t;
+
+/** Enum describing how baseline shift is calculated */
+typedef enum {
+	/** Use font size as is. */
+	SKB_FONT_SIZE_SCALING_NONE = 0,
+	/** Font size scaled by provided scaling value. */
+	SKB_FONT_SIZE_SCALING_NORMAL,
+	/** Font size scaled by superscript size from font metrics. */
+	SKB_FONT_SIZE_SCALING_SUPERSCRIPT,
+	/** Font size scaled by subscript size from font metrics. */
+	SKB_FONT_SIZE_SCALING_SUBSCRIPT,
+} skb_font_size_scaling_t;
+
 /** Enum describing to which part of the text the object is aligned to. */
 typedef enum {
 	/** Align to the text run of the object. If the run does not have font attribute, use the default font attribute. */

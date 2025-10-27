@@ -71,7 +71,7 @@ void skb_rich_text_set_attribute(skb_rich_text_t* rich_text, skb_range_t text_ra
 
 void skb_rich_text_clear_attribute(skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
 void skb_rich_text_clear_all_attributes(skb_rich_text_t* rich_text, skb_range_t text_range);
-int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_range_t text_range, uint32_t attribute_kind);
+int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_range_t text_range, skb_attribute_t attribute);
 
 typedef bool skb_rich_text_remove_func_t(uint32_t codepoint, int32_t paragraph_idx, int32_t text_offset, void* context);
 

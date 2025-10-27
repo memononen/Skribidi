@@ -162,6 +162,14 @@ typedef struct skb_font_metrics_t {
 	float strikeout_offset;
 	/** Strikeout height. */
 	float strikeout_size;
+	/** Superscript vertical offset. */
+	float superscript_offset;
+	/** Superscript vertical scale. */
+	float superscript_scale;
+	/** Subscript vertical offset. */
+	float subscript_offset;
+	/** Subscript vertical scale. */
+	float subscript_scale;
 } skb_font_metrics_t;
 
 /** Struct describing all the baselines of a font. Based on baseline tables of CSS: https://www.w3.org/TR/css-inline-3/#baseline-table */

@@ -77,6 +77,18 @@ skb_attribute_t skb_attribute_make_font_size(float size)
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_font_size_scaling(skb_font_size_scaling_t type, float scale)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.font_size_scaling = (skb_attribute_font_size_scaling_t) {
+		.kind = SKB_ATTRIBUTE_FONT_SIZE_SCALING,
+		.type = type,
+		.scale = scale,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_font_weight(skb_weight_t weight)
 {
 	skb_attribute_t attribute;
@@ -307,6 +319,18 @@ skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align)
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, float shift)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.baseline_shift = (skb_attribute_baseline_shift_t) {
+		.kind = SKB_ATTRIBUTE_BASELINE_SHIFT,
+		.type = type,
+		.offset = shift,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 {
 	skb_attribute_t attribute;
@@ -492,6 +516,15 @@ float skb_attributes_get_font_size(const skb_attribute_set_t attributes, const s
 	return attr ? attr->font_size.size : 16.f;
 }
 
+skb_attribute_font_size_scaling_t skb_attributes_get_font_size_scaling(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_font_size_scaling_t default_font_size_scaling = {
+		.type = SKB_FONT_SIZE_SCALING_NONE,
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_SIZE_SCALING);
+	return attr ? attr->font_size_scaling : default_font_size_scaling;
+}
+
 skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_WEIGHT);
@@ -644,6 +677,15 @@ skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes,
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BASELINE_ALIGN);
 	return attr ? attr->baseline_align.baseline : SKB_BASELINE_ALPHABETIC;
 }
+
+skb_attribute_baseline_shift_t skb_attributes_get_baseline_shift(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_baseline_shift_t default_baseline_shift = { 0 };
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BASELINE_SHIFT);
+	return attr ? attr->baseline_shift : default_baseline_shift;
+}
+
 
 uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {

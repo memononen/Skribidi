@@ -215,6 +215,16 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		};
 
+		const skb_attribute_t superscript_attributes[] = {
+			skb_attribute_make_font_size_scaling(SKB_FONT_SIZE_SCALING_SUPERSCRIPT, 0.f),
+			skb_attribute_make_baseline_shift(SKB_BASELINE_SHIFT_SUPERSCRIPT, 0.f),
+		};
+
+		const skb_attribute_t subscript_attributes[] = {
+			skb_attribute_make_font_size_scaling(SKB_FONT_SIZE_SCALING_SUBSCRIPT, 0.f),
+			skb_attribute_make_baseline_shift(SKB_BASELINE_SHIFT_SUBSCRIPT, 0.f),
+		};
+
 		const skb_attribute_t align_start[] = {
 			skb_attribute_make_horizontal_align(SKB_ALIGN_START),
 		};
@@ -251,6 +261,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_collection_add_set(ctx->attribute_collection, "u", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(underline_attributes));
 		skb_attribute_collection_add_set(ctx->attribute_collection, "i", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(italic_attributes));
 		skb_attribute_collection_add_set(ctx->attribute_collection, "b", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(bold_attributes));
+		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "sup", "baseline-shift", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(superscript_attributes));
+		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "sub", "baseline-shift", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(subscript_attributes));
 	}
 
 	const skb_attribute_t layout_attributes[] = {
@@ -920,7 +932,7 @@ static bool notes__selection_has_attribute(const skb_editor_t* editor, skb_attri
 	const int32_t selection_count = skb_editor_get_selection_count(editor, edit_selection);
 
 	if (selection_count > 0)
-		return skb_editor_get_attribute_count(editor, edit_selection, attribute.kind) == selection_count;
+		return skb_editor_get_attribute_count(editor, edit_selection, attribute) == selection_count;
 
 	const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
 	const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(editor);
@@ -1141,6 +1153,28 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			tx += but_size + but_spacing;
 		}
 
+		{
+			// Superscript
+			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup");
+			bool superscript_sel = notes__selection_has_attribute(ctx->editor, superscript);
+
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S^", superscript_sel)) {
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, superscript);
+			}
+			tx += but_size + but_spacing;
+		}
+
+		{
+			// Subscript
+			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub");
+			bool subscript_sel = notes__selection_has_attribute(ctx->editor, subscript);
+
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "Sv", subscript_sel)) {
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, subscript);
+			}
+			tx += but_size + but_spacing;
+		}
+
 		tx += spacer;
 
 		{
@@ -1258,30 +1292,6 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, edit_selection, rtl);
 			tx += but_size + but_spacing;
 		}
-
-
-		/*
-			- Color
-			- Bold
-			- Italic
-			- Font
-			- Size
-			- Strike
-
-			- Link
-			- List
-
-			- Align (left/center/right)
-
-		*/
-
-
-		// Active attributes
-/*		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(ctx->editor);
-		const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(ctx->editor);
-		cx = debug_render_text(ctx->rc, cx + 20,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "Active attributes (%d):", active_attributes_count);
-		for (int32_t i = 0; i < active_attributes_count; i++)
-			cx = debug_render_text(ctx->rc, cx + 5,layout_height + 30, 13, RENDER_ALIGN_START, ink_color, "%c%c%c%c", SKB_UNTAG(active_attributes[i].kind));*/
 	}
 
 

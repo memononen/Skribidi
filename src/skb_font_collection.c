@@ -236,6 +236,20 @@ static bool skb__font_create_from_hb_font(skb_font_t* font, hb_font_t* hb_font, 
 	font->metrics.strikeout_offset = -(float)strikeout_offset * font->upem_scale;
 	font->metrics.strikeout_size = (float)strikeout_size * font->upem_scale;
 
+	hb_position_t superscript_offset;
+	hb_position_t superscript_scale;
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_SUPERSCRIPT_EM_Y_OFFSET, &superscript_offset);
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_SUPERSCRIPT_EM_Y_SIZE, &superscript_scale);
+	font->metrics.superscript_offset = -(float)superscript_offset * font->upem_scale;
+	font->metrics.superscript_scale = (float)superscript_scale * font->upem_scale;
+
+	hb_position_t subscript_offset;
+	hb_position_t subscript_scale;
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_SUBSCRIPT_EM_Y_OFFSET, &subscript_offset);
+	hb_ot_metrics_get_position_with_fallback (font->hb_font, HB_OT_METRICS_TAG_SUBSCRIPT_EM_Y_SIZE, &subscript_scale);
+	font->metrics.subscript_offset = (float)subscript_offset * font->upem_scale;
+	font->metrics.subscript_scale = (float)subscript_scale * font->upem_scale;
+
 	// Caret metrics
 	hb_position_t caret_offset;
 	hb_position_t caret_rise;

@@ -520,11 +520,35 @@ static void skb__shape_run(
 
 	const char* lang = skb_attributes_get_lang(content_run->attributes, layout->params.attribute_collection);
 	const float letter_spacing = skb_attributes_get_letter_spacing(content_run->attributes, layout->params.attribute_collection);
-	const float font_size = content_run->font_size;
 
 	const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, fonts[font_idx]);
 	if (!font)
 		return;
+
+	// Cache font size as it is used a lot.
+	const float initial_font_size = skb_attributes_get_font_size(content_run->attributes, layout->params.attribute_collection);
+	float font_size = initial_font_size;
+	skb_attribute_font_size_scaling_t font_size_scaling = skb_attributes_get_font_size_scaling(content_run->attributes, layout->params.attribute_collection);
+	if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_NORMAL) {
+		font_size *= skb_absf(font_size_scaling.scale);
+	} else if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_SUBSCRIPT) {
+		font_size *= font->metrics.subscript_scale;
+	} else if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_SUPERSCRIPT) {
+		font_size *= font->metrics.superscript_scale;
+	}
+
+	// Calculate baseline offset here, since we have the original size already looped up.
+	skb_attribute_baseline_shift_t baseline_shift = skb_attributes_get_baseline_shift(content_run->attributes, layout->params.attribute_collection);
+	float baseline_offset = 0.f;
+	if (baseline_shift.type == SKB_BASELINE_SHIFT_ABSOLUTE)
+		baseline_offset = baseline_shift.offset;
+	else if (baseline_shift.type == SKB_BASELINE_SHIFT_FONT_SIZE_RELATIVE) {
+		baseline_offset = initial_font_size * baseline_shift.offset;
+	} else if (baseline_shift.type == SKB_BASELINE_SHIFT_SUBSCRIPT) {
+		baseline_offset = initial_font_size * font->metrics.subscript_offset;
+	} else if (baseline_shift.type == SKB_BASELINE_SHIFT_SUPERSCRIPT) {
+		baseline_offset = initial_font_size * font->metrics.superscript_offset;
+	}
 
 	hb_buffer_add_utf32(buffer, layout->text, layout->text_count, shaping_run->text_range.start, shaping_run->text_range.end - shaping_run->text_range.start);
 
@@ -573,6 +597,7 @@ static void skb__shape_run(
 	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + glyph_count);
 	SKB_ARRAY_RESERVE(layout->clusters, layout->clusters_count + glyph_count);
 
+	shaping_run->font_size = font_size;
 	shaping_run->glyph_range.start = layout->glyphs_count;
 	shaping_run->cluster_range.start = layout->clusters_count;
 
@@ -630,7 +655,7 @@ static void skb__shape_run(
 				assert(glyph_info[j].codepoint <= 0xffff);
 				glyph->gid = (uint16_t)glyph_info[j].codepoint;
 				glyph->offset_x = (float)glyph_pos[j].x_offset * scale;
-				glyph->offset_y = -(float)glyph_pos[j].y_offset * scale;
+				glyph->offset_y = -(float)glyph_pos[j].y_offset * scale + baseline_offset;
 				glyph->advance_x = (float)glyph_pos[j].x_advance * scale;
 			}
 		}
@@ -950,10 +975,10 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 	layout_run->bidi_level = shaping_run->bidi_level;
 	layout_run->script = shaping_run->script;
 	layout_run->content_run_idx = shaping_run->content_run_idx;
+	layout_run->font_size = shaping_run->font_size;
 
 	layout_run->attributes = content_run->attributes;
 	layout_run->content_run_id = content_run->run_id;
-	layout_run->font_size = content_run->font_size;
 
 	layout_run->cluster_range = cluster_range;
 	skb__update_glyph_range(layout, layout_run);
@@ -1501,11 +1526,11 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 		if (layout->content_runs_count > 0) {
 			const skb__content_run_t* last_content_run = &layout->content_runs[layout->content_runs_count - 1];
 			attributes = last_content_run->attributes;
-			font_size = last_content_run->font_size;
 		} else {
 			attributes = layout->params.layout_attributes;
-			font_size = skb_attributes_get_font_size(attributes, layout->params.attribute_collection);
 		}
+		font_size = skb_attributes_get_font_size(attributes, layout->params.attribute_collection);
+
 		const uint8_t font_family = skb_attributes_get_font_family(attributes, layout->params.attribute_collection);
 		const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(attributes, layout->params.attribute_collection);
 
@@ -2522,8 +2547,6 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	for (int32_t i = 0; i < layout->content_runs_count; i++) {
 		layout->content_runs[i].attributes.attributes = &layout->attributes[count];
 		count += layout->content_runs[i].attributes.attributes_count;
-		// Cache font size as it is used a lot.
-		layout->content_runs[i].font_size = skb_attributes_get_font_size(layout->content_runs[i].attributes, layout->params.attribute_collection);
 	}
 	assert(count == layout->attributes_count);
 
@@ -3089,7 +3112,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 		const float font_size = layout_run->font_size;
 		const skb_font_handle_t font_handle = layout_run->font_handle;
 
-		const skb_glyph_t* glyph = &layout->glyphs[right.glyph_idx];
+		const skb_glyph_t* glyph = &layout->glyphs[glyph_idx];
 		vis_caret.y = glyph->offset_y;
 
 		if (font_handle) {
