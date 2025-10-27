@@ -21,6 +21,7 @@
 #include "skb_rasterizer.h"
 #include "skb_image_atlas.h"
 #include "skb_editor.h"
+#include "skb_rich_text.h"
 
 typedef struct inputfilter_context_t {
 	example_t base;
