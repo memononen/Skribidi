@@ -785,7 +785,7 @@ static skb_rich_text_change_t skb__rich_text_replace(
 	rich_text->paragraphs_count = new_paragraphs_count;
 
 	// Move tail of the blocks to create space for the new blocks to be inserted, accounting for the removed blocks.
-	const int32_t old_tail_idx = skb_mini(end_pos.paragraph_idx+1, rich_text->paragraphs_count); // end_block_idx is the last one to remove.
+	const int32_t old_tail_idx = skb_mini(end_pos.paragraph_idx+1, old_paragraphs_count); // end_block_idx is the last one to remove.
 	const int32_t tail_count = old_paragraphs_count - old_tail_idx;
 	const int32_t new_tail_idx = start_pos.paragraph_idx + source_paragraphs_count;
 	if (new_tail_idx != old_tail_idx && tail_count > 0)
