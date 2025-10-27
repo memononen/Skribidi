@@ -297,11 +297,12 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, params->attribute_collection);
+			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(ctx->layout, run);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Draw object
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run->attributes, params->attribute_collection);
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run_attributes, params->attribute_collection);
 				debug_render_filled_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, attr_fill.color);
 
 				// Draw baseline
@@ -332,9 +333,10 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
+			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(ctx->layout, run);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes, params->attribute_collection);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run_attributes, params->attribute_collection);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,
@@ -343,7 +345,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				};
 				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255), -1.f);
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run->attributes, params->attribute_collection);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run_attributes, params->attribute_collection);
 				skb_rect2_t pad_rect = {
 					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
 					.y = run->bounds.y - attr_object_padding.top,

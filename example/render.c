@@ -489,7 +489,8 @@ void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, co
 	// Draw glyphs
 	for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 		const skb_layout_run_t* run = &layout_runs[ri];
-		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
+		const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, layout_params->attribute_collection);
 
 		if (run->type == SKB_CONTENT_RUN_OBJECT) {
 			// Object
@@ -589,7 +590,8 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_
 	// Draw glyphs
 	for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 		const skb_layout_run_t* run = &layout_runs[ri];
-		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
+		const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, layout_params->attribute_collection);
 
 		// TODO: handle color glyph/icon
 		skb_color_t color = attr_fill.color;
@@ -664,7 +666,8 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		// Draw glyphs
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run->attributes, layout_params->attribute_collection);
+			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, layout_params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Object

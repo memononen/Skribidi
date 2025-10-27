@@ -487,9 +487,10 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 				const skb_layout_line_t* line = &lines[li];
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes, layout_params->attribute_collection);
-					const float font_size = layout_run->font_size;
 					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
+						const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
+						const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
+						const float font_size = layout_run->font_size;
 						for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
 							const skb_glyph_t* glyph = &glyphs[gi];
 							render_draw_glyph(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y,

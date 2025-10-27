@@ -174,6 +174,15 @@ static bool skb__is_japanese_script(uint8_t script)
 	return script == SBScriptHANI || script == SBScriptHIRA || script == SBScriptKANA;
 }
 
+static skb_attribute_set_t skb__get_run_attributes(const skb_layout_t* layout, skb_range_t attributes_range)
+{
+	return (skb_attribute_set_t) {
+		.attributes = layout->attributes + attributes_range.start,
+		.attributes_count = attributes_range.end - attributes_range.start,
+		// Attributes inherit layout's base attributes.
+		.parent_set = (layout->params.layout_attributes.attributes_count > 0) ? &layout->params.layout_attributes : NULL,
+	};
+}
 
 //
 // Itemization
@@ -352,6 +361,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 			int32_t content_run_idx = 0;
 			while (skb__text_style_run_iter_next(&style_iter, &style_range, &content_run_idx)) {
 				const skb__content_run_t* content_run = &layout->content_runs[content_run_idx];
+				const skb_attribute_set_t content_run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
 
 				if (content_run->type == SKB_CONTENT_RUN_OBJECT || content_run->type == SKB_CONTENT_RUN_ICON) {
 					// Object or icon run.
@@ -380,11 +390,11 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 						bool has_emoji = false;
 						while (skb_emoji_run_iterator_next(&emoji_iter, &text_range, &has_emoji)) {
 
-							const uint8_t font_family = has_emoji ? SKB_FONT_FAMILY_EMOJI : skb_attributes_get_font_family(content_run->attributes, layout->params.attribute_collection);
-							const skb_weight_t font_weight = skb_attributes_get_font_weight(content_run->attributes, layout->params.attribute_collection);
-							const skb_style_t font_style = skb_attributes_get_font_style(content_run->attributes, layout->params.attribute_collection);
-							const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(content_run->attributes, layout->params.attribute_collection);
-							const char* lang = skb_attributes_get_lang(content_run->attributes, layout->params.attribute_collection);
+							const uint8_t font_family = has_emoji ? SKB_FONT_FAMILY_EMOJI : skb_attributes_get_font_family(content_run_attributes, layout->params.attribute_collection);
+							const skb_weight_t font_weight = skb_attributes_get_font_weight(content_run_attributes, layout->params.attribute_collection);
+							const skb_style_t font_style = skb_attributes_get_font_style(content_run_attributes, layout->params.attribute_collection);
+							const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(content_run_attributes, layout->params.attribute_collection);
+							const char* lang = skb_attributes_get_lang(content_run_attributes, layout->params.attribute_collection);
 							const hb_language_t run_lang = hb_language_from_string(lang, -1);
 
 							skb_font_handle_t fonts[32];
@@ -518,17 +528,19 @@ static void skb__shape_run(
 {
 	assert(fonts_count > 0);
 
-	const char* lang = skb_attributes_get_lang(content_run->attributes, layout->params.attribute_collection);
-	const float letter_spacing = skb_attributes_get_letter_spacing(content_run->attributes, layout->params.attribute_collection);
+	const skb_attribute_set_t content_run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
+
+	const char* lang = skb_attributes_get_lang(content_run_attributes, layout->params.attribute_collection);
+	const float letter_spacing = skb_attributes_get_letter_spacing(content_run_attributes, layout->params.attribute_collection);
 
 	const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, fonts[font_idx]);
 	if (!font)
 		return;
 
 	// Cache font size as it is used a lot.
-	const float initial_font_size = skb_attributes_get_font_size(content_run->attributes, layout->params.attribute_collection);
+	const float initial_font_size = skb_attributes_get_font_size(content_run_attributes, layout->params.attribute_collection);
 	float font_size = initial_font_size;
-	skb_attribute_font_size_scaling_t font_size_scaling = skb_attributes_get_font_size_scaling(content_run->attributes, layout->params.attribute_collection);
+	skb_attribute_font_size_scaling_t font_size_scaling = skb_attributes_get_font_size_scaling(content_run_attributes, layout->params.attribute_collection);
 	if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_NORMAL) {
 		font_size *= skb_absf(font_size_scaling.scale);
 	} else if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_SUBSCRIPT) {
@@ -538,7 +550,7 @@ static void skb__shape_run(
 	}
 
 	// Calculate baseline offset here, since we have the original size already looped up.
-	skb_attribute_baseline_shift_t baseline_shift = skb_attributes_get_baseline_shift(content_run->attributes, layout->params.attribute_collection);
+	skb_attribute_baseline_shift_t baseline_shift = skb_attributes_get_baseline_shift(content_run_attributes, layout->params.attribute_collection);
 	float baseline_offset = 0.f;
 	if (baseline_shift.type == SKB_BASELINE_SHIFT_ABSOLUTE)
 		baseline_offset = baseline_shift.offset;
@@ -571,7 +583,7 @@ static void skb__shape_run(
 	}
 
 	// Collect font features from attributes.
- 	skb__collect_font_features(content_run->attributes, layout->params.attribute_collection, features, &features_count);
+ 	skb__collect_font_features(content_run_attributes, layout->params.attribute_collection, features, &features_count);
 
 	hb_buffer_flags_t flags = HB_BUFFER_FLAG_DEFAULT;
 	if (shaping_run->text_range.start == 0)
@@ -977,7 +989,7 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 	layout_run->content_run_idx = shaping_run->content_run_idx;
 	layout_run->font_size = shaping_run->font_size;
 
-	layout_run->attributes = content_run->attributes;
+	layout_run->attributes_range = content_run->attributes_range;
 	layout_run->content_run_id = content_run->run_id;
 
 	layout_run->cluster_range = cluster_range;
@@ -1210,7 +1222,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	marker_run->font_handle = font_handle;
 	marker_run->content_run_idx = SKB_INVALID_INDEX; // Mark as invalid so that the run can be skipped e.g. by caret iterator.
 	marker_run->content_run_id = 0;
-	marker_run->attributes = layout->params.layout_attributes;
+	marker_run->attributes_range = (skb_range_t){0}; // Use layout attributes. layout->params.layout_attributes;
 	marker_run->glyph_range.start = layout->glyphs_count;
 	marker_run->glyph_range.end = layout->glyphs_count + marker_glyph_count;
 	marker_run->cluster_range.start = layout->clusters_count;
@@ -1341,7 +1353,7 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	ellipsis_run->font_handle = ref_layout_run.font_handle;
 	ellipsis_run->content_run_idx = ref_layout_run.content_run_idx;
 	ellipsis_run->content_run_id = ref_layout_run.content_run_id;
-	ellipsis_run->attributes = ref_layout_run.attributes;
+	ellipsis_run->attributes_range = ref_layout_run.attributes_range;
 	ellipsis_run->glyph_range.start = layout->glyphs_count;
 	ellipsis_run->glyph_range.end = layout->glyphs_count + ellipsis_glyph_count;
 	ellipsis_run->cluster_range.start = layout->clusters_count;
@@ -1426,11 +1438,12 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			skb_layout_run_t* layout_run = &layout->layout_runs[ri];
+			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout_run->attributes_range);
 			float baseline_align_offset = 0.f;
 			if (layout_run->type == SKB_CONTENT_RUN_OBJECT || layout_run->type == SKB_CONTENT_RUN_ICON) {
 
-				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(layout_run->attributes, layout->params.attribute_collection);
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(layout_run->attributes, layout->params.attribute_collection);
+				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(layout_run_attributes, layout->params.attribute_collection);
+				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(layout_run_attributes, layout->params.attribute_collection);
 
 				// Find index of the reference glyph to align to.
 				int32_t ref_layout_run_idx = ri; // self
@@ -1481,7 +1494,7 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 			} else {
 
 				const float font_size = layout_run->font_size;
-				const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(layout_run->attributes, layout->params.attribute_collection);
+				const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(layout_run_attributes, layout->params.attribute_collection);
 				const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, layout_run->font_handle);
 				const float baseline = skb_font_get_baseline(layout->params.font_collection, layout_run->font_handle, baseline_align, layout_run->direction, layout_run->script, font_size);
 
@@ -1525,7 +1538,7 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 		float font_size = 0.f;
 		if (layout->content_runs_count > 0) {
 			const skb__content_run_t* last_content_run = &layout->content_runs[layout->content_runs_count - 1];
-			attributes = last_content_run->attributes;
+			attributes = skb__get_run_attributes(layout, last_content_run->attributes_range);
 		} else {
 			attributes = layout->params.layout_attributes;
 		}
@@ -1909,9 +1922,10 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 			// For each decoration.
 			const float font_size = layout->layout_runs[decoration_run_range.start].font_size;
+			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout->layout_runs[decoration_run_range.start].attributes_range);
 
 			const skb_attribute_t* decorations[16];
-			const int32_t decorations_count = skb_attributes_get_by_kind(layout->layout_runs[decoration_run_range.start].attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_DECORATION, decorations, SKB_COUNTOF(decorations));
+			const int32_t decorations_count = skb_attributes_get_by_kind(layout_run_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_DECORATION, decorations, SKB_COUNTOF(decorations));
 
 			for (int32_t i = 0; i < decorations_count; i++) {
 				if (decorations[i]->kind != SKB_ATTRIBUTE_DECORATION)
@@ -2035,8 +2049,9 @@ static void skb__apply_lang_based_word_breaks(const skb__layout_build_context_t*
 	for (int32_t i = 0; i < layout->shaping_runs_count; ++i) {
 		const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
 		const skb__content_run_t* content_run = &layout->content_runs[shaping_run->content_run_idx];
+		const skb_attribute_set_t run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
 
-		const char* lang = skb_attributes_get_lang(content_run->attributes, layout->params.attribute_collection);
+		const char* lang = skb_attributes_get_lang(run_attributes, layout->params.attribute_collection);
 		const hb_language_t hb_lang = hb_language_from_string(lang, -1);
 
 		if (skb__is_japanese_script(shaping_run->script) && hb_language_matches(lang_ja, hb_lang)) {
@@ -2099,7 +2114,6 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 		const skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
 		for (int32_t j = shaping_run->text_range.start; j < shaping_run->text_range.end; j++) {
 			SKB_SET_FLAG(layout->text_props[j].flags, SKB_TEXT_PROP_EMOJI, shaping_run->is_emoji);
-//			layout->text_props[j].direction = shaping_run->direction;
 			layout->text_props[j].script = shaping_run->script;
 		}
 	}
@@ -2115,12 +2129,13 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 	for (int32_t i = 0; i < layout->shaping_runs_count; ++i) {
 		skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
 		const skb__content_run_t* content_run = &layout->content_runs[shaping_run->content_run_idx];
+		const skb_attribute_set_t content_run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
 
 		// Check if this run is a replacement object.
 		if (content_run->type == SKB_CONTENT_RUN_OBJECT || content_run->type == SKB_CONTENT_RUN_ICON) {
 			// Add the replacement object as a glyph.
 
-			const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(content_run->attributes, layout->params.attribute_collection);
+			const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(content_run_attributes, layout->params.attribute_collection);
 
 			SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + 1);
 			skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
@@ -2146,8 +2161,8 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 			skb__shape_run(build_context, layout, shaping_run, content_run, buffer, &shaping_run->font_handle, 1, 0);
 
 			// Apply letter and word spacing
-			const float letter_spacing = skb_attributes_get_letter_spacing(content_run->attributes, layout->params.attribute_collection);
-			const float word_spacing = skb_attributes_get_word_spacing(content_run->attributes, layout->params.attribute_collection);
+			const float letter_spacing = skb_attributes_get_letter_spacing(content_run_attributes, layout->params.attribute_collection);
+			const float word_spacing = skb_attributes_get_word_spacing(content_run_attributes, layout->params.attribute_collection);
 
 			for (int32_t ci = shaping_run->cluster_range.start; ci < shaping_run->cluster_range.end; ci++) {
 				const skb_cluster_t* cluster = &layout->clusters[ci];
@@ -2370,7 +2385,9 @@ static void skb__init_text_props_from_attributes(skb_temp_alloc_t* temp_alloc, s
 	const char* prev_lang = NULL;
 	for (int32_t i = 0; i < layout->content_runs_count; i++) {
 		const skb__content_run_t* content_run = &layout->content_runs[i];
-		const char* run_lang = skb_attributes_get_lang(content_run->attributes, layout->params.attribute_collection);
+		const skb_attribute_set_t content_run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
+
+		const char* run_lang = skb_attributes_get_lang(content_run_attributes, layout->params.attribute_collection);
 
 		if (run_lang != prev_lang) {
 			if (cur_offset > start_offset)
@@ -2525,30 +2542,19 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		// Copy attributes
 		int32_t run_attributes_count = skb_attributes_get_copy_flat_count(run->attributes);
 		if (run_attributes_count > 0) {
+			content_run->attributes_range.start = layout->attributes_count;
+			content_run->attributes_range.end = layout->attributes_count + run_attributes_count;
+
 			SKB_ARRAY_RESERVE(layout->attributes, layout->attributes_count + run_attributes_count);
 			skb_attribute_t* run_attributes = layout->attributes + layout->attributes_count;
 			layout->attributes_count += run_attributes_count;
 
-			content_run->attributes.attributes = run_attributes;
-			content_run->attributes.attributes_count = run_attributes_count;
 			skb_attributes_copy_flat(run->attributes, run_attributes, run_attributes_count);
 		}
-		// Attributes inherit layout's base attributes.
-		if (layout->params.layout_attributes.attributes_count > 0)
-			content_run->attributes.parent_set = &layout->params.layout_attributes;
 	}
 
-	// Patch pointers in case we ended up reallocating attributes.
-	int32_t count = 0;
-	// Base attributes
-	layout->params.layout_attributes.attributes = &layout->attributes[count];
-	count += layout->params.layout_attributes.attributes_count;
-	// Per run attributes
-	for (int32_t i = 0; i < layout->content_runs_count; i++) {
-		layout->content_runs[i].attributes.attributes = &layout->attributes[count];
-		count += layout->content_runs[i].attributes.attributes_count;
-	}
-	assert(count == layout->attributes_count);
+	// Patch layout attributes pointer in case we ended up reallocating attributes above.
+	layout->params.layout_attributes.attributes = &layout->attributes[0];
 
 	skb__init_text_props_from_attributes(temp_alloc, layout);
 
@@ -2660,6 +2666,11 @@ const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->lines;
+}
+
+skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run)
+{
+	return skb__get_run_attributes(layout, run->attributes_range);
 }
 
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout)

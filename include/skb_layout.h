@@ -294,8 +294,8 @@ typedef struct skb_layout_run_t {
 	float ref_baseline;
 	/** Cached font size. */
 	float font_size;
-	/** Attributes assigned to the run. */
-	skb_attribute_set_t attributes;
+	/** Attributes assigned to the run. Use skb_layout_get_run_attributes() to get the run's attribute set. */
+	skb_range_t attributes_range;
 	/** ID of the content run where the layout run originates. */
 	intptr_t content_run_id;
 	union {
@@ -555,6 +555,9 @@ const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout);
 int32_t skb_layout_get_lines_count(const skb_layout_t* layout);
 /** @return const pointer to the lines. See skb_layout_get_lines_count() to get number of lines. */
 const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
+
+/** @returns attribute set for specified layout run*/
+skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run);
 
 /** @return typographic bounds of the layout. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);

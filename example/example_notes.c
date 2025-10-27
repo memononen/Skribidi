@@ -1015,9 +1015,10 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const skb_layout_line_t* line = &lines[li];
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes, layout_params->attribute_collection);
-					const float font_size = layout_run->font_size;
 					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
+						const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
+						const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
+						const float font_size = layout_run->font_size;
 						for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
 							const skb_glyph_t* glyph = &glyphs[gi];
 							render_draw_glyph(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y,
@@ -1158,7 +1159,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup");
 			bool superscript_sel = notes__selection_has_attribute(ctx->editor, superscript);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S^", superscript_sel)) {
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "^", superscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, superscript);
 			}
 			tx += but_size + but_spacing;
@@ -1169,7 +1170,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub");
 			bool subscript_sel = notes__selection_has_attribute(ctx->editor, subscript);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "Sv", subscript_sel)) {
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "_", subscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, subscript);
 			}
 			tx += but_size + but_spacing;

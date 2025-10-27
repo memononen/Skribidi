@@ -13,7 +13,7 @@ typedef struct skb__content_run_t {
 	intptr_t content_data;				// Data of object or icon specified by the run
 	intptr_t run_id;					// Custom identifier for a content run.
 	skb_range_t text_range;				// Range of text the attributes apply to.
-	skb_attribute_set_t attributes;		// The content attributes.
+	skb_range_t attributes_range;		// The content attributes
 	uint8_t type;						// Type of the content run which described the attributes. See skb_content_run_type_t.
 } skb__content_run_t;
 

@@ -614,7 +614,8 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run->attributes, layout_params->attribute_collection);
+					const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
+					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
 					const float font_size = layout_run->font_size;
 
 					if (ctx->show_run_details) {
