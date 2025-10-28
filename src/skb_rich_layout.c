@@ -19,8 +19,6 @@ skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(con
 
 	skb_paragraph_position_t result = {0};
 
-	// TODO: use lower bound
-
 	// Find paragraph.
 	const int32_t last_paragraph_idx = rich_layout->paragraphs_count - 1;
 	const int32_t total_text_count = rich_layout->paragraphs[last_paragraph_idx].global_text_offset + skb_layout_get_text_count(&rich_layout->paragraphs[last_paragraph_idx].layout);
@@ -29,13 +27,7 @@ skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(con
 	} else if (text_pos.offset >= total_text_count) {
 		result.paragraph_idx = last_paragraph_idx;
 	} else {
-		for (int32_t i = 0; i < rich_layout->paragraphs_count; i++) {
-			const int32_t end_text_offset = rich_layout->paragraphs[i].global_text_offset + skb_layout_get_text_count(&rich_layout->paragraphs[i].layout);
-			if (text_pos.offset < end_text_offset) {
-				result.paragraph_idx = i;
-				break;
-			}
-		}
+		result.paragraph_idx = skb_ub_search(text_pos.offset, &rich_layout->paragraphs[0].global_text_offset, rich_layout->paragraphs_count, sizeof(skb_layout_paragraph_t));
 	}
 
 	// Adjust text position withing the paragraph.

@@ -2814,9 +2814,25 @@ static int32_t skb__get_layout_run_index(const skb_layout_t* layout, skb_text_po
 	if (pos.offset < 0 || pos.offset >= layout->text_count)
 		return SKB_INVALID_INDEX;
 
-	for (int32_t li = 0; li < layout->lines_count; li++) {
+	// Binary search the line which contains the text offset.
+	const int32_t line_idx = skb_ub_search(pos.offset,  &layout->lines[0].text_range.start, layout->lines_count,sizeof(skb_layout_line_t));
+
+	const skb_layout_line_t* line = &layout->lines[line_idx];
+	if (pos.offset >= line->text_range.start && pos.offset < line->text_range.end) {
+		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+			const skb_range_t run_text_range = skb__get_layout_run_text_range(layout, ri);
+			if (pos.offset >= run_text_range.start && pos.offset < run_text_range.end)
+				return ri;
+		}
+	}
+	return SKB_INVALID_INDEX;
+
+
+/*	for (int32_t li = 0; li < layout->lines_count; li++) {
 		const skb_layout_line_t* line = &layout->lines[li];
+
 		if (pos.offset >= line->text_range.start && pos.offset < line->text_range.end) {
+
 			for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 				const skb_range_t run_text_range = skb__get_layout_run_text_range(layout, ri);
 				if (pos.offset >= run_text_range.start && pos.offset < run_text_range.end)
@@ -2826,7 +2842,7 @@ static int32_t skb__get_layout_run_index(const skb_layout_t* layout, skb_text_po
 		}
 	}
 
-	return SKB_INVALID_INDEX;
+	return SKB_INVALID_INDEX;*/
 }
 
 skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos)

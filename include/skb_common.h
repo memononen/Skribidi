@@ -336,6 +336,21 @@ static inline bool skb_equalsf(float lhs, float rhs, float eps)
 	return skb_absf(lhs - rhs) < eps;
 }
 
+static inline int32_t skb_ub_search(int32_t key, const void* values, const int32_t values_count, const int32_t values_stride)
+{
+	int32_t low = 0;
+	int32_t high = values_count - 1;
+	while (low <= high) {
+		const int32_t mid = low + (high - low) / 2;
+		const int32_t* value = (const int32_t*)((const uint8_t*)values + values_stride * mid);
+		if (*value > key)
+			high = mid - 1;
+		else
+			low = mid + 1;
+	}
+	return skb_clampi(high, 0, values_count - 1);
+}
+
 
 /** Range - defines range of items, end is non-inclusive. */
 typedef struct skb_range_t {

@@ -53,30 +53,31 @@ static skb_range_t* skb__split_text_into_paragraphs(skb_temp_alloc_t* temp_alloc
 
 static skb_paragraph_position_t skb__get_paragraph_position(const skb_rich_text_t* rich_text, int32_t text_offset)
 {
-	if (!rich_text->paragraphs_count || text_offset < 0) {
+	if (rich_text->paragraphs_count == 0 || text_offset <= 0)
 		return (skb_paragraph_position_t){ .paragraph_idx = 0, .text_offset = 0, .global_text_offset = 0 };
+
+	const int32_t last_paragraph_idx = rich_text->paragraphs_count - 1;
+	const int32_t total_text_count = rich_text->paragraphs[last_paragraph_idx].global_text_offset + skb_text_get_utf32_count(&rich_text->paragraphs[last_paragraph_idx].text);
+	if (text_offset >= total_text_count) {
+		// Past the last paragraph.
+		const int32_t local_text_offset = skb_text_get_utf32_count(&rich_text->paragraphs[rich_text->paragraphs_count - 1].text);
+		return (skb_paragraph_position_t) {
+			.paragraph_idx = rich_text->paragraphs_count - 1,
+			.text_offset = local_text_offset,
+			.global_text_offset = rich_text->paragraphs[rich_text->paragraphs_count - 1].global_text_offset + local_text_offset,
+		};
 	}
 
-	// TODO: use lower bound
-	for (int32_t i = 0; i < rich_text->paragraphs_count; i++) {
-		const skb_text_paragraph_t* paragraph = &rich_text->paragraphs[i];
-		const int32_t text_count = skb_text_get_utf32_count(&paragraph->text);
-		if (text_offset < (paragraph->global_text_offset + text_count)) {
-			const int32_t start_text_offset = rich_text->paragraphs[i].global_text_offset;
-			return (skb_paragraph_position_t) {
-				.paragraph_idx = i,
-				.text_offset = skb_clampi(text_offset - start_text_offset, 0, text_count - 1),
-				.global_text_offset = text_offset,
-			};
-		}
-	}
+	// Binary search the paragraph which contains the text offset.
+	const int32_t paragraph_idx = skb_ub_search(text_offset, &rich_text->paragraphs[0].global_text_offset, rich_text->paragraphs_count, sizeof(skb_text_paragraph_t));
 
-	// Past the last block.
-	const int32_t local_text_offset = skb_text_get_utf32_count(&rich_text->paragraphs[rich_text->paragraphs_count - 1].text);
+	const skb_text_paragraph_t* paragraph = &rich_text->paragraphs[paragraph_idx];
+	const int32_t text_count = skb_text_get_utf32_count(&paragraph->text);
+	const int32_t start_text_offset = paragraph->global_text_offset;
 	return (skb_paragraph_position_t) {
-		.paragraph_idx = rich_text->paragraphs_count - 1,
-		.text_offset = local_text_offset,
-		.global_text_offset = rich_text->paragraphs[rich_text->paragraphs_count - 1].global_text_offset + local_text_offset,
+		.paragraph_idx = paragraph_idx,
+		.text_offset = skb_clampi(text_offset - start_text_offset, 0, text_count - 1),
+		.global_text_offset = text_offset,
 	};
 }
 
