@@ -19,9 +19,9 @@ extern "C" {
 * when instantiating structs.
 */
 #if defined(__cplusplus__)
-#define skb_new(type) type
+#define SKB_NEW(type) type
 #else
-#define skb_new(type) (type)
+#define SKB_NEW(type) (type)
 #endif
 
 
