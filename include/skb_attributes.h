@@ -535,7 +535,7 @@ typedef struct skb_attribute_set_t {
 	const struct skb_attribute_set_t* parent_set;
 } skb_attribute_set_t;
 
-#define SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(array) (skb_attribute_set_t) { .attributes = (array), .attributes_count = SKB_COUNTOF(array) }
+#define SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(array) SKB_NEW(skb_attribute_set_t) { .attributes = (array), .attributes_count = SKB_COUNTOF(array) }
 
 /** Creates attribute set that is a reference to specified set in a collection. */
 skb_attribute_set_t skb_attribute_set_make_reference(skb_attribute_set_handle_t handle);
