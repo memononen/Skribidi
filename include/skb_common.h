@@ -14,6 +14,17 @@
 extern "C" {
 #endif
 
+/*
+* Helper macro to work around syntax differences in C vs C++ 
+* when instantiating structs.
+*/
+#if defined(__cplusplus__)
+#define skb_new(type) type
+#else
+#define skb_new(type) (type)
+#endif
+
+
 /**
  * @defgroup common Common
  * Common functionality used across the different features.
