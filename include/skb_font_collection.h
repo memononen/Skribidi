@@ -292,14 +292,9 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
  * @return pointer to the added font, on NULL if failed to load the font.
  */
 skb_font_handle_t skb_font_collection_add_font_from_data(
-	skb_font_collection_t* font_collection,
-	const char* name,
-	const void* font_data,
-	size_t font_data_length,
-	void* context,
-	skb_destroy_func_t* destroy_func,
-	uint8_t font_family,
-	const skb_font_create_params_t* params);
+	skb_font_collection_t* font_collection, const char* name,
+	const void* font_data, size_t font_data_length, void* context, skb_destroy_func_t* destroy_func,
+	uint8_t font_family, const skb_font_create_params_t* params);
 
 #if !defined(SKB_NO_OPEN)
 /**
@@ -310,7 +305,9 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
  * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_collection, const char* file_name, uint8_t font_family, const skb_font_create_params_t* params);
+skb_font_handle_t skb_font_collection_add_font(
+	skb_font_collection_t* font_collection, const char* file_name,
+	uint8_t font_family, const skb_font_create_params_t* params);
 #endif
 
 /**
@@ -322,7 +319,9 @@ skb_font_handle_t skb_font_collection_add_font(skb_font_collection_t* font_colle
  * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_hb_font(skb_font_collection_t* font_collection, const char* name, hb_font_t* hb_font, uint8_t font_family, const skb_font_create_params_t* params);
+skb_font_handle_t skb_font_collection_add_hb_font(
+	skb_font_collection_t* font_collection, const char* name,
+	hb_font_t* hb_font, uint8_t font_family, const skb_font_create_params_t* params);
 
 /**
  * Removes font from the collection.
