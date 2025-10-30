@@ -86,12 +86,12 @@ typedef bool sb__iterate_paragraphs_func_t(skb_rich_text_t* rich_text, int32_t p
 static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_range_t text_range, sb__iterate_paragraphs_func_t* func, void* context)
 {
 	skb_paragraph_position_t start_pos = skb__get_paragraph_position(rich_text, text_range.start);
-	skb_paragraph_position_t end_pos = text_range.end > text_range.start ? skb__get_paragraph_position(rich_text, text_range.end) : start_pos;
+	skb_paragraph_position_t end_pos = text_range.end > text_range.start ? skb__get_paragraph_position(rich_text, text_range.end - 1) : start_pos;
 
 	if (start_pos.paragraph_idx == end_pos.paragraph_idx) {
 		const skb_range_t range = {
 			.start = start_pos.text_offset,
-			.end = end_pos.text_offset,
+			.end = end_pos.text_offset + 1,
 		};
 		func(rich_text, start_pos.paragraph_idx, range, context);
 		return;
@@ -102,7 +102,7 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_range_t text
 	// First paragraph
 	const skb_range_t first_range = {
 		.start = start_pos.text_offset,
-		.end = start_pos.text_offset + skb_maxi(0, skb_text_get_utf32_count(&rich_text->paragraphs[start_pos.paragraph_idx].text) - start_pos.text_offset),
+		.end = skb_text_get_utf32_count(&rich_text->paragraphs[start_pos.paragraph_idx].text),
 	};
 	if (!func(rich_text, paragraph_idx, first_range, context))
 		return;
@@ -122,7 +122,7 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_range_t text
 	// Last paragraph
 	const skb_range_t last_range = {
 		.start = 0,
-		.end = skb_mini(end_pos.text_offset, skb_text_get_utf32_count(&rich_text->paragraphs[end_pos.paragraph_idx].text)),
+		.end = skb_mini(end_pos.text_offset + 1, skb_text_get_utf32_count(&rich_text->paragraphs[end_pos.paragraph_idx].text)),
 	};
 	func(rich_text, paragraph_idx, last_range, context);
 }
@@ -686,7 +686,11 @@ skb_rich_text_change_t skb_rich_text_append_utf8(skb_rich_text_t* rich_text, skb
 skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
 {
 	assert(rich_text);
-	assert(utf32);
+
+	if (!utf32)
+		utf32_count = 0;
+	if (utf32_count == -1)
+		utf32_count = skb_utf32_strlen(utf32);
 
 	int32_t inserted_paragraph_count = 0;
 	skb_range_t* inserted_paragraph_ranges = skb__split_text_into_paragraphs(temp_alloc, utf32, utf32_count, &inserted_paragraph_count);
@@ -805,8 +809,8 @@ static skb_rich_text_change_t skb__rich_text_replace(
 		skb_text_paragraph_t* new_paragraph = &rich_text->paragraphs[start_pos.paragraph_idx];
 
 		skb_attribute_set_t start_paragraph_attributes = {
-			.attributes = start_paragraph_copy.attributes,
-			.attributes_count = start_paragraph_copy.attributes_count,
+			.attributes = (start_paragraph_copy_count > 0) ? start_paragraph_copy.attributes : end_paragraph_copy.attributes,
+			.attributes_count = (start_paragraph_copy_count > 0) ? start_paragraph_copy.attributes_count : end_paragraph_copy.attributes_count,
 		};
 		skb__text_paragraph_init(rich_text, new_paragraph, start_paragraph_attributes);
 		skb_text_append_range(&new_paragraph->text, &start_paragraph_copy.text, (skb_range_t){ .start = 0, .end = start_paragraph_copy_count });
@@ -825,8 +829,8 @@ static skb_rich_text_change_t skb__rich_text_replace(
 		// Start
 		{
 			skb_attribute_set_t start_paragraph_attributes = {
-				.attributes = start_paragraph_copy.attributes,
-				.attributes_count = start_paragraph_copy.attributes_count,
+				.attributes = (start_paragraph_copy_count > 0) ? start_paragraph_copy.attributes : source_paragraphs[source_paragraph_idx].attributes,
+				.attributes_count = (start_paragraph_copy_count > 0) ? start_paragraph_copy.attributes_count : source_paragraphs[source_paragraph_idx].attributes_count,
 			};
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* new_start_paragraph = &rich_text->paragraphs[paragraph_idx++];

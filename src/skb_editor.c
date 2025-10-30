@@ -432,6 +432,21 @@ int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t 
 	return skb__get_text_count(editor, paragraph_idx);
 }
 
+int32_t skb_editor_get_paragraph_text_content_count(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	const skb_text_t* text = skb__get_text(editor, paragraph_idx);
+	if (text) {
+		const uint32_t* utf32 = skb_text_get_utf32(text);
+		const int32_t utf32_count = skb_text_get_utf32_count(text);
+		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count-1]))
+			return utf32_count - 1;
+		return utf32_count;
+	}
+	return 0;
+}
+
+
 skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	assert(editor);
@@ -444,6 +459,70 @@ int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, 
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
 	return skb__get_global_text_offset(editor, paragraph_idx);
+}
+
+skb_text_position_t skb_editor_get_paragraph_content_start_pos(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	return (skb_text_position_t) {
+		.offset = skb__get_global_text_offset(editor, paragraph_idx),
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+}
+
+skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+
+	const int32_t paragraph_global_text_offset = skb__get_global_text_offset(editor, paragraph_idx);
+	const skb_text_t* text = skb_editor_get_paragraph_text(editor, paragraph_idx);
+	if (text) {
+		const uint32_t* utf32 = skb_text_get_utf32(text);
+		int32_t utf32_count = skb_text_get_utf32_count(text);
+		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count - 1])) {
+			return (skb_text_position_t) {
+				.offset = paragraph_global_text_offset + utf32_count - 1,
+				.affinity = SKB_AFFINITY_TRAILING
+			};
+		}
+		return (skb_text_position_t) {
+			.offset = paragraph_global_text_offset + skb_maxi(0, utf32_count - 1),
+			.affinity = SKB_AFFINITY_EOL
+		};
+	}
+
+	return (skb_text_position_t) {
+		.offset = paragraph_global_text_offset,
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+}
+
+skb_text_selection_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	const int32_t global_offset = skb__get_global_text_offset(editor, paragraph_idx);
+	const int32_t text_count = skb__get_text_count(editor, paragraph_idx);
+	return (skb_text_selection_t) {
+		.start_pos = (skb_text_position_t) {
+			.offset = global_offset,
+			.affinity = SKB_AFFINITY_SOL,
+		},
+		.end_pos = (skb_text_position_t) {
+			.offset = global_offset + skb_maxi(0, text_count - 1),
+			.affinity = SKB_AFFINITY_EOL,
+		},
+	};
+}
+
+skb_text_selection_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return (skb_text_selection_t) {
+		.start_pos = skb_editor_get_paragraph_content_start_pos(editor, paragraph_idx),
+		.end_pos = skb_editor_get_paragraph_content_end_pos(editor, paragraph_idx),
+	};
 }
 
 const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor)
@@ -1407,6 +1486,8 @@ static void skb__undo_clear_last_transaction(skb_editor_t* editor)
 
 	SKB_ZERO_STRUCT(transaction);
 	editor->undo_stack_count--;
+
+	assert(editor->undo_stack_head < editor->undo_stack_count);
 }
 
 static void skb__undo_clear_first_transaction(skb_editor_t* editor)
@@ -1428,6 +1509,8 @@ static void skb__undo_clear_first_transaction(skb_editor_t* editor)
 	SKB_ZERO_STRUCT(transaction);
 	editor->undo_stack_count--;
 	memmove(editor->undo_stack, editor->undo_stack + 1, sizeof(skb__editor_undo_transaction_t) * editor->undo_stack_count);
+
+	assert(editor->undo_stack_head < editor->undo_stack_count);
 }
 
 static void skb__reset_undo(skb_editor_t* editor)
@@ -1531,6 +1614,9 @@ int32_t skb_editor_undo_transaction_begin(skb_editor_t* editor)
 {
 	assert(editor);
 	if (!editor->in_undo_transaction) {
+
+		//TODO: we should do this on skb_editor_undo_transaction_end(), after we have checked that we have valid transaction.
+
 		// Delete transactions that cannot be reached anymore
 		while (editor->undo_stack_count > (editor->undo_stack_head + 1))
 			skb__undo_clear_last_transaction(editor);
@@ -1544,6 +1630,7 @@ int32_t skb_editor_undo_transaction_begin(skb_editor_t* editor)
 		// Add new transaction
 		SKB_ARRAY_RESERVE(editor->undo_stack, editor->undo_stack_count + 1);
 		editor->undo_stack_head = editor->undo_stack_count++;
+		assert(editor->undo_stack_count == editor->undo_stack_head + 1);
 		skb__editor_undo_transaction_t* transaction = &editor->undo_stack[editor->undo_stack_head];
 		SKB_ZERO_STRUCT(transaction);
 		// Capture initial state
@@ -1563,8 +1650,10 @@ void skb_editor_undo_transaction_end(skb_editor_t* editor, int32_t transaction_i
 	if (editor->in_undo_transaction == 0) {
 		assert(editor->undo_stack_head >= 0);
 		skb__editor_undo_transaction_t* transaction = &editor->undo_stack[editor->undo_stack_head];
-		if (skb_range_is_empty(transaction->states_range))
+		if (skb_range_is_empty(transaction->states_range)) {
+			editor->undo_stack_head--;
 			skb__undo_clear_last_transaction(editor);
+		}
 	}
 }
 
@@ -1618,6 +1707,7 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 	assert(editor);
 	if (editor->undo_stack_head + 1 < editor->undo_stack_count) {
 		editor->undo_stack_head++;
+		assert(editor->undo_stack_head < editor->undo_stack_count);
 		const skb__editor_undo_transaction_t* undo_transaction = &editor->undo_stack[editor->undo_stack_head];
 
 		for (int32_t i = undo_transaction->states_range.start; i < undo_transaction->states_range.end; i++) {
@@ -1853,13 +1943,14 @@ void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
 
 	if (paragraph_attribute.kind != 0) {
-		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 1 }, paragraph_attribute);
+		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 2 }, paragraph_attribute);
 	}
 
 	if (editor->input_filter_callback)
 		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
 
 	if (skb_rich_text_get_utf32_count(input_text) > 0) {
+		editor->allow_append_undo = false; // Do not allow to merge with previous change.
 		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
 		editor->allow_append_undo = false;
 		skb__update_layout(editor, temp_alloc, change);
@@ -2123,6 +2214,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
 
 		if (skb_rich_text_get_utf32_count(input_text) > 0) {
+			editor->allow_append_undo = false; // Do not allow to merge with previous change.
 			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
 			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
@@ -2271,6 +2363,64 @@ void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 	skb__emit_on_change(editor);
 }
 
+
+static skb_text_position_t skb__adjust_text_position(skb_text_position_t pos, skb_paragraph_range_t range, int32_t inserted_count)
+{
+	const int32_t removed_count = range.end_pos.global_text_offset - range.start_pos.global_text_offset;
+
+	if (pos.offset > range.end_pos.global_text_offset) {
+		// Out of range, move by changed amount.
+		pos.offset += inserted_count - removed_count;
+	} else if (pos.offset > range.start_pos.global_text_offset) {
+		// In range, make sure we stay inside the range.
+		const int32_t new_end_offset = range.end_pos.global_text_offset - removed_count + inserted_count;
+		pos.offset = skb_mini(pos.offset, new_end_offset);
+		// Make sure the leading affinity stays inside the new range.
+		if (pos.offset == new_end_offset && pos.affinity == SKB_AFFINITY_LEADING)
+			pos.affinity = SKB_AFFINITY_TRAILING;
+	}
+
+	if (pos.offset < 0) {
+		pos.offset = 0;
+		pos.affinity = SKB_AFFINITY_SOL;
+	}
+
+	return pos;
+}
+
+static skb_text_selection_t skb__adjust_text_selection(skb_text_selection_t selection, skb_paragraph_range_t range, int32_t inserted_count)
+{
+	return (skb_text_selection_t) {
+		.start_pos = skb__adjust_text_position(selection.start_pos, range, inserted_count),
+		.end_pos = skb__adjust_text_position(selection.end_pos, range, inserted_count),
+	};
+}
+
+void skb_editor_replace_range_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t range, const uint32_t* utf32, int32_t utf32_len)
+{
+	assert(editor);
+
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
+
+	if (editor->input_filter_callback)
+		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
+
+	// Insert pos gets clamped to the layout text size.
+	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, range);
+
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, sel_range.start_pos, sel_range.end_pos, input_text);
+	skb_rich_text_change_t change = skb__replace_range(editor, temp_alloc, sel_range.start_pos, sel_range.end_pos, input_text);
+
+	// Adjust selection
+	editor->selection = skb__adjust_text_selection(editor->selection, sel_range, utf32_len);
+
+	skb__capture_undo_text_end(editor, transaction_id);
+
+	editor->allow_append_undo = false;
+	skb__update_layout(editor, temp_alloc, change);
+	skb__pick_active_attributes(editor);
+	skb__emit_on_change(editor);
+}
 
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute)
 {

@@ -249,11 +249,26 @@ const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int3
 /** @return text count of specified paragraph. */
 int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t paragraph_idx);
 
+/** @return text content count (without paragraph separator) of specified paragraph. */
+int32_t skb_editor_get_paragraph_text_content_count(const skb_editor_t* editor, int32_t paragraph_idx);
+
 /** @return attribute set applied to specified paragraph. */
 skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return global text offset of specified paragraph. */
 int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return text position of the first character of the paragraph. */
+skb_text_position_t skb_editor_get_paragraph_content_start_pos(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return text position of the last character of the paragraph (excluding the paragraph separator).  */
+skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return text range of the paragraph text content (excluding the paragraph separator). */
+skb_text_selection_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return text range of the paragraph text. */
+skb_text_selection_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return the parameters used to create the editor. */
 const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor);
@@ -465,6 +480,20 @@ void skb_editor_paste_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_all
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  */
 void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Replaces range of text with new utf-32 string.
+ * The function will adjust the current selection to compensate the changed text.
+ * If the range is empty (start_pos == end_pos), the function will act as insert.
+ * If the utf-32 string is empty, the function will act as remove.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param range range of text to replace
+ * @param utf32 pointer to utf-32 string to insert
+ * @param utf32_len length of the string, or -1 if nul terminated
+ */
+void skb_editor_replace_range_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t range, const uint32_t* utf32, int32_t utf32_len);
+
 
 /**
  * Toggles attribute for the current selection.

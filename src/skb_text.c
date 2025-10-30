@@ -428,8 +428,8 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
 {
 	assert(text);
-	assert(utf8);
 
+	if (!utf8) return;
 	if (utf8_count < 0) utf8_count = (int32_t)strlen(utf8);
 
 	const int32_t utf32_count = skb_utf8_to_utf32_count(utf8, utf8_count);
@@ -450,8 +450,8 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
 {
 	assert(text);
-	assert(utf32);
 
+	if (!utf32) return;
 	if (utf32_count < 0) utf32_count = skb_utf32_strlen(utf32);
 
 	skb__text_reserve(text, text->text_count + utf32_count);

@@ -40,7 +40,7 @@ skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(con
 		if (text_pos.affinity == SKB_AFFINITY_LEADING || text_pos.affinity == SKB_AFFINITY_EOL) {
 			result.text_offset = skb_layout_next_grapheme_offset(&rich_layout->paragraphs[result.paragraph_idx].layout, result.text_offset);
 			// Affinity adjustment may push the offset to next paragraph
-			if (result.text_offset >= skb_layout_get_text_count(&rich_layout->paragraphs[result.paragraph_idx].layout)) {
+			if (text_pos.affinity == SKB_AFFINITY_LEADING && result.text_offset >= skb_layout_get_text_count(&rich_layout->paragraphs[result.paragraph_idx].layout)) {
 				if ((result.paragraph_idx + 1) < rich_layout->paragraphs_count) {
 					result.text_offset = 0;
 					result.paragraph_idx++;
@@ -314,17 +314,22 @@ void skb_rich_layout_set_from_rich_text(
 			if (layout_paragraph->list_marker_counter != list_marker_counter)
 				rebuild = true;
 
+			// TODO: if just this changes we could optimize.
+			if (layout_paragraph->group_flags != layout_params.flags)
+				rebuild = true;
+
 			if (rebuild) {
 				skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, paragraph_text, (skb_attribute_set_t){0});
 				layout_paragraph->version = paragraph_id;
 				layout_paragraph->list_marker_counter = list_marker_counter;
+				layout_paragraph->group_flags = layout_params.flags;
 			}
 		}
 
 		const skb_rect2_t layout_bounds = skb_layout_get_bounds(&layout_paragraph->layout);
 		const float layout_advance_y =  skb_layout_get_advance_y(&layout_paragraph->layout);
 
-		layout_paragraph->offset_y = calculated_height;
+		layout_paragraph->offset_y = start_y;
 
 		calculated_width = skb_maxf(calculated_width, layout_bounds.width);
 		calculated_height = start_y + layout_bounds.y + layout_bounds.height;
