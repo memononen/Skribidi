@@ -54,6 +54,8 @@ typedef struct notes_context_t {
 	skb_vec2_t mouse_pos;
 	bool mouse_pressed;
 
+	bool show_caret_details;
+
 	ui_context_t ui;
 
 	GLFWcursor* hand_cursor;
@@ -158,6 +160,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
+	ctx->show_caret_details = false;
+
 	ctx->hand_cursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
 
 	ctx->attribute_collection = skb_attribute_collection_create();
@@ -215,11 +219,11 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		};
 
 		const skb_attribute_t underline_attributes[] = {
-			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, body_color),
+			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f),
 		};
 
 		const skb_attribute_t strikethrough_attributes[] = {
-			skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 1.5f, 0.f, body_color),
+			skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 1.5f, 0.f),
 		};
 
 		const skb_attribute_t italic_attributes[] = {
@@ -297,7 +301,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t composition_attributes[] = {
 		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -877,23 +881,9 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 
 		update_ime_rect(ctx);
 
-/*		if (key == GLFW_KEY_F6) {
-			ctx->show_run_details = !ctx->show_run_details;
-		}
-		if (key == GLFW_KEY_F7) {
-			ctx->show_baseline_details = !ctx->show_baseline_details;
-		}
 		if (key == GLFW_KEY_F8) {
 			ctx->show_caret_details = !ctx->show_caret_details;
 		}
-		if (key == GLFW_KEY_F9) {
-			ctx->show_glyph_details = !ctx->show_glyph_details;
-		}
-		if (key == GLFW_KEY_F10) {
-			ctx->atlas_scale += 0.25f;
-			if (ctx->atlas_scale > 1.01f)
-				ctx->atlas_scale = 0.0f;
-		}*/
 	}
 }
 
@@ -1155,7 +1145,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 
-		{
+		if (ctx->show_caret_details) {
 			const char* affinity_str[] = { "-", "TR", "LD", "SOL", "EOL" };
 			// Selection text
 			float x = editor_bounds.x;
@@ -1177,7 +1167,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			render_draw_layout(ctx->rc, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
 
 			// Tick at paragraph start
-			{
+			if (ctx->show_caret_details) {
 				float x = editor_bounds.x + editor_bounds.width + 5;
 				float y = edit_layout_y;
 				debug_render_line(ctx->rc, x, y, x + 15, y, skb_rgba(0,0,0,128), 1.f);
@@ -1188,53 +1178,6 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				debug_render_text(ctx->rc, x + 5, y + 17, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "[%d] @%d %d %c",
 					pi, skb_editor_get_paragraph_global_text_offset(ctx->editor, pi),text_count, text_count != content_count ? 'N' : ' ');
 			}
-
-/*			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
-			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
-			const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
-			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
-			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
-			const int32_t decorations_count = skb_layout_get_decorations_count(edit_layout);
-			const skb_decoration_t* decorations = skb_layout_get_decorations(edit_layout);
-
-			// Draw underlines
-			for (int32_t i = 0; i < decorations_count; i++) {
-				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
-				}
-			}
-
-			for (int li = 0; li < lines_count; li++) {
-				const skb_layout_line_t* line = &lines[li];
-				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
-						const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
-						const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
-						const float font_size = layout_run->font_size;
-						for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
-							const skb_glyph_t* glyph = &glyphs[gi];
-							render_draw_glyph(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y,
-								layout_params->font_collection, layout_run->font_handle, glyph->gid, font_size,
-								attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
-						}
-					}
-				}
-			}
-
-			// Draw through lines
-			for (int32_t i = 0; i < decorations_count; i++) {
-				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
-				}
-			}*/
-
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -1253,7 +1196,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			debug_render_line(ctx->rc, caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color, caret_line_width);
 
-			float as = skb_absf(caret_bot_y - caret_top_y) / 10.f;
+			float as = skb_absf(caret_bot_y - caret_top_y) / 5.f;
 			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
 			float tri_top_x = caret_pos.x + caret_pos.ascender * caret_slope;
 			float tri_top_y = caret_pos.y + caret_pos.ascender;
@@ -1301,9 +1244,6 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		float tx = 100.f;
 		float ty = 50.f;
-
-		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(ctx->editor);
-		const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(ctx->editor);
 
 		{
 			// Bold
@@ -1518,9 +1458,9 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 //	debug_render_atlas_overlay(ctx->rc, 20.f, 50.f, ctx->atlas_scale, 1);
 
 	// Draw info
-/*	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F9: Glyph details %s   F10: Atlas %.1f%%",
-		ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);*/
+	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
+		"F8: Caret details %s",
+		ctx->show_caret_details ? "ON" : "OFF");
 
 	ui_frame_end(&ctx->ui);
 

@@ -347,6 +347,8 @@ typedef struct skb_attribute_decoration_t {
 	uint8_t position;
 	/** Style of the decoration line. See skb_decoration_style_t. */
 	uint8_t style;
+	/** Source of the decoration color. See skb_decoration_color_source_t */
+	uint8_t color_source;
 	/** Thickness of the decoration line to draw. If left to 0.0, the thickness will be based on the font. */
 	float thickness;
 	/** Offset of the decoration line relative to the position. For under and bottom the offset grows down, and for through and top line the offset grows up. */
@@ -624,8 +626,11 @@ skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, flo
 /** @returns new fill color text attribute. See skb_attribute_fill_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
 
+/** @returns new text decoration attribute, decoration color is inerited from text. See skb_attribute_decoration_t */
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset);
+
 /** @returns new text decoration attribute. See skb_attribute_decoration_t */
-skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
+skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
 
 /** @returns new object align attribute. See skb_attribute_object_align_t */
 skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline);

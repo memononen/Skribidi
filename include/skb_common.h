@@ -15,13 +15,13 @@ extern "C" {
 #endif
 
 /*
-* Helper macro to work around syntax differences in C vs C++ 
+* Helper macro to work around syntax differences in C vs C++
 * when instantiating structs.
 */
 #if defined(__cplusplus__)
-#define SKB_NEW(type) type
+	#define SKB_NEW(type) type
 #else
-#define SKB_NEW(type) (type)
+	#define SKB_NEW(type) (type)
 #endif
 
 
@@ -142,6 +142,14 @@ typedef enum {
 	/** Wave line. */
 	SKB_DECORATION_STYLE_WAVY,
 } skb_decoration_style_t;
+
+/** Enum describing how the decoration color is specified. */
+typedef enum {
+	/** Inherit decoration color from text. */
+	SKB_DECORATION_COLOR_FROM_TEXT = 0,
+	/** Use the decoration color from decoration attribute. */
+	SKB_DECORATION_COLOR_SPECIFIC,
+} skb_decoration_color_source_t;
 
 /** Enum describing text decoration position. */
 typedef enum {

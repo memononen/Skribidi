@@ -286,7 +286,7 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_attribute_t link_attributes[] = {
 			skb_attribute_make_font_size(24.f),
 			skb_attribute_make_fill(link_color),
-			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, skb_rgba(0,0,0,0)),
+			skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, skb_rgba(0,0,0,0)),
 		};
 
 		const skb_attribute_t icon_attributes[] = {

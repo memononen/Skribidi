@@ -342,7 +342,7 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color)
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
@@ -350,6 +350,23 @@ skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position
 		.kind = SKB_ATTRIBUTE_DECORATION,
 		.position = (uint8_t)position,
 		.style = (uint8_t)style,
+		.color_source = SKB_DECORATION_COLOR_FROM_TEXT,
+		.thickness = thickness,
+		.offset = offset,
+		.color = (skb_color_t){0},
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.decoration = (skb_attribute_decoration_t) {
+		.kind = SKB_ATTRIBUTE_DECORATION,
+		.position = (uint8_t)position,
+		.style = (uint8_t)style,
+		.color_source = SKB_DECORATION_COLOR_SPECIFIC,
 		.thickness = thickness,
 		.offset = offset,
 		.color = color,

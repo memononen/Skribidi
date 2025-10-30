@@ -756,7 +756,7 @@ static float skb__calc_run_end_whitespace(const skb_layout_t* layout, skb_range_
 	return whitespace_width;
 }
 
-static void skb__calc_run_range_end_points(const skb_layout_t* layout, skb_range_t run_range, float* start_x, float* end_x)
+static void skb__calc_run_range_end_points(const skb_layout_t* layout, const skb_layout_line_t* line, skb_range_t run_range, float* start_x, float* end_x)
 {
 	*start_x = 0.f;
 	*end_x = 0.f;
@@ -774,11 +774,16 @@ static void skb__calc_run_range_end_points(const skb_layout_t* layout, skb_range
 	*end_x = last_glyph->offset_x + last_glyph->advance_x;
 
 	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
-	float white_space = skb__calc_run_end_whitespace(layout, run_range);
-	if (layout_is_rtl)
-		*start_x += white_space;
-	else
-		*end_x -= white_space;
+
+	if ((layout_is_rtl && run_range.start == line->layout_run_range.start)
+		|| (!layout_is_rtl && run_range.end == line->layout_run_range.end)) {
+		// Prune white space if the run is end of line.
+		float white_space = skb__calc_run_end_whitespace(layout, run_range);
+		if (layout_is_rtl)
+			*start_x += white_space;
+		else
+			*end_x -= white_space;
+	}
 }
 
 // Prunes line end in visual order based on direction.
@@ -1991,7 +1996,14 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 				// Calculate position of the range.
 				float start_x = 0.f, end_x = 0.f;
-				skb__calc_run_range_end_points(layout, decoration_run_range, &start_x, &end_x);
+				skb__calc_run_range_end_points(layout, line, decoration_run_range, &start_x, &end_x);
+
+				// Figure out color
+				skb_color_t color = attr_decoration.color;
+				if (attr_decoration.color_source == SKB_DECORATION_COLOR_FROM_TEXT) {
+					const skb_attribute_fill_t fill = skb_attributes_get_fill(layout_run_attributes, layout->params.attribute_collection);
+					color = fill.color;
+				}
 
 				// Add decoration
 				SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
@@ -2003,7 +2015,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 				decoration->thickness = thickness;
 				decoration->style = attr_decoration.style;
 				decoration->position = attr_decoration.position;
-				decoration->color = attr_decoration.color;
+				decoration->color = color;
 				decoration->layout_run_idx = (uint16_t)decoration_run_range.start;
 			}
 		}

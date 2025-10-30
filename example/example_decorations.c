@@ -106,35 +106,35 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t deco_double_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t deco_dotted_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t deco_dashed_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 	const skb_attribute_t deco_wavy_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),
 	};
 
 
