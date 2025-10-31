@@ -168,6 +168,18 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_inline_padding(float before, float after)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.inline_padding = (skb_attribute_inline_padding_t) {
+		.kind = SKB_ATTRIBUTE_INLINE_PADDING,
+		.before = before,
+		.after = after,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
 {
 	skb_attribute_t attribute;
@@ -579,6 +591,13 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_s
 	};
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LINE_HEIGHT);
 	return attr ? attr->line_height : default_line_height;
+}
+
+skb_attribute_inline_padding_t skb_attributes_get_inline_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_inline_padding_t default_inline_padding = { 0 };
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INLINE_PADDING);
+	return attr ? attr->inline_padding : default_inline_padding;
 }
 
 float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)

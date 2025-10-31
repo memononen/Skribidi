@@ -367,6 +367,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 					// Object or icon run.
 					SKB_ARRAY_RESERVE(layout->shaping_runs, layout->shaping_runs_count + 1);
 					skb__shaping_run_t* shaping_run = &layout->shaping_runs[layout->shaping_runs_count++];
+					SKB_ZERO_STRUCT(shaping_run);
 					shaping_run->script = layout->text_props[style_range.start].script;
 					shaping_run->text_range = style_range;
 					shaping_run->direction = (uint8_t)bidi_direction;
@@ -439,6 +440,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 									if (j > font_run_start) {
 										SKB_ARRAY_RESERVE(layout->shaping_runs, layout->shaping_runs_count + 1);
 										skb__shaping_run_t* shaping_run = &layout->shaping_runs[layout->shaping_runs_count++];
+										SKB_ZERO_STRUCT(shaping_run);
 										shaping_run->script = script;
 										shaping_run->text_range.start = font_run_start;
 										shaping_run->text_range.end = j;
@@ -459,6 +461,7 @@ static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_
 								if (text_range.end > font_run_start) {
 									SKB_ARRAY_RESERVE(layout->shaping_runs, layout->shaping_runs_count + 1);
 									skb__shaping_run_t* shaping_run = &layout->shaping_runs[layout->shaping_runs_count++];
+									SKB_ZERO_STRUCT(shaping_run);
 									shaping_run->script = script;
 									shaping_run->text_range.start = font_run_start;
 									shaping_run->text_range.end = text_range.end;
@@ -803,6 +806,9 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 					break;
 			}
 
+			// TODO: this does not work with inline padding.
+			// We should do absolute positioning and inline padding bofre truncation.
+
 			// Remove cluster and all of it's glyphs.
 			skb_range_t cluster_glyph_range = { . start = cluster->glyphs_offset, .end = cluster->glyphs_offset + cluster->glyphs_count };
 			for (int32_t gi = cluster_glyph_range.start; gi < cluster_glyph_range.end; gi++)
@@ -1053,12 +1059,23 @@ static skb_layout_run_t* skb__line_append_shaping_run_range(skb_layout_t* layout
 	return cur_layout_run;
 }
 
-static float skb__get_cluster_width(const skb_layout_t* layout, int32_t cluster_idx)
+static float skb__get_cluster_width(const skb_layout_t* layout, int32_t shaping_run_idx, int32_t cluster_idx)
 {
 	const skb_cluster_t* cluster = &layout->clusters[cluster_idx];
+
 	float cluster_width = 0.f;
 	for (int32_t gi = 0; gi < cluster->glyphs_count; gi++)
 		cluster_width += layout->glyphs[cluster->glyphs_offset + gi].advance_x;
+
+	// Include run padding at the extrema.
+	const skb__shaping_run_t* shaping_run = &layout->shaping_runs[shaping_run_idx];
+	if (cluster_idx == shaping_run->cluster_range.start) {
+		cluster_width += shaping_run->padding_before;
+	}
+	if (cluster_idx == shaping_run->cluster_range.end - 1) {
+		cluster_width += shaping_run->padding_after;
+	}
+
 	return cluster_width;
 }
 
@@ -1596,6 +1613,12 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	return false;
 }
 
+static bool skb__equals_inline_padding(const skb_attribute_inline_padding_t* a, const skb_attribute_inline_padding_t* b)
+{
+	return skb_equalsf(a->before, b->before, 1e-6f) && skb_equalsf(a->after, b->after, 1e-6f);
+}
+
+
 void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t* layout)
 {
 	const bool ignore_must_breaks = layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
@@ -1655,8 +1678,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		while (skb__shaping_run_cluster_iter_is_valid(&end_it, layout)) {
 
 			// Advance whole glyph cluster, cannot split in between.
-			const skb_cluster_t* cluster = &layout->clusters[end_it.cluster_idx]; //cluster_run_end];
-			float cluster_width = skb__get_cluster_width(layout, end_it.cluster_idx); //cluster_run_end);
+			const skb_cluster_t* cluster = &layout->clusters[end_it.cluster_idx];
+			float cluster_width = skb__get_cluster_width(layout, end_it.shaping_run_idx, end_it.cluster_idx);
 
 			const int cp_offset = cluster->text_offset + cluster->text_count - 1;
 
@@ -1686,7 +1709,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// Keep track of the white space after the run end, it will not be taken into account for the line breaking.
 			// When the direction does not match, the space will be inside the line (not end of it), so we ignore that.
 			// Treat tab as non-whitespace so that it allocates space at the end of the line too.
-			const bool codepoint_is_rtl = skb_is_rtl(layout->shaping_runs[end_it.shaping_run_idx].direction); // shaping_run->direction);
+			const bool codepoint_is_rtl = skb_is_rtl(layout->shaping_runs[end_it.shaping_run_idx].direction);
 			const bool codepoint_is_whitespace = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_WHITESPACE);
 			const bool codepoint_is_control = (layout->text_props[cp_offset].flags & SKB_TEXT_PROP_CONTROL);
 			if (codepoint_is_rtl == layout_is_rtl && (codepoint_is_whitespace || codepoint_is_control) && !codepoint_is_tab) {
@@ -1726,7 +1749,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			run_width = 0.f;
 			skb__shaping_run_cluster_iter_t cit = start_it;
 			while (cit.cluster_idx < end_it.cluster_idx) {
-				float cluster_width = skb__get_cluster_width(layout, cit.cluster_idx);
+				float cluster_width = skb__get_cluster_width(layout, cit.shaping_run_idx, cit.cluster_idx);
 				if ((cur_line->bounds.width + run_width + cluster_width) > line_break_width) {
 					// This glyph would overflow, stop here. run_end is exclusive, so one past the last valid index.
 					end_it = cit;
@@ -1737,7 +1760,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			}
 			// Consume at least one cluster so that we don't get stuck.
 			if (start_it.cluster_idx == end_it.cluster_idx) {
-				run_width = skb__get_cluster_width(layout, end_it.cluster_idx);
+				run_width = skb__get_cluster_width(layout, end_it.shaping_run_idx, end_it.cluster_idx);
 				skb__shaping_run_cluster_iter_next(&end_it, layout);
 			}
 
@@ -1856,9 +1879,27 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		const float leading_above = leading * 0.5f;
 		line->baseline = line->bounds.y + leading_above - line->ascender;
 
+		skb_attribute_inline_padding_t prev_inline_padding = {0};
+
 		float cur_x = start_x;
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			skb_layout_run_t* layout_run = &layout->layout_runs[ri];
+			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout_run->attributes_range);
+			skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
+
+			if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
+				if (ri > line->layout_run_range.start) {
+					skb_layout_run_t* prev_layout_run = &layout->layout_runs[ri-1];
+					prev_layout_run->padding_right = layout_is_rtl ? prev_inline_padding.before : prev_inline_padding.after;
+					cur_x += prev_layout_run->padding_right;
+				}
+				layout_run->padding_left = layout_is_rtl ? inline_padding.after : inline_padding.before;
+				cur_x += layout_run->padding_left;
+			}
+			if (ri + 1 == line->layout_run_range.end) {
+				layout_run->padding_right = layout_is_rtl ? inline_padding.before : inline_padding.after;
+			}
+
 			layout_run->bounds.x += cur_x;
 			layout_run->bounds.y += line->baseline;
 			layout_run->ref_baseline += line->baseline;
@@ -1869,6 +1910,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 				glyph->offset_y += line->baseline;
 				cur_x += glyph->advance_x;
 			}
+
+			prev_inline_padding = inline_padding;
 		}
 
 		start_y += line->bounds.height;
@@ -2138,6 +2181,9 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 	layout->glyphs_count = 0;
 
 	hb_buffer_t* buffer = hb_buffer_create();
+
+	skb_attribute_inline_padding_t prev_inline_padding = {0};
+
 	for (int32_t i = 0; i < layout->shaping_runs_count; ++i) {
 		skb__shaping_run_t* shaping_run = &layout->shaping_runs[i];
 		const skb__content_run_t* content_run = &layout->content_runs[shaping_run->content_run_idx];
@@ -2168,7 +2214,6 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 			shaping_run->cluster_range.end = layout->clusters_count;
 
 		} else {
-
 			hb_buffer_clear_contents(buffer);
 			skb__shape_run(build_context, layout, shaping_run, content_run, buffer, &shaping_run->font_handle, 1, 0);
 
@@ -2194,6 +2239,21 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 					glyph->advance_x += word_spacing;
 			}
 		}
+
+		// Update inline padding for shaping run.
+		skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(content_run_attributes, layout->params.attribute_collection);
+		if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
+			if (i > 0) {
+				skb__shaping_run_t* prev_shaping_run = &layout->shaping_runs[i-1];
+				prev_shaping_run->padding_after = prev_inline_padding.after;
+			}
+			shaping_run->padding_before = inline_padding.before;
+		}
+		if (i+1 >= layout->shaping_runs_count) {
+			shaping_run->padding_after = inline_padding.after;
+		}
+
+		prev_inline_padding = inline_padding;
 	}
 	hb_buffer_destroy(buffer);
 
@@ -2885,15 +2945,16 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 
 		float x = 0.f;
 		float advance = 0.f;
+		float mid_point = 0.f;
 		skb_caret_iterator_result_t left = {0};
 		skb_caret_iterator_result_t right = {0};
 
-		while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
+		while (skb_caret_iterator_next(&caret_iter, &x, &advance, &mid_point, &left, &right)) {
 			if (hit_x < x) {
 				result = left.text_position;
 				break;
 			}
-			if (hit_x < x + advance * 0.5f) {
+			if (hit_x < x + mid_point) {
 				result = right.text_position;
 				break;
 			}
@@ -3099,12 +3160,13 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	int32_t glyph_idx = SKB_INVALID_INDEX;
 	float x = 0.f;
 	float advance = 0.f;
+	float mid_point = 0.f;
 	skb_caret_iterator_result_t left = {0};
 	skb_caret_iterator_result_t right = {0};
 	bool found_x = false;
 	bool found_style = false;
 
-	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right) && (!found_style || !found_x)) {
+	while (skb_caret_iterator_next(&caret_iter, &x, &advance, &mid_point, &left, &right) && (!found_style || !found_x)) {
 
 		if (left.text_position.offset == caret_style_text_offset && left.text_position.affinity == SKB_AFFINITY_TRAILING) {
 			layout_run_idx = left.layout_run_idx;
@@ -3309,6 +3371,8 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 
 				const bool is_rtl = skb_is_rtl(layout_run->direction);
 
+				x += layout_run->padding_left;
+
 				for (int32_t ci = cluster_range.start; ci != cluster_range.end; ci += cluster_range_delta) {
 					const skb_cluster_t* cluster = &layout->clusters[ci];
 					const skb_range_t cluster_text_range = { .start = cluster->text_offset, .end = cluster->text_offset + cluster->text_count };
@@ -3402,6 +3466,8 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 					};
 					callback(rect, context);
 				}
+
+				x += layout_run->padding_right;
 			}
 		}
 	}
@@ -3483,6 +3549,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 		const skb_layout_run_t* first_run = &layout->layout_runs[iter.layout_run_idx];
 		iter.pending_left.glyph_idx = first_run->glyph_range.start;
 		iter.pending_left.cluster_idx = skb_is_rtl(first_run->direction) ? first_run->cluster_range.end - 1 : first_run->cluster_range.start;
+		iter.x += first_run->padding_left;
 	}
 
 	// Iterate over layout runs on the line.
@@ -3500,6 +3567,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 		const skb_layout_run_t* first_run = &layout->layout_runs[iter.layout_run_idx];
 		iter.cluster_idx = skb_is_rtl(first_run->direction) ? first_run->cluster_range.end - 1 : first_run->cluster_range.start;
 		iter.cluster_end = skb_is_rtl(first_run->direction) ? first_run->cluster_range.start - 1 : first_run->cluster_range.end;
+		iter.run_padding = first_run->padding_left;
 	} else {
 		iter.layout_run_idx = SKB_INVALID_INDEX;
 		iter.layout_run_end = SKB_INVALID_INDEX;
@@ -3512,7 +3580,7 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	return iter;
 }
 
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right)
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, float* mid_point, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right)
 {
 	if (iter->end_of_line)
 		return false;
@@ -3521,9 +3589,11 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 	const bool line_is_rtl = skb_is_rtl(layout->resolved_direction);
 
 	// Carry over from previous update.
+	// Padding is applied separately from the advancement so that we get correct caret placement.
 	*left = iter->pending_left;
 	*x = iter->x;
-	*advance = iter->advance;
+	*advance = iter->advance + iter->run_padding;
+	*mid_point = iter->run_padding + iter->advance * 0.5f;
 
 	if (iter->end_of_runs) {
 		// End of line
@@ -3567,6 +3637,8 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 		// Advance to next state
 		if (!iter->end_of_runs) {
 			iter->x += iter->advance;
+			iter->x += iter->run_padding;
+			iter->run_padding = 0.f;
 
 			// Advance cluster
 			bool end_of_graphemes = false;
@@ -3592,6 +3664,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			}
 
 			if (end_of_clusters) {
+				iter->run_padding += cur_layout_run->padding_right;
 				iter->layout_run_idx++;
 				iter->end_of_runs = iter->layout_run_idx == iter->layout_run_end;
 				if (!iter->end_of_runs) {
@@ -3599,6 +3672,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 					cur_layout_run = &layout->layout_runs[iter->layout_run_idx];
 					iter->cluster_idx = skb_is_rtl(cur_layout_run->direction) ? cur_layout_run->cluster_range.end - 1 : cur_layout_run->cluster_range.start;
 					iter->cluster_end = skb_is_rtl(cur_layout_run->direction) ? cur_layout_run->cluster_range.start - 1 : cur_layout_run->cluster_range.end;
+					iter->run_padding += cur_layout_run->padding_left;
 					// Start new cluster
 					skb__init_cluster_iter(iter);
 				}

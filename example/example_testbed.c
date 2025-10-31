@@ -717,10 +717,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					float caret_x = 0.f;
 					float caret_advance = 0.f;
+					float caret_mid_point = 0.f;
 					skb_caret_iterator_result_t left = {0};
 					skb_caret_iterator_result_t right = {0};
 
-					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &left, &right)) {
+					while (skb_caret_iterator_next(&caret_iter, &caret_x, &caret_advance, &caret_mid_point, &left, &right)) {
 
 						float cx = caret_x;
 						debug_render_line(ctx->rc, cx, bot_y, cx, top_y + 5, caret_color, -1.f);

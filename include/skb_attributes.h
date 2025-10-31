@@ -31,7 +31,7 @@ extern "C" {
  */
 
 /**
- * Paragraph writing base direction attribute.
+ * Paragraph writing base direction attribute. (paragraph & layout only)
  * Subset of https://drafts.csswg.org/css-writing-modes-4/
  */
 typedef struct skb_attribute_text_base_direction_t {
@@ -168,7 +168,20 @@ typedef struct skb_attribute_line_height_t {
 } skb_attribute_line_height_t;
 
 /**
- * Tab stop increment attribute. (layout only)
+ * Inline padding attribute. Adds inline paddingto before and after a content run.
+ * Of consequetive runs have same padding, the padding will not be applied between the runs.
+ */
+typedef struct skb_attribute_inline_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Space added before the run. */
+	float after;
+	/** Space added after the run. */
+	float before;
+} skb_attribute_inline_padding_t;
+
+/**
+ * Tab stop increment attribute. (paragraph & layout only)
  */
 typedef struct skb_attribute_tab_stop_increment_t {
 	// Attribute kind tag, must be first.
@@ -178,7 +191,7 @@ typedef struct skb_attribute_tab_stop_increment_t {
 } skb_attribute_tab_stop_increment_t;
 
 /**
- * Vertical paragraph padding attribute.
+ * Vertical paragraph padding attribute. (paragraph & layout only)
  * The a paragraph is assigned to a group, the before/after spacing will be applied to the first and last item in the group,
  * and items within the group are spaced at group_spacing.
  */
@@ -194,7 +207,7 @@ typedef struct skb_attribute_vertical_padding_t {
 } skb_attribute_vertical_padding_t;
 
 /**
- * Horizontal paragraph padding attribute.
+ * Horizontal paragraph padding attribute. (paragraph & layout only)
  */
 typedef struct skb_attribute_horizontal_padding_t {
 	// Attribute kind tag, must be first.
@@ -206,7 +219,8 @@ typedef struct skb_attribute_horizontal_padding_t {
 } skb_attribute_horizontal_padding_t;
 
 /**
- * Indent level of a paragraph attribute. (see skb_attribute_indent_increment_t)
+ * Indent level of a paragraph attribute. (paragraph & layout only)
+ * See skb_attribute_indent_increment_t.
  */
 typedef struct skb_attribute_indent_level_t {
 	// Attribute kind tag, must be first.
@@ -216,7 +230,8 @@ typedef struct skb_attribute_indent_level_t {
 } skb_attribute_indent_level_t;
 
 /**
- * Indent increments attribute. (see skb_attribute_indent_increment_t)
+ * Indent increments attribute. (paragraph & layout only)
+ * See skb_attribute_indent_increment_t.
  */
 typedef struct skb_attribute_indent_increment_t {
 	// Attribute kind tag, must be first.
@@ -244,7 +259,7 @@ typedef enum {
 } skb_list_marker_style_t;
 
 /**
- * List marker attribute.
+ * List marker attribute. (paragraph & layout only)
  * The marker is placed outside the text, before the text start (depending on text direction).
  * Note: The marker will be added to the first line of a skb_layout_t, to create a list, use skb_rich_layout_t and create a paragraph per list item.
  */
@@ -262,7 +277,7 @@ typedef struct skb_attribute_list_marker_t {
 } skb_attribute_list_marker_t;
 
 /**
- * Text wrap attribute. (layout only)
+ * Text wrap attribute. (paragraph & layout only)
  */
 typedef struct skb_attribute_text_wrap_t {
 	// Attribute kind tag, must be first.
@@ -272,7 +287,7 @@ typedef struct skb_attribute_text_wrap_t {
 } skb_attribute_text_wrap_t;
 
 /**
- * Text overflow attribute (layout only)
+ * Text overflow attribute (paragraph & layout only)
  */
 typedef struct skb_attribute_text_overflow_t {
 	// Attribute kind tag, must be first.
@@ -282,7 +297,7 @@ typedef struct skb_attribute_text_overflow_t {
 } skb_attribute_text_overflow_t;
 
 /**
- * Vertical trim attribute. (layout only)
+ * Vertical trim attribute. (paragraph & layout only)
  */
 typedef struct skb_attribute_vertical_trim_t {
 	// Attribute kind tag, must be first.
@@ -292,7 +307,7 @@ typedef struct skb_attribute_vertical_trim_t {
 } skb_attribute_vertical_trim_t;
 
 /**
- * Align attribute, used for both horizontal and vertical alignment. (layout only)
+ * Align attribute, used for both horizontal and vertical alignment. (paragraph & layout only)
  */
 typedef struct skb_attribute_align_t {
 	// Attribute kind tag, must be first.
@@ -302,7 +317,7 @@ typedef struct skb_attribute_align_t {
 } skb_attribute_align_t;
 
 /**
- * Baseline align attribute. (layout only)
+ * Baseline align attribute. (paragraph & layout only)
  */
 typedef struct skb_attribute_baseline_align_t {
 	// Attribute kind tag, must be first.
@@ -393,7 +408,7 @@ typedef struct skb_attribute_object_padding_t {
 typedef uint64_t skb_attribute_set_handle_t;
 
 /**
- * Group tag attribute.
+ * Group tag attribute. (paragraph & layout only)
  * Some attributes create a single effect of a sequence of paragraphs with same group, as if the paragraphs were inside a container.
  */
 typedef struct skb_attribute_group_tag_t {
@@ -440,6 +455,7 @@ typedef enum {
 	SKB_ATTRIBUTE_WORD_SPACING = SKB_TAG('w','o','s','p'),
 	/** Tag for skb_attribute_line_height_t */
 	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
+	SKB_ATTRIBUTE_INLINE_PADDING = SKB_TAG('i','p','a','d'),
 	/** Tag for skb_attribute_tab_stop_increment_t */
 	SKB_ATTRIBUTE_TAB_STOP_INCREMENT = SKB_TAG('t','a','b','s'),
 	/** Tag for skb_attribute_vertical_padding_t */
@@ -498,6 +514,7 @@ typedef union skb_attribute_t {
 	skb_attribute_letter_spacing_t letter_spacing;
 	skb_attribute_word_spacing_t word_spacing;
 	skb_attribute_line_height_t line_height;
+	skb_attribute_inline_padding_t inline_padding;
 	skb_attribute_tab_stop_increment_t tab_stop_increment;
 	skb_attribute_vertical_padding_t vertical_padding;
 	skb_attribute_horizontal_padding_t horizontal_padding;
@@ -580,6 +597,8 @@ skb_attribute_t skb_attribute_make_word_spacing(float word_spacing);
 
 /** @returns new line height attribute. See skb_attribute_line_height_t */
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
+
+skb_attribute_t skb_attribute_make_inline_padding(float before, float after);
 
 /** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment);
@@ -748,6 +767,8 @@ float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, cons
  * @return first found attribute or default value.
  */
 skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+skb_attribute_inline_padding_t skb_attributes_get_inline_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first tab stop increment attribute or default value if not found.

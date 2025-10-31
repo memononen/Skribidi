@@ -55,6 +55,7 @@ typedef struct notes_context_t {
 	bool mouse_pressed;
 
 	bool show_caret_details;
+	bool show_run_details;
 
 	ui_context_t ui;
 
@@ -161,6 +162,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
 	ctx->show_caret_details = false;
+	ctx->show_run_details = false;
 
 	ctx->hand_cursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
 
@@ -237,6 +239,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		const skb_attribute_t code_attributes[] = {
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
 			skb_attribute_make_fill(code_color),
+			skb_attribute_make_inline_padding(4,4),
 		};
 
 		const skb_attribute_t superscript_attributes[] = {
@@ -884,6 +887,9 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 		if (key == GLFW_KEY_F8) {
 			ctx->show_caret_details = !ctx->show_caret_details;
 		}
+		if (key == GLFW_KEY_F9) {
+			ctx->show_run_details = !ctx->show_run_details;
+		}
 	}
 }
 
@@ -1178,6 +1184,46 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				debug_render_text(ctx->rc, x + 5, y + 17, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "[%d] @%d %d %c",
 					pi, skb_editor_get_paragraph_global_text_offset(ctx->editor, pi),text_count, text_count != content_count ? 'N' : ' ');
 			}
+
+			if (ctx->show_run_details) {
+				const skb_layout_line_t* layout_lines = skb_layout_get_lines(edit_layout);
+				const int32_t layout_lines_count = skb_layout_get_lines_count(edit_layout);
+				for (int32_t i = 0; i < layout_lines_count; i++) {
+					const skb_layout_line_t* layout_line = &layout_lines[i];
+					debug_render_stroked_rect(ctx->rc,
+						layout_line->bounds.x, layout_line->bounds.y + edit_layout_y, layout_line->bounds.width, layout_line->bounds.height,
+						skb_rgba(0, 0, 0,32), 1.f);
+				}
+			}
+
+			if (ctx->show_run_details) {
+				const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
+				const int32_t layout_runs_count = skb_layout_get_layout_runs_count(edit_layout);
+				for (int32_t i = 0; i < layout_runs_count; i++) {
+					const skb_layout_run_t* layout_run = &layout_runs[i];
+
+					const skb_color_t col = skb_is_rtl(layout_run->direction) ? skb_rgba(255,100,128,128) : skb_rgba(128,100,255,128);
+
+					debug_render_stroked_rect(ctx->rc,
+						layout_run->bounds.x, layout_run->bounds.y + edit_layout_y, layout_run->bounds.width, layout_run->bounds.height,
+						col, 1.f);
+
+					if (layout_run->padding_left > 0) {
+						debug_render_filled_rect(ctx->rc,
+							layout_run->bounds.x-layout_run->padding_left, layout_run->bounds.y + edit_layout_y, layout_run->padding_left, layout_run->bounds.height,
+							skb_rgba(128,255,100,128));
+					}
+					if (layout_run->padding_right > 0) {
+						debug_render_filled_rect(ctx->rc,
+							layout_run->bounds.x+layout_run->bounds.width, layout_run->bounds.y + edit_layout_y, layout_run->padding_right, layout_run->bounds.height,
+							skb_rgba(128,255,100,128));
+					}
+
+					float mid_x = layout_run->bounds.x + layout_run->bounds.width * 0.5f;
+					debug_render_text(ctx->rc, mid_x, edit_layout_y + layout_run->bounds.y + layout_run->bounds.height + 8, 5, RENDER_ALIGN_CENTER, col,
+					"%d%c", i, skb_is_rtl(layout_run->direction) ? '<' : '>');
+				}
+			}
 		}
 
 		// Caret is generally drawn only when there is no selection.
@@ -1459,8 +1505,8 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F8: Caret details %s",
-		ctx->show_caret_details ? "ON" : "OFF");
+		"F8: Caret details %s   F9: Run details %s",
+		ctx->show_caret_details ? "ON" : "OFF", ctx->show_run_details ? "ON" : "OFF");
 
 	ui_frame_end(&ctx->ui);
 

@@ -296,6 +296,10 @@ typedef struct skb_layout_run_t {
 	float font_size;
 	/** Attributes assigned to the run. Use skb_layout_get_run_attributes() to get the run's attribute set. */
 	skb_range_t attributes_range;
+	/** Padding left of the run bounds. */
+	float padding_left;
+	/** Padding right of the run bounds. */
+	float padding_right;
 	/** ID of the content run where the layout run originates. */
 	intptr_t content_run_id;
 	union {
@@ -833,6 +837,7 @@ typedef struct skb_caret_iterator_t {
 
 	float advance;
 	float x;
+	float run_padding;
 
 	int32_t layout_run_idx;
 	int32_t layout_run_end;
@@ -868,11 +873,12 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
  * @param iter iterator to advance.
  * @param x (out) x location of the caret between two graphemes.
  * @param advance (out) distance to the next caret location.
+ * @param mid_point (out) mid point towards the next glyph.
  * @param left iterator result on left grapheme.
  * @param right iterator result on right grapheme.
  * @return true as long as the output values are valid.
  */
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
+bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, float* mid_point, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
 
 /**
  * Returns four-letter ISO 15924 script tag of the specified script.
