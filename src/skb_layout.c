@@ -933,7 +933,7 @@ typedef struct skb__shaping_run_cluster_iter_t {
 	int32_t shaping_run_idx;
 } skb__shaping_run_cluster_iter_t;
 
-skb__shaping_run_cluster_iter_t skb__shaping_run_cluster_iter_make(const skb_layout_t* layout)
+static skb__shaping_run_cluster_iter_t skb__shaping_run_cluster_iter_make(const skb_layout_t* layout)
 {
 	const skb_range_t cluster_range = layout->shaping_runs_count > 0 ? layout->shaping_runs[0].cluster_range : (skb_range_t){0};
 	return (skb__shaping_run_cluster_iter_t) {
@@ -943,12 +943,26 @@ skb__shaping_run_cluster_iter_t skb__shaping_run_cluster_iter_make(const skb_lay
 	};
 }
 
-bool skb__shaping_run_cluster_iter_is_valid(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
+static bool skb__shaping_run_cluster_iter_is_valid(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
 {
 	return it->shaping_run_idx < layout->shaping_runs_count;
 }
 
-void skb__shaping_run_cluster_iter_next(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
+static bool skb__shaping_run_cluster_iter_less(skb__shaping_run_cluster_iter_t* a, skb__shaping_run_cluster_iter_t* b)
+{
+	if (a->shaping_run_idx < b->shaping_run_idx)
+		return true;
+	if (a->shaping_run_idx == b->shaping_run_idx)
+		return a->cluster_end_idx < b->cluster_end_idx;
+	return false;
+}
+
+static bool skb__shaping_run_cluster_iter_equals(skb__shaping_run_cluster_iter_t* a, skb__shaping_run_cluster_iter_t* b)
+{
+	return a->shaping_run_idx == b->shaping_run_idx && a->cluster_idx == b->cluster_idx;
+}
+
+static void skb__shaping_run_cluster_iter_next(skb__shaping_run_cluster_iter_t* it, const skb_layout_t* layout)
 {
 	if (it->shaping_run_idx >= layout->shaping_runs_count)
 		return;
@@ -974,6 +988,7 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 			if (cluster_range.start == cur_layout_run->cluster_range.end) {
 				cur_layout_run->cluster_range.end = cluster_range.end;
 				skb__update_glyph_range(layout, cur_layout_run);
+				SKB_SET_FLAG(cur_layout_run->flags, SKB_LAYOUT_RUN_HAS_END, cluster_range.end == shaping_run->cluster_range.end);
 				return cur_layout_run;
 			}
 		}
@@ -1005,6 +1020,9 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 
 	layout_run->cluster_range = cluster_range;
 	skb__update_glyph_range(layout, layout_run);
+
+	SKB_SET_FLAG(layout_run->flags, SKB_LAYOUT_RUN_HAS_START, cluster_range.start == shaping_run->cluster_range.start);
+	SKB_SET_FLAG(layout_run->flags, SKB_LAYOUT_RUN_HAS_END, cluster_range.end == shaping_run->cluster_range.end);
 
 	if (layout_run->type == SKB_CONTENT_RUN_OBJECT || layout_run->type == SKB_CONTENT_RUN_ICON) {
 		if (layout_run->type == SKB_CONTENT_RUN_OBJECT)
@@ -1748,18 +1766,18 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// Fit as many glyphs as we can on the line, and adjust run_end up to that point.
 			run_width = 0.f;
 			skb__shaping_run_cluster_iter_t cit = start_it;
-			while (cit.cluster_idx < end_it.cluster_idx) {
+			while (skb__shaping_run_cluster_iter_less(&cit, &end_it)) {
 				float cluster_width = skb__get_cluster_width(layout, cit.shaping_run_idx, cit.cluster_idx);
 				if ((cur_line->bounds.width + run_width + cluster_width) > line_break_width) {
 					// This glyph would overflow, stop here. run_end is exclusive, so one past the last valid index.
 					end_it = cit;
 					break;
 				}
-				run_width += layout->glyphs[cit.cluster_idx].advance_x;
+				run_width += cluster_width;
 				skb__shaping_run_cluster_iter_next(&cit, layout);
 			}
 			// Consume at least one cluster so that we don't get stuck.
-			if (start_it.cluster_idx == end_it.cluster_idx) {
+			if (skb__shaping_run_cluster_iter_equals(&start_it, &end_it)) {
 				run_width = skb__get_cluster_width(layout, end_it.shaping_run_idx, end_it.cluster_idx);
 				skb__shaping_run_cluster_iter_next(&end_it, layout);
 			}
@@ -1885,19 +1903,26 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			skb_layout_run_t* layout_run = &layout->layout_runs[ri];
 			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout_run->attributes_range);
-			skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
 
-			if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
-				if (ri > line->layout_run_range.start) {
-					skb_layout_run_t* prev_layout_run = &layout->layout_runs[ri-1];
-					prev_layout_run->padding_right = layout_is_rtl ? prev_inline_padding.before : prev_inline_padding.after;
-					cur_x += prev_layout_run->padding_right;
+			// Apply padding when it changes between runs, and the layout run contains the contents start or end..
+			skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
+			if (layout_run->flags & SKB_LAYOUT_RUN_HAS_START) {
+				if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
+					// Apply padding to previous line if possible
+					if (ri > line->layout_run_range.start) {
+						skb_layout_run_t* prev_layout_run = &layout->layout_runs[ri - 1];
+						if (prev_layout_run->flags & SKB_LAYOUT_RUN_HAS_END) {
+							prev_layout_run->padding_right = layout_is_rtl ? prev_inline_padding.before : prev_inline_padding.after;
+							cur_x += prev_layout_run->padding_right;
+						}
+					}
+					layout_run->padding_left = layout_is_rtl ? inline_padding.after : inline_padding.before;
+					cur_x += layout_run->padding_left;
 				}
-				layout_run->padding_left = layout_is_rtl ? inline_padding.after : inline_padding.before;
-				cur_x += layout_run->padding_left;
 			}
-			if (ri + 1 == line->layout_run_range.end) {
-				layout_run->padding_right = layout_is_rtl ? inline_padding.before : inline_padding.after;
+			if (layout_run->flags & SKB_LAYOUT_RUN_HAS_END) {
+				if ((ri + 1) == line->layout_run_range.end)
+					layout_run->padding_right = layout_is_rtl ? inline_padding.before : inline_padding.after;
 			}
 
 			layout_run->bounds.x += cur_x;

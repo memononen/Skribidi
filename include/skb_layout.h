@@ -261,6 +261,16 @@ typedef struct skb_layout_line_t {
 	uint8_t flags;
 } skb_layout_line_t;
 
+
+
+/** Enum describing flags for skb_layout_line_t. */
+typedef enum {
+	/** Flag indicating that the run has content run start. */
+	SKB_LAYOUT_RUN_HAS_START	= 1 << 0,
+	/** Flag indicating that the run has content run end. */
+	SKB_LAYOUT_RUN_HAS_END		= 1 << 1,
+} skb_layout_run_flags_t;
+
 /**
  * Struct describing continuous run of shaped and positioned layout content.
  *
@@ -300,6 +310,8 @@ typedef struct skb_layout_run_t {
 	float padding_left;
 	/** Padding right of the run bounds. */
 	float padding_right;
+	/** Flags for the run, see skb_layout_run_flags_t. */
+	uint8_t flags;
 	/** ID of the content run where the layout run originates. */
 	intptr_t content_run_id;
 	union {
