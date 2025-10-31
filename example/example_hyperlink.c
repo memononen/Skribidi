@@ -340,55 +340,6 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 
 		render_draw_layout_with_color_overrides(ctx->rc, 0, 0, layout, SKB_RASTERIZE_ALPHA_SDF, color_overrides);
-
-		/*
-		{
-			const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
-			const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
-			const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
-			const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
-
-			for (int32_t i = 0; i < layout_lines_count; i++) {
-				const skb_layout_line_t* line = &layout_lines[i];
-
-				debug_render_stroked_rect(ctx->rc, line->bounds.x, line->bounds.y, line->bounds.width, line->bounds.height, skb_rgba(0,0,255,128), -2.f);
-
-				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-					const skb_layout_run_t* run = &layout_runs[ri];
-
-					debug_render_dashed_rect(ctx->rc, run->offset_x, run->offset_y, run->content_width, run->content_height, -5.f, skb_rgba(255,0,0,128), -1.f);
-				}
-
-			}
-		}
-		*/
-/*
-		{
-			const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
-			const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
-
-			for (int32_t i = 0; i < layout_lines_count; i++) {
-				const skb_layout_line_t* line = &layout_lines[i];
-				skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, i);
-
-				float x = 0.f;
-				float advance = 0.f;
-				skb_caret_iterator_result_t left = {0};
-				skb_caret_iterator_result_t right = {0};
-
-				while (skb_caret_iterator_next(&caret_iter, &x, &advance, &left, &right)) {
-
-					debug_render_stroked_rect(ctx->rc, x, line->bounds.y, advance, line->bounds.height, skb_rgba(255,0,0,255), -2.f);
-
-					debug_render_text(ctx->rc, x-0.1f, line->bounds.y+line->bounds.height+3, 3, RENDER_ALIGN_END, skb_rgba(0,220,0,255), "%d", left.text_position.offset);
-					debug_render_text(ctx->rc, x-0.1f, line->bounds.y+line->bounds.height+6, 3, RENDER_ALIGN_END, skb_rgba(0,220,128,255), "%d", left.glyph_idx);
-
-					debug_render_text(ctx->rc, x+0.1f, line->bounds.y+line->bounds.height+3, 3, RENDER_ALIGN_START, skb_rgba(220,0,0,255), "%d", right.text_position.offset);
-					debug_render_text(ctx->rc, x+0.1f, line->bounds.y+line->bounds.height+6, 3, RENDER_ALIGN_START, skb_rgba(220,0,128,255), "%d", right.glyph_idx);
-				}
-			}
-		}
-*/
 	}
 
 	render_pop_transform(ctx->rc);
