@@ -1876,8 +1876,19 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 		// Trim white space from end of the line.
 		const float whitespace_width = skb__calc_run_end_whitespace(layout, line->layout_run_range);
+		// Trim whitespace from the end of line run.
+		if (!skb_range_is_empty(line->layout_run_range)) {
+			if (layout_is_rtl)
+				layout->layout_runs[line->layout_run_range.start].bounds.width -= whitespace_width;
+			else
+				layout->layout_runs[line->layout_run_range.end - 1].bounds.width -= whitespace_width;
+		}
+		// Trim whitespace from the line.
 		line->bounds.width -= whitespace_width;
+
+		// Align line.
 		line->bounds.x = layout->bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
+
 		// Handle first line indent.
 		if (li == 0) {
 			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment);

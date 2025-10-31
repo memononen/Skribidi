@@ -351,6 +351,33 @@ typedef struct skb_attribute_fill_t {
 } skb_attribute_fill_t;
 
 /**
+ * Background fill color attribute.
+ * It is up to the client code to decide if multiple fill attributes are supported.
+ */
+typedef struct skb_attribute_background_fill_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Color of the background */
+	skb_color_t color;
+} skb_attribute_background_fill_t;
+
+/**
+ * Background padding attribute.
+ */
+typedef struct skb_attribute_background_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Horizontal padding at start (left for LTR, right for RTL). */
+	float start;
+	/** Horizontal padding at end (right for LTR, left for RTL). */
+	float end;
+	/** Vertical padding top */
+	float top;
+	/** Vertical padding bottom */
+	float bottom;
+} skb_attribute_background_padding_t;
+
+/**
  * Text line decoration attribute.
  * It is up to the client rendering code to decide if multiple decoration attributes are supported.
  * Loosely based on https://drafts.csswg.org/css-text-decor-4/
@@ -455,6 +482,7 @@ typedef enum {
 	SKB_ATTRIBUTE_WORD_SPACING = SKB_TAG('w','o','s','p'),
 	/** Tag for skb_attribute_line_height_t */
 	SKB_ATTRIBUTE_LINE_HEIGHT = SKB_TAG('l','n','h','e'),
+	/** Tag for skb_attribute_inline_padding_t */
 	SKB_ATTRIBUTE_INLINE_PADDING = SKB_TAG('i','p','a','d'),
 	/** Tag for skb_attribute_tab_stop_increment_t */
 	SKB_ATTRIBUTE_TAB_STOP_INCREMENT = SKB_TAG('t','a','b','s'),
@@ -484,6 +512,10 @@ typedef enum {
 	SKB_ATTRIBUTE_BASELINE_SHIFT = SKB_TAG('b','l','s','f'),
 	/** Tag for skb_attribute_fill_t */
 	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
+	/** Tag for skb_attribute_background_fill_t */
+	SKB_ATTRIBUTE_BACKGROUND_FILL = SKB_TAG('b','g','f','l'),
+	/** Tag for skb_attribute_object_padding_t */
+	SKB_ATTRIBUTE_BACKGROUND_PADDING = SKB_TAG('b','g','p','a'),
 	/** Tag for skb_attribute_decoration_t */
 	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
 	/** Tag for skb_attribute_object_align_t */
@@ -529,6 +561,8 @@ typedef union skb_attribute_t {
 	skb_attribute_baseline_align_t baseline_align;
 	skb_attribute_baseline_shift_t baseline_shift;
 	skb_attribute_fill_t fill;
+	skb_attribute_background_fill_t background_fill;
+	skb_attribute_background_padding_t background_padding;
 	skb_attribute_decoration_t decoration;
 	skb_attribute_object_align_t object_align;
 	skb_attribute_object_padding_t object_padding;
@@ -598,6 +632,7 @@ skb_attribute_t skb_attribute_make_word_spacing(float word_spacing);
 /** @returns new line height attribute. See skb_attribute_line_height_t */
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
 
+/** @returns new inline padding attribute. See skb_attribute_inline_padding_t */
 skb_attribute_t skb_attribute_make_inline_padding(float before, float after);
 
 /** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
@@ -644,6 +679,15 @@ skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, flo
 
 /** @returns new fill color text attribute. See skb_attribute_fill_t */
 skb_attribute_t skb_attribute_make_fill(skb_color_t color);
+
+/** @returns new background fill color attribute. See skb_attribute_background_fill_t */
+skb_attribute_t skb_attribute_make_background_fill(skb_color_t color);
+
+/** @returns new background padding attribute. See skb_attribute_background_padding_t */
+skb_attribute_t skb_attribute_make_background_padding(float start, float end, float top, float bottom);
+
+/** @returns new background padding attribute. See skb_attribute_background_padding_t */
+skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float vertical);
 
 /** @returns new text decoration attribute, decoration color is inerited from text. See skb_attribute_decoration_t */
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset);
@@ -768,6 +812,13 @@ float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, cons
  */
 skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
+/**
+ * Returns first inline padding attribute or default value if not found.
+ * The default value is: before 0.0, after 0.0.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
 skb_attribute_inline_padding_t skb_attributes_get_inline_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
@@ -832,6 +883,24 @@ skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t a
  * @return first found attribute or default value.
  */
 skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first background fill attribute or default value if not found.
+ * The default value is transparent.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first background padding attribute or default value if not found.
+ * The default value is 0 padding.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_background_padding_t skb_attributes_get_background_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first object align attribute or default value if not found.

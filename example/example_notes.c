@@ -173,7 +173,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_color_t header_color = skb_rgba(64,64,64,255);
 	const skb_color_t body_color = skb_rgba(16,16,16,255);
-	const skb_color_t code_color = skb_rgba(32,64,220,255);
+	const skb_color_t code_color = skb_rgba(64,50,128,255);
+	const skb_color_t code_bg_color = skb_rgba(64,50,128,32);
 
 	{
 		const skb_attribute_t h1_attributes[] = {
@@ -239,6 +240,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		const skb_attribute_t code_attributes[] = {
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
 			skb_attribute_make_fill(code_color),
+			skb_attribute_make_background_fill(code_bg_color),
+			skb_attribute_make_background_padding(0,0,2,4),
 			skb_attribute_make_inline_padding(4,4),
 		};
 
@@ -806,18 +809,21 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_L && (mods & GLFW_MOD_CONTROL)) {
+			// Align left
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_T && (mods & GLFW_MOD_CONTROL)) {
+			// Align Center
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_R && (mods & GLFW_MOD_CONTROL)) {
+			// Align end
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end");
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, selection, list);
@@ -844,6 +850,12 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_reference_by_name(ctx->attribute_collection, "u"));
 			ctx->allow_char = false;
 		}
+		if (key == GLFW_KEY_E && (mods & GLFW_MOD_CONTROL)) {
+			// Inline Code
+			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, skb_attribute_make_reference_by_name(ctx->attribute_collection, "code"));
+			ctx->allow_char = false;
+		}
+
 		if (key == GLFW_KEY_ESCAPE) {
 			// Clear selection
 			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);

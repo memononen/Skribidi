@@ -463,10 +463,75 @@ void render_draw_decoration(render_context_t* rc,
 	render_draw_quad(rc, &quad);
 }
 
+static void render__filled_rect(render_context_t* rc, float x, float y, float w, float h, skb_color_t col)
+{
+	const render_vert_t verts[] = {
+		{ {x,y}, col },
+		{ {x+w,y}, col },
+		{ {x+w,y+h}, col },
+		{ {x,y}, col },
+		{ {x+w,y+h}, col },
+		{ {x,y+h}, col },
+	};
+	render_draw_debug_tris(rc, verts, SKB_COUNTOF(verts));
+}
+
+static void render__draw_layout_backgrounds(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
+{
+	assert(rc);
+	assert(layout);
+
+	// Draw layout
+	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
+	const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
+	const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+
+	const skb_vec2_t offset = { .x = offset_x, .y = offset_y };
+
+	for (int32_t li = 0; li < layout_lines_count; li++) {
+		const skb_layout_line_t* line = &layout_lines[li];
+
+//		if (!arb_rect2_overlap(view_bounds, skb_rect2_translate(line->culling_bounds, offset)))
+//			continue;
+
+		// Draw backgrounds
+		int32_t ri = line->layout_run_range.start;
+		while (ri < line->layout_run_range.end) {
+
+			const int32_t content_run_idx = layout_runs[ri].content_run_idx;
+			const skb_layout_run_t* start_run = &layout_runs[ri];
+
+			while (ri < line->layout_run_range.end && layout_runs[ri].content_run_idx == content_run_idx)
+				ri++;
+
+			const skb_layout_run_t* end_run = &layout_runs[ri - 1];
+
+			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, start_run);
+			skb_attribute_background_fill_t bg_fill = skb_attributes_get_background_fill(run_attributes, layout_params->attribute_collection);
+			skb_attribute_background_padding_t bg_padding = skb_attributes_get_background_padding(run_attributes, layout_params->attribute_collection);
+
+			if (bg_fill.color.a != 0) {
+				skb_color_t bg_color = bg_fill.color;
+
+				const float x = offset_x + start_run->bounds.x - start_run->padding_left - bg_padding.start;
+				const float y = offset_y + skb_minf(start_run->bounds.y, end_run->bounds.y) - bg_padding.top;
+				const float width = start_run->padding_left + (end_run->bounds.x - start_run->bounds.x) + end_run->bounds.width + end_run->padding_right + bg_padding.start + bg_padding.end;
+				const float height = skb_maxf(start_run->bounds.height, end_run->bounds.height) + bg_padding.top + bg_padding.bottom;
+
+				render__filled_rect(rc, x,y, width, height, bg_color);
+			}
+		}
+	}
+}
+
 void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode)
 {
 	assert(rc);
 	assert(layout);
+
+	render__draw_layout_backgrounds(rc, offset_x, offset_y, layout, alpha_mode);
 
 	// Draw layout
 	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
@@ -664,7 +729,7 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		}
 
 		// Draw glyphs
-		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
+		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
 			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
 			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, layout_params->attribute_collection);
@@ -695,7 +760,7 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 		}
 
 		// Draw through lines.
-		for (int32_t i = 0; i < decorations_count; i++) {
+		for (int32_t i = line->decorations_range.start; i < line->decorations_range.end; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
 			if (decoration->position == SKB_DECORATION_THROUGHLINE) {
 				render_draw_decoration(rc, offset_x + decoration->offset_x, offset_y + decoration->offset_y,

@@ -354,6 +354,45 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color)
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_background_fill(skb_color_t color)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.background_fill = (skb_attribute_background_fill_t) {
+		.kind = SKB_ATTRIBUTE_BACKGROUND_FILL,
+		.color = color,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_background_padding(float start, float end, float top, float bottom)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.background_padding = (skb_attribute_background_padding_t) {
+		.kind = SKB_ATTRIBUTE_BACKGROUND_PADDING,
+		.start = start,
+		.end = end,
+		.top = top,
+		.bottom = bottom,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float vertical)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.background_padding = (skb_attribute_background_padding_t) {
+		.kind = SKB_ATTRIBUTE_BACKGROUND_PADDING,
+		.start = horizontal,
+		.end = horizontal,
+		.top = vertical,
+		.bottom = vertical,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset)
 {
 	skb_attribute_t attribute;
@@ -657,6 +696,24 @@ skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attribute
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FILL);
 	return attr ? attr->fill : default_fill;
 }
+
+skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_background_fill_t default_background_fill = {
+		.color = {0, 0, 0, 0 },
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BACKGROUND_FILL);
+	return attr ? attr->background_fill : default_background_fill;
+}
+
+skb_attribute_background_padding_t skb_attributes_get_background_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_background_padding_t default_background_padding = { 0 };
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BACKGROUND_PADDING);
+	return attr ? attr->background_padding : default_background_padding;
+}
+
 
 skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
