@@ -393,6 +393,31 @@ skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.paragraph_fill = (skb_attribute_paragraph_fill_t) {
+		.kind = SKB_ATTRIBUTE_PARAGRAPH_FILL,
+		.color = color,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_paragraph_fill_padding(float start, float end, float top, float bottom)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.paragraph_fill_padding = (skb_attribute_paragraph_fill_padding_t) {
+		.kind = SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING,
+		.start = start,
+		.end = end,
+		.top = top,
+		.bottom = bottom,
+	};
+	return attribute;
+}
+
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset)
 {
 	skb_attribute_t attribute;
@@ -420,6 +445,21 @@ skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position
 		.color_source = SKB_DECORATION_COLOR_SPECIFIC,
 		.thickness = thickness,
 		.offset = offset,
+		.color = color,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width, skb_color_t color)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.indent_decoration = (skb_attribute_indent_decoration_t) {
+		.kind = SKB_ATTRIBUTE_INDENT_DECORATION,
+		.min_level = min_level,
+		.max_level = max_level,
+		.offset_x = offset_x,
+		.width = width,
 		.color = color,
 	};
 	return attribute;
@@ -714,6 +754,30 @@ skb_attribute_background_padding_t skb_attributes_get_background_padding(const s
 	return attr ? attr->background_padding : default_background_padding;
 }
 
+skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_paragraph_fill_t default_paragraph_fill = {
+		.color = {0, 0, 0, 0 },
+	};
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_FILL);
+	return attr ? attr->paragraph_fill : default_paragraph_fill;
+}
+
+skb_attribute_paragraph_fill_padding_t skb_attributes_get_paragraph_fill_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_paragraph_fill_padding_t default_paragraph_fill_padding = { 0 };
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING);
+	return attr ? attr->paragraph_fill_padding : default_paragraph_fill_padding;
+}
+
+skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_indent_decoration_t default_indent_decoration = { 0 };
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_DECORATION);
+	return attr ? attr->indent_decoration : default_indent_decoration;
+}
 
 skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {

@@ -363,6 +363,8 @@ typedef struct skb_attribute_background_fill_t {
 
 /**
  * Background padding attribute.
+ * Allows to define how much the text background bounds should be expanded for drawing.
+ * Does not affect layout.
  */
 typedef struct skb_attribute_background_padding_t {
 	// Attribute kind tag, must be first.
@@ -378,7 +380,7 @@ typedef struct skb_attribute_background_padding_t {
 } skb_attribute_background_padding_t;
 
 /**
- * Text line decoration attribute.
+ * Text decoration attribute.
  * It is up to the client rendering code to decide if multiple decoration attributes are supported.
  * Loosely based on https://drafts.csswg.org/css-text-decor-4/
  */
@@ -398,6 +400,54 @@ typedef struct skb_attribute_decoration_t {
 	/** Color of the decoration line. */
 	skb_color_t color;
 } skb_attribute_decoration_t;
+
+/**
+ * Indent decoration attribute. Draws a vertical decoration bar at each indent level.
+ * Negative min/max indent levels are counted from the back, so min = -1, max = -1 will draw just the last indent level, or min = 0, max = -1, will always draw everything..
+ */
+typedef struct skb_attribute_indent_decoration_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Minimum level of indent to decorate (inclusive), if negative, counted from the end. */
+	int32_t min_level;
+	/** Maximum level of indent to decorate (inclusive), if negative, counted from the end. */
+	int32_t max_level;
+	/** Offset away from the line start. */
+	float offset_x;
+	/** Width of the decoration line. */
+	float width;
+	/** Color of the decoration bar. */
+	skb_color_t color;
+} skb_attribute_indent_decoration_t;
+
+/**
+ * Paragraph background fill color attribute.
+ * It is up to the client code to decide if multiple fill attributes are supported.
+ */
+typedef struct skb_attribute_paragraph_fill_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Color of the paragraph back ground */
+	skb_color_t color;
+} skb_attribute_paragraph_fill_t;
+
+/**
+ * Paragraph background padding attribute.
+ * Allows to define how much the paragraph background bounds should be expanded for drawing.
+ * Does not affect layout.
+ */
+typedef struct skb_attribute_paragraph_fill_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Horizontal padding at start (left for LTR, right for RTL). */
+	float start;
+	/** Horizontal padding at end (right for LTR, left for RTL). */
+	float end;
+	/** Vertical padding top */
+	float top;
+	/** Vertical padding bottom */
+	float bottom;
+} skb_attribute_paragraph_fill_padding_t;
 
 /**
  * Object alignment attribute.
@@ -452,6 +502,7 @@ typedef struct skb_attribute_group_tag_t {
 typedef struct skb_attribute_reference_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
+	/** Handle attribute set in layouts attribute collection. */
 	skb_attribute_set_handle_t handle;
 } skb_attribute_reference_t;
 
@@ -518,6 +569,12 @@ typedef enum {
 	SKB_ATTRIBUTE_BACKGROUND_PADDING = SKB_TAG('b','g','p','a'),
 	/** Tag for skb_attribute_decoration_t */
 	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
+	/** Tag for skb_attribute_indent_decoration_t */
+	SKB_ATTRIBUTE_INDENT_DECORATION = SKB_TAG('i','n','d','e'),
+	/** Tag for skb_attribute_paragraph_fill_t */
+	SKB_ATTRIBUTE_PARAGRAPH_FILL = SKB_TAG('p','a','f','i'),
+	/** Tag for skb_attribute_paragraph_fill_padding_t */
+	SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING = SKB_TAG('p','a','m','a'),
 	/** Tag for skb_attribute_object_align_t */
 	SKB_ATTRIBUTE_OBJECT_ALIGN = SKB_TAG('o','b','a','l'),
 	/** Tag for skb_attribute_object_padding_t */
@@ -563,7 +620,10 @@ typedef union skb_attribute_t {
 	skb_attribute_fill_t fill;
 	skb_attribute_background_fill_t background_fill;
 	skb_attribute_background_padding_t background_padding;
+	skb_attribute_paragraph_fill_t paragraph_fill;
+	skb_attribute_paragraph_fill_padding_t paragraph_fill_padding;
 	skb_attribute_decoration_t decoration;
+	skb_attribute_indent_decoration_t indent_decoration;
 	skb_attribute_object_align_t object_align;
 	skb_attribute_object_padding_t object_padding;
 	skb_attribute_group_tag_t group_tag;
@@ -689,11 +749,20 @@ skb_attribute_t skb_attribute_make_background_padding(float start, float end, fl
 /** @returns new background padding attribute. See skb_attribute_background_padding_t */
 skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float vertical);
 
+/** @returns new paragraph fill attribute. See skb_attribute_paragraph_fill_t */
+skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color);
+
+/** @returns new paragraph fill padding attribute. See skb_attribute_paragraph_fill_padding_t */
+skb_attribute_t skb_attribute_make_paragraph_fill_padding(float start, float end, float top, float bottom);
+
 /** @returns new text decoration attribute, decoration color is inerited from text. See skb_attribute_decoration_t */
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset);
 
 /** @returns new text decoration attribute. See skb_attribute_decoration_t */
 skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
+
+/** @returns new idnent decoration attribute. See skb_attribute_indent_decoration_t */
+skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width, skb_color_t color);
 
 /** @returns new object align attribute. See skb_attribute_object_align_t */
 skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline);
@@ -901,6 +970,33 @@ skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_att
  * @return first found attribute or default value.
  */
 skb_attribute_background_padding_t skb_attributes_get_background_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first paragraph fill attribute or default value if not found.
+ * The default value is transparent.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first paragraph fill padding attribute or default value if not found.
+ * The default value is 0 padding.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_paragraph_fill_padding_t skb_attributes_get_paragraph_fill_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns first indent decoration attribute or default value if not found.
+ * The default value is no decoration.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first object align attribute or default value if not found.
