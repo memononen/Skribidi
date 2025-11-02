@@ -1847,7 +1847,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	// Align layout
 	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
 	if (layout_is_rtl)
-		layout->bounds.x -= horizontal_padding_start;
+		layout->bounds.x += horizontal_padding_end;
 	else
 		layout->bounds.x += horizontal_padding_start;
 
