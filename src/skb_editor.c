@@ -1505,6 +1505,12 @@ static void skb__undo_clear_first_transaction(skb_editor_t* editor)
 	int32_t removed_state_count = transaction->states_range.end - transaction->states_range.start;
 	editor->undo_states_count -= removed_state_count;
 	memmove(editor->undo_states, editor->undo_states + removed_state_count, sizeof(skb__editor_undo_state_t) * editor->undo_states_count);
+	// Adjust transactions to match the removed states.
+	for (int32_t i = 1; i < editor->undo_stack_count; i++) {
+		editor->undo_stack[i].states_range.start -= removed_state_count;
+		editor->undo_stack[i].states_range.end -= removed_state_count;
+	}
+
 
 	SKB_ZERO_STRUCT(transaction);
 	editor->undo_stack_count--;
@@ -1624,8 +1630,10 @@ int32_t skb_editor_undo_transaction_begin(skb_editor_t* editor)
 		assert(editor->undo_stack_count == editor->undo_stack_head + 1);
 
 		// Keep the undo stack size under control.
-		if ((editor->undo_stack_count + 1) > editor->params.max_undo_levels)
+		if ((editor->undo_stack_count + 1) > editor->params.max_undo_levels) {
+			editor->undo_stack_head--;
 			skb__undo_clear_first_transaction(editor);
+		}
 
 		// Add new transaction
 		SKB_ARRAY_RESERVE(editor->undo_stack, editor->undo_stack_count + 1);
@@ -2254,7 +2262,7 @@ void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
 {
 	assert(editor);
-
+	if (!utf8) return;
 	if (utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
 
 	const int32_t utf32_count = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
@@ -2280,6 +2288,7 @@ void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, c
 void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(editor);
+	if (!utf32) return;
 
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
 
@@ -2298,6 +2307,7 @@ void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, 
 void skb_editor_paste_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_text_t* text)
 {
 	assert(editor);
+	if (!text) return;
 
 	skb_rich_text_t* input_text = &editor->scratch_rich_text;
 
@@ -2371,7 +2381,7 @@ static skb_text_position_t skb__adjust_text_position(skb_text_position_t pos, sk
 	if (pos.offset > range.end_pos.global_text_offset) {
 		// Out of range, move by changed amount.
 		pos.offset += inserted_count - removed_count;
-	} else if (pos.offset > range.start_pos.global_text_offset) {
+	} else if (pos.offset >= range.start_pos.global_text_offset) {
 		// In range, make sure we stay inside the range.
 		const int32_t new_end_offset = range.end_pos.global_text_offset - removed_count + inserted_count;
 		pos.offset = skb_mini(pos.offset, new_end_offset);
