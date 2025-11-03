@@ -135,25 +135,25 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 	static const float object_size = 50.f;
 	const skb_attribute_t object_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_BEFORE, SKB_BASELINE_CENTRAL),
-		skb_attribute_make_object_padding_hv(10.f, 0.f),
+		skb_attribute_make_inline_padding(10,10,0,0),
 		skb_attribute_make_fill(skb_rgba(255,128,128,255)),
 	};
 
 	const skb_attribute_t object2_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER, SKB_BASELINE_CENTRAL),
-		skb_attribute_make_object_padding_hv(10.f, 0.f),
+		skb_attribute_make_inline_padding(10,10,0,0),
 		skb_attribute_make_fill(skb_rgba(128,220,128,255)),
 	};
 
 	const skb_attribute_t object3_attributes[] = {
 		skb_attribute_make_object_align(0.65f, SKB_OBJECT_ALIGN_SELF, SKB_BASELINE_ALPHABETIC),
-		skb_attribute_make_object_padding_hv(10.f, 0.f),
+		skb_attribute_make_inline_padding(10,10,0,0),
 		skb_attribute_make_fill(skb_rgba(128,128,255,255)),
 	};
 
 	const skb_attribute_t icon_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
-		skb_attribute_make_object_padding_hv(5.f, 5.f),
+		skb_attribute_make_inline_padding(5,5,5,5),
 		skb_attribute_make_fill(skb_rgba(32,32,220,255)),
 	};
 
@@ -301,14 +301,16 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
+				skb_rect2_t object_rect = skb_layout_get_layout_run_content_bounds(ctx->layout, run);
+
 				// Draw object
 				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run_attributes, params->attribute_collection);
-				debug_render_filled_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, attr_fill.color);
+				debug_render_filled_rect(ctx->rc, object_rect.x, object_rect.y, object_rect.width, object_rect.height, attr_fill.color);
 
 				// Draw baseline
-				const float baseline = run->bounds.height * attr_object_align.baseline_ratio;
-				const float y = run->bounds.y + baseline;
-				debug_render_line(ctx->rc, run->bounds.x, y, run->bounds.x + run->bounds.width, y, skb_rgba(255,255,255,255), 2.f);
+				const float baseline = object_rect.height * attr_object_align.baseline_ratio;
+				const float y = object_rect.y + baseline;
+				debug_render_line(ctx->rc, object_rect.x, y, object_rect.x + object_rect.width, y, skb_rgba(255,255,255,255), 2.f);
 			}
 		}
 	}
@@ -335,26 +337,12 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			const skb_layout_run_t* run = &layout_runs[ri];
 			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(ctx->layout, run);
 
-			if (run->type == SKB_CONTENT_RUN_OBJECT) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run_attributes, params->attribute_collection);
-				skb_rect2_t pad_rect = {
-					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
-					.y = run->bounds.y - attr_object_padding.top,
-					.width = run->bounds.width + attr_object_padding.start + attr_object_padding.end,
-					.height = run->bounds.height + attr_object_padding.top + attr_object_padding.bottom,
-				};
-				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,255), -1.f);
-			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(run_attributes, params->attribute_collection);
-				skb_rect2_t pad_rect = {
-					.x = run->bounds.x - (skb_is_rtl(run->direction) ? attr_object_padding.end : attr_object_padding.start),
-					.y = run->bounds.y - attr_object_padding.top,
-					.width = run->bounds.width + attr_object_padding.start + attr_object_padding.end,
-					.height = run->bounds.height + attr_object_padding.top + attr_object_padding.bottom,
-				};
-				debug_render_stroked_rect(ctx->rc, pad_rect.x, pad_rect.y, pad_rect.width, pad_rect.height, skb_rgba(0,128,220,128), -1.f);
+			debug_render_stroked_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, skb_rgba(0,128,220,255), -1.f);
 
-				debug_render_stroked_rect(ctx->rc, run->bounds.x, run->bounds.y, run->bounds.width, run->bounds.height, skb_rgba(0,0,0,128), -1.f);
+			if (run->type == SKB_CONTENT_RUN_ICON) {
+
+				skb_rect2_t icon_rect = skb_layout_get_layout_run_content_bounds(ctx->layout, run);
+				debug_render_stroked_rect(ctx->rc, icon_rect.x, icon_rect.y, icon_rect.width, icon_rect.height, skb_rgba(0,0,0,128), -1.f);
 			}
 		}
 	}

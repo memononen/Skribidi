@@ -505,59 +505,42 @@ static void render__draw_layout_backgrounds(render_context_t* rc, float offset_x
 
 		// Draw paragraph backgrounds
 
-		float y_top = offset_y + layout_bounds.y;
-		float y_bottom = y_top +  + layout_bounds.height;
+		float top_y = offset_y + layout_bounds.y;
+		float bottom_y = top_y +  + layout_bounds.height;
 		if (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE)
-			y_top = offset_y;
+			top_y = offset_y;
 
 		if (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER)
-			y_bottom = offset_y + layout_advance_y;
-
-		const skb_attribute_horizontal_padding_t horizontal_padding = skb_attributes_get_horizontal_padding(layout_params->layout_attributes, layout_params->attribute_collection);
+			bottom_y = offset_y + layout_advance_y;
 
 		// Paragraph background.
 		skb_attribute_paragraph_fill_t paragraph_fill = skb_attributes_get_paragraph_fill(layout_params->layout_attributes, layout_params->attribute_collection);
 		if (paragraph_fill.color.a != 0) {
-			skb_attribute_paragraph_fill_padding_t fill_padding = skb_attributes_get_paragraph_fill_padding(layout_params->layout_attributes, layout_params->attribute_collection);
-			const float fill_padding_left = layout_is_rtl ? fill_padding.end : fill_padding.start;
-			const float fill_padding_right = layout_is_rtl ? fill_padding.start : fill_padding.end;
-			const float fill_padding_top = (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE) ? 0 : fill_padding.top;
-			const float fill_padding_bottom = (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER) ? 0 : fill_padding.bottom;
-
-			float x = offset_x + (layout_is_rtl ? horizontal_padding.end : horizontal_padding.start);
-			float y = y_top;
-			float width = layout_params->layout_width - (horizontal_padding.start + horizontal_padding.end);
-			float height = y_bottom - y_top;
-
-			x -= fill_padding_left;
-			y -= fill_padding_top;
-			width += fill_padding_left + fill_padding_right;
-			height += fill_padding_top + fill_padding_bottom;
-
-			render__filled_rect(rc, x, y, width, height, paragraph_fill.color);
+			const float width = skb_maxf(layout_params->layout_width, layout_bounds.x + layout_bounds.width);
+			render__filled_rect(rc, offset_x, top_y, width, bottom_y - top_y, paragraph_fill.color);
 		}
 
 		// Indent decoration
 		skb_attribute_indent_decoration_t indent_decoration = skb_attributes_get_indent_decoration(layout_params->layout_attributes, layout_params->attribute_collection);
 		if (indent_decoration.color.a != 0 && indent_decoration.width > 0.f) {
+			const skb_attribute_paragraph_padding_t paragraph_padding = skb_attributes_get_paragraph_padding(layout_params->layout_attributes, layout_params->attribute_collection);
 			const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout_params->layout_attributes, layout_params->attribute_collection);
 			const int32_t indent_level = skb_attributes_get_indent_level(layout_params->layout_attributes, layout_params->attribute_collection);
 
 			float x = offset_x;
 			float delta_x = 0.f;
 			if (layout_is_rtl) {
-				x = offset_x + layout_params->layout_width - horizontal_padding.start + indent_decoration.offset_x;
+				x = offset_x + layout_params->layout_width - paragraph_padding.start + indent_decoration.offset_x;
 				delta_x = -indent_increment.level_increment;
 			} else {
-				x = offset_x + horizontal_padding.start - indent_decoration.offset_x - indent_decoration.width;
+				x = offset_x + paragraph_padding.start - indent_decoration.offset_x - indent_decoration.width;
 				delta_x = indent_increment.level_increment;
 			}
 
-			int32_t min_level = render__get_indent_level(indent_decoration.min_level, indent_level);
-			int32_t max_level = skb_mini(indent_level, render__get_indent_level(indent_decoration.max_level, indent_level));
-			for (int32_t i = min_level; i <= max_level; i++) {
-				render__filled_rect(rc, x + (float)i * delta_x, y_top, indent_decoration.width, y_bottom - y_top, indent_decoration.color);
-			}
+			const int32_t min_level = render__get_indent_level(indent_decoration.min_level, indent_level);
+			const int32_t max_level = skb_mini(indent_level, render__get_indent_level(indent_decoration.max_level, indent_level));
+			for (int32_t i = min_level; i <= max_level; i++)
+				render__filled_rect(rc, x + (float)i * delta_x, top_y, indent_decoration.width, bottom_y - top_y, indent_decoration.color);
 		}
 
 		// Draw text backgrounds
@@ -586,13 +569,8 @@ static void render__draw_layout_backgrounds(render_context_t* rc, float offset_x
 					ri++;
 				}
 
-				skb_attribute_background_padding_t bg_padding = skb_attributes_get_background_padding(run_attributes, layout_params->attribute_collection);
-				const float padding_left = layout_is_rtl ? bg_padding.end : bg_padding.start;
-
-				x += offset_x - padding_left;
-				y += offset_y - bg_padding.top;
-				width += bg_padding.start + bg_padding.end;
-				height += bg_padding.top + bg_padding.bottom;
+				x += offset_x;
+				y += offset_y;
 
 				render__filled_rect(rc, x,y, width, height, bg_color);
 
@@ -641,8 +619,9 @@ void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, co
 			// Object
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
 			// Icon
-			render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
-				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
+			const skb_rect2_t icon_rect = skb_layout_get_layout_run_content_bounds(layout, run);
+			render_draw_icon(rc, offset_x + icon_rect.x, offset_y + icon_rect.y,
+				layout_params->icon_collection, run->icon_handle, icon_rect.width, icon_rect.height,
 				attr_fill.color, alpha_mode);
 		} else {
 			// Text
@@ -738,7 +717,6 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_
 		const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
 		const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, layout_params->attribute_collection);
 
-		// TODO: handle color glyph/icon
 		skb_color_t color = attr_fill.color;
 		if (has_fill_overrides)
 			override_color(RENDER_OVERRIDE_FILL, run->content_run_id, &color, color_overrides);
@@ -746,10 +724,10 @@ void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_
 		if (run->type == SKB_CONTENT_RUN_OBJECT) {
 			// Object
 		} else if (run->type == SKB_CONTENT_RUN_ICON) {
-			// Icon
-			render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
-				layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
-				color, alpha_mode);
+			const skb_rect2_t icon_rect = skb_layout_get_layout_run_content_bounds(layout, run);
+			render_draw_icon(rc, offset_x + icon_rect.x, offset_y + icon_rect.y,
+				layout_params->icon_collection, run->icon_handle, icon_rect.width, icon_rect.height,
+				attr_fill.color, alpha_mode);
 		} else {
 			// Text
 			for (int32_t gi = run->glyph_range.start; gi < run->glyph_range.end; gi++) {
@@ -817,9 +795,9 @@ void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t vie
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				// Object
 			} else if (run->type == SKB_CONTENT_RUN_ICON) {
-				// Icon
-				render_draw_icon(rc, offset_x + run->bounds.x, offset_y + run->bounds.y,
-					layout_params->icon_collection, run->icon_handle, run->bounds.width, run->bounds.height,
+				const skb_rect2_t icon_rect = skb_layout_get_layout_run_content_bounds(layout, run);
+				render_draw_icon(rc, offset_x + icon_rect.x, offset_y + icon_rect.y,
+					layout_params->icon_collection, run->icon_handle, icon_rect.width, icon_rect.height,
 					attr_fill.color, alpha_mode);
 			} else {
 				// Text

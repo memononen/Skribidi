@@ -181,28 +181,27 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		const skb_attribute_t h1_attributes[] = {
 			skb_attribute_make_font_size(32.f),
 			skb_attribute_make_fill(header_color),
-			skb_attribute_make_vertical_padding(20,5),
+			skb_attribute_make_paragraph_padding(0,0,20,5),
 		};
 
 		const skb_attribute_t h2_attributes[] = {
 			skb_attribute_make_font_size(22.f),
 			skb_attribute_make_fill(header_color),
-			skb_attribute_make_vertical_padding(10,5),
+			skb_attribute_make_paragraph_padding(0,0,10,5),
 		};
 
 		const skb_attribute_t body_attributes[] = {
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(body_color),
 			skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-			skb_attribute_make_vertical_padding(5,5),
+			skb_attribute_make_paragraph_padding(0,0,5,5),
 		};
 
 		const skb_attribute_t quoteblock_attributes[] = {
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(quote_color),
 			skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-			skb_attribute_make_vertical_padding(5,5),
-			skb_attribute_make_horizontal_padding(16,16),
+			skb_attribute_make_paragraph_padding(16,16,5,5),
 			skb_attribute_make_indent_increment(16.f, 0.f),
 			skb_attribute_make_group_tag(SKB_TAG_STR("quote")),
 			skb_attribute_make_indent_decoration(0, -1, 13, 4, skb_rgba(0,0,0,64)),
@@ -211,7 +210,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		const skb_attribute_t list_attributes[] = {
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(body_color),
-			skb_attribute_make_vertical_padding(5,5),
+			skb_attribute_make_paragraph_padding(0,0,5,5),
 //			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2013), // en-dash
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2022), // bullet
 		};
@@ -220,19 +219,15 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(code_color),
-			skb_attribute_make_vertical_padding_with_spacing(10,10,0),
-			skb_attribute_make_horizontal_padding(20,20),
-
+			skb_attribute_make_paragraph_padding(20,20,10,10),
 			skb_attribute_make_paragraph_fill(code_bg_color),
-			skb_attribute_make_paragraph_fill_padding(20, 20, 10, 10),
-
 			skb_attribute_make_group_tag(SKB_TAG_STR("code"))
 		};
 
 		const skb_attribute_t ordered_list_attributes[] = {
 			skb_attribute_make_font_size(16.f),
 			skb_attribute_make_fill(body_color),
-			skb_attribute_make_vertical_padding(5,5),
+			skb_attribute_make_paragraph_padding(0,0,5,5),
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_LOWER_LATIN, 32, 5, 0),
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 32, 5, 0), // Most prominent attrib is the last one, this will be picked first.
 		};
@@ -257,8 +252,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
 			skb_attribute_make_fill(code_color),
 			skb_attribute_make_background_fill(code_bg_color),
-			skb_attribute_make_background_padding(4,4,2,2),
-			skb_attribute_make_inline_padding(4,4),
+			skb_attribute_make_inline_padding(4,4,0,0),
 		};
 
 		const skb_attribute_t superscript_attributes[] = {
@@ -1268,14 +1262,14 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 						layout_run->bounds.x, layout_run->bounds.y + edit_layout_y, layout_run->bounds.width, layout_run->bounds.height,
 						col, 1.f);
 
-					if (layout_run->padding_left > 0) {
+					if (layout_run->padding.left > 0) {
 						debug_render_filled_rect(ctx->rc,
-							layout_run->bounds.x-layout_run->padding_left, layout_run->bounds.y + edit_layout_y, layout_run->padding_left, layout_run->bounds.height,
+							layout_run->bounds.x, layout_run->bounds.y + edit_layout_y, layout_run->padding.left, layout_run->bounds.height,
 							skb_rgba(128,255,100,128));
 					}
-					if (layout_run->padding_right > 0) {
+					if (layout_run->padding.right > 0) {
 						debug_render_filled_rect(ctx->rc,
-							layout_run->bounds.x+layout_run->bounds.width, layout_run->bounds.y + edit_layout_y, layout_run->padding_right, layout_run->bounds.height,
+							layout_run->bounds.x+layout_run->bounds.width-layout_run->padding.right, layout_run->bounds.y + edit_layout_y, layout_run->padding.right, layout_run->bounds.height,
 							skb_rgba(128,255,100,128));
 					}
 

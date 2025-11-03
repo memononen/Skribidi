@@ -29,14 +29,15 @@ typedef struct skb__shaping_run_t {
 	bool is_emoji;
 	float font_size;					// Cached font size for the run.
 	skb_font_handle_t font_handle;
-	float padding_before;
-	float padding_after;
+	float padding_start;
+	float padding_end;
 } skb__shaping_run_t;
 
 typedef struct skb_layout_t {
 	skb_layout_params_t params;	// Note: params has 'base_attributes' slice which points to attributes in the 'attributes' array.
 
 	skb_rect2_t bounds;
+	skb_padding2_t padding;
 	float advance_y;
 	uint8_t resolved_direction;
 

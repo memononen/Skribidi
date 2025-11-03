@@ -168,14 +168,30 @@ skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float hei
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_inline_padding(float before, float after)
+skb_attribute_t skb_attribute_make_inline_padding(float start, float end, float top, float bottom)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.inline_padding = (skb_attribute_inline_padding_t) {
 		.kind = SKB_ATTRIBUTE_INLINE_PADDING,
-		.before = before,
-		.after = after,
+		.start = start,
+		.end = end,
+		.top = top,
+		.bottom = bottom,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_inline_padding_hv(float horizontal, float vertical)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.inline_padding = (skb_attribute_inline_padding_t) {
+		.kind = SKB_ATTRIBUTE_INLINE_PADDING,
+		.start = horizontal,
+		.end = horizontal,
+		.top = vertical,
+		.bottom = vertical,
 	};
 	return attribute;
 }
@@ -191,39 +207,31 @@ skb_attribute_t skb_attribute_make_tab_stop_increment(float increment)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_vertical_padding(float before, float after)
+skb_attribute_t skb_attribute_make_paragraph_padding(float start, float end, float top, float bottom)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.vertical_padding = (skb_attribute_vertical_padding_t) {
-		.kind = SKB_ATTRIBUTE_VERTICAL_PADDING,
-		.before = before,
-		.after = after,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_vertical_padding_with_spacing(float before, float after, float group_spacing)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.vertical_padding = (skb_attribute_vertical_padding_t) {
-		.kind = SKB_ATTRIBUTE_VERTICAL_PADDING,
-		.before = before,
-		.after = after,
-		.group_spacing = group_spacing,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.horizontal_padding = (skb_attribute_horizontal_padding_t) {
-		.kind = SKB_ATTRIBUTE_HORIZONTAL_PADDING,
+	attribute.paragraph_padding = (skb_attribute_paragraph_padding_t) {
+		.kind = SKB_ATTRIBUTE_PARAGRAPH_PADDING,
 		.start = start,
-		.end = end
+		.end = end,
+		.top  = top,
+		.bottom = bottom,
+	};
+	return attribute;
+}
+
+skb_attribute_t skb_attribute_make_paragraph_padding_with_spacing(float start, float end, float top, float bottom, float group_spacing)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.paragraph_padding = (skb_attribute_paragraph_padding_t) {
+		.kind = SKB_ATTRIBUTE_PARAGRAPH_PADDING,
+		.start = start,
+		.end = end,
+		.top  = top,
+		.bottom = bottom,
+		.group_spacing = group_spacing,
 	};
 	return attribute;
 }
@@ -365,34 +373,6 @@ skb_attribute_t skb_attribute_make_background_fill(skb_color_t color)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_background_padding(float start, float end, float top, float bottom)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.background_padding = (skb_attribute_background_padding_t) {
-		.kind = SKB_ATTRIBUTE_BACKGROUND_PADDING,
-		.start = start,
-		.end = end,
-		.top = top,
-		.bottom = bottom,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float vertical)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.background_padding = (skb_attribute_background_padding_t) {
-		.kind = SKB_ATTRIBUTE_BACKGROUND_PADDING,
-		.start = horizontal,
-		.end = horizontal,
-		.top = vertical,
-		.bottom = vertical,
-	};
-	return attribute;
-}
-
 skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color)
 {
 	skb_attribute_t attribute;
@@ -400,20 +380,6 @@ skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color)
 	attribute.paragraph_fill = (skb_attribute_paragraph_fill_t) {
 		.kind = SKB_ATTRIBUTE_PARAGRAPH_FILL,
 		.color = color,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_paragraph_fill_padding(float start, float end, float top, float bottom)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.paragraph_fill_padding = (skb_attribute_paragraph_fill_padding_t) {
-		.kind = SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING,
-		.start = start,
-		.end = end,
-		.top = top,
-		.bottom = bottom,
 	};
 	return attribute;
 }
@@ -474,34 +440,6 @@ skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object
 		.align_ref = (uint8_t)align_ref,
 		.align_baseline = (uint8_t)align_baseline,
 		.baseline_ratio = baseline_ratio,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_object_padding(float start, float end, float top, float bottom)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.object_padding = (skb_attribute_object_padding_t) {
-		.kind = SKB_ATTRIBUTE_OBJECT_PADDING,
-		.start = start,
-		.end = end,
-		.top = top,
-		.bottom = bottom,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.object_padding = (skb_attribute_object_padding_t) {
-		.kind = SKB_ATTRIBUTE_OBJECT_PADDING,
-		.start = horizontal,
-		.end = horizontal,
-		.top = vertical,
-		.bottom = vertical,
 	};
 	return attribute;
 }
@@ -685,24 +623,11 @@ float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, cons
 	return attr ? attr->tab_stop_increment.increment : 0.f;
 }
 
-skb_attribute_vertical_padding_t skb_attributes_get_vertical_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+skb_attribute_paragraph_padding_t skb_attributes_get_paragraph_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	static const skb_attribute_vertical_padding_t default_vertical_padding = {
-		.before = 0.f,
-		.after = 0.f,
-	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_PADDING);
-	return attr ? attr->vertical_padding : default_vertical_padding;
-}
-
-skb_attribute_horizontal_padding_t skb_attributes_get_horizontal_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_horizontal_padding_t default_horizontal_padding = {
-		.start = 0.f,
-		.end = 0.f,
-	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_HORIZONTAL_PADDING);
-	return attr ? attr->horizontal_padding : default_horizontal_padding;
+	static const skb_attribute_paragraph_padding_t default_vertical_padding = { 0 };
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_PADDING);
+	return attr ? attr->paragraph_padding : default_vertical_padding;
 }
 
 int32_t skb_attributes_get_indent_level(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
@@ -746,14 +671,6 @@ skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_att
 	return attr ? attr->background_fill : default_background_fill;
 }
 
-skb_attribute_background_padding_t skb_attributes_get_background_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_background_padding_t default_background_padding = { 0 };
-
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BACKGROUND_PADDING);
-	return attr ? attr->background_padding : default_background_padding;
-}
-
 skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_paragraph_fill_t default_paragraph_fill = {
@@ -761,14 +678,6 @@ skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attri
 	};
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_FILL);
 	return attr ? attr->paragraph_fill : default_paragraph_fill;
-}
-
-skb_attribute_paragraph_fill_padding_t skb_attributes_get_paragraph_fill_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_paragraph_fill_padding_t default_paragraph_fill_padding = { 0 };
-
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING);
-	return attr ? attr->paragraph_fill_padding : default_paragraph_fill_padding;
 }
 
 skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
@@ -789,14 +698,6 @@ skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute
 
 	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_ALIGN);
 	return attr ? attr->object_align : default_object_align;
-}
-
-skb_attribute_object_padding_t skb_attributes_get_object_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_object_padding_t default_object_padding = { 0 };
-
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_PADDING);
-	return attr ? attr->object_padding : default_object_padding;
 }
 
 skb_text_wrap_t skb_attributes_get_text_wrap(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)

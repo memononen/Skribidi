@@ -168,16 +168,20 @@ typedef struct skb_attribute_line_height_t {
 } skb_attribute_line_height_t;
 
 /**
- * Inline padding attribute. Adds inline paddingto before and after a content run.
- * Of consequetive runs have same padding, the padding will not be applied between the runs.
+ * Inline padding attribute. Adds inline padding a content run.
+ * If consecuetive runs with same content type and id have same padding, the padding will not be applied between the runs.
  */
 typedef struct skb_attribute_inline_padding_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
 	/** Space added before the run. */
-	float after;
+	float start;
 	/** Space added after the run. */
-	float before;
+	float end;
+	/** Padding on top of the run. */
+	float top;
+	/** Padding at the bottom of the run. */
+	float bottom;
 } skb_attribute_inline_padding_t;
 
 /**
@@ -191,32 +195,24 @@ typedef struct skb_attribute_tab_stop_increment_t {
 } skb_attribute_tab_stop_increment_t;
 
 /**
- * Vertical paragraph padding attribute. (paragraph & layout only)
- * The a paragraph is assigned to a group, the before/after spacing will be applied to the first and last item in the group,
- * and items within the group are spaced at group_spacing.
+ * Paragraph padding attribute. (paragraph & layout only)
+ * If a paragraph is assigned to a group, the top/bottom spacing will be applied to the first and last paragraph in the group,
+ * and paragraph within the group are spaced with group_spacing.
  */
-typedef struct skb_attribute_vertical_padding_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Padding before the paragraph. */
-	float before;
-	/** Padding after the paragraph. */
-	float after;
-	/**  Spacing between paragraphs in a group. */
-	float group_spacing;
-} skb_attribute_vertical_padding_t;
-
-/**
- * Horizontal paragraph padding attribute. (paragraph & layout only)
- */
-typedef struct skb_attribute_horizontal_padding_t {
+typedef struct skb_attribute_paragraph_padding_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
 	/** Padding at the start of the paragraph (text direction dependent) */
 	float start;
 	/** Padding at the end of the paragraph (text direction dependent) */
 	float end;
-} skb_attribute_horizontal_padding_t;
+	/** Padding before the paragraph. */
+	float top;
+	/** Padding after the paragraph. */
+	float bottom;
+	/**  Spacing between paragraphs in a group. */
+	float group_spacing;
+} skb_attribute_paragraph_padding_t;
 
 /**
  * Indent level of a paragraph attribute. (paragraph & layout only)
@@ -362,22 +358,15 @@ typedef struct skb_attribute_background_fill_t {
 } skb_attribute_background_fill_t;
 
 /**
- * Background padding attribute.
- * Allows to define how much the text background bounds should be expanded for drawing.
- * Does not affect layout.
+ * Paragraph background fill color attribute.
+ * It is up to the client code to decide if multiple fill attributes are supported.
  */
-typedef struct skb_attribute_background_padding_t {
+typedef struct skb_attribute_paragraph_fill_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
-	/** Horizontal padding at start (left for LTR, right for RTL). */
-	float start;
-	/** Horizontal padding at end (right for LTR, left for RTL). */
-	float end;
-	/** Vertical padding top */
-	float top;
-	/** Vertical padding bottom */
-	float bottom;
-} skb_attribute_background_padding_t;
+	/** Color of the paragraph back ground */
+	skb_color_t color;
+} skb_attribute_paragraph_fill_t;
 
 /**
  * Text decoration attribute.
@@ -421,35 +410,6 @@ typedef struct skb_attribute_indent_decoration_t {
 } skb_attribute_indent_decoration_t;
 
 /**
- * Paragraph background fill color attribute.
- * It is up to the client code to decide if multiple fill attributes are supported.
- */
-typedef struct skb_attribute_paragraph_fill_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Color of the paragraph back ground */
-	skb_color_t color;
-} skb_attribute_paragraph_fill_t;
-
-/**
- * Paragraph background padding attribute.
- * Allows to define how much the paragraph background bounds should be expanded for drawing.
- * Does not affect layout.
- */
-typedef struct skb_attribute_paragraph_fill_padding_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Horizontal padding at start (left for LTR, right for RTL). */
-	float start;
-	/** Horizontal padding at end (right for LTR, left for RTL). */
-	float end;
-	/** Vertical padding top */
-	float top;
-	/** Vertical padding bottom */
-	float bottom;
-} skb_attribute_paragraph_fill_padding_t;
-
-/**
  * Object alignment attribute.
  * The alignment describes which baseline on the object (or icon) is aligned to a specific baseline of the surrounding text.
  */
@@ -465,26 +425,6 @@ typedef struct skb_attribute_object_align_t {
 } skb_attribute_object_align_t;
 
 /**
- * Object padding attribute.
- * Allows to define free space that should be left around object or icon.
- */
-typedef struct skb_attribute_object_padding_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Horizontal padding at start (left for LTR, right for RTL). */
-	float start;
-	/** Horizontal padding at end (right for LTR, left for RTL). */
-	float end;
-	/** Vertical padding top */
-	float top;
-	/** Vertical padding bottom */
-	float bottom;
-} skb_attribute_object_padding_t;
-
-// Forward declaration
-typedef uint64_t skb_attribute_set_handle_t;
-
-/**
  * Group tag attribute. (paragraph & layout only)
  * Some attributes create a single effect of a sequence of paragraphs with same group, as if the paragraphs were inside a container.
  */
@@ -494,6 +434,9 @@ typedef struct skb_attribute_group_tag_t {
 	/** Tag indentifying the group. Value 0 means no group. */
 	uint32_t group_tag;
 } skb_attribute_group_tag_t;
+
+// Forward declaration
+typedef uint64_t skb_attribute_set_handle_t;
 
 /**
  * Attribute collection reference attribute.
@@ -537,10 +480,8 @@ typedef enum {
 	SKB_ATTRIBUTE_INLINE_PADDING = SKB_TAG('i','p','a','d'),
 	/** Tag for skb_attribute_tab_stop_increment_t */
 	SKB_ATTRIBUTE_TAB_STOP_INCREMENT = SKB_TAG('t','a','b','s'),
-	/** Tag for skb_attribute_vertical_padding_t */
-	SKB_ATTRIBUTE_VERTICAL_PADDING = SKB_TAG('v','p','a','d'),
-	/** Tag for skb_attribute_horizontal_padding_t */
-	SKB_ATTRIBUTE_HORIZONTAL_PADDING = SKB_TAG('h','p','a','d'),
+	/** Tag for skb_attribute_paragraph_padding_t */
+	SKB_ATTRIBUTE_PARAGRAPH_PADDING = SKB_TAG('p','a','p','a'),
 	/** Tag for skb_attribute_indent_level_t */
 	SKB_ATTRIBUTE_INDENT_LEVEL = SKB_TAG('i','l','v','l'),
 	/** Tag for skb_attribute_indent_increment_t */
@@ -565,20 +506,14 @@ typedef enum {
 	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
 	/** Tag for skb_attribute_background_fill_t */
 	SKB_ATTRIBUTE_BACKGROUND_FILL = SKB_TAG('b','g','f','l'),
-	/** Tag for skb_attribute_object_padding_t */
-	SKB_ATTRIBUTE_BACKGROUND_PADDING = SKB_TAG('b','g','p','a'),
+	/** Tag for skb_attribute_paragraph_fill_t */
+	SKB_ATTRIBUTE_PARAGRAPH_FILL = SKB_TAG('p','a','f','i'),
 	/** Tag for skb_attribute_decoration_t */
 	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
 	/** Tag for skb_attribute_indent_decoration_t */
 	SKB_ATTRIBUTE_INDENT_DECORATION = SKB_TAG('i','n','d','e'),
-	/** Tag for skb_attribute_paragraph_fill_t */
-	SKB_ATTRIBUTE_PARAGRAPH_FILL = SKB_TAG('p','a','f','i'),
-	/** Tag for skb_attribute_paragraph_fill_padding_t */
-	SKB_ATTRIBUTE_PARAGRAPH_FILL_PADDING = SKB_TAG('p','a','m','a'),
 	/** Tag for skb_attribute_object_align_t */
 	SKB_ATTRIBUTE_OBJECT_ALIGN = SKB_TAG('o','b','a','l'),
-	/** Tag for skb_attribute_object_padding_t */
-	SKB_ATTRIBUTE_OBJECT_PADDING = SKB_TAG('o','b','p','a'),
 	/** Tag for skb_attribute_group_t */
 	SKB_ATTRIBUTE_GROUP_TAG = SKB_TAG('g','r','u','p'),
 	/** Tag for skb_attribute_reference_t */
@@ -605,8 +540,7 @@ typedef union skb_attribute_t {
 	skb_attribute_line_height_t line_height;
 	skb_attribute_inline_padding_t inline_padding;
 	skb_attribute_tab_stop_increment_t tab_stop_increment;
-	skb_attribute_vertical_padding_t vertical_padding;
-	skb_attribute_horizontal_padding_t horizontal_padding;
+	skb_attribute_paragraph_padding_t paragraph_padding;
 	skb_attribute_indent_level_t indent_level;
 	skb_attribute_indent_increment_t indent_increment;
 	skb_attribute_list_marker_t list_marker;
@@ -619,13 +553,10 @@ typedef union skb_attribute_t {
 	skb_attribute_baseline_shift_t baseline_shift;
 	skb_attribute_fill_t fill;
 	skb_attribute_background_fill_t background_fill;
-	skb_attribute_background_padding_t background_padding;
 	skb_attribute_paragraph_fill_t paragraph_fill;
-	skb_attribute_paragraph_fill_padding_t paragraph_fill_padding;
 	skb_attribute_decoration_t decoration;
 	skb_attribute_indent_decoration_t indent_decoration;
 	skb_attribute_object_align_t object_align;
-	skb_attribute_object_padding_t object_padding;
 	skb_attribute_group_tag_t group_tag;
 	skb_attribute_reference_t reference;
 } skb_attribute_t;
@@ -693,19 +624,19 @@ skb_attribute_t skb_attribute_make_word_spacing(float word_spacing);
 skb_attribute_t skb_attribute_make_line_height(skb_line_height_t type, float height);
 
 /** @returns new inline padding attribute. See skb_attribute_inline_padding_t */
-skb_attribute_t skb_attribute_make_inline_padding(float before, float after);
+skb_attribute_t skb_attribute_make_inline_padding(float start, float end, float top, float bottom);
+
+/** @returns new inline padding attribute. See skb_attribute_inline_padding_t */
+skb_attribute_t skb_attribute_make_inline_padding_hv(float horizontal, float vertical);
 
 /** @returns new tab stop increment attribute. See skb_attribute_tab_stop_increment_t */
 skb_attribute_t skb_attribute_make_tab_stop_increment(float increment);
 
-/** @returns new vertical paragraph padding attribute. See skb_attribute_vertical_padding_t */
-skb_attribute_t skb_attribute_make_vertical_padding(float before, float after);
+/** @returns new paragraph padding attribute. See skb_attribute_paragraph_padding_t */
+skb_attribute_t skb_attribute_make_paragraph_padding(float start, float end, float top, float bottom);
 
-/** @returns new vertical paragraph padding attribute, including group spacing. See skb_attribute_vertical_padding_t */
-skb_attribute_t skb_attribute_make_vertical_padding_with_spacing(float before, float after, float group_spacing);
-
-/** @returns new horizontal paragraph padding attribute. See skb_attribute_horizontal_padding_t */
-skb_attribute_t skb_attribute_make_horizontal_padding(float start, float end);
+/** @returns new paragraph padding attribute, including group spacing. See skb_attribute_paragraph_padding_t */
+skb_attribute_t skb_attribute_make_paragraph_padding_with_spacing(float start, float end, float top, float bottom, float group_spacing);
 
 /** @returns new idnent level attribute. See skb_attribute_indent_level_t */
 skb_attribute_t skb_attribute_make_indent_level(int32_t level);
@@ -743,17 +674,8 @@ skb_attribute_t skb_attribute_make_fill(skb_color_t color);
 /** @returns new background fill color attribute. See skb_attribute_background_fill_t */
 skb_attribute_t skb_attribute_make_background_fill(skb_color_t color);
 
-/** @returns new background padding attribute. See skb_attribute_background_padding_t */
-skb_attribute_t skb_attribute_make_background_padding(float start, float end, float top, float bottom);
-
-/** @returns new background padding attribute. See skb_attribute_background_padding_t */
-skb_attribute_t skb_attribute_make_background_padding_hv(float horizontal, float vertical);
-
 /** @returns new paragraph fill attribute. See skb_attribute_paragraph_fill_t */
 skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color);
-
-/** @returns new paragraph fill padding attribute. See skb_attribute_paragraph_fill_padding_t */
-skb_attribute_t skb_attribute_make_paragraph_fill_padding(float start, float end, float top, float bottom);
 
 /** @returns new text decoration attribute, decoration color is inerited from text. See skb_attribute_decoration_t */
 skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset);
@@ -766,12 +688,6 @@ skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t 
 
 /** @returns new object align attribute. See skb_attribute_object_align_t */
 skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline);
-
-/** @returns new object padding attribute. See skb_attribute_object_padding_t */
-skb_attribute_t skb_attribute_make_object_padding(float start, float end, float top, float bottom);
-
-/** @returns new object padding attribute. See skb_attribute_object_padding_t */
-skb_attribute_t skb_attribute_make_object_padding_hv(float horizontal, float vertical);
 
 /** @returns new group attribute. See skb_attribute_group_t */
 skb_attribute_t skb_attribute_make_group_tag(uint32_t group_tag);
@@ -900,22 +816,13 @@ skb_attribute_inline_padding_t skb_attributes_get_inline_padding(const skb_attri
 float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
- * Returns first vertical paragraph padding attribute or default value if not found.
+ * Returns first paragraph padding attribute or default value if not found.
  * The default value is 0.0 (no padding).
  * @param attributes attribute set where to look for the attributes from.
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_vertical_padding_t skb_attributes_get_vertical_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first horizontal paragraph padding attribute or default value if not found.
- * The default value is 0.0 (no padding).
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_horizontal_padding_t skb_attributes_get_horizontal_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+skb_attribute_paragraph_padding_t skb_attributes_get_paragraph_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first paragraph indent level attribute or default value if not found.
@@ -963,15 +870,6 @@ skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attribute
 skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
- * Returns first background padding attribute or default value if not found.
- * The default value is 0 padding.
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_background_padding_t skb_attributes_get_background_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
  * Returns first paragraph fill attribute or default value if not found.
  * The default value is transparent.
  * @param attributes attribute set where to look for the attributes from.
@@ -979,15 +877,6 @@ skb_attribute_background_padding_t skb_attributes_get_background_padding(const s
  * @return first found attribute or default value.
  */
 skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first paragraph fill padding attribute or default value if not found.
- * The default value is 0 padding.
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_paragraph_fill_padding_t skb_attributes_get_paragraph_fill_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first indent decoration attribute or default value if not found.
@@ -1007,15 +896,6 @@ skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb
  * @return first found attribute or default value.
  */
 skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first object padding attribute or default value if not found.
- * The default value is 0.0 on all sides.
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_object_padding_t skb_attributes_get_object_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first text wrap attribute or default value if not found.

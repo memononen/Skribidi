@@ -277,6 +277,8 @@
         <Expand>
             <Item Name="params">params</Item>
             <Item Name="bounds">bounds</Item>
+            <Item Name="padding">padding</Item>
+            <item Name="advance_y">advance_y</item>
             <Item Name="resolved_direction">(skb_text_direction_t)resolved_direction</Item>
 
             <Item Name="text">text,[text_count] s32</Item>
@@ -387,6 +389,7 @@
                 </Expand>
             </Synthetic>
 
+            <Item Name="should_free_instance">should_free_instance</Item>
         </Expand>
     </Type>
 
@@ -430,9 +433,11 @@
             <Item Name="glyph_range">glyph_range</Item>
             <Item Name="cluster_range">cluster_range</Item>
             <Item Name="bounds">bounds</Item>
+            <Item Name="padding">padding</Item>
             <Item Name="ref_baseline">ref_baseline</Item>
             <Item Name="font_size">font_size</Item>
-            <Item Name="attributes">attributes</Item>
+            <Item Name="attributes_range">attributes_range</Item>
+            <Item Name="flags">flags</Item>
             <Item Name="content_run_id">content_run_id</Item>
             <Item Name="font_handle" Condition="type==0 || type==1">font_handle</Item>
             <Item Name="object_data" Condition="type==2">object_data</Item>

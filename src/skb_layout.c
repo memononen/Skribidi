@@ -1088,10 +1088,10 @@ static float skb__get_cluster_width(const skb_layout_t* layout, int32_t shaping_
 	// Include run padding at the extrema.
 	const skb__shaping_run_t* shaping_run = &layout->shaping_runs[shaping_run_idx];
 	if (cluster_idx == shaping_run->cluster_range.start) {
-		cluster_width += shaping_run->padding_before;
+		cluster_width += shaping_run->padding_start;
 	}
 	if (cluster_idx == shaping_run->cluster_range.end - 1) {
-		cluster_width += shaping_run->padding_after;
+		cluster_width += shaping_run->padding_end;
 	}
 
 	return cluster_width;
@@ -1254,6 +1254,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	SKB_ZERO_STRUCT(marker_run);
 
 	marker_run->type = SKB_CONTENT_RUN_UTF32;
+	marker_run->flags |= SKB_LAYOUT_RUN_IS_LIST_MARKER;
 	marker_run->direction = layout->resolved_direction;
 	marker_run->script = script;
 	marker_run->bidi_level = 0;
@@ -1278,20 +1279,24 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 
 	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + marker_glyph_count);
 
-	float offset_x = 0.f;
-	if (layout_is_rtl)
-		offset_x = list_marker->spacing;
-	else
-		offset_x = -total_x_advance - list_marker->spacing;
+	if (layout_is_rtl) {
+		marker_run->padding.left = list_marker->spacing;
+		marker_run->padding.right = list_marker->indent - total_x_advance - list_marker->spacing;
+	} else {
+		marker_run->padding.left = list_marker->indent - total_x_advance - list_marker->spacing;
+		marker_run->padding.right = list_marker->spacing;
+	}
+
+	line->bounds.width += marker_run->padding.left + marker_run->padding.right;
 
 	for (int32_t gi = 0; gi < marker_glyph_count; gi++) {
 		skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
 		SKB_ZERO_STRUCT(glyph);
-		glyph->offset_x = offset_x + marker_glyph_offset[gi].x;
-		glyph->offset_y = offset_y + marker_glyph_offset[gi].y;
-		glyph->advance_x = 0.f;
+		glyph->offset_x = marker_glyph_offset[gi].x;
+		glyph->offset_y = marker_glyph_offset[gi].y;
+		glyph->advance_x = marker_glyph_advance[gi];
 		glyph->gid = (uint16_t)marker_glyph_ids[gi];
-		offset_x += marker_glyph_advance[gi];
+		line->bounds.width += marker_glyph_advance[gi];
 	}
 }
 
@@ -1385,6 +1390,7 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	SKB_ZERO_STRUCT(ellipsis_run);
 
 	ellipsis_run->type = SKB_CONTENT_RUN_UTF32;
+	ellipsis_run->flags |= SKB_LAYOUT_RUN_IS_ELLIPSIS;
 	ellipsis_run->direction = ref_layout_run.direction;
 	ellipsis_run->script = ref_layout_run.script;
 	ellipsis_run->bidi_level = ref_layout_run.bidi_level;
@@ -1463,10 +1469,8 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	skb__reorder_runs(layout, line->layout_run_range);
 
 	// Add list marker on first line if it exists.
-	if (line_idx == 0) {
-		if (list_marker && list_marker->style != SKB_LIST_MARKER_NONE)
-			skb__line_append_list_marker_run(layout, line, list_marker);
-	}
+	if (line_idx == 0 && list_marker)
+		skb__line_append_list_marker_run(layout, line, list_marker);
 
 	//
 	// Calculate line height and baseline
@@ -1483,7 +1487,7 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 			if (layout_run->type == SKB_CONTENT_RUN_OBJECT || layout_run->type == SKB_CONTENT_RUN_ICON) {
 
 				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(layout_run_attributes, layout->params.attribute_collection);
-				const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(layout_run_attributes, layout->params.attribute_collection);
+				const skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
 
 				// Find index of the reference glyph to align to.
 				int32_t ref_layout_run_idx = ri; // self
@@ -1510,26 +1514,27 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 				}
 
 				skb__content_run_t* content_run = &layout->content_runs[layout_run->content_run_idx];
-				const float object_height = content_run->content_height + attr_object_padding.top + attr_object_padding.bottom;
-				const float object_baseline = content_run->content_height * attr_object_align.baseline_ratio + attr_object_padding.top;
+				const float object_height = content_run->content_height + inline_padding.top + inline_padding.bottom;
+				const float object_baseline = content_run->content_height * attr_object_align.baseline_ratio + inline_padding.top;
 
 				line_height = skb_maxf(line_height, object_height);
 
-				const float ascender = ref_baseline - object_baseline;
-				const float descender = ref_baseline + object_height - object_baseline;
-				line->ascender = skb_minf(line->ascender, ascender);
-				line->descender = skb_maxf(line->descender, descender);
+				const float object_ascender = ref_baseline - object_baseline;
+				const float object_descender = ref_baseline + object_height - object_baseline;
 
-				baseline_align_offset = ref_baseline - object_baseline;
+				line->ascender = skb_minf(line->ascender, object_ascender);
+				line->descender = skb_maxf(line->descender, object_descender);
 
 				// Calculate layout run bounds
-				// The glyph offset for object/icon contains the padding at this point.
-				skb_glyph_t* first_glyph = &layout->glyphs[layout_run->glyph_range.start];
-				layout_run->bounds.x = first_glyph->offset_x;
-				layout_run->bounds.y = first_glyph->offset_y + baseline_align_offset;
-				layout_run->bounds.width = content_run->content_width;
-				layout_run->bounds.height = content_run->content_height;
+				layout_run->bounds.y = object_ascender;
+				layout_run->bounds.height = object_height;
+
+				layout_run->padding.top = inline_padding.top;
+				layout_run->padding.bottom = inline_padding.bottom;
+
 				layout_run->ref_baseline = layout_run->bounds.y + content_run->content_height;
+
+				baseline_align_offset = ref_baseline - object_baseline;
 
 			} else {
 
@@ -1537,33 +1542,32 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 				const skb_attribute_line_height_t attr_line_height = skb_attributes_get_line_height(layout_run_attributes, layout->params.attribute_collection);
 				const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, layout_run->font_handle);
 				const float baseline = skb_font_get_baseline(layout->params.font_collection, layout_run->font_handle, baseline_align, layout_run->direction, layout_run->script, font_size);
-
-				baseline_align_offset = -baseline;
+				const skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
 
 				line_height = skb_maxf(line_height, skb_calculate_line_height(attr_line_height, font, font_size));
-				line->ascender = skb_minf(line->ascender, font->metrics.ascender * font_size - baseline);
-				line->descender = skb_maxf(line->descender, font->metrics.descender * font_size - baseline);
+
+				const float run_ascender = font->metrics.ascender * font_size - baseline - inline_padding.top;
+				const float run_descender = font->metrics.descender * font_size - baseline + inline_padding.bottom;
+
+				line->ascender = skb_minf(line->ascender, run_ascender);
+				line->descender = skb_maxf(line->descender, run_descender);
+
 				if (line_idx == 0)
 					layout_size->first_line_cap_height = skb_minf(layout_size->first_line_cap_height, font->metrics.cap_height * font_size - baseline);
 
-				// Calculate layout run bounds
-				skb_glyph_t* first_glyph = &layout->glyphs[layout_run->glyph_range.start];
+				layout_run->bounds.y = run_ascender;
+				layout_run->bounds.height = -run_ascender + run_descender;
 
-				layout_run->bounds.x = first_glyph->offset_x;
-				layout_run->bounds.y = line->ascender;
-				layout_run->bounds.width = 0.f;
-				layout_run->bounds.height = -line->ascender + line->descender;
-
-				for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
-					const skb_glyph_t* glyph = &layout->glyphs[gi];
-					layout_run->bounds.width += glyph->advance_x;
-				}
+				layout_run->padding.top = inline_padding.top;
+				layout_run->padding.bottom = inline_padding.bottom;
 
 				// Calculate reference baseline for the run. At this stage Y=0 is at baseline specified by params.baseline_align, calculate the reference baseline relative to that.
 				// The OpenType file format is not specific about in which coordinate system the baseline metrics are reported.
 				// We assume that they are relative to the alphabetic baseline, as that seems to be the recommendation to author fonts.
 				const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, layout_run->font_handle, layout_run->direction, layout_run->script, layout_run->font_size);
 				layout_run->ref_baseline = baseline_set.alphabetic - baseline_set.baselines[baseline_align];
+
+				baseline_align_offset = -baseline;
 			}
 
 			for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
@@ -1626,14 +1630,30 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	if (text_overflow != SKB_OVERFLOW_NONE && line->bounds.width > line_break_width)
 		skb__truncate_line(layout, line, line_break_width, text_overflow == SKB_OVERFLOW_ELLIPSIS);
 
-	layout_size->width = skb_maxf(layout_size->width, line->bounds.width);
+	float line_width = line->bounds.width;
+	// Prevent negative first line indent to affect the line width.
+	if (line_idx == 0) {
+		const float list_marker_indent = (line_idx == 0 && list_marker) ? list_marker->indent : 0.f;
+		line_width -= list_marker_indent;
+
+		const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
+		if (indent_increment.first_line_increment < 0.f)
+			line_width += list_marker_indent;
+
+		line_width = skb_maxf(0.f, line_width);
+	}
+
+	layout_size->width = skb_maxf(layout_size->width, line_width);
 
 	return false;
 }
 
 static bool skb__equals_inline_padding(const skb_attribute_inline_padding_t* a, const skb_attribute_inline_padding_t* b)
 {
-	return skb_equalsf(a->before, b->before, 1e-6f) && skb_equalsf(a->after, b->after, 1e-6f);
+	return skb_equalsf(a->start, b->start, 1e-6f)
+		&& skb_equalsf(a->end, b->end, 1e-6f)
+		&& skb_equalsf(a->top, b->top, 1e-6f)
+		&& skb_equalsf(a->bottom, b->bottom, 1e-6f);
 }
 
 
@@ -1641,10 +1661,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 {
 	const bool ignore_must_breaks = layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
 
-	layout->bounds.x = 0.f;
-	layout->bounds.y = 0.f;
-	layout->bounds.width = 0.f;
-	layout->bounds.height = 0.f;
+	layout->bounds = (skb_rect2_t){0};
+	layout->padding = (skb_padding2_t){0};
 	layout->advance_y = 0.f;
 
 	layout->layout_runs_count = 0;
@@ -1657,7 +1675,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_text_wrap_t text_wrap = skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Handle horizontal padding and indent
-	const skb_attribute_horizontal_padding_t horizontal_padding = skb_attributes_get_horizontal_padding(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_attribute_paragraph_padding_t paragraph_padding = skb_attributes_get_paragraph_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 	const int32_t indent_level = skb_attributes_get_indent_level(layout->params.layout_attributes, layout->params.attribute_collection);
 
@@ -1665,6 +1683,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_attribute_t* list_markers[16];
 	const int32_t list_markers_count = skb_attributes_get_by_kind(layout->params.layout_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_LIST_MARKER, list_markers, SKB_COUNTOF(list_markers));
 	const skb_attribute_list_marker_t* list_marker = list_markers_count > 0 ? &list_markers[indent_level % list_markers_count]->list_marker : NULL;
+	if (list_marker && list_marker->style == SKB_LIST_MARKER_NONE)
+		list_marker = NULL;
 	const float list_marker_indent = list_marker ? list_marker->indent : 0.f;
 
 	SKB_ARRAY_RESERVE(layout->layout_runs, layout->shaping_runs_count);
@@ -1674,8 +1694,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
  	skb_layout_run_t* cur_layout_run = NULL;
 	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
 
-	const float horizontal_padding_start = skb_minf(horizontal_padding.start + (float)indent_level * indent_increment.level_increment + list_marker_indent, layout->params.layout_width);
-	const float horizontal_padding_end = skb_minf(horizontal_padding.end, layout->params.layout_width - horizontal_padding_start);
+	const float horizontal_padding_start = skb_minf(paragraph_padding.start + (float)indent_level * indent_increment.level_increment + list_marker_indent, layout->params.layout_width);
+	const float horizontal_padding_end = skb_minf(paragraph_padding.end, layout->params.layout_width - horizontal_padding_start);
 
 	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
 	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
@@ -1829,11 +1849,11 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const skb_align_t horizontal_align = skb_attributes_get_horizontal_align(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_align_t vertical_align = skb_attributes_get_vertical_align(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_vertical_trim_t vertical_trim = skb_attributes_get_vertical_trim(layout->params.layout_attributes, layout->params.attribute_collection);
-	const skb_attribute_vertical_padding_t vertical_padding = skb_attributes_get_vertical_padding(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_attribute_paragraph_padding_t vertical_padding = skb_attributes_get_paragraph_padding(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Use group spacing for vertical padding based on if the previous/next paragraph has same tag.
-	const float vertical_padding_before = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE) ? vertical_padding.group_spacing * 0.5f : vertical_padding.before;
-	const float vertical_padding_after = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER) ? vertical_padding.group_spacing * 0.5f : vertical_padding.after;
+	const float vertical_padding_top = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE) ? vertical_padding.group_spacing * 0.5f : vertical_padding.top;
+	const float vertical_padding_bottom = (layout->params.flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER) ? vertical_padding.group_spacing * 0.5f : vertical_padding.bottom;
 
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust the calculated_height so that first line only accounts for cap height (not all the way to ascender), and last line does not count descender.
@@ -1845,23 +1865,35 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 
 	// Align layout
-	layout->bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
-	if (layout_is_rtl)
-		layout->bounds.x += horizontal_padding_end;
-	else
-		layout->bounds.x += horizontal_padding_start;
+	const float paragraph_padding_left = layout_is_rtl ? horizontal_padding_end : horizontal_padding_start;
+	const float paragraph_padding_right = layout_is_rtl ? horizontal_padding_start : horizontal_padding_end;
+	const float paragraph_padding_top = vertical_padding_top;
+
+	skb_rect2_t content_bounds = {0};
+	content_bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
+	content_bounds.x += paragraph_padding_left;
 
 	if (layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN)
-		layout->bounds.y = 0.f;
+		content_bounds.y = 0.f;
 	else
-		layout->bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
-	layout->bounds.y += vertical_padding_before;
+		content_bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
+	content_bounds.y += paragraph_padding_top;
 
-	layout->bounds.width = layout_size.width;
-	layout->bounds.height = layout_size.height;
-	layout->advance_y = vertical_padding_before + layout_size.height + vertical_padding_after;
+	content_bounds.width = layout_size.width;
+	content_bounds.height = layout_size.height;
+	layout->advance_y = vertical_padding_top + layout_size.height + vertical_padding_bottom;
 
-	float start_y = layout->bounds.y;
+	layout->bounds.x = content_bounds.x - paragraph_padding_left;
+	layout->bounds.y = content_bounds.y - paragraph_padding_top;
+	layout->bounds.width = content_bounds.width + horizontal_padding_start + horizontal_padding_end;
+	layout->bounds.height = content_bounds.height + vertical_padding_top + vertical_padding_bottom;
+
+	layout->padding.left = paragraph_padding_left;
+	layout->padding.right = paragraph_padding_right;
+	layout->padding.top = paragraph_padding_top;
+	layout->padding.bottom = vertical_padding_bottom;
+
+	float start_y = content_bounds.y;
 
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust start position so that the top is aligned to cap height.
@@ -1887,11 +1919,11 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		line->bounds.width -= whitespace_width;
 
 		// Align line.
-		line->bounds.x = layout->bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
+		line->bounds.x = content_bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
 
 		// Handle first line indent.
 		if (li == 0) {
-			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment);
+			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment - list_marker_indent); // Undo list marker indent on first line.
 			line->bounds.x += layout_is_rtl ? -delta_x : delta_x;
 		}
 
@@ -1915,36 +1947,59 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			skb_layout_run_t* layout_run = &layout->layout_runs[ri];
 			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout_run->attributes_range);
 
+			const skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
+
+			layout_run->bounds.x = cur_x;
+			layout_run->bounds.width = 0.f;
+
+			layout_run->bounds.y += line->baseline;
+
+			layout_run->ref_baseline += line->baseline;
+
 			// Apply padding when it changes between runs, and the layout run contains the contents start or end..
-			skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(layout_run_attributes, layout->params.attribute_collection);
 			if (layout_run->flags & SKB_LAYOUT_RUN_HAS_START) {
-				if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
+				skb_layout_run_t* prev_layout_run = (ri > line->layout_run_range.start) ? &layout->layout_runs[ri - 1] : NULL;
+
+				const bool are_same_run = prev_layout_run
+					&& prev_layout_run->content_run_id == layout_run->content_run_id
+					&& skb__equals_inline_padding(&prev_inline_padding, &inline_padding);
+
+				if (!are_same_run) {
 					// Apply padding to previous line if possible
-					if (ri > line->layout_run_range.start) {
-						skb_layout_run_t* prev_layout_run = &layout->layout_runs[ri - 1];
-						if (prev_layout_run->flags & SKB_LAYOUT_RUN_HAS_END) {
-							prev_layout_run->padding_right = layout_is_rtl ? prev_inline_padding.before : prev_inline_padding.after;
-							cur_x += prev_layout_run->padding_right;
-						}
+					if (prev_layout_run && prev_layout_run->flags & SKB_LAYOUT_RUN_HAS_END) {
+						prev_layout_run->padding.right = layout_is_rtl ? prev_inline_padding.end : prev_inline_padding.start;
+						prev_layout_run->bounds.width += prev_layout_run->padding.right;
+						cur_x += prev_layout_run->padding.right;
+						layout_run->bounds.x = cur_x;
 					}
-					layout_run->padding_left = layout_is_rtl ? inline_padding.after : inline_padding.before;
-					cur_x += layout_run->padding_left;
+					layout_run->padding.left = layout_is_rtl ? inline_padding.start : inline_padding.end;
+					layout_run->bounds.width += layout_run->padding.left;
+					cur_x += layout_run->padding.left;
 				}
 			}
 			if (layout_run->flags & SKB_LAYOUT_RUN_HAS_END) {
-				if ((ri + 1) == line->layout_run_range.end)
-					layout_run->padding_right = layout_is_rtl ? inline_padding.before : inline_padding.after;
+				if ((ri + 1) == line->layout_run_range.end) {
+					layout_run->padding.right = layout_is_rtl ? inline_padding.end : inline_padding.start;
+					layout_run->bounds.width += layout_run->padding.right;
+				}
 			}
 
-			layout_run->bounds.x += cur_x;
-			layout_run->bounds.y += line->baseline;
-			layout_run->ref_baseline += line->baseline;
+			if (layout_run->flags & SKB_LAYOUT_RUN_IS_LIST_MARKER) {
+				layout_run->bounds.width += layout_run->padding.left;
+				cur_x += layout_run->padding.left;
+			}
 
 			for (int32_t j = layout_run->glyph_range.start; j < layout_run->glyph_range.end; j++) {
 				skb_glyph_t* glyph = &layout->glyphs[j];
 				glyph->offset_x += cur_x;
 				glyph->offset_y += line->baseline;
 				cur_x += glyph->advance_x;
+				layout_run->bounds.width += glyph->advance_x;
+			}
+
+			if (layout_run->flags & SKB_LAYOUT_RUN_IS_LIST_MARKER) {
+				layout_run->bounds.width += layout_run->padding.right;
+				cur_x += layout_run->padding.right;
 			}
 
 			prev_inline_padding = inline_padding;
@@ -2229,14 +2284,12 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 		if (content_run->type == SKB_CONTENT_RUN_OBJECT || content_run->type == SKB_CONTENT_RUN_ICON) {
 			// Add the replacement object as a glyph.
 
-			const skb_attribute_object_padding_t attr_object_padding = skb_attributes_get_object_padding(content_run_attributes, layout->params.attribute_collection);
-
 			SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + 1);
 			skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
 			glyph->gid = 0;
-			glyph->offset_x = skb_is_rtl(shaping_run->direction) ? attr_object_padding.end : attr_object_padding.start;
-			glyph->offset_y = attr_object_padding.top;
-			glyph->advance_x = content_run->content_width + attr_object_padding.start + attr_object_padding.end;
+			glyph->offset_x = 0.f;
+			glyph->offset_y = 0.f;
+			glyph->advance_x = content_run->content_width;
 			shaping_run->glyph_range.start = layout->glyphs_count-1;
 			shaping_run->glyph_range.end = layout->glyphs_count;
 
@@ -2278,15 +2331,21 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 
 		// Update inline padding for shaping run.
 		skb_attribute_inline_padding_t inline_padding = skb_attributes_get_inline_padding(content_run_attributes, layout->params.attribute_collection);
-		if (!skb__equals_inline_padding(&prev_inline_padding, &inline_padding)) {
-			if (i > 0) {
-				skb__shaping_run_t* prev_shaping_run = &layout->shaping_runs[i-1];
-				prev_shaping_run->padding_after = prev_inline_padding.after;
-			}
-			shaping_run->padding_before = inline_padding.before;
+
+		skb__shaping_run_t* prev_shaping_run = (i > 0) ? &layout->shaping_runs[i-1] : NULL;
+		const skb__content_run_t* prev_content_run = prev_shaping_run ? &layout->content_runs[prev_shaping_run->content_run_idx] : NULL;
+
+		const bool are_same_run = prev_content_run
+			&& prev_content_run->run_id == content_run->run_id
+			&& skb__equals_inline_padding(&prev_inline_padding, &inline_padding);
+
+		if (!are_same_run) {
+			if (prev_shaping_run)
+				prev_shaping_run->padding_start = prev_inline_padding.start;
+			shaping_run->padding_end = inline_padding.end;
 		}
 		if (i+1 >= layout->shaping_runs_count) {
-			shaping_run->padding_after = inline_padding.after;
+			shaping_run->padding_start = inline_padding.start;
 		}
 
 		prev_inline_padding = inline_padding;
@@ -2778,13 +2837,44 @@ const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout)
 
 skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run)
 {
+	assert(layout);
+	assert(run);
 	return skb__get_run_attributes(layout, run->attributes_range);
+}
+
+skb_rect2_t skb_layout_get_layout_run_content_bounds(const skb_layout_t* layout, const skb_layout_run_t* run)
+{
+	assert(layout);
+	assert(run);
+	return (skb_rect2_t) {
+		.x = run->bounds.x + run->padding.left,
+		.y = run->bounds.y + run->padding.top,
+		.width = run->bounds.width - (run->padding.left + run->padding.right),
+		.height = run->bounds.height - (run->padding.top + run->padding.bottom),
+	};
 }
 
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->bounds;
+}
+
+skb_rect2_t skb_layout_get_content_bounds(const skb_layout_t* layout)
+{
+	assert(layout);
+	return (skb_rect2_t) {
+		.x = layout->bounds.x + layout->padding.left,
+		.y = layout->bounds.y + layout->padding.top,
+		.width = layout->bounds.width - (layout->padding.left + layout->padding.right),
+		.height = layout->bounds.height - (layout->padding.top + layout->padding.bottom),
+	};
+}
+
+skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->padding;
 }
 
 float skb_layout_get_advance_y(const skb_layout_t* layout)
@@ -3073,7 +3163,7 @@ skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout,
 	return skb_layout_hit_test_content_at_line(layout, line_idx, hit_x);
 }
 
-void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
@@ -3102,7 +3192,7 @@ void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t l
 	}
 }
 
-void skb_layout_get_content_bounds(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
@@ -3407,7 +3497,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 
 				const bool is_rtl = skb_is_rtl(layout_run->direction);
 
-				x += layout_run->padding_left;
+				x += layout_run->padding.left;
 
 				for (int32_t ci = cluster_range.start; ci != cluster_range.end; ci += cluster_range_delta) {
 					const skb_cluster_t* cluster = &layout->clusters[ci];
@@ -3503,7 +3593,7 @@ void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, flo
 					callback(rect, context);
 				}
 
-				x += layout_run->padding_right;
+				x += layout_run->padding.right;
 			}
 		}
 	}
@@ -3569,6 +3659,19 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 	iter.x = line->bounds.x;
 	iter.advance = 0.f;
 
+	// Iterate over layout runs on the line.
+	iter.layout_run_idx = line->layout_run_range.start;
+	iter.layout_run_end = line->layout_run_range.end;
+
+	// Prune layout runs that cannot be selected. These are generated content like list markers or ellipsis, and does not affect the text range below.
+	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_idx].content_run_idx == SKB_INVALID_INDEX) {
+		const skb_layout_run_t* first_run = &layout->layout_runs[iter.layout_run_idx];
+		iter.x += first_run->bounds.width;
+		iter.layout_run_idx++;
+	}
+	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_end-1].content_run_idx == SKB_INVALID_INDEX)
+		iter.layout_run_end--;
+
 	// Previous caret is at the start of the line.
 	if (line_is_rtl) {
 		iter.pending_left.text_position.offset = iter.line_last_grapheme_offset;
@@ -3585,25 +3688,15 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 		const skb_layout_run_t* first_run = &layout->layout_runs[iter.layout_run_idx];
 		iter.pending_left.glyph_idx = first_run->glyph_range.start;
 		iter.pending_left.cluster_idx = skb_is_rtl(first_run->direction) ? first_run->cluster_range.end - 1 : first_run->cluster_range.start;
-		iter.x += first_run->padding_left;
+		iter.x += first_run->padding.left;
 	}
-
-	// Iterate over layout runs on the line.
-	iter.layout_run_idx = line->layout_run_range.start;
-	iter.layout_run_end = line->layout_run_range.end;
-
-	// Prune layout runs that cannot be selected.
-	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_idx].content_run_idx == SKB_INVALID_INDEX)
-		iter.layout_run_idx++;
-	if (iter.layout_run_idx != iter.layout_run_end && layout->layout_runs[iter.layout_run_end-1].content_run_idx == SKB_INVALID_INDEX)
-		iter.layout_run_end--;
 
 	// Iterate over clusters on the layout run.
 	if (iter.layout_run_idx != iter.layout_run_end) {
 		const skb_layout_run_t* first_run = &layout->layout_runs[iter.layout_run_idx];
 		iter.cluster_idx = skb_is_rtl(first_run->direction) ? first_run->cluster_range.end - 1 : first_run->cluster_range.start;
 		iter.cluster_end = skb_is_rtl(first_run->direction) ? first_run->cluster_range.start - 1 : first_run->cluster_range.end;
-		iter.run_padding = first_run->padding_left;
+		iter.run_padding = first_run->padding.left;
 	} else {
 		iter.layout_run_idx = SKB_INVALID_INDEX;
 		iter.layout_run_end = SKB_INVALID_INDEX;
@@ -3700,7 +3793,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			}
 
 			if (end_of_clusters) {
-				iter->run_padding += cur_layout_run->padding_right;
+				iter->run_padding += cur_layout_run->padding.right;
 				iter->layout_run_idx++;
 				iter->end_of_runs = iter->layout_run_idx == iter->layout_run_end;
 				if (!iter->end_of_runs) {
@@ -3708,7 +3801,7 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 					cur_layout_run = &layout->layout_runs[iter->layout_run_idx];
 					iter->cluster_idx = skb_is_rtl(cur_layout_run->direction) ? cur_layout_run->cluster_range.end - 1 : cur_layout_run->cluster_range.start;
 					iter->cluster_end = skb_is_rtl(cur_layout_run->direction) ? cur_layout_run->cluster_range.start - 1 : cur_layout_run->cluster_range.end;
-					iter->run_padding += cur_layout_run->padding_left;
+					iter->run_padding += cur_layout_run->padding.left;
 					// Start new cluster
 					skb__init_cluster_iter(iter);
 				}

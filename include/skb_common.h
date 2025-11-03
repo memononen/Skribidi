@@ -704,6 +704,13 @@ static inline skb_vec2_t skb_mat2_point(skb_mat2_t t, skb_vec2_t pt)
 
 skb_mat2_t skb_mat2_inverse(skb_mat2_t t);
 
+/** 2D padding in rendering dimension. Not dependent on text direction. */
+typedef struct skb_padding2_t {
+	float left;
+	float right;
+	float top;
+	float bottom;
+} skb_padding2_t;
 
 /** 2D floating point rectangle.  */
 typedef struct skb_rect2_t {

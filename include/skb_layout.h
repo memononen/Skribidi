@@ -266,9 +266,13 @@ typedef struct skb_layout_line_t {
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
 	/** Flag indicating that the run has content run start. */
-	SKB_LAYOUT_RUN_HAS_START	= 1 << 0,
+	SKB_LAYOUT_RUN_HAS_START		= 1 << 0,
 	/** Flag indicating that the run has content run end. */
-	SKB_LAYOUT_RUN_HAS_END		= 1 << 1,
+	SKB_LAYOUT_RUN_HAS_END			= 1 << 1,
+	/** Flag indicating that the run is created for list marker. */
+	SKB_LAYOUT_RUN_IS_LIST_MARKER	= 1 << 2,
+	/** Flag indicating that the run is created for list ellipsis. */
+	SKB_LAYOUT_RUN_IS_ELLIPSIS		= 1 << 3,
 } skb_layout_run_flags_t;
 
 /**
@@ -298,18 +302,16 @@ typedef struct skb_layout_run_t {
 	skb_range_t glyph_range;
 	/** Range of clusters the content corresponds to. Note: clusters are in logical order. */
 	skb_range_t cluster_range;
-	/** Logical bounding rectangle of the content. */
+	/** Logical bounding rectangle of the content including padding. */
 	skb_rect2_t bounds;
+	/** Padding applied to each side of the run bounds. */
+	skb_padding2_t padding;
 	/** Y position of the reference baseline of the run (in practice the alphabetic baseline). The text decorations are positioned relative to this baseline. */
 	float ref_baseline;
 	/** Cached font size. */
 	float font_size;
 	/** Attributes assigned to the run. Use skb_layout_get_run_attributes() to get the run's attribute set. */
 	skb_range_t attributes_range;
-	/** Padding left of the run bounds. */
-	float padding_left;
-	/** Padding right of the run bounds. */
-	float padding_right;
 	/** Flags for the run, see skb_layout_run_flags_t. */
 	uint8_t flags;
 	/** ID of the content run where the layout run originates. */
@@ -575,8 +577,17 @@ const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
 /** @returns attribute set for specified layout run*/
 skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run);
 
-/** @return typographic bounds of the layout. */
+/** @returns content bounds (without padding) for specified layout run*/
+skb_rect2_t skb_layout_get_layout_run_content_bounds(const skb_layout_t* layout, const skb_layout_run_t* run);
+
+/** @return bounds of the layout including padding. */
 skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
+
+/** @return bounds of the layout content (without padding). */
+skb_rect2_t skb_layout_get_content_bounds(const skb_layout_t* layout);
+
+/** @return padding applied to the layout. */
+skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout);
 
 /**
  * Returns how much to advance the y position when layouts are stacked.
@@ -731,7 +742,7 @@ skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout,
 typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, int32_t line_idx, void* context);
 
 /**
- * Return set of rectangles that represent the specified run at specified line.
+ * Return set of rectangles that represent the specified content run at specified line.
  * Runs what come one after each other are reported as one rectangle.
  * If the content got broken into multiple lines, multiple rectangles will be returned.
  * Note: runs with run_id = 0 will be ignored.
@@ -741,10 +752,10 @@ typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, i
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
 
 /**
- * Return set of rectangles that represent the specified run.
+ * Return set of rectangles that represent the specified content run in the layout.
  * Runs what come one after each other are reported as one rectangle.
  * Note: runs with run_id = 0 will be ignored.
  * @param layout layout to use.
@@ -752,7 +763,7 @@ void skb_layout_get_content_bounds_at_line(const skb_layout_t* layout, int32_t l
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_bounds(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
 
 
 /**

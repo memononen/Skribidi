@@ -327,7 +327,7 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				.layout = layout,
 				.color = ctx->mouse_pressed ? active_link_color_trans : link_color_trans,
 			};
-			skb_layout_get_content_bounds(layout, ctx->hover_item, draw_content_bounds, &content_ctx);
+			skb_layout_get_content_run_bounds_by_id(layout, ctx->hover_item, draw_content_bounds, &content_ctx);
 
 			glfwSetCursor(ctx->window, ctx->hand_cursor);
 

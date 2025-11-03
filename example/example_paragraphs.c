@@ -108,7 +108,7 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_font_size(48.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_fill(skb_rgba(96,96,96,255)),
-		skb_attribute_make_vertical_padding(10,5),
+		skb_attribute_make_paragraph_padding(0,0,10,5),
 	};
 
 	const skb_attribute_t h2_attributes[] = {
@@ -116,14 +116,14 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_fill(skb_rgba(96,96,96,255)),
 		skb_attribute_make_horizontal_align(SKB_ALIGN_END),
-		skb_attribute_make_vertical_padding(10,5),
+		skb_attribute_make_paragraph_padding(10,10,10,5),
 	};
 
 	const skb_attribute_t body_attributes[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding(5,5),
+		skb_attribute_make_paragraph_padding(0,0,5,5),
 		skb_attribute_make_indent_increment(0, 20.f),
 	};
 	const skb_attribute_t body_attributes_right[] = {
@@ -131,21 +131,20 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
 		skb_attribute_make_horizontal_align(SKB_ALIGN_END),
-		skb_attribute_make_vertical_padding(5,5),
+		skb_attribute_make_paragraph_padding(0,0,5,5),
 	};
 
 	const skb_attribute_t body_attributes_padding[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding(5,5),
-		skb_attribute_make_horizontal_padding(80,20),
+		skb_attribute_make_paragraph_padding(80,20,5,5),
 	};
 
 	const skb_attribute_t list_attributes_l1[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding_with_spacing(10,10,5),
+		skb_attribute_make_paragraph_padding_with_spacing(0,0,10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(0),
 		skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 40, 5, 0x2022),
@@ -155,7 +154,7 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t list_attributes_l2[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
-		skb_attribute_make_vertical_padding_with_spacing(10,10,5),
+		skb_attribute_make_paragraph_padding_with_spacing(0,0,10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(1),
 		skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 40, 5, 0),
@@ -356,7 +355,10 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 			const skb_layout_t* layout = skb_rich_layout_get_layout(ctx->rich_layout, pi);
 			const float layout_offset_y = skb_rich_layout_get_layout_offset_y(ctx->rich_layout, pi);
 			const skb_rect2_t layout_bounds = skb_rect2_translate(skb_layout_get_bounds(layout), (skb_vec2_t){.x = 0.f, .y = layout_offset_y});
-			debug_render_stroked_rect(ctx->rc, layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128), -1.0f);
+			const skb_rect2_t inner_bounds = skb_rect2_translate(skb_layout_get_content_bounds(layout), (skb_vec2_t){.x = 0.f, .y = layout_offset_y});
+
+			debug_render_stroked_rect(ctx->rc, layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(0,0,0,32), -1.0f);
+			debug_render_stroked_rect(ctx->rc, inner_bounds.x, inner_bounds.y, inner_bounds.width, inner_bounds.height, skb_rgba(255,128,64,128), -1.0f);
 		}
 	}
 
