@@ -64,6 +64,7 @@ typedef struct skb_editor_t {
 	int32_t active_attributes_count;
 	int32_t active_attributes_cap;
 	int32_t active_attribute_paragraph_idx;
+	float preview_caret_slope;		// Preview font slope for active selection
 
 	skb_rich_text_t rich_text;		// The edited text
 	skb_rich_layout_t rich_layout;	// Layout of the edited text, including composition text.
@@ -184,6 +185,51 @@ static int32_t skb__get_paragraph_count(const skb_editor_t* editor)
 	return skb_rich_text_get_paragraphs_count(&editor->rich_text);
 }
 
+static void skb__update_preview_caret_slope(skb_editor_t* editor)
+{
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+	const skb_layout_t* layout = skb__get_layout(editor, edit_pos.paragraph_idx);
+	const int32_t pick_pos = skb_layout_prev_grapheme_offset(layout, edit_pos.text_offset);
+
+	// Try to figure out the font slope based on the current active attributes.
+
+	// Get script from the current selection
+	const skb_text_property_t* text_properties = skb_layout_get_text_properties(layout);
+	assert(pick_pos >= 0 && pick_pos < skb_layout_get_text_count(layout));
+	const uint8_t script = text_properties[pick_pos].script;
+
+	// Create attribute set chain (active > paragraph > layout)
+	skb_attribute_set_t paragraph_attributes = skb__get_paragraph_attributes(editor, edit_pos.paragraph_idx);
+	paragraph_attributes.parent_set = &editor->params.layout_attributes;
+
+	skb_attribute_set_t active_attributes = {
+		.attributes = editor->active_attributes,
+		.attributes_count = editor->active_attributes_count,
+		.parent_set = &paragraph_attributes,
+	};
+
+	// Get relevant attributes to select a font.
+	const uint8_t font_family = skb_attributes_get_font_family(active_attributes, editor->params.attribute_collection);
+	const skb_weight_t font_weight = skb_attributes_get_font_weight(active_attributes, editor->params.attribute_collection);
+	const skb_style_t font_style = skb_attributes_get_font_style(active_attributes, editor->params.attribute_collection);
+	const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(active_attributes, editor->params.attribute_collection);
+	const char* lang = skb_attributes_get_lang(active_attributes, editor->params.attribute_collection);
+	const hb_language_t run_lang = hb_language_from_string(lang, -1);
+
+	skb_font_handle_t font_handles[32];
+	int32_t fonts_count = skb_font_collection_match_fonts(
+		editor->params.font_collection, hb_language_to_string(run_lang), script, font_family,
+		font_weight, font_style, font_stretch,
+		font_handles, SKB_COUNTOF(font_handles));
+
+	if (fonts_count > 0) {
+		const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(editor->params.font_collection, font_handles[0]);
+		editor->preview_caret_slope = caret_metrics.slope;
+	} else {
+		editor->preview_caret_slope = 0.f;
+	}
+}
+
 static void skb__pick_active_attributes(skb_editor_t* editor)
 {
 	// Pick the active attributes from the text before the cursor.
@@ -206,6 +252,8 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 	}
 
 	editor->active_attribute_paragraph_idx = edit_pos.paragraph_idx;
+
+	skb__update_preview_caret_slope(editor);
 }
 
 static void skb__emit_on_change(skb_editor_t* editor)
@@ -2480,6 +2528,7 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 			editor->active_attributes[attribute_idx] = editor->active_attributes[editor->active_attributes_count - 1];
 			editor->active_attributes_count--;
 		}
+		skb__update_preview_caret_slope(editor);
 	} else {
 		// Apply to selection
 		if (skb_editor_get_attribute_count(editor, selection, attribute) == selection_count) {
@@ -2511,6 +2560,7 @@ void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 			attribute_idx = editor->active_attributes_count++;
 		}
 		editor->active_attributes[attribute_idx] = attribute;
+		skb__update_preview_caret_slope(editor);
 	} else {
 		// Apply to selection
 		skb_editor_set_attribute(editor, temp_alloc, selection, attribute);
@@ -2784,7 +2834,21 @@ skb_visual_caret_t skb_editor_get_visual_caret(const skb_editor_t* editor, skb_t
 {
 	assert(editor);
 
-	return skb_rich_layout_get_visual_caret(&editor->rich_layout, pos);
+	skb_visual_caret_t caret = skb_rich_layout_get_visual_caret(&editor->rich_layout, pos);
+
+	return caret;
+}
+
+skb_visual_caret_t skb_editor_get_current_selection_visual_caret(const skb_editor_t* editor)
+{
+	assert(editor);
+
+	skb_visual_caret_t caret = skb_rich_layout_get_visual_caret(&editor->rich_layout, editor->selection.end_pos);
+
+	// Override slot from active attributes.
+	caret.slope = editor->preview_caret_slope;
+
+	return caret;
 }
 
 skb_range_t skb_editor_get_selection_text_offset_range(const skb_editor_t* editor, skb_text_selection_t selection)

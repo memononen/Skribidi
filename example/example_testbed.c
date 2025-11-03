@@ -797,7 +797,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		if (skb_editor_get_selection_count(ctx->editor, edit_selection) == 0) {
 
 			// Visual caret
-			skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
+			skb_visual_caret_t caret_pos = skb_editor_get_current_selection_visual_caret(ctx->editor);
 
 			float caret_slope = caret_pos.slope;
 			float caret_top_x = caret_pos.x + (caret_pos.ascender + 3.f) * caret_slope;
@@ -811,7 +811,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
 			float tri_top_x = caret_pos.x + caret_pos.ascender * caret_slope;
 			float tri_top_y = caret_pos.y + caret_pos.ascender;
-			float tri_bot_x = tri_top_x - as * caret_slope;
+			float tri_bot_x = tri_top_x + as * caret_slope;
 			float tri_bot_y = tri_top_y + as;
 			debug_render_tri(ctx->rc, tri_top_x, tri_top_y,
 				tri_top_x + dx, tri_top_y,

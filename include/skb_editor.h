@@ -297,6 +297,9 @@ skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor
 /** @return visual caret at specified text position. */
 skb_visual_caret_t skb_editor_get_visual_caret(const skb_editor_t* editor, skb_text_position_t pos);
 
+/** @return visual caret for current selection. */
+skb_visual_caret_t skb_editor_get_current_selection_visual_caret(const skb_editor_t* editor);
+
 /**
  * Hit tests the editor, and returns text position of the nearest character.
  * @param editor editor to query.
