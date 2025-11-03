@@ -283,11 +283,15 @@ static int skb__bidi_run_cmp(const void* a, const void* b)
 
 static void skb__itemize(skb__layout_build_context_t* build_context, skb_layout_t* layout)
 {
-	if (!layout->text_count)
+	const skb_text_direction_t base_direction = skb_attributes_get_text_base_direction(layout->params.layout_attributes, layout->params.attribute_collection);
+
+	if (!layout->text_count) {
+		// Make sure we update resolved direction even if there's no text.
+		layout->resolved_direction = (base_direction == SKB_DIRECTION_RTL) ? SKB_DIRECTION_RTL : SKB_DIRECTION_LTR;
 		return;
+	}
 
 	SBLevel base_level = SBLevelDefaultLTR;
-	const skb_text_direction_t base_direction = skb_attributes_get_text_base_direction(layout->params.layout_attributes, layout->params.attribute_collection);
 	if (base_direction == SKB_DIRECTION_RTL)
 		base_level = 1;
 	else if (base_direction == SKB_DIRECTION_LTR)
@@ -1915,23 +1919,19 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			else
 				layout->layout_runs[line->layout_run_range.end - 1].bounds.width -= whitespace_width;
 		}
-		// Trim whitespace from the line.
-		line->bounds.width -= whitespace_width;
 
 		// Align line.
-		line->bounds.x = content_bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width, layout_size.width);
+		// Alignment takes white space into account, but we make sure that the line bounds include whitespace,
+		// so that it can be always used as line start location (i.e. for caret iterator).
+		line->bounds.x = content_bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width - whitespace_width, layout_size.width);
+		if (layout_is_rtl)
+			line->bounds.x -= whitespace_width;
 
 		// Handle first line indent.
 		if (li == 0) {
 			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment - list_marker_indent); // Undo list marker indent on first line.
 			line->bounds.x += layout_is_rtl ? -delta_x : delta_x;
 		}
-
-		float start_x = 0.f;
-		if (layout_is_rtl)
-			start_x = line->bounds.x - whitespace_width;
-		else
-			start_x = line->bounds.x;
 
 		line->bounds.y = start_y;
 
@@ -1942,7 +1942,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 		skb_attribute_inline_padding_t prev_inline_padding = {0};
 
-		float cur_x = start_x;
+		float cur_x = line->bounds.x;
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			skb_layout_run_t* layout_run = &layout->layout_runs[ri];
 			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout_run->attributes_range);

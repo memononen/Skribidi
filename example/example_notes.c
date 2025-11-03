@@ -1253,6 +1253,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			if (ctx->show_run_details) {
 				const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
 				const int32_t layout_runs_count = skb_layout_get_layout_runs_count(edit_layout);
+				const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
 				for (int32_t i = 0; i < layout_runs_count; i++) {
 					const skb_layout_run_t* layout_run = &layout_runs[i];
 
@@ -1276,7 +1277,15 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					float mid_x = layout_run->bounds.x + layout_run->bounds.width * 0.5f;
 					debug_render_text(ctx->rc, mid_x, edit_layout_y + layout_run->bounds.y + layout_run->bounds.height + 8, 5, RENDER_ALIGN_CENTER, col,
 					"%d%c", i, skb_is_rtl(layout_run->direction) ? '<' : '>');
+
+					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
+						const skb_glyph_t* glyph = &glyphs[gi];
+						const float gx = glyph->offset_x;
+						const float gy = glyph->offset_y;
+						debug_render_tick(ctx->rc, gx, gy, 5.f, skb_rgba(0,0,0,128), 1.f);
+					}
 				}
+
 			}
 		}
 

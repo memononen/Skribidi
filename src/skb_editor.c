@@ -271,6 +271,9 @@ skb_editor_t* skb_editor_create(const skb_editor_params_t* params)
 
 	skb__set_params(editor, params);
 
+	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
+	editor->selection = (skb_text_selection_t) { .start_pos = start_pos, .end_pos = start_pos };
+
 	editor->preferred_x = -1.f;
 	editor->undo_stack_head = -1;
 
@@ -322,6 +325,9 @@ void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
 	editor->active_attributes_count = 0;
 	editor->preferred_x = -1.f;
 	editor->undo_stack_head = -1;
+
+	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
+	editor->selection = (skb_text_selection_t) { .start_pos = start_pos, .end_pos = start_pos };
 
 	if (params)
 		skb__set_params(editor, params);
@@ -891,6 +897,9 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 			// Switch over to the next character.
 			affinity = SKB_AFFINITY_TRAILING;
 			cur_edit_pos = next_edit_pos;
+		} else if (cur_affinity == SKB_AFFINITY_SOL) {
+			// Move up to the trailing edge before proceeding.
+			affinity = SKB_AFFINITY_TRAILING;
 		} else {
 			// On a trailing edge, and the direction will change in next character.
 			// Move up to the leading edge before proceeding.
@@ -942,8 +951,13 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 
 	skb_paragraph_position_t prev_edit_pos = skb__get_prev_grapheme_pos(editor, cur_edit_pos);
 
+	const bool layout_is_rtl = skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_edit_pos.paragraph_idx));
+	const bool is_at_start = cur_edit_pos.global_text_offset == 0;
+	const bool prev_at_start = prev_edit_pos.global_text_offset == 0;
+
 	bool cur_is_rtl = skb__is_rtl(editor, cur_edit_pos, cur_affinity);
-	bool prev_is_rtl = skb__is_rtl(editor, prev_edit_pos, SKB_AFFINITY_TRAILING);
+	bool prev_is_rtl = is_at_start ? layout_is_rtl : skb__is_rtl(editor, prev_edit_pos, SKB_AFFINITY_TRAILING);
+
 
 	// Do not add extra stop at the end of the line on intermediate lines.
 	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI && skb__are_on_same_line(editor, cur_edit_pos, prev_edit_pos);
@@ -958,19 +972,28 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 			// On a leading edge, and the direction will change in next character. Move to trailing edge first.
 			affinity = SKB_AFFINITY_TRAILING;
 		} else {
-			// On a trailing edge, and the direction will change in next character.
-			// Switch over to the leading edge of the previous character.
-			affinity = SKB_AFFINITY_LEADING;
-			cur_edit_pos = prev_edit_pos;
+			if (is_at_start) {
+				affinity = SKB_AFFINITY_SOL;
+			} else {
+				// On a trailing edge, and the direction will change in next character.
+				// Switch over to the leading edge of the previous character.
+				affinity = SKB_AFFINITY_LEADING;
+				cur_edit_pos = prev_edit_pos;
+			}
 		}
 	} else {
 		if (cur_affinity == SKB_AFFINITY_LEADING || cur_affinity == SKB_AFFINITY_EOL) {
 			// On leading edge, normalize the index to next trailing location.
 			affinity = SKB_AFFINITY_TRAILING;
 		} else {
-			// On a trailing edge, advance to the next character.
-			affinity = SKB_AFFINITY_TRAILING;
-			cur_edit_pos = prev_edit_pos;
+			if (is_at_start || (prev_at_start && prev_is_rtl == layout_is_rtl)) {
+				affinity = SKB_AFFINITY_SOL;
+				cur_edit_pos = prev_edit_pos;
+			} else {
+				// On a trailing edge, advance to the previous character.
+				affinity = SKB_AFFINITY_TRAILING;
+				cur_edit_pos = prev_edit_pos;
+			}
 		}
 	}
 
