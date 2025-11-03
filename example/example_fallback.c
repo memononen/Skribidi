@@ -185,12 +185,8 @@ void* fallback_create(GLFWwindow* window, render_context_t* rc)
 	assert(ctx->temp_alloc);
 
 	skb_layout_params_t params = {
-//		.lang = "",
-//		.base_direction = SKB_DIRECTION_AUTO,
 		.font_collection = ctx->font_collection,
 		.layout_width = 600.f,
-//		.text_wrap = SKB_WRAP_WORD_CHAR,
-//		.baseline_align = SKB_BASELINE_MIDDLE,
 	};
 
 	ctx->layout = skb_layout_create(&params);
@@ -327,7 +323,6 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_layout_params_t* layout_params = skb_layout_get_params(ctx->layout);
 
 		skb_rect2_t layout_bounds = skb_layout_get_bounds(ctx->layout);
-		layout_bounds = view_transform_rect(&ctx->view, layout_bounds);
 		debug_render_stroked_rect(ctx->rc, layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(255,128,64,128), -1.f);
 
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
@@ -337,11 +332,10 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const float gx = glyph->offset_x;
 				const float gy = glyph->offset_y;
 				if (ctx->show_glyph_bounds) {
-					debug_render_tick(ctx->rc, view_transform_x(&ctx->view,gx), view_transform_y(&ctx->view,gy), 5.f, ink_color_trans, -1.f);
+					debug_render_tick(ctx->rc, gx, gy, 5.f, ink_color_trans, -1.f);
 					skb_rect2_t bounds = skb_font_get_glyph_bounds(layout_params->font_collection, layout_run->font_handle, glyph->gid, layout_run->font_size);
 					bounds.x += gx;
 					bounds.y += gy;
-//					bounds = view_transform_rect(&ctx->view, bounds);
 					debug_render_stroked_rect(ctx->rc, bounds.x, bounds.y, bounds.width, bounds.height, skb_rgba(255,128,64,128), -1.f);
 				}
 			}
