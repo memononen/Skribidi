@@ -1239,9 +1239,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
 						const skb_glyph_t* glyph = &glyphs[gi];
-						const float gx = glyph->offset_x;
-						const float gy = glyph->offset_y;
-						debug_render_tick(ctx->rc, gx, gy, 5.f, skb_rgba(0,0,0,128), 1.f);
+						debug_render_tick(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y, 3.f, skb_rgba(0,0,0,128), -1.f);
 					}
 				}
 
