@@ -2986,7 +2986,7 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 	return line_idx;
 }
 
-int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position_t pos)
+int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb_text_position_t pos)
 {
 	if (pos.affinity == SKB_AFFINITY_LEADING || pos.affinity == SKB_AFFINITY_EOL)
 		return skb_layout_next_grapheme_offset(layout, pos.offset);
@@ -3258,7 +3258,7 @@ skb_text_position_t skb__sanitize_offset(const skb_layout_t* layout, const skb_l
 	};
 }
 
-skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos)
+skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos)
 {
 	assert(layout);
 	assert(layout->lines_count > 0);
@@ -3266,7 +3266,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 	pos = skb__sanitize_offset(layout, line, pos);
 
-	skb_visual_caret_t vis_caret = {
+	skb_caret_info_t vis_caret = {
 		.x = line->bounds.x,
 		.y = line->baseline,
 		.slope = 0.f,
@@ -3278,7 +3278,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
 
 	// Caret style is picked from previous character.
-	int32_t caret_style_text_offset = skb_layout_get_text_offset(layout, pos);
+	int32_t caret_style_text_offset = skb_layout_get_offset_from_text_position(layout, pos);
 	caret_style_text_offset = skb_layout_prev_grapheme_offset(layout, caret_style_text_offset);
 	caret_style_text_offset = skb_clampi(caret_style_text_offset, line->text_range.start, line->text_range.end - 1);
 
@@ -3337,14 +3337,14 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
 	return vis_caret;
 }
 
-skb_visual_caret_t skb_layout_get_visual_caret_at(const skb_layout_t* layout, skb_text_position_t pos)
+skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
 	if (!layout->lines)
-		return (skb_visual_caret_t) { 0 };
+		return (skb_caret_info_t) { 0 };
 
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
 
-	return skb_layout_get_visual_caret_at_line(layout, line_idx, pos);
+	return skb_layout_get_caret_info_at_line(layout, line_idx, pos);
 }
 
 
@@ -3424,55 +3424,55 @@ skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_t
 	};
 }
 
-skb_text_position_t skb_layout_get_selection_ordered_start(const skb_layout_t* layout, skb_text_selection_t selection)
+skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* layout, skb_text_range_t text_range)
 {
-	const int32_t start_offset = skb_layout_get_text_offset(layout, selection.start_pos);
-	const int32_t end_offset = skb_layout_get_text_offset(layout, selection.end_pos);
+	const int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
+	const int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 
 	if (skb_is_rtl(layout->resolved_direction))
-		return start_offset > end_offset ? selection.start_pos : selection.end_pos;
+		return start_offset > end_offset ? text_range.start : text_range.end;
 
-	return start_offset <= end_offset ? selection.start_pos : selection.end_pos;
+	return start_offset <= end_offset ? text_range.start : text_range.end;
 }
 
-skb_text_position_t skb_layout_get_selection_ordered_end(const skb_layout_t* layout, skb_text_selection_t selection)
+skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* layout, skb_text_range_t text_range)
 {
-	const int32_t start_offset = skb_layout_get_text_offset(layout, selection.start_pos);
-	const int32_t end_offset = skb_layout_get_text_offset(layout, selection.end_pos);
+	const int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
+	const int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 
 	if (skb_is_rtl(layout->resolved_direction))
-		return start_offset <= end_offset ? selection.start_pos : selection.end_pos;
+		return start_offset <= end_offset ? text_range.start : text_range.end;
 
-	return start_offset > end_offset ? selection.start_pos : selection.end_pos;
+	return start_offset > end_offset ? text_range.start : text_range.end;
 }
 
-skb_range_t skb_layout_get_selection_text_offset_range(const skb_layout_t* layout, skb_text_selection_t selection)
+skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layout, skb_text_range_t text_range)
 {
-	int32_t start_offset = skb_layout_get_text_offset(layout, selection.start_pos);
-	int32_t end_offset = skb_layout_get_text_offset(layout, selection.end_pos);
+	int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
+	int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 	return (skb_range_t) {
 		.start = skb_mini(start_offset, end_offset),
 		.end = skb_maxi(start_offset, end_offset),
 	};
 }
 
-int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_selection_t selection)
+int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_range_t text_range)
 {
-	skb_range_t range = skb_layout_get_selection_text_offset_range(layout, selection);
+	const skb_range_t range = skb_layout_get_offset_range_from_text_range(layout, text_range);
 	return range.end - range.start;
 }
 
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
+void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
 {
-	skb_layout_get_selection_bounds_with_offset(layout, 0.f, selection, callback, context);
+	skb_layout_iterate_text_range_bounds_with_y_offset(layout, 0.f, text_range, callback, context);
 }
 
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
+void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layout, float offset_y, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
 
-	skb_range_t sel_range = skb_layout_get_selection_text_offset_range(layout, selection);
+	skb_range_t sel_range = skb_layout_get_offset_range_from_text_range(layout, text_range);
 
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		const skb_layout_line_t* line = &layout->lines[li];

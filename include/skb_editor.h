@@ -37,6 +37,27 @@ typedef struct skb_rich_layout_t skb_rich_layout_t;
 /** Opaque type for the text editor. Use skb_editor_create() to create. */
 typedef struct skb_editor_t skb_editor_t;
 
+/** Specific text position value that is used in editor to describe current selection end (current caret location). */
+#define SKB_CURRENT_SELECTION_END \
+	SKB_MAKE(skb_text_position_t) { .offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE }
+
+/** Specific text range value that is used in editor to describe current selection. */
+#define SKB_CURRENT_SELECTION \
+	SKB_MAKE(skb_text_range_t) { .start = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE}, .end = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE} }
+
+/** @return true if given text position is SKB_CURRENT_SELECTION_END. */
+static inline bool skb_text_position_is_current_selection_end(skb_text_position_t pos)
+{
+	return pos.offset == INT32_MIN && pos.affinity == SKB_AFFINITY_NONE;
+}
+
+/** @return true if given text range is SKB_CURRENT_SELECTION. */
+static inline bool skb_text_range_is_current_selection(skb_text_range_t text_range)
+{
+	return text_range.start.offset == INT32_MIN && text_range.start.affinity == SKB_AFFINITY_NONE
+		&& text_range.end.offset == INT32_MIN && text_range.end.affinity == SKB_AFFINITY_NONE;
+}
+
 /**
  * Signature of text editor change function.
  * @param editor editor that changed.
@@ -51,10 +72,10 @@ typedef void skb_editor_on_change_func_t(skb_editor_t* editor, void* context);
  * Not called during undo, or when the editor text is reset using set text.
  * @param editor editor that changed.
  * @param input_text text that is being input (mutable).
- * @param selection Location of text that will be replaced with the input text.
+ * @param text_range range of text that will be replaced with the input text.
  * @param context context pointer that was passed to skb_editor_set_input_filter_callback().
  */
-typedef void skb_editor_input_filter_func_t(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_selection_t selection, void* context);
+typedef void skb_editor_input_filter_func_t(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_range_t text_range, void* context);
 
 /** Enum describing the caret movement mode. */
 typedef enum {
@@ -130,12 +151,22 @@ typedef enum {
 	SKB_MOD_COMMAND = 0x08,
 } skb_editor_key_mod_t;
 
+//
+// General
+//
+
 /**
  * Creates new text editor.
  * @param params parameters for the editor.
  * @return newly create editor.
  */
 skb_editor_t* skb_editor_create(const skb_editor_params_t* params);
+
+/**
+ * Destroys a text editor.
+ * @param editor pointer to the editor to destroy.
+ */
+void skb_editor_destroy(skb_editor_t* editor);
 
 /**
  * Sets change callback function.
@@ -154,11 +185,8 @@ void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_chang
  */
 void skb_editor_set_input_filter_callback(skb_editor_t* editor, skb_editor_input_filter_func_t* filter_func, void* context);
 
-/**
- * Destroys a text editor.
- * @param editor pointer to the editor to destroy.
- */
-void skb_editor_destroy(skb_editor_t* editor);
+/** @return the parameters used to create the editor. */
+const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor);
 
 /**
  * Resets text editor to empty state.
@@ -186,12 +214,17 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
 
 /**
- * Sets the text of the editor from an attributed text.
+ * Sets the text of the editor from an rich text.
  * @param editor editor to change.
  * @param temp_alloc temp allocator used while setting layouting the text.
- * @param text pointer to the attributed text to set.
+ * @param rich_text pointer to the rich text to set.
  */
-void skb_editor_set_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_t* text);
+void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_rich_text_t* rich_text);
+
+
+//
+// Text getters
+//
 
 /** @return length of the edited text as utf-8. */
 int32_t skb_editor_get_text_utf8_count(const skb_editor_t* editor);
@@ -218,11 +251,50 @@ int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor);
 int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, int32_t utf32_cap);
 
 /**
- * Gets the edited rich text.
+ * Gets const pointer to the edited rich text.
  * @param editor editor to query
  * @return const pointer to the rich text being edited.
  */
 const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor);
+
+/** @return return the text length in utf-8 of specified text range. */
+int32_t skb_editor_get_text_utf8_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range);
+
+/**
+ * Gets the text of the specified text range text as utf-8.
+ * @param editor editor to query.
+ * @param text_range range of text to get.
+ * @param utf8 buffer where to store the selected text.
+ * @param utf8_cap capacity of the buffer.
+ * @return total length of the selected string (can be larger than buf_cap).
+ */
+int32_t skb_editor_get_text_utf8_in_range(const skb_editor_t* editor, skb_text_range_t text_range, char* utf8, int32_t utf8_cap);
+
+/** @return return the text length in utf-32 of specified selection. */
+int32_t skb_editor_get_text_utf32_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range);
+
+/**
+ * Gets the text of the specified text range text as utf-32.
+ * @param editor editor to query.
+ * @param text_range range of text to get.
+ * @param utf32 buffer where to store the selected text.
+ * @param utf32_cap capacity of the buffer.
+ * @return total length of the selected string (can be larger than buf_cap).
+ */
+int32_t skb_editor_get_text_utf32_in_range(const skb_editor_t* editor, skb_text_range_t text_range, uint32_t* utf32, int32_t utf32_cap);
+
+/**
+ * Gets the rich text of the specified text range.
+ * @param editor editor to query.
+ * @param text_range range of text to get.
+ * @param rich_text rich text where to store the selected text.
+ */
+void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_range_t text_range, skb_rich_text_t* rich_text);
+
+
+//
+// Layout getters
+//
 
 /**
  * Gets the rich layout of the edited text.
@@ -258,29 +330,25 @@ skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* edit
 /** @return global text offset of specified paragraph. */
 int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx);
 
+/** @return text range of the paragraph text. */
+skb_text_range_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx);
+
+/** @return text range of the paragraph text content (excluding the paragraph separator). */
+skb_text_range_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx);
+
 /** @return text position of the first character of the paragraph. */
 skb_text_position_t skb_editor_get_paragraph_content_start_pos(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return text position of the last character of the paragraph (excluding the paragraph separator).  */
 skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t* editor, int32_t paragraph_idx);
 
-/** @return text range of the paragraph text content (excluding the paragraph separator). */
-skb_text_selection_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx);
 
-/** @return text range of the paragraph text. */
-skb_text_selection_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx);
-
-/** @return the parameters used to create the editor. */
-const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor);
-
-/** @return line number of specified text position. */
-int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos);
-
-/** @return column number of specified text position. */
-int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+//
+// Text position
+//
 
 /** @return text offset of specified text position. */
-int32_t skb_editor_text_position_to_text_offset(const skb_editor_t* editor, skb_text_position_t pos);
+int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t pos);
 
 /**
  * Returns paragraph position based on text position.
@@ -289,26 +357,46 @@ int32_t skb_editor_text_position_to_text_offset(const skb_editor_t* editor, skb_
  * @param pos the text position to convert
  * @return paragraph position info of the specified text position.
  */
-skb_paragraph_position_t skb_editor_text_position_to_paragraph_position(const skb_editor_t* editor, skb_text_position_t pos);
-
-/** @return text direction at specified text position. */
-skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor, skb_text_position_t pos);
-
-/** @return visual caret at specified text position. */
-skb_visual_caret_t skb_editor_get_visual_caret(const skb_editor_t* editor, skb_text_position_t pos);
-
-/** @return visual caret for current selection. */
-skb_visual_caret_t skb_editor_get_current_selection_visual_caret(const skb_editor_t* editor);
+skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t pos);
 
 /**
- * Hit tests the editor, and returns text position of the nearest character.
- * @param editor editor to query.
- * @param type movement type (caret or selection).
- * @param hit_x hit test location x
- * @param hit_y hit test location y
- * @return text position under or nearest to the hit test location.
+ * Returns the range of paragraphs the text range overlaps.
+ * @param editor editor to qeury
+ * @param text_range text range
+ * @return range of paragraphs the text range overlaps.
  */
-skb_text_position_t skb_editor_hit_test(const skb_editor_t* editor, skb_movement_type_t type, float hit_x, float hit_y);
+skb_range_t skb_editor_get_paragraphs_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range);
+
+/**
+ * Returns validated offset range of specified text range.
+ * @param editor editor to query.
+ * @param text_range text range.
+ * @return validated text range.
+ */
+skb_range_t skb_editor_get_offset_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range);
+
+/**
+ * Returns number of codepoints in the text range.
+ * @param editor editor to query.
+ * @param text_range text range
+ * @return number of codepoints in the text range.
+ */
+int32_t skb_editor_get_text_range_count(const skb_editor_t* editor, skb_text_range_t text_range);
+
+
+//
+// Selection
+//
+
+/** @return current selection of the editor. */
+skb_text_range_t skb_editor_get_current_selection(const skb_editor_t* editor);
+
+/**
+ * Sets the current selection of the editor to specific range.
+ * @param editor editor to change.
+ * @param text_range new selection.
+ */
+void skb_editor_select(skb_editor_t* editor, skb_text_range_t text_range);
 
 /**
  * Sets the current selection of the editor to all the text.
@@ -322,83 +410,10 @@ void skb_editor_select_all(skb_editor_t* editor);
  */
 void skb_editor_select_none(skb_editor_t* editor);
 
-/**
- * Sets the current selection of the editor to specific range.
- * @param editor editor to change.
- * @param selection new selection.
- */
-void skb_editor_select(skb_editor_t* editor, skb_text_selection_t selection);
 
-/** @return current selection of the editor. */
-skb_text_selection_t skb_editor_get_current_selection(const skb_editor_t* editor);
-
-/**
- * Returns validated text range of specified selection range.
- * @param editor editor to query.
- * @param selection selection range.
- * @return validated text range.
- */
-skb_range_t skb_editor_get_selection_text_offset_range(const skb_editor_t* editor, skb_text_selection_t selection);
-
-/**
- * Returns number of codepoints in the selection.
- * @param editor editor to query.
- * @param selection selection
- * @return number of codepoints in the selection.
- */
-int32_t skb_editor_get_selection_count(const skb_editor_t* editor, skb_text_selection_t selection);
-
-/**
- * Returns the range of paragraphs the selection overlaps.
- * @param editor editor to qeury
- * @param selection selection
- * @return range of paragraphs the selection overlaps.
- */
-skb_range_t skb_editor_get_selection_paragraphs_range(const skb_editor_t* editor, skb_text_selection_t selection);
-
-/**
- * Returns set of rectangles that represent the specified selection.
- * Due to bidirectional text, the selection in logical order can span across multiple visual rectangles.
- * @param editor editor to query.
- * @param selection selection to get.
- * @param callback callback to call on each rectangle
- * @param context context passed to the callback.
- */
-void skb_editor_get_selection_bounds(const skb_editor_t* editor, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
-
-/** @return return the text length in utf-8 of specified selection. */
-int32_t skb_editor_get_selection_text_utf8_count(const skb_editor_t* editor, skb_text_selection_t selection);
-
-/**
- * Gets the text of the specified selection text as utf-8.
- * @param editor editor to query.
- * @param selection range of text to get.
- * @param utf8 buffer where to store the selected text.
- * @param utf8_cap capacity of the buffer.
- * @return total length of the selected string (can be larger than buf_cap).
- */
-int32_t skb_editor_get_selection_text_utf8(const skb_editor_t* editor, skb_text_selection_t selection, char* utf8, int32_t utf8_cap);
-
-/** @return return the text length in utf-32 of specified selection. */
-int32_t skb_editor_get_selection_text_utf32_count(const skb_editor_t* editor, skb_text_selection_t selection);
-
-/**
- * Gets the text of the specified selection text as utf-32.
- * @param editor editor to query.
- * @param selection range of text to get.
- * @param utf32 buffer where to store the selected text.
- * @param utf32_cap capacity of the buffer.
- * @return total length of the selected string (can be larger than buf_cap).
- */
-int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* utf32, int32_t utf32_cap);
-
-/**
- * Gets the text of the specified selection attributed text.
- * @param editor editor to query.
- * @param selection range of text to get.
- * @param rich_text rich text where to store the selected text.
- */
-void skb_editor_get_selection_rich_text(const skb_editor_t* editor, skb_text_selection_t selection, skb_rich_text_t* rich_text);
+ //
+// Input handling
+//
 
 /**
  * Processes mouse click, and updates internal state.
@@ -427,76 +442,127 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y);
  */
 void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_editor_key_t key, uint32_t mods);
 
-/**
- * Inserts new paragraph at the current selection location. This is equivalent of pressing enter at the current caret position.
- * @param editor editor to update
- * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param paragraph_attribute attribute to set on the new paragraph, empty attribute will be ignored.
- */
-void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t paragraph_attribute);
+/** @return visual caret at specified text position. */
+skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t pos);
+
+/** @return line number of specified text position. */
+int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+
+/** @return column number of specified text position. */
+int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos);
 
 /**
- * Inserts codepoint to the text at current caret position.
- * @param editor editor to update.
- * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param codepoint codepoint to insert.
+ * Hit tests the editor, and returns text position of the nearest character.
+ * @param editor editor to query.
+ * @param type movement type (caret or selection).
+ * @param hit_x hit test location x
+ * @param hit_y hit test location y
+ * @return text position under or nearest to the hit test location.
  */
-void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, uint32_t codepoint);
+skb_text_position_t skb_editor_hit_test(const skb_editor_t* editor, skb_movement_type_t type, float hit_x, float hit_y);
 
 /**
- * Paste utf-8 text to the current caret position.
- * @param editor editor to update.
- * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param utf8 pointer to utf-8 string to paste
- * @param utf8_len length of the string, or -1 if nul terminated.
+ * Iterates over set of rectangles that represent the specified text range.
+ * Due to bidirectional text, the selection in logical order can span across multiple visual rectangles.
+ * @param editor editor to query.
+ * @param text_range the text range to gets the rects for.
+ * @param callback callback to call on each rectangle
+ * @param context context passed to the callback.
  */
-void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len);
+void skb_editor_iterate_text_range_bounds(const skb_editor_t* editor, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 /**
- * Paste utf-32 text to the current caret position.
+ * Sets temporary IME composition text as utf-32. The text will be laid out at the current cursor location.
+ * The function can be called multiple times during while the user composes the input.
+ * Use skb_editor_commit_composition_utf32() to commit or skb_editor_clear_composition() to clear the composition text.
  * @param editor editor to update.
- * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param utf32 pointer to utf-32 string to paste
+ * @param temp_alloc temp allocator used for updating the editor text.
+ * @param utf32 pointer to utf-32 string to set.
+ * @param utf32_len length of the string, or -1 if nul terminated.
+ * @param caret_position caret position whitin the text. Zero is in front of the first character, and utf32_len is after the last character.
+ */
+void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position);
+
+/**
+ * Commits the specified string and clears composition text.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used for updating the editor text.
+ * @param utf32 pointer to utf-32 string to commit, if NULL previous text set with skb_editor_set_composition_utf32 will be used.
  * @param utf32_len length of the string, or -1 if nul terminated.
  */
-void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
+void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
 
 /**
- * Paste attributed text to the current caret position.
+ * Clears composition text.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used for updating the editor text.
+ */
+void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
+//
+// Text edit
+//
+
+/**
+ * Inserts new paragraph replacing the text range. This is equivalent of pressing enter at the current caret position.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range range of text to replace
+ * @param paragraph_attribute attribute to set on the new paragraph, empty attribute will be ignored.
+ */
+void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t paragraph_attribute);
+
+/**
+ * Inserts codepoint replacing the text range.
  * @param editor editor to update.
  * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param text attributed text to paste
+ * @param text_range range of text to replace
+ * @param codepoint codepoint to insert.
  */
-void skb_editor_paste_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_text_t* text);
+void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, uint32_t codepoint);
 
 /**
- * Paste attributed text to the current caret position.
- * @param editor editor to update.
+ * Inserts utf-8 string replacing the text range.
+ * The function will adjust the current selection to compensate the changed text.
+ * If the range is empty (start_pos == end_pos), the function will act as insert.
+ * If the utf-8 string is empty, the function will act as remove.
+ * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param rich_text rich text to paste
+ * @param text_range range of text to replace
+ * @param utf8 pointer to utf-32 string to insert
+ * @param utf8_len length of the string, or -1 if nul terminated
  */
-void skb_editor_paste_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text);
+void skb_editor_insert_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const char* utf8, int32_t utf8_len);
 
 /**
- * Deletes current selection.
- * @param editor editor to update.
- * @param temp_alloc temp alloc to use for text modifications and relayout.
- */
-void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
-
-/**
- * Replaces range of text with new utf-32 string.
+ * Inserts utf-32 string replacing the text range.
  * The function will adjust the current selection to compensate the changed text.
  * If the range is empty (start_pos == end_pos), the function will act as insert.
  * If the utf-32 string is empty, the function will act as remove.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout.
- * @param range range of text to replace
+ * @param text_range range of text to replace
  * @param utf32 pointer to utf-32 string to insert
  * @param utf32_len length of the string, or -1 if nul terminated
  */
-void skb_editor_replace_range_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t range, const uint32_t* utf32, int32_t utf32_len);
+void skb_editor_insert_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_len);
 
+/**
+ * Inserts rich text replacing the text range.
+ * The function will adjust the current selection to compensate the changed text.
+ * If the range is empty (start_pos == end_pos), the function will act as insert.
+ * If the utf-32 string is empty, the function will act as remove.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range range of text to replace
+ * @param rich_text pointer to rich text to insert
+ */
+void skb_editor_insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text);
+
+
+//
+// Attribute edit
+//
 
 /**
  * Toggles attribute for the current selection.
@@ -507,7 +573,7 @@ void skb_editor_replace_range_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  * @param attribute attribute to toggle.
  */
-void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute);
+void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Applies attribute for the current selection.
@@ -516,69 +582,86 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
  * This is useful for attributes like font size or color.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range text range to apply the attribute for.
  * @param attribute attribute to apply.
  */
-void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute);
-
-/**
- * Sets attribute for specified range, overriding any attribute of same kind.
- * @param editor editor to update
- * @param temp_alloc temp alloc to use for text modifications and relayout
- * @param selection range of text to change
- * @param attribute attribute to set.
- */
-void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Clears attribute for specified selection range.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout
- * @param selection range of text to change
+ * @param text_range range of text to change
  * @param attribute attribute to clear.
  */
-void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Clears all attributes for specified selection range.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout
- * @param selection range of text to change
+ * @param text_range range of text to change
  */
-void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection);
+void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range);
 
 /**
  * Sets attribute for paragraphs in specified selection range, overriding any attribute of same kind.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout
- * @param selection range of text to change
+ * @param text_range range of text to change
  * @param attribute attribute to set.
  */
-void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Applies delta change to attribute for paragraphs in specified selection range.
  * Note: currently only indent level attribute is supported.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout
- * @param selection range of text to change
+ * @param text_range range of text to change
  * @param attribute attribute delta to apply.
  */
-void skb_editor_apply_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute);
+void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Counts number of codepoints the attribute is applied in the selection range.
  * @param editor editor to update
- * @param selection range of text to query
+ * @param text_rage range of text to query
  * @param attribute attribute to query
  * @return number of codepoints the attribute is applied to
  */
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, skb_attribute_t attribute);
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_rage, skb_attribute_t attribute);
+
+/**
+ * Checks if all the paragraphs overlapping the text range has the specified attribute.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return true if all paragraph in the text range has specified attribute.
+ */
+bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Checks if the text range has the specified attribute.
+ * If the text range is empty, and equals current selection, the active attributes are tested.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return true if all paragraph in the text range has specified attribute.
+ */
+bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
 
 /** @return number of active attributes. Active attributes define what style is applied to the next text that is inserted. */
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);
 
 /** @return constpointer to active attributes. Active attributes define what style is applied to the next text that is inserted. */
 const skb_attribute_t* skb_editor_get_active_attributes(const skb_editor_t* editor);
+
+
+//
+// Undo
+//
 
 /**
  * Begins undo transaction. All changes done within an transaction will be undo or redo as one change.
@@ -613,35 +696,6 @@ bool skb_editor_can_redo(skb_editor_t* editor);
  * @param temp_alloc temp allocator used to relayout the text.
  */
 void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
-
-/**
- * Sets temporary IME composition text as utf-32. The text will be laid out at the current cursor location.
- * The function can be called multiple times during while the user composes the input.
- * Use skb_editor_commit_composition_utf32() to commit or skb_editor_clear_composition() to clear the composition text.
- * @param editor editor to update.
- * @param temp_alloc temp allocator used for updating the editor text.
- * @param utf32 pointer to utf-32 string to set.
- * @param utf32_len length of the string, or -1 if nul terminated.
- * @param caret_position caret position whitin the text. Zero is in front of the first character, and utf32_len is after the last character.
- */
-void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len, int32_t caret_position);
-
-/**
- * Commits the specified string and clears composition text.
- * @param editor editor to update.
- * @param temp_alloc temp allocator used for updating the editor text.
- * @param utf32 pointer to utf-32 string to commit, if NULL previous text set with skb_editor_set_composition_utf32 will be used.
- * @param utf32_len length of the string, or -1 if nul terminated.
- */
-void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len);
-
-/**
- * Clears composition text.
- * @param editor editor to update.
- * @param temp_alloc temp allocator used for updating the editor text.
- */
-void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
-
 
 
 /** @} */

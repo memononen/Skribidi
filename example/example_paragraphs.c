@@ -177,37 +177,37 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 		"Donec vitae tristique libero. Etiam eget pellentesque nisi, in porta lectus. Donec accumsan ligula mauris. Nulla consectetur tortor at sem rutrum, non dapibus libero interdum. "
 		"Nunc blandit molestie neque, quis porttitor lectus. Pellentesque consectetur augue sed velit suscipit pretium. In nec massa eros. Fusce non justo efficitur metus auctor pretium efficitur mattis enim.";
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h1_attributes));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h1_attributes));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "The Header of the Text", -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, ipsum_1, -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h2_attributes));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(h2_attributes));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Another Header", -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes_right));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes_right));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, ipsum_2, -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes_padding));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(body_attributes_padding));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, ipsum_3, -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Banana", -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Cherry", -1, (skb_attribute_set_t){0});
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Cherry Coke", -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam eget blandit purus, sit amet faucibus quam. Morbi vulputate tellus in nulla fermentum feugiat id eu diam. Sed id orci sapien. ", -1, (skb_attribute_set_t){0});
 
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l1));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Apple", -1, (skb_attribute_set_t){0});
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Pineapple", -1, (skb_attribute_set_t){0});
-	skb_rich_text_add_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
+	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Blue cheese", -1, (skb_attribute_set_t){0});
 
 

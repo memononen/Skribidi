@@ -38,19 +38,19 @@ static int test_rich_text_replace(void)
 	ENSURE(skb_rich_text_get_paragraphs_count(ins_rich_text) == 2); // Foo\n | bar
 
 	// Insert front
-	skb_rich_text_replace(rich_text, (skb_range_t){0}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_range_t){0}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 10);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 2); // Foo\n | barbaz
 
 	// Insert back
-	skb_rich_text_replace(rich_text, (skb_range_t){.start = text_count,.end = text_count}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_range_t){.start = text_count,.end = text_count}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 20);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 3); // Foo\n | barbazFoo\n | barbaz
 
 	// Insert middle
-	skb_rich_text_replace(rich_text, (skb_range_t){.start = 3,.end = 14}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_range_t){.start = 3,.end = 14}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 19);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 2); // FooFoo\n | barbazbarbaz

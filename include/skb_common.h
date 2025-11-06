@@ -19,9 +19,9 @@ extern "C" {
 * when instantiating structs.
 */
 #if defined(__cplusplus__)
-	#define SKB_NEW(type) type
+	#define SKB_MAKE(type) type
 #else
-	#define SKB_NEW(type) (type)
+	#define SKB_MAKE(type) (type)
 #endif
 
 
@@ -185,13 +185,13 @@ typedef struct skb_text_position_t {
 	skb_caret_affinity_t affinity;
 } skb_text_position_t;
 
-/** Struct describing a selection range of the text in a layout. There's no expectation of the order of start and end positions. */
-typedef struct skb_text_selection_t {
+/** Struct describing a range of the text in a layout. */
+typedef struct skb_text_range_t {
 	/** Start position of the selection. */
-	skb_text_position_t start_pos;
+	skb_text_position_t start;
 	/** End position of the selection. */
-	skb_text_position_t end_pos;
-} skb_text_selection_t;
+	skb_text_position_t end;
+} skb_text_range_t;
 
 /** Struct describing position within rich text. */
 typedef struct skb_paragraph_position_t {
@@ -202,12 +202,6 @@ typedef struct skb_paragraph_position_t {
 	/** Text offset amongst all paragraphs. */
 	int32_t global_text_offset;
 } skb_paragraph_position_t;
-
-/** Describes paragraph positions for a range of text. Start position is expected to be before or equal to end position.  */
-typedef struct skb_paragraph_range_t {
-	skb_paragraph_position_t start_pos;
-	skb_paragraph_position_t end_pos;
-} skb_paragraph_range_t;
 
 /**
  * Logs a debug message.

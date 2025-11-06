@@ -50,12 +50,12 @@ typedef enum {
 	SKB_AFFINITY_IGNORE = 1,
 } skb_affinity_usage_t;
 
-skb_paragraph_position_t skb_rich_layout_text_position_to_paragraph_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage);
-int32_t skb_rich_layout_text_position_to_offset(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
-skb_range_t skb_rich_layout_text_selection_to_range(const skb_rich_layout_t* rich_layout, skb_text_selection_t selection);
+skb_paragraph_position_t skb_rich_layout_get_paragraph_position_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage);
+int32_t skb_rich_layout_get_offset_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
+skb_range_t skb_rich_layout_get_range_from_text_range(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range);
 
-skb_visual_caret_t skb_rich_layout_get_visual_caret(const skb_rich_layout_t* rich_layout, skb_text_position_t pos);
-void skb_rich_layout_get_selection_bounds(const skb_rich_layout_t* rich_layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
+skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich_layout, skb_text_position_t pos);
+void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 skb_text_position_t skb_rich_layout_hit_test(const skb_rich_layout_t* rich_layout, skb_movement_type_t type, float hit_x, float hit_y);
 
 

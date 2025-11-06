@@ -50,14 +50,13 @@ typedef struct inputfilter_context_t {
 
 static void update_ime_rect(inputfilter_context_t* ctx)
 {
-	skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
-	skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
+	skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, SKB_CURRENT_SELECTION_END);
 
 	skb_rect2_t caret_rect = {
-		.x = caret_pos.x - caret_pos.descender * caret_pos.slope,
-		.y = caret_pos.y + caret_pos.ascender,
-		.width = (-caret_pos.ascender + caret_pos.descender) * caret_pos.slope,
-		.height = -caret_pos.ascender + caret_pos.descender,
+		.x = caret_info.x - caret_info.descender * caret_info.slope,
+		.y = caret_info.y + caret_info.ascender,
+		.width = (-caret_info.ascender + caret_info.descender) * caret_info.slope,
+		.height = -caret_info.ascender + caret_info.descender,
 	};
 
 	skb_rect2i_t input_rect = {
@@ -110,7 +109,7 @@ static bool is_not_numeric(uint32_t codepoint, int32_t paragraph_idx, int32_t te
 	return !((codepoint >= '0' && codepoint <= '9') || (ctx->allow_sign && is_first_char && codepoint == '-') || (ctx->allow_sign && is_first_char && codepoint == '+') || (ctx->allow_period && codepoint == '.'));
 }
 
-static void numeric_filter(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_selection_t selection, void* context)
+static void numeric_filter(skb_editor_t* editor, skb_rich_text_t* input_text, skb_text_range_t selection, void* context)
 {
 	is_not_numeric_context_t ctx = {0};
 
@@ -118,7 +117,7 @@ static void numeric_filter(skb_editor_t* editor, skb_rich_text_t* input_text, sk
 	ctx.allow_period = !text_contains(editor, '.');
 
 	// Only allow one sign as first character
-	ctx.allow_sign = selection.start_pos.offset == 0 && !text_contains(editor, '+') && !text_contains(editor, '-');
+	ctx.allow_sign = selection.start.offset == 0 && !text_contains(editor, '+') && !text_contains(editor, '-');
 
 	skb_rich_text_remove_if(input_text, is_not_numeric, &ctx);
 }
@@ -248,7 +247,7 @@ void inputfilter_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, 
 		if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL)) {
 			// Paste
 			const char* clipboard_text = glfwGetClipboardString(window);
-			skb_editor_paste_utf8(ctx->editor, ctx->temp_alloc, clipboard_text, -1);
+			skb_editor_insert_text_utf8(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, clipboard_text, -1);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT) == 0)
@@ -284,34 +283,31 @@ void inputfilter_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, 
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_TAB) {
-			skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, '\t');
+			skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, '\t');
 		}
 		if (key == GLFW_KEY_ESCAPE) {
 			// Clear selection
-			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
-			if (skb_editor_get_selection_text_utf32_count(ctx->editor, selection) > 0)
+			if (skb_editor_get_text_utf32_count_in_range(ctx->editor, SKB_CURRENT_SELECTION) > 0)
 				skb_editor_select_none(ctx->editor);
 			else
 				glfwSetWindowShouldClose(window, GL_TRUE);
 		}
 		if (key == GLFW_KEY_X && (mods & GLFW_MOD_CONTROL)) {
 			// Cut
-			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
-			int32_t text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, NULL, -1);
+			int32_t text_len = skb_editor_get_text_utf8_in_range(ctx->editor, SKB_CURRENT_SELECTION, NULL, -1);
 			char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
-			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
+			text_len = skb_editor_get_text_utf8_in_range(ctx->editor, SKB_CURRENT_SELECTION, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
-			skb_editor_cut(ctx->editor, ctx->temp_alloc);
+			skb_editor_insert_text_utf8(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, NULL, 0);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_C && (mods & GLFW_MOD_CONTROL)) {
 			// Copy
-			skb_text_selection_t selection = skb_editor_get_current_selection(ctx->editor);
-			int32_t text_len = skb_editor_get_selection_text_utf8_count(ctx->editor, selection);
+			int32_t text_len = skb_editor_get_text_utf8_count_in_range(ctx->editor, SKB_CURRENT_SELECTION);
 			char* text = SKB_TEMP_ALLOC(ctx->temp_alloc, char, text_len + 1);
-			text_len = skb_editor_get_selection_text_utf8(ctx->editor, selection, text, text_len);
+			text_len = skb_editor_get_text_utf8_in_range(ctx->editor, SKB_CURRENT_SELECTION, text, text_len);
 			text[text_len] = '\0';
 			glfwSetClipboardString(window, text);
 			SKB_TEMP_FREE(ctx->temp_alloc, text);
@@ -328,7 +324,7 @@ void inputfilter_on_char(void* ctx_ptr, unsigned int codepoint)
 	assert(ctx);
 
 	if (ctx->allow_char)
-		skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, codepoint);
+		skb_editor_insert_codepoint(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, codepoint);
 }
 
 static skb_vec2_t transform_mouse_pos(inputfilter_context_t* ctx, float mouse_x, float mouse_y)
@@ -456,10 +452,10 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		debug_render_text(ctx->rc, editor_bounds.x - 5, editor_bounds.y - 20, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "Numeric Input");
 
 
-		skb_text_selection_t edit_selection = skb_editor_get_current_selection(ctx->editor);
-		if (skb_editor_get_selection_count(ctx->editor, edit_selection) > 0) {
+		skb_text_range_t edit_selection = skb_editor_get_current_selection(ctx->editor);
+		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
 			draw_selection_context_t sel_ctx = { .x = 0, .y = 0, .color = sel_color, .renderer = ctx->rc };
-			skb_editor_get_selection_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
+			skb_editor_iterate_text_range_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
 		}
 
 		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
@@ -514,25 +510,25 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		}
 
 		// Caret is generally drawn only when there is no selection.
-		if (skb_editor_get_selection_count(ctx->editor, edit_selection) == 0) {
+		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) == 0) {
 
 			// Visual caret
-			skb_visual_caret_t caret_pos = skb_editor_get_visual_caret(ctx->editor, edit_selection.end_pos);
+			skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, edit_selection.end);
 
 			float caret_line_width = 2.f;
 
-			float caret_slope = caret_pos.slope;
-			float caret_top_x = caret_pos.x + (caret_pos.ascender + caret_line_width*0.5f) * caret_slope;
-			float caret_top_y = caret_pos.y + caret_pos.ascender + caret_line_width*0.5f;
-			float caret_bot_x = caret_pos.x + (caret_pos.descender - caret_line_width*0.5f) * caret_slope;
-			float caret_bot_y = caret_pos.y + (caret_pos.descender - caret_line_width*0.5f);
+			float caret_slope = caret_info.slope;
+			float caret_top_x = caret_info.x + (caret_info.ascender + caret_line_width*0.5f) * caret_slope;
+			float caret_top_y = caret_info.y + caret_info.ascender + caret_line_width*0.5f;
+			float caret_bot_x = caret_info.x + (caret_info.descender - caret_line_width*0.5f) * caret_slope;
+			float caret_bot_y = caret_info.y + (caret_info.descender - caret_line_width*0.5f);
 
 			debug_render_line(ctx->rc, caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color, caret_line_width);
 
 			float as = skb_absf(caret_bot_y - caret_top_y) / 10.f;
-			float dx = skb_is_rtl(caret_pos.direction) ? -as : as;
-			float tri_top_x = caret_pos.x + caret_pos.ascender * caret_slope;
-			float tri_top_y = caret_pos.y + caret_pos.ascender;
+			float dx = skb_is_rtl(caret_info.direction) ? -as : as;
+			float tri_top_x = caret_info.x + caret_info.ascender * caret_slope;
+			float tri_top_y = caret_info.y + caret_info.ascender;
 			float tri_bot_x = tri_top_x - as * caret_slope;
 			float tri_bot_y = tri_top_y + as;
 			debug_render_tri(ctx->rc, tri_top_x, tri_top_y,

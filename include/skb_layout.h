@@ -627,10 +627,11 @@ int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t tex
 // Text Selection
 //
 
-/** Struct describing visual caret location.
- * The caret line can be described as: (x+descender*slope, y+descender) - (x+ascender*slope, y+ascender).
+/**
+ * Struct describing caret info at specific text position.
+ * The caret line can be described as: P0=(x+descender*slope, y+descender), P1=(x+ascender*slope, y+ascender).
  */
-typedef struct skb_visual_caret_t {
+typedef struct skb_caret_info_t {
 	/** X baseline location of the caret */
 	float x;
 	/** Y baseline location of the caret */
@@ -643,7 +644,7 @@ typedef struct skb_visual_caret_t {
 	float slope;
 	/** Text direction at caret location. */
 	uint8_t direction;
-} skb_visual_caret_t;
+} skb_caret_info_t;
 
 /**
  * Returns the line number where the text position lies.
@@ -654,12 +655,12 @@ typedef struct skb_visual_caret_t {
 int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
- * Returns the text offset (codepoint) if specific text position, taking affinity into account.
+ * Returns the text offset (codepoint) from specific text position, taking affinity into account.
  * @param layout layout to use
  * @param pos position within the text.
  * @return text offset.
  */
-int32_t skb_layout_get_text_offset(const skb_layout_t* layout, skb_text_position_t pos);
+int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
  * Returns text direction at the specified text postition.
@@ -773,7 +774,7 @@ void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_
  * @param pos text position to use.
  * @return visual caret location.
  */
-skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos);
+skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos);
 
 /**
  * Returns visual caret location of the text position.
@@ -781,7 +782,7 @@ skb_visual_caret_t skb_layout_get_visual_caret_at_line(const skb_layout_t* layou
  * @param pos text position to use.
  * @return visual caret location.
  */
-skb_visual_caret_t skb_layout_get_visual_caret_at(const skb_layout_t* layout, skb_text_position_t pos);
+skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of nearest start of the line, starting from specified text position. */
 skb_text_position_t skb_layout_get_line_start_at(const skb_layout_t* layout, skb_text_position_t pos);
@@ -796,44 +797,44 @@ skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb
 skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of selection start, which is first in text order. */
-skb_text_position_t skb_layout_get_selection_ordered_start(const skb_layout_t* layout, skb_text_selection_t selection);
+skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return text position of selection end, which is last in text order. */
-skb_text_position_t skb_layout_get_selection_ordered_end(const skb_layout_t* layout, skb_text_selection_t selection);
+skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return ordered range of text (codepoints) representing the selection. End exclusive. */
-skb_range_t skb_layout_get_selection_text_offset_range(const skb_layout_t* layout, skb_text_selection_t selection);
+skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return number of codepoints in the selection. */
-int32_t skb_layout_get_selection_count(const skb_layout_t* layout, skb_text_selection_t selection);
+int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /**
- * Signature of selection bounds getter callback.
+ * Signature of text range bounds getter callback.
  * @param rect rectangle that has part of the selection.
  * @param context context passed to skb_layout_get_selection_bounds()
  */
-typedef void skb_selection_rect_func_t(skb_rect2_t rect, void* context);
+typedef void skb_text_range_bounds_func_t(skb_rect2_t rect, void* context);
 
 /**
- * Returns set of rectangles that represent the selection.
+ * Iterates over set of bounding rectangles that represent the text range.
  * Due to bidirectional text the selection in logical order can span across multiple visual rectangles.
  * @param layout layout to use.
- * @param selection selection to get.
+ * @param text_range the text range to gets the rects for.
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds(const skb_layout_t* layout, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
+void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 /**
- * Returns set of rectangles that represent the selection.
+ * Iterates over set of bounding rectangles that represent the text range.
  * Due to bidirectional text the selection in logical order can span across multiple visual rectangles.
  * @param layout layout to use.
  * @param offset_y y-offset added to each rectangle.
- * @param selection selection to get.
+ * @param text_range the text range to gets the rects for.
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_get_selection_bounds_with_offset(const skb_layout_t* layout, float offset_y, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context);
+void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layout, float offset_y, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 //
 // Caret iterator

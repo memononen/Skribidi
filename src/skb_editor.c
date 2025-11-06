@@ -25,6 +25,12 @@ skb_text_position_t skb__caret_prune_control_eol(const skb_layout_t* layout, con
 // Text edit
 //
 
+
+typedef struct skb__paragraph_range_t {
+	skb_paragraph_position_t start;
+	skb_paragraph_position_t end;
+} skb__paragraph_range_t;
+
 typedef enum {
 	SKB_UNDO_TEXT,
 	SKB_UNDO_TEXT_ATTRIBUTES,
@@ -43,8 +49,8 @@ typedef struct skb__editor_undo_state_t {
 
 typedef struct skb__editor_undo_transaction_t {
 	skb_range_t states_range;		// Removed text range before replace.
-	skb_text_selection_t selection_before;	// Selection before the change.
-	skb_text_selection_t selection_after;	// Selection after at the change (at the point of undo).
+	skb_text_range_t selection_before;	// Selection before the change.
+	skb_text_range_t selection_after;	// Selection after at the change (at the point of undo).
 } skb__editor_undo_transaction_t;
 
 typedef struct skb_editor_t {
@@ -71,23 +77,23 @@ typedef struct skb_editor_t {
 
 	skb_rich_text_t scratch_rich_text;	// Scratch rich text used for input handling.
 
-	skb_text_selection_t selection;
+	skb_text_range_t selection;
 
 	double last_click_time;
 	float drag_start_x;
 	float drag_start_y;
 	float preferred_x;
 	int32_t click_count;
-	skb_text_selection_t drag_initial_selection;
+	skb_text_range_t drag_initial_selection;
 	uint8_t drag_moved;
 	uint8_t drag_mode;
 
 	// IME
 	skb_text_t composition_text;
-	skb_paragraph_position_t composition_position;	// Paragraph and text offset where the composition is displayed.
-	skb_text_position_t composition_selection_base;		// Base position for setting the composition selection.
-	skb_text_selection_t composition_selection;			// Selection during composition.
-	bool composition_cleared_selection;		// True if initial setting the composition text cleared the current selection.
+	int32_t composition_text_offset;				// Global text offset where the composition is displayed.
+	skb_text_position_t composition_selection_base;	// Base position for setting the composition selection.
+	skb_text_range_t composition_selection;			// Selection during composition.
+	bool composition_cleared_selection;				// True if initial setting the composition text cleared the current selection.
 
 	// Undo
 	skb__editor_undo_transaction_t* undo_stack;	// The undo stack.
@@ -115,8 +121,8 @@ static void skb__update_selection_from_change(skb_editor_t* editor, skb_rich_tex
 
 	// Update selection
 	if (change.edit_end_position.affinity != SKB_AFFINITY_NONE) {
-		editor->selection.start_pos = change.edit_end_position;
-		editor->selection.end_pos = change.edit_end_position;
+		editor->selection.start = change.edit_end_position;
+		editor->selection.end = change.edit_end_position;
 		editor->preferred_x = -1.f; // reset preferred.
 	}
 }
@@ -135,13 +141,13 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	layout_params.layout_attributes = editor->params.layout_attributes;
 	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
 
-	skb_rich_layout_set_from_rich_text(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, editor->composition_position.global_text_offset, &editor->composition_text);
+	skb_rich_layout_set_from_rich_text(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, editor->composition_text_offset, &editor->composition_text);
 
 	// Make sure the selection conforms the new layout.
-	skb_paragraph_position_t selection_start_pos = skb__get_sanitized_position(editor, editor->selection.start_pos, SKB_AFFINITY_IGNORE);
-	skb_paragraph_position_t selection_end_pos = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_IGNORE);
-	editor->selection.start_pos.offset = selection_start_pos.global_text_offset;
-	editor->selection.end_pos.offset = selection_end_pos.global_text_offset;
+	skb_paragraph_position_t selection_start_pos = skb__get_sanitized_position(editor, editor->selection.start, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t selection_end_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_IGNORE);
+	editor->selection.start.offset = selection_start_pos.global_text_offset;
+	editor->selection.end.offset = selection_end_pos.global_text_offset;
 }
 
 static const skb_layout_t* skb__get_layout(const skb_editor_t* editor, int32_t paragraph_idx)
@@ -187,53 +193,54 @@ static int32_t skb__get_paragraph_count(const skb_editor_t* editor)
 
 static void skb__update_preview_caret_slope(skb_editor_t* editor)
 {
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
 	const skb_layout_t* layout = skb__get_layout(editor, edit_pos.paragraph_idx);
 	const int32_t pick_pos = skb_layout_prev_grapheme_offset(layout, edit_pos.text_offset);
+
+	editor->preview_caret_slope = 0.f;
 
 	// Try to figure out the font slope based on the current active attributes.
 
 	// Get script from the current selection
 	const skb_text_property_t* text_properties = skb_layout_get_text_properties(layout);
-	assert(pick_pos >= 0 && pick_pos < skb_layout_get_text_count(layout));
-	const uint8_t script = text_properties[pick_pos].script;
+	if (text_properties && pick_pos >= 0 && pick_pos < skb_layout_get_text_count(layout)) {
+		const uint8_t script = text_properties[pick_pos].script;
 
-	// Create attribute set chain (active > paragraph > layout)
-	skb_attribute_set_t paragraph_attributes = skb__get_paragraph_attributes(editor, edit_pos.paragraph_idx);
-	paragraph_attributes.parent_set = &editor->params.layout_attributes;
+		// Create attribute set chain (active > paragraph > layout)
+		skb_attribute_set_t paragraph_attributes = skb__get_paragraph_attributes(editor, edit_pos.paragraph_idx);
+		paragraph_attributes.parent_set = &editor->params.layout_attributes;
 
-	skb_attribute_set_t active_attributes = {
-		.attributes = editor->active_attributes,
-		.attributes_count = editor->active_attributes_count,
-		.parent_set = &paragraph_attributes,
-	};
+		skb_attribute_set_t active_attributes = {
+			.attributes = editor->active_attributes,
+			.attributes_count = editor->active_attributes_count,
+			.parent_set = &paragraph_attributes,
+		};
 
-	// Get relevant attributes to select a font.
-	const uint8_t font_family = skb_attributes_get_font_family(active_attributes, editor->params.attribute_collection);
-	const skb_weight_t font_weight = skb_attributes_get_font_weight(active_attributes, editor->params.attribute_collection);
-	const skb_style_t font_style = skb_attributes_get_font_style(active_attributes, editor->params.attribute_collection);
-	const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(active_attributes, editor->params.attribute_collection);
-	const char* lang = skb_attributes_get_lang(active_attributes, editor->params.attribute_collection);
-	const hb_language_t run_lang = hb_language_from_string(lang, -1);
+		// Get relevant attributes to select a font.
+		const uint8_t font_family = skb_attributes_get_font_family(active_attributes, editor->params.attribute_collection);
+		const skb_weight_t font_weight = skb_attributes_get_font_weight(active_attributes, editor->params.attribute_collection);
+		const skb_style_t font_style = skb_attributes_get_font_style(active_attributes, editor->params.attribute_collection);
+		const skb_stretch_t font_stretch = skb_attributes_get_font_stretch(active_attributes, editor->params.attribute_collection);
+		const char* lang = skb_attributes_get_lang(active_attributes, editor->params.attribute_collection);
+		const hb_language_t run_lang = hb_language_from_string(lang, -1);
 
-	skb_font_handle_t font_handles[32];
-	int32_t fonts_count = skb_font_collection_match_fonts(
-		editor->params.font_collection, hb_language_to_string(run_lang), script, font_family,
-		font_weight, font_style, font_stretch,
-		font_handles, SKB_COUNTOF(font_handles));
+		skb_font_handle_t font_handles[32];
+		int32_t fonts_count = skb_font_collection_match_fonts(
+			editor->params.font_collection, hb_language_to_string(run_lang), script, font_family,
+			font_weight, font_style, font_stretch,
+			font_handles, SKB_COUNTOF(font_handles));
 
-	if (fonts_count > 0) {
-		const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(editor->params.font_collection, font_handles[0]);
-		editor->preview_caret_slope = caret_metrics.slope;
-	} else {
-		editor->preview_caret_slope = 0.f;
+		if (fonts_count > 0) {
+			const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(editor->params.font_collection, font_handles[0]);
+			editor->preview_caret_slope = caret_metrics.slope;
+		}
 	}
 }
 
 static void skb__pick_active_attributes(skb_editor_t* editor)
 {
 	// Pick the active attributes from the text before the cursor.
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
 
 	// Pick style from the character before.
 	const int32_t pick_pos = skb_layout_prev_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
@@ -305,356 +312,6 @@ static void skb__set_params(skb_editor_t* editor, const skb_editor_params_t* par
 	}
 }
 
-skb_editor_t* skb_editor_create(const skb_editor_params_t* params)
-{
-	assert(params);
-
-	skb_editor_t* editor = skb_malloc(sizeof(skb_editor_t));
-	SKB_ZERO_STRUCT(editor);
-
-	editor->scratch_rich_text = skb_rich_text_make_empty();
-	editor->rich_text = skb_rich_text_make_empty();
-	editor->rich_layout = skb_rich_layout_make_empty();
-	editor->composition_text = skb_text_make_empty();
-
-	skb__set_params(editor, params);
-
-	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
-	editor->selection = (skb_text_selection_t) { .start_pos = start_pos, .end_pos = start_pos };
-
-	editor->preferred_x = -1.f;
-	editor->undo_stack_head = -1;
-
-	return editor;
-}
-
-void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
-{
-	assert(editor);
-	editor->on_change_callback = on_change_func;
-	editor->on_change_context = context;
-}
-
-void skb_editor_set_input_filter_callback(skb_editor_t* editor, skb_editor_input_filter_func_t* filter_func, void* context)
-{
-	assert(editor);
-	editor->input_filter_callback = filter_func;
-	editor->input_filter_context = context;
-}
-
-void skb_editor_destroy(skb_editor_t* editor)
-{
-	if (!editor) return;
-
-	skb_rich_text_destroy(&editor->scratch_rich_text);
-	skb_rich_text_destroy(&editor->rich_text);
-	skb_rich_layout_destroy(&editor->rich_layout);
-	skb_text_destroy(&editor->composition_text);
-
-	skb_free(editor->attributes);
-	skb_free(editor->active_attributes);
-
-	skb__reset_undo(editor);
-	skb_free(editor->undo_stack);
-	skb_free(editor->undo_states);
-
-	SKB_ZERO_STRUCT(editor);
-
-	skb_free(editor);
-}
-
-void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
-{
-	assert(editor);
-
-	skb_rich_text_reset(&editor->rich_text);
-	skb_rich_layout_reset(&editor->rich_layout);
-
-	editor->active_attributes_count = 0;
-	editor->preferred_x = -1.f;
-	editor->undo_stack_head = -1;
-
-	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
-	editor->selection = (skb_text_selection_t) { .start_pos = start_pos, .end_pos = start_pos };
-
-	if (params)
-		skb__set_params(editor, params);
-
-	skb__reset_undo(editor);
-
-	skb__emit_on_change(editor);
-}
-
-
-void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
-{
-	assert(editor);
-
-	skb_editor_reset(editor, NULL);
-
-	skb_rich_text_reset(&editor->rich_text);
-	skb_rich_text_add_paragraph(&editor->rich_text, editor->params.paragraph_attributes);
-	skb_rich_text_append_utf8(&editor->rich_text, temp_alloc, utf8, utf8_len, (skb_attribute_set_t){0});
-	skb_rich_text_change_t change = {
-		.start_paragraph_idx = 0,
-		.inserted_paragraph_count = skb_rich_text_get_paragraphs_count(&editor->rich_text)
-	};
-	skb__update_layout(editor, temp_alloc, change);
-
-	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
-}
-
-void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
-{
-	assert(editor);
-
-	skb_editor_reset(editor, NULL);
-
-	skb_rich_text_reset(&editor->rich_text);
-	skb_rich_text_add_paragraph(&editor->rich_text, editor->params.paragraph_attributes);
-	skb_rich_text_append_utf32(&editor->rich_text, temp_alloc, utf32, utf32_len, (skb_attribute_set_t){0});
-	skb_rich_text_change_t change = {
-		.start_paragraph_idx = 0,
-		.inserted_paragraph_count = skb_rich_text_get_paragraphs_count(&editor->rich_text)
-	};
-	skb__update_layout(editor, temp_alloc, change);
-
-	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
-}
-
-void skb_editor_set_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_t* text)
-{
-	assert(editor);
-	assert(text);
-
-	skb_editor_reset(editor, NULL);
-
-	skb_rich_text_reset(&editor->rich_text);
-	skb_rich_text_add_paragraph(&editor->rich_text, editor->params.paragraph_attributes);
-	skb_rich_text_append_text(&editor->rich_text, temp_alloc, text);
-	skb_rich_text_change_t change = {
-		.start_paragraph_idx = 0,
-		.inserted_paragraph_count = skb_rich_text_get_paragraphs_count(&editor->rich_text)
-	};
-	skb__update_layout(editor, temp_alloc, change);
-
-	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
-}
-
-int32_t skb_editor_get_paragraph_count(const skb_editor_t* editor)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_paragraph_count(editor);
-}
-
-const skb_layout_t* skb_editor_get_paragraph_layout(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_layout(editor, paragraph_idx);
-}
-
-float skb_editor_get_paragraph_offset_y(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb_rich_layout_get_layout_offset_y(&editor->rich_layout, paragraph_idx);
-}
-
-float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb_rich_layout_get_layout_advance_y(&editor->rich_layout, paragraph_idx);
-}
-
-const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_text(editor, paragraph_idx);
-}
-
-int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_text_count(editor, paragraph_idx);
-}
-
-int32_t skb_editor_get_paragraph_text_content_count(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	const skb_text_t* text = skb__get_text(editor, paragraph_idx);
-	if (text) {
-		const uint32_t* utf32 = skb_text_get_utf32(text);
-		const int32_t utf32_count = skb_text_get_utf32_count(text);
-		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count-1]))
-			return utf32_count - 1;
-		return utf32_count;
-	}
-	return 0;
-}
-
-
-skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb_rich_text_get_paragraph_attributes(&editor->rich_text, paragraph_idx);
-}
-
-int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return skb__get_global_text_offset(editor, paragraph_idx);
-}
-
-skb_text_position_t skb_editor_get_paragraph_content_start_pos(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	return (skb_text_position_t) {
-		.offset = skb__get_global_text_offset(editor, paragraph_idx),
-		.affinity = SKB_AFFINITY_TRAILING
-	};
-}
-
-skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-
-	const int32_t paragraph_global_text_offset = skb__get_global_text_offset(editor, paragraph_idx);
-	const skb_text_t* text = skb_editor_get_paragraph_text(editor, paragraph_idx);
-	if (text) {
-		const uint32_t* utf32 = skb_text_get_utf32(text);
-		int32_t utf32_count = skb_text_get_utf32_count(text);
-		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count - 1])) {
-			return (skb_text_position_t) {
-				.offset = paragraph_global_text_offset + utf32_count - 1,
-				.affinity = SKB_AFFINITY_TRAILING
-			};
-		}
-		return (skb_text_position_t) {
-			.offset = paragraph_global_text_offset + skb_maxi(0, utf32_count - 1),
-			.affinity = SKB_AFFINITY_EOL
-		};
-	}
-
-	return (skb_text_position_t) {
-		.offset = paragraph_global_text_offset,
-		.affinity = SKB_AFFINITY_TRAILING
-	};
-}
-
-skb_text_selection_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	const int32_t global_offset = skb__get_global_text_offset(editor, paragraph_idx);
-	const int32_t text_count = skb__get_text_count(editor, paragraph_idx);
-	return (skb_text_selection_t) {
-		.start_pos = (skb_text_position_t) {
-			.offset = global_offset,
-			.affinity = SKB_AFFINITY_SOL,
-		},
-		.end_pos = (skb_text_position_t) {
-			.offset = global_offset + skb_maxi(0, text_count - 1),
-			.affinity = SKB_AFFINITY_EOL,
-		},
-	};
-}
-
-skb_text_selection_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-	return (skb_text_selection_t) {
-		.start_pos = skb_editor_get_paragraph_content_start_pos(editor, paragraph_idx),
-		.end_pos = skb_editor_get_paragraph_content_end_pos(editor, paragraph_idx),
-	};
-}
-
-const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor)
-{
-	assert(editor);
-	return &editor->params;
-}
-
-int32_t skb_editor_get_text_utf8_count(const skb_editor_t* editor)
-{
-	assert(editor);
-
-	int32_t count = 0;
-	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
-		const skb_text_t* paragraph_text = skb__get_text(editor, i);
-		count += skb_utf32_to_utf8_count(skb_text_get_utf32(paragraph_text), skb_text_get_utf32_count(paragraph_text));
-	}
-	return count;
-}
-
-int32_t skb_editor_get_text_utf8(const skb_editor_t* editor, char* utf8, int32_t utf8_cap)
-{
-	assert(editor);
-	assert(utf8);
-
-	int32_t count = 0;
-	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
-		const skb_text_t* paragraph_text = skb__get_text(editor, i);
-		const int32_t cur_buf_cap = skb_maxi(0, utf8_cap - count);
-		if (cur_buf_cap == 0)
-			break;
-		char* cur_buf = utf8 + count;
-		count += skb_utf32_to_utf8(skb_text_get_utf32(paragraph_text), skb_text_get_utf32_count(paragraph_text), cur_buf, cur_buf_cap);
-	}
-	return skb_mini(count, utf8_cap);
-}
-
-int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor)
-{
-	assert(editor);
-
-	int32_t count = 0;
-	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
-		const skb_text_t* paragraph_text = skb__get_text(editor, i);
-		count += skb_text_get_utf32_count(paragraph_text);
-	}
-
-	return count;
-}
-
-int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, int32_t utf32_cap)
-{
-	assert(editor);
-
-	int32_t count = 0;
-	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
-		const skb_text_t* paragraph_text = skb__get_text(editor, i);
-		const int32_t cur_buf_cap = skb_maxi(0, utf32_cap - count);
-		const int32_t copy_count = skb_mini(cur_buf_cap, skb_text_get_utf32_count(paragraph_text));
-		if (utf32 && copy_count > 0)
-			memcpy(utf32 + count, skb_text_get_utf32(paragraph_text), copy_count * sizeof(uint32_t));
-		count += skb_text_get_utf32_count(paragraph_text);
-	}
-
-	return count;
-}
-
-const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor)
-{
-	assert(editor);
-	return &editor->rich_text;
-}
-
-const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor)
-{
-	assert(editor);
-	return &editor->rich_layout;
-}
 
 static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage)
 {
@@ -662,21 +319,27 @@ static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* 
 	assert(skb__get_paragraph_count(editor) > 0);
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	return skb_rich_layout_text_position_to_paragraph_position(&editor->rich_layout, pos, affinity_usage);
+	if (skb_text_position_is_current_selection_end(pos))
+		pos = editor->selection.end;
+
+	return skb_rich_layout_get_paragraph_position_from_text_position(&editor->rich_layout, pos, affinity_usage);
 }
 
-static skb_paragraph_range_t skb__get_sanitized_range(const skb_editor_t* editor, skb_text_selection_t selection)
+static skb__paragraph_range_t skb__get_sanitized_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start_pos, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end_pos, SKB_AFFINITY_USE);
+	if (skb_text_range_is_current_selection(text_range))
+		text_range = editor->selection;
 
-	skb_paragraph_range_t result = {0};
+	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, text_range.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, text_range.end, SKB_AFFINITY_USE);
+
+	skb__paragraph_range_t result = {0};
 	if (start_pos.global_text_offset <= end_pos.global_text_offset) {
-		result.start_pos = start_pos;
-		result.end_pos = end_pos;
+		result.start = start_pos;
+		result.end = end_pos;
 	} else {
-		result.start_pos = end_pos;
-		result.end_pos = start_pos;
+		result.start = end_pos;
+		result.end = start_pos;
 	}
 	return result;
 }
@@ -744,7 +407,442 @@ static skb_paragraph_position_t skb__get_prev_grapheme_pos(const skb_editor_t* e
 }
 
 
-// TODO: should we expose this?
+
+skb_editor_t* skb_editor_create(const skb_editor_params_t* params)
+{
+	assert(params);
+
+	skb_editor_t* editor = skb_malloc(sizeof(skb_editor_t));
+	SKB_ZERO_STRUCT(editor);
+
+	editor->scratch_rich_text = skb_rich_text_make_empty();
+	editor->rich_text = skb_rich_text_make_empty();
+	editor->rich_layout = skb_rich_layout_make_empty();
+	editor->composition_text = skb_text_make_empty();
+
+	skb__set_params(editor, params);
+
+	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
+	editor->selection = (skb_text_range_t) { .start = start_pos, .end = start_pos };
+
+	editor->preferred_x = -1.f;
+	editor->undo_stack_head = -1;
+
+	return editor;
+}
+
+void skb_editor_destroy(skb_editor_t* editor)
+{
+	if (!editor) return;
+
+	skb_rich_text_destroy(&editor->scratch_rich_text);
+	skb_rich_text_destroy(&editor->rich_text);
+	skb_rich_layout_destroy(&editor->rich_layout);
+	skb_text_destroy(&editor->composition_text);
+
+	skb_free(editor->attributes);
+	skb_free(editor->active_attributes);
+
+	skb__reset_undo(editor);
+	skb_free(editor->undo_stack);
+	skb_free(editor->undo_states);
+
+	SKB_ZERO_STRUCT(editor);
+
+	skb_free(editor);
+}
+
+void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
+{
+	assert(editor);
+	editor->on_change_callback = on_change_func;
+	editor->on_change_context = context;
+}
+
+void skb_editor_set_input_filter_callback(skb_editor_t* editor, skb_editor_input_filter_func_t* filter_func, void* context)
+{
+	assert(editor);
+	editor->input_filter_callback = filter_func;
+	editor->input_filter_context = context;
+}
+
+const skb_editor_params_t* skb_editor_get_params(const skb_editor_t* editor)
+{
+	assert(editor);
+	return &editor->params;
+}
+
+void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
+{
+	assert(editor);
+
+	skb_rich_text_reset(&editor->rich_text);
+	skb_rich_layout_reset(&editor->rich_layout);
+
+	editor->active_attributes_count = 0;
+	editor->preferred_x = -1.f;
+	editor->undo_stack_head = -1;
+
+	const skb_text_position_t start_pos = { .offset = 0, .affinity = SKB_AFFINITY_SOL };
+	editor->selection = (skb_text_range_t) { .start = start_pos, .end = start_pos };
+
+	if (params)
+		skb__set_params(editor, params);
+
+	skb__reset_undo(editor);
+
+	skb__emit_on_change(editor);
+}
+
+void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
+{
+	assert(editor);
+
+	skb_editor_reset(editor, NULL);
+
+	skb_rich_text_append_paragraph(&editor->rich_text, editor->params.paragraph_attributes);
+	skb_rich_text_append_utf8(&editor->rich_text, temp_alloc, utf8, utf8_len, (skb_attribute_set_t){0});
+
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
+
+	skb__pick_active_attributes(editor);
+	skb__emit_on_change(editor);
+}
+
+void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
+{
+	assert(editor);
+
+	skb_editor_reset(editor, NULL);
+
+	skb_rich_text_append_paragraph(&editor->rich_text, editor->params.paragraph_attributes);
+	skb_rich_text_append_utf32(&editor->rich_text, temp_alloc, utf32, utf32_len, (skb_attribute_set_t){0});
+
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
+
+	skb__pick_active_attributes(editor);
+	skb__emit_on_change(editor);
+}
+
+void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_rich_text_t* rich_text)
+{
+	assert(editor);
+	assert(rich_text);
+
+	skb_editor_reset(editor, NULL);
+
+	skb_rich_text_append(&editor->rich_text, rich_text);
+
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
+
+	skb__pick_active_attributes(editor);
+	skb__emit_on_change(editor);
+}
+
+//
+// Text getters
+//
+
+int32_t skb_editor_get_text_utf8_count(const skb_editor_t* editor)
+{
+	assert(editor);
+
+	int32_t count = 0;
+	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
+		const skb_text_t* paragraph_text = skb__get_text(editor, i);
+		count += skb_utf32_to_utf8_count(skb_text_get_utf32(paragraph_text), skb_text_get_utf32_count(paragraph_text));
+	}
+	return count;
+}
+
+int32_t skb_editor_get_text_utf8(const skb_editor_t* editor, char* utf8, int32_t utf8_cap)
+{
+	assert(editor);
+	assert(utf8);
+
+	int32_t count = 0;
+	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
+		const skb_text_t* paragraph_text = skb__get_text(editor, i);
+		const int32_t cur_buf_cap = skb_maxi(0, utf8_cap - count);
+		if (cur_buf_cap == 0)
+			break;
+		char* cur_buf = utf8 + count;
+		count += skb_utf32_to_utf8(skb_text_get_utf32(paragraph_text), skb_text_get_utf32_count(paragraph_text), cur_buf, cur_buf_cap);
+	}
+	return skb_mini(count, utf8_cap);
+}
+
+int32_t skb_editor_get_text_utf32_count(const skb_editor_t* editor)
+{
+	assert(editor);
+
+	int32_t count = 0;
+	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
+		const skb_text_t* paragraph_text = skb__get_text(editor, i);
+		count += skb_text_get_utf32_count(paragraph_text);
+	}
+
+	return count;
+}
+
+int32_t skb_editor_get_text_utf32(const skb_editor_t* editor, uint32_t* utf32, int32_t utf32_cap)
+{
+	assert(editor);
+
+	int32_t count = 0;
+	for (int32_t i = 0; i < skb__get_paragraph_count(editor); i++) {
+		const skb_text_t* paragraph_text = skb__get_text(editor, i);
+		const int32_t cur_buf_cap = skb_maxi(0, utf32_cap - count);
+		const int32_t copy_count = skb_mini(cur_buf_cap, skb_text_get_utf32_count(paragraph_text));
+		if (utf32 && copy_count > 0)
+			memcpy(utf32 + count, skb_text_get_utf32(paragraph_text), copy_count * sizeof(uint32_t));
+		count += skb_text_get_utf32_count(paragraph_text);
+	}
+
+	return count;
+}
+
+const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor)
+{
+	assert(editor);
+	return &editor->rich_text;
+}
+
+
+int32_t skb_editor_get_text_utf8_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	assert(editor);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	return skb_rich_text_get_utf8_count_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+}
+
+int32_t skb_editor_get_text_utf8_in_range(const skb_editor_t* editor, skb_text_range_t text_range, char* utf8, int32_t utf8_cap)
+{
+	assert(editor);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	return skb_rich_text_get_utf8_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, utf8, utf8_cap);
+}
+
+int32_t skb_editor_get_text_utf32_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	assert(editor);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	return skb_rich_text_get_utf32_count_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+}
+
+int32_t skb_editor_get_text_utf32_in_range(const skb_editor_t* editor, skb_text_range_t text_range, uint32_t* utf32, int32_t utf32_cap)
+{
+	assert(editor);
+	assert(utf32);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	return skb_rich_text_get_utf32_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, utf32, utf32_cap);
+}
+
+void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_range_t text_range, skb_rich_text_t* rich_text)
+{
+	assert(editor);
+	assert(rich_text);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	skb_rich_text_reset(rich_text);
+	skb_rich_text_append_range(rich_text, &editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+}
+
+//
+// Layout getters
+//
+
+const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor)
+{
+	assert(editor);
+	return &editor->rich_layout;
+}
+
+int32_t skb_editor_get_paragraph_count(const skb_editor_t* editor)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_paragraph_count(editor);
+}
+
+const skb_layout_t* skb_editor_get_paragraph_layout(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_layout(editor, paragraph_idx);
+}
+
+float skb_editor_get_paragraph_offset_y(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb_rich_layout_get_layout_offset_y(&editor->rich_layout, paragraph_idx);
+}
+
+float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb_rich_layout_get_layout_advance_y(&editor->rich_layout, paragraph_idx);
+}
+
+const skb_text_t* skb_editor_get_paragraph_text(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_text(editor, paragraph_idx);
+}
+
+int32_t skb_editor_get_paragraph_text_count(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_text_count(editor, paragraph_idx);
+}
+
+int32_t skb_editor_get_paragraph_text_content_count(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	const skb_text_t* text = skb__get_text(editor, paragraph_idx);
+	if (text) {
+		const uint32_t* utf32 = skb_text_get_utf32(text);
+		const int32_t utf32_count = skb_text_get_utf32_count(text);
+		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count-1]))
+			return utf32_count - 1;
+		return utf32_count;
+	}
+	return 0;
+}
+
+skb_attribute_set_t skb_editor_get_paragraph_attributes(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb_rich_text_get_paragraph_attributes(&editor->rich_text, paragraph_idx);
+}
+
+int32_t skb_editor_get_paragraph_global_text_offset(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return skb__get_global_text_offset(editor, paragraph_idx);
+}
+
+skb_text_range_t skb_editor_get_paragraph_text_range(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	const int32_t global_offset = skb__get_global_text_offset(editor, paragraph_idx);
+	const int32_t text_count = skb__get_text_count(editor, paragraph_idx);
+	return (skb_text_range_t) {
+		.start = (skb_text_position_t) {
+			.offset = global_offset,
+			.affinity = SKB_AFFINITY_SOL,
+		},
+		.end = (skb_text_position_t) {
+			.offset = global_offset + skb_maxi(0, text_count - 1),
+			.affinity = SKB_AFFINITY_EOL,
+		},
+	};
+}
+
+skb_text_range_t skb_editor_get_paragraph_content_range(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+	return (skb_text_range_t) {
+		.start = skb_editor_get_paragraph_content_start_pos(editor, paragraph_idx),
+		.end = skb_editor_get_paragraph_content_end_pos(editor, paragraph_idx),
+	};
+}
+skb_text_position_t skb_editor_get_paragraph_content_start_pos(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+	return (skb_text_position_t) {
+		.offset = skb__get_global_text_offset(editor, paragraph_idx),
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+}
+
+skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t* editor, int32_t paragraph_idx)
+{
+	assert(editor);
+
+	const int32_t paragraph_global_text_offset = skb__get_global_text_offset(editor, paragraph_idx);
+	const skb_text_t* text = skb_editor_get_paragraph_text(editor, paragraph_idx);
+	if (text) {
+		const uint32_t* utf32 = skb_text_get_utf32(text);
+		int32_t utf32_count = skb_text_get_utf32_count(text);
+		if (utf32_count > 0 && skb_is_paragraph_separator(utf32[utf32_count - 1])) {
+			return (skb_text_position_t) {
+				.offset = paragraph_global_text_offset + utf32_count - 1,
+				.affinity = SKB_AFFINITY_TRAILING
+			};
+		}
+		return (skb_text_position_t) {
+			.offset = paragraph_global_text_offset + skb_maxi(0, utf32_count - 1),
+			.affinity = SKB_AFFINITY_EOL
+		};
+	}
+
+	return (skb_text_position_t) {
+		.offset = paragraph_global_text_offset,
+		.affinity = SKB_AFFINITY_TRAILING
+	};
+}
+
+
+//
+// Text position
+//
+
+int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t pos)
+{
+	assert(editor);
+
+	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
+	return edit_pos.global_text_offset;
+}
+
+skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t pos)
+{
+	assert(editor);
+	return skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
+}
+
+skb_range_t skb_editor_get_paragraphs_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	if (skb__get_paragraph_count(editor) == 0)
+		return (skb_range_t){0};
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	return (skb_range_t) {
+		.start = sel_range.start.paragraph_idx,
+		.end = sel_range.end.paragraph_idx + 1,
+	};
+}
+
+skb_range_t skb_editor_get_offset_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	assert(editor);
+
+	const skb__paragraph_range_t range = skb__get_sanitized_range(editor, text_range);
+	return (skb_range_t) {
+		.start = range.start.global_text_offset,
+		.end = range.end.global_text_offset,
+	};
+}
+
+int32_t skb_editor_get_text_range_count(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	assert(editor);
+	const skb__paragraph_range_t range = skb__get_sanitized_range(editor, text_range);
+	return range.end.global_text_offset - range.start.global_text_offset;
+}
+
 skb_text_position_t skb_editor_get_line_start_at(const skb_editor_t* editor, skb_text_position_t pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
@@ -842,31 +940,31 @@ skb_text_position_t skb_editor_get_word_end_at(const skb_editor_t* editor, skb_t
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* editor, skb_text_selection_t selection)
+skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* editor, skb_text_range_t selection)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start_pos, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end, SKB_AFFINITY_USE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start_pos : selection.end_pos;
+		return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start : selection.end;
 
-	return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start_pos : selection.end_pos;
+	return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start : selection.end;
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* editor, skb_text_selection_t selection)
+skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* editor, skb_text_range_t selection)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start_pos, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end_pos, SKB_AFFINITY_USE);
+	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end, SKB_AFFINITY_USE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start_pos : selection.end_pos;
+		return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start : selection.end;
 
-	return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start_pos : selection.end_pos;
+	return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start : selection.end;
 }
 
 static bool skb__is_at_first_line(const skb_editor_t* editor, skb_paragraph_position_t edit_pos)
@@ -1303,50 +1401,12 @@ static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* edit
 	return result;
 }
 
-int32_t skb_editor_get_selection_text_utf8_count(const skb_editor_t* editor, skb_text_selection_t selection)
-{
-	assert(editor);
 
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	return skb_rich_text_get_range_utf8_count(&editor->rich_text, (skb_range_t){ .start = sel_range.start_pos.global_text_offset, .end = sel_range.end_pos.global_text_offset });
-}
+//
+// Selection
+//
 
-int32_t skb_editor_get_selection_text_utf8(const skb_editor_t* editor, skb_text_selection_t selection, char* utf8, int32_t utf8_cap)
-{
-	assert(editor);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	return skb_rich_text_get_range_utf8(&editor->rich_text, (skb_range_t){ .start = sel_range.start_pos.global_text_offset, .end = sel_range.end_pos.global_text_offset }, utf8, utf8_cap);
-}
-
-int32_t skb_editor_get_selection_text_utf32_count(const skb_editor_t* editor, skb_text_selection_t selection)
-{
-	assert(editor);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	return skb_rich_text_get_range_utf32_count(&editor->rich_text, (skb_range_t){ .start = sel_range.start_pos.global_text_offset, .end = sel_range.end_pos.global_text_offset });
-}
-
-int32_t skb_editor_get_selection_text_utf32(const skb_editor_t* editor, skb_text_selection_t selection, uint32_t* utf32, int32_t utf32_cap)
-{
-	assert(editor);
-	assert(utf32);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	return skb_rich_text_get_range_utf32(&editor->rich_text, (skb_range_t){ .start = sel_range.start_pos.global_text_offset, .end = sel_range.end_pos.global_text_offset }, utf32, utf32_cap);
-}
-
-void skb_editor_get_selection_rich_text(const skb_editor_t* editor, skb_text_selection_t selection, skb_rich_text_t* rich_text)
-{
-	assert(editor);
-	assert(rich_text);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	skb_rich_text_reset(rich_text);
-	skb_rich_text_append_range(rich_text, &editor->rich_text, (skb_range_t){ .start = sel_range.start_pos.global_text_offset, .end = sel_range.end_pos.global_text_offset });
-}
-
-skb_text_selection_t skb_editor_get_current_selection(const skb_editor_t* editor)
+skb_text_range_t skb_editor_get_current_selection(const skb_editor_t* editor)
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
@@ -1358,20 +1418,26 @@ skb_text_selection_t skb_editor_get_current_selection(const skb_editor_t* editor
 	return editor->selection;
 }
 
+void skb_editor_select(skb_editor_t* editor, skb_text_range_t text_range)
+{
+	assert(editor);
+	editor->selection = text_range;
+}
+
 void skb_editor_select_all(skb_editor_t* editor)
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
 
 	if (skb__get_paragraph_count(editor) > 0) {
-		editor->selection.start_pos = (skb_text_position_t) { .offset = 0, .affinity = SKB_AFFINITY_SOL };
+		editor->selection.start = (skb_text_position_t) { .offset = 0, .affinity = SKB_AFFINITY_SOL };
 		const int32_t last_paragraph_idx = skb__get_paragraph_count(editor) - 1;
 		const int32_t last_text_count = skb__get_text_count(editor, last_paragraph_idx);
 		const int32_t last_grapheme_offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, last_paragraph_idx), last_text_count-1);
-		editor->selection.end_pos = (skb_text_position_t) { .offset = skb__get_global_text_offset(editor, last_paragraph_idx) + last_grapheme_offset, .affinity = SKB_AFFINITY_EOL };
+		editor->selection.end = (skb_text_position_t) { .offset = skb__get_global_text_offset(editor, last_paragraph_idx) + last_grapheme_offset, .affinity = SKB_AFFINITY_EOL };
 	} else {
-		editor->selection.start_pos = (skb_text_position_t) { 0 };
-		editor->selection.end_pos = (skb_text_position_t) { 0 };
+		editor->selection.start = (skb_text_position_t) { 0 };
+		editor->selection.end = (skb_text_position_t) { 0 };
 	}
 }
 
@@ -1379,19 +1445,24 @@ void skb_editor_select_none(skb_editor_t* editor)
 {
 	assert(editor);
 	// Clear selection, but retain current caret position.
-	editor->selection.start_pos = editor->selection.end_pos;
-}
-
-void skb_editor_select(skb_editor_t* editor, skb_text_selection_t selection)
-{
-	assert(editor);
-	editor->selection = selection;
+	editor->selection.start = editor->selection.end;
 }
 
 skb_text_position_t skb_editor_hit_test(const skb_editor_t* editor, skb_movement_type_t type, float hit_x, float hit_y)
 {
 	assert(editor);
 	return skb_rich_layout_hit_test(&editor->rich_layout, type, hit_x, hit_y);
+}
+
+void skb_editor_iterate_text_range_bounds(const skb_editor_t* editor, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
+{
+	assert(editor);
+	assert(skb__are_paragraphs_in_sync(editor));
+
+	if (skb_text_range_is_current_selection(text_range))
+		text_range = editor->selection;
+
+	skb_rich_layout_get_text_range_bounds(&editor->rich_layout, text_range, callback, context);
 }
 
 enum {
@@ -1426,20 +1497,20 @@ void skb_editor_process_mouse_click(skb_editor_t* editor, float x, float y, uint
 
 	if (mods & SKB_MOD_SHIFT) {
 		// Shift click makes selection from current start pos to the new hit pos.
-		editor->selection.end_pos = hit_caret;
+		editor->selection.end = hit_caret;
 		editor->drag_mode = SKB_DRAG_CHAR;
 	} else {
 		if (editor->click_count == 1) {
-			editor->selection.end_pos = hit_caret;
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.end = hit_caret;
+			editor->selection.start = editor->selection.end;
 			editor->drag_mode = SKB_DRAG_CHAR;
 		} else if (editor->click_count == 2) {
-			editor->selection.start_pos = skb_editor_get_word_start_at(editor, hit_caret);
-			editor->selection.end_pos = skb_editor_get_word_end_at(editor, hit_caret);
+			editor->selection.start = skb_editor_get_word_start_at(editor, hit_caret);
+			editor->selection.end = skb_editor_get_word_end_at(editor, hit_caret);
 			editor->drag_mode = SKB_DRAG_WORD;
 		} else if (editor->click_count == 3) {
-			editor->selection.start_pos = skb_editor_get_line_start_at(editor, hit_caret);
-			editor->selection.end_pos = skb_editor_get_line_end_at(editor, hit_caret);
+			editor->selection.start = skb_editor_get_line_start_at(editor, hit_caret);
+			editor->selection.end = skb_editor_get_line_end_at(editor, hit_caret);
 			editor->drag_mode = SKB_DRAG_LINE;
 		}
 		skb__pick_active_attributes(editor);
@@ -1488,40 +1559,34 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 		const skb_paragraph_position_t sel_start = skb__get_sanitized_position(editor, sel_start_pos, SKB_AFFINITY_USE);
 		const skb_paragraph_position_t sel_end = skb__get_sanitized_position(editor, sel_end_pos, SKB_AFFINITY_USE);
 
-		const skb_paragraph_position_t initial_start = skb__get_sanitized_position(editor, editor->drag_initial_selection.start_pos, SKB_AFFINITY_USE);
-		const skb_paragraph_position_t initial_end = skb__get_sanitized_position(editor, editor->drag_initial_selection.end_pos, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t initial_start = skb__get_sanitized_position(editor, editor->drag_initial_selection.start, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t initial_end = skb__get_sanitized_position(editor, editor->drag_initial_selection.end, SKB_AFFINITY_USE);
 
 		if (sel_start.global_text_offset < initial_start.global_text_offset) {
 			// The selection got expanded before the initial selection range start.
-			editor->selection.start_pos = sel_start_pos;
-			editor->selection.end_pos = editor->drag_initial_selection.end_pos;
+			editor->selection.start = sel_start_pos;
+			editor->selection.end = editor->drag_initial_selection.end;
 		} else if (sel_end.global_text_offset > initial_end.global_text_offset) {
 			// The selection got expanded past the initial selection range end.
-			editor->selection.start_pos = editor->drag_initial_selection.start_pos;
-			editor->selection.end_pos = sel_end_pos;
+			editor->selection.start = editor->drag_initial_selection.start;
+			editor->selection.end = sel_end_pos;
 		} else {
 			// Restore
-			editor->selection.start_pos = editor->drag_initial_selection.start_pos;
-			editor->selection.end_pos = editor->drag_initial_selection.end_pos;
+			editor->selection.start = editor->drag_initial_selection.start;
+			editor->selection.end = editor->drag_initial_selection.end;
 		}
 
 		editor->preferred_x = -1.f; // reset preferred.
 	}
 }
 
-static skb_rich_text_change_t skb__replace_range(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_paragraph_position_t start, skb_paragraph_position_t end, const skb_rich_text_t* rich_text)
-{
-	skb_rich_text_change_t change = skb_rich_text_replace(&editor->rich_text, (skb_range_t){ .start = start.global_text_offset, .end = end.global_text_offset }, rich_text);
-	return change;
-}
-
 static skb_rich_text_change_t skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text)
 {
 	// Insert pos gets clamped to the layout text size.
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, editor->selection);
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, editor->selection);
 
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, sel_range.start_pos, sel_range.end_pos, rich_text);
-	skb_rich_text_change_t change = skb__replace_range(editor, temp_alloc, sel_range.start_pos, sel_range.end_pos, rich_text);
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, sel_range.start, sel_range.end, rich_text);
+	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, rich_text);
 	skb__update_selection_from_change(editor, change);
 	skb__capture_undo_text_end(editor, transaction_id);
 
@@ -1758,7 +1823,7 @@ void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			skb__editor_undo_state_t* undo_state = &editor->undo_states[i];
 			skb_rich_text_change_t change = {0};
 			if (undo_state->type == SKB_UNDO_TEXT) {
-				change = skb_rich_text_replace(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
+				change = skb_rich_text_insert(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
 				skb_rich_text_replace_attributes_range(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			}
@@ -1793,7 +1858,7 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			const skb__editor_undo_state_t* undo_state = &editor->undo_states[i];
 			skb_rich_text_change_t change = {0};
 			if (undo_state->type == SKB_UNDO_TEXT) {
-				change = skb_rich_text_replace(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
+				change = skb_rich_text_insert(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
 				skb_rich_text_replace_attributes_range(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			}
@@ -2004,7 +2069,7 @@ static skb_rich_text_t* skb__make_scratch_text_input_utf32(skb_editor_t* editor,
 	else
 		paragraph_attributes = editor->params.paragraph_attributes;
 
-	skb_rich_text_add_paragraph(&editor->scratch_rich_text, paragraph_attributes);
+	skb_rich_text_append_paragraph(&editor->scratch_rich_text, paragraph_attributes);
 
 	skb_attribute_set_t attributes = {
 		.attributes = editor->active_attributes,
@@ -2016,37 +2081,6 @@ static skb_rich_text_t* skb__make_scratch_text_input_utf32(skb_editor_t* editor,
 	return &editor->scratch_rich_text;
 }
 
-void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t paragraph_attribute)
-{
-	uint32_t cp = SKB_CHAR_LINE_FEED;
-	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
-
-	if (paragraph_attribute.kind != 0) {
-		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 2 }, paragraph_attribute);
-	}
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
-	if (skb_rich_text_get_utf32_count(input_text) > 0) {
-		editor->allow_append_undo = false; // Do not allow to merge with previous change.
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-		editor->allow_append_undo = false;
-		skb__update_layout(editor, temp_alloc, change);
-
-		// The call to skb_editor_replace_selection() changes selection to after the inserted text.
-		// The caret is placed on the leading edge, which is usually good, but for new line we want trailing.
-		skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
-		editor->selection.end_pos = (skb_text_position_t) {
-			.offset = range_start.global_text_offset,
-			.affinity = SKB_AFFINITY_TRAILING,
-		};
-		editor->selection.start_pos = editor->selection.end_pos;
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
 void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_editor_key_t key, uint32_t mods)
 {
 	assert(editor);
@@ -2056,48 +2090,48 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			if (mods & SKB_MOD_SHIFT) {
 				// MacOS mode with shift
 				if (mods & SKB_MOD_COMMAND)
-					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_get_line_end_at(editor, editor->selection.end);
 				else if (mods & SKB_MOD_OPTION)
-					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				else
-					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// MacOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
-					editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_get_line_end_at(editor, editor->selection.end);
 				} else if (mods & SKB_MOD_OPTION) {
-					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				} else {
 					// Reset selection, choose left-most caret position.
-					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-						editor->selection.end_pos = skb_editor_get_selection_ordered_end(editor, editor->selection);
+					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
+						editor->selection.end = skb_editor_get_selection_ordered_end(editor, editor->selection);
 					else
-						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
 				}
-				editor->selection.start_pos = editor->selection.end_pos;
+				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
 				// Default mode with shift
 				if (mods & SKB_MOD_CONTROL)
-					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				else
-					editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
-					editor->selection.end_pos = skb_editor_move_to_next_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				} else {
 					// Reset selection, choose left-most caret position.
-					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-						editor->selection.end_pos = skb_editor_get_selection_ordered_end(editor, editor->selection);
+					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
+						editor->selection.end = skb_editor_get_selection_ordered_end(editor, editor->selection);
 					else
-						editor->selection.end_pos = skb_editor_move_to_next_char(editor, editor->selection.end_pos);
+						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
 				}
-				editor->selection.start_pos = editor->selection.end_pos;
+				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 			}
 		}
@@ -2110,47 +2144,47 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			if (mods & SKB_MOD_SHIFT) {
 				// MacOS mode with shift
 				if (mods & SKB_MOD_COMMAND)
-					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_get_line_start_at(editor, editor->selection.end);
 				else if (mods & SKB_MOD_OPTION)
-					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				else
-					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// macOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
-					editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_get_line_start_at(editor, editor->selection.end);
 				} else if (mods & SKB_MOD_OPTION) {
-					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				} else {
 					// Reset selection, choose right-most caret position.
-					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-						editor->selection.end_pos = skb_editor_get_selection_ordered_start(editor, editor->selection);
+					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
+						editor->selection.end = skb_editor_get_selection_ordered_start(editor, editor->selection);
 					else
-						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
 				}
-				editor->selection.start_pos = editor->selection.end_pos;
+				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
 				// Default mode with shift
 				if (mods & SKB_MOD_CONTROL)
-					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				else
-					editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
-					editor->selection.end_pos = skb_editor_move_to_prev_word(editor, editor->selection.end_pos);
+					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				} else {
-					if (skb_editor_get_selection_count(editor, editor->selection) > 0)
-						editor->selection.end_pos = skb_editor_get_selection_ordered_start(editor, editor->selection);
+					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
+						editor->selection.end = skb_editor_get_selection_ordered_start(editor, editor->selection);
 					else
-						editor->selection.end_pos = skb_editor_move_to_prev_char(editor, editor->selection.end_pos);
+						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
 				}
-				editor->selection.start_pos = editor->selection.end_pos;
+				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 			}
 		}
@@ -2159,9 +2193,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_HOME) {
-		editor->selection.end_pos = skb_editor_get_line_start_at(editor, editor->selection.end_pos);
+		editor->selection.end = skb_editor_get_line_start_at(editor, editor->selection.end);
 		if ((mods & SKB_MOD_SHIFT) == 0) {
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2169,9 +2203,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_END) {
-		editor->selection.end_pos = skb_editor_get_line_end_at(editor, editor->selection.end_pos);
+		editor->selection.end = skb_editor_get_line_end_at(editor, editor->selection.end);
 		if ((mods & SKB_MOD_SHIFT) == 0) {
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2183,27 +2217,27 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			// macOS mode
 			if (mods & SKB_MOD_COMMAND) {
 				// Command + Up: Move to beginning of document
-				editor->selection.end_pos = skb__editor_get_document_start(editor);
+				editor->selection.end = skb__editor_get_document_start(editor);
 				editor->preferred_x = -1.f; // reset preferred
 			} else {
 				// Regular up movement
 				if (editor->preferred_x < 0.f) {
-					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					skb_caret_info_t vis = skb_editor_get_caret_info_at(editor, editor->selection.end);
 					editor->preferred_x = vis.x;
 				}
-				editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
+				editor->selection.end = skb_editor_move_to_prev_line(editor, editor->selection.end, editor->preferred_x);
 			}
 		} else {
 			// Default mode
 			if (editor->preferred_x < 0.f) {
-				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				skb_caret_info_t vis = skb_editor_get_caret_info_at(editor, editor->selection.end);
 				editor->preferred_x = vis.x;
 			}
-			editor->selection.end_pos = skb_editor_move_to_prev_line(editor, editor->selection.end_pos, editor->preferred_x);
+			editor->selection.end = skb_editor_move_to_prev_line(editor, editor->selection.end, editor->preferred_x);
 		}
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
 		editor->allow_append_undo = false;
@@ -2213,45 +2247,45 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			// macOS mode
 			if (mods & SKB_MOD_COMMAND) {
 				// Command + Down: Move to end of document
-				editor->selection.end_pos = skb__editor_get_document_end(editor);
+				editor->selection.end = skb__editor_get_document_end(editor);
 				editor->preferred_x = -1.f; // reset preferred
 			} else {
 				// Regular down movement
 				if (editor->preferred_x < 0.f) {
-					skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+					skb_caret_info_t vis = skb_editor_get_caret_info_at(editor, editor->selection.end);
 					editor->preferred_x = vis.x;
 				}
-				editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
+				editor->selection.end = skb_editor_move_to_next_line(editor, editor->selection.end, editor->preferred_x);
 			}
 		} else {
 			// Default mode
 			if (editor->preferred_x < 0.f) {
-				skb_visual_caret_t vis = skb_editor_get_visual_caret(editor, editor->selection.end_pos);
+				skb_caret_info_t vis = skb_editor_get_caret_info_at(editor, editor->selection.end);
 				editor->preferred_x = vis.x;
 			}
-			editor->selection.end_pos = skb_editor_move_to_next_line(editor, editor->selection.end_pos, editor->preferred_x);
+			editor->selection.end = skb_editor_move_to_next_line(editor, editor->selection.end, editor->preferred_x);
 		}
 
 		if ((mods & SKB_MOD_SHIFT) == 0) {
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
 		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_BACKSPACE) {
-		if (skb_editor_get_selection_count(editor, editor->selection) > 0) {
+		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
 			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, NULL);
 			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
 		} else {
-			skb_paragraph_position_t range_end = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+			skb_paragraph_position_t range_end = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
 			skb_paragraph_position_t range_start = skb__get_backspace_start_offset(editor, range_end);
 
 			int32_t transaction_id = skb__capture_undo_text_begin(editor, range_start, range_end, NULL);
-			skb_rich_text_change_t change = skb__replace_range(editor, temp_alloc, range_start, range_end, NULL);
+			skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = range_start.global_text_offset, .end = range_end.global_text_offset }, NULL);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
@@ -2263,18 +2297,18 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 	}
 
 	if (key == SKB_KEY_DELETE) {
-		if (skb_editor_get_selection_count(editor, editor->selection) > 0) {
+		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
 			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, NULL);
 			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
 		} else {
-			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
+			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
 			skb_paragraph_position_t range_end = skb__get_next_grapheme_pos(editor, range_start);
 
 			int32_t transaction_id = skb__capture_undo_text_begin(editor, range_start, range_end, NULL);
-			skb_rich_text_change_t change = skb__replace_range(editor, temp_alloc, range_start, range_end, NULL);
+			skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = range_start.global_text_offset, .end = range_end.global_text_offset }, NULL);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
@@ -2298,163 +2332,31 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
 
-			// The call to skb_editor_replace_selection() changes selection to after the inserted text.
+			// The call to skb__replace_selection changes selection to after the inserted text.
 			// The caret is placed on the leading edge, which is usually good, but for new line we want trailing.
-			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end_pos, SKB_AFFINITY_USE);
-			editor->selection.end_pos = (skb_text_position_t) {
+			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
+			editor->selection.end = (skb_text_position_t) {
 				.offset = range_start.global_text_offset,
 				.affinity = SKB_AFFINITY_TRAILING,
 			};
-			editor->selection.start_pos = editor->selection.end_pos;
+			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
 		}
 	}
 }
 
-void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, uint32_t codepoint)
+
+static skb_text_position_t skb__adjust_text_position(const skb_editor_t* editor, skb_text_position_t pos, skb_range_t removed_range, int32_t inserted_count)
 {
-	assert(editor);
+	const int32_t removed_count = removed_range.end - removed_range.start;
 
-	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &codepoint, 1);
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
-	if (skb_rich_text_get_utf32_count(input_text) > 0) {
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-		editor->allow_append_undo = true;
-		skb__update_layout(editor, temp_alloc, change);
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
-void skb_editor_paste_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
-{
-	assert(editor);
-	if (!utf8) return;
-	if (utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
-
-	const int32_t utf32_count = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
-	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_count);
-	skb_utf8_to_utf32(utf8, utf8_len, utf32, utf32_count);
-
-	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_count);
-
-	SKB_TEMP_FREE(temp_alloc, utf32);
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
-	if (skb_rich_text_get_utf32_count(input_text) > 0) {
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-		editor->allow_append_undo = false;
-		skb__update_layout(editor, temp_alloc, change);
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
-void skb_editor_paste_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
-{
-	assert(editor);
-	if (!utf32) return;
-
-	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
-	if (skb_rich_text_get_utf32_count(input_text) > 0) {
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-		editor->allow_append_undo = false;
-		skb__update_layout(editor, temp_alloc, change);
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
-void skb_editor_paste_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_text_t* text)
-{
-	assert(editor);
-	if (!text) return;
-
-	skb_rich_text_t* input_text = &editor->scratch_rich_text;
-
-	skb_attribute_set_t paragraph_attributes = {0};
-	if (skb__get_paragraph_count(editor) > 0)
-		paragraph_attributes = skb__get_paragraph_attributes(editor, editor->active_attribute_paragraph_idx);
-	else
-		paragraph_attributes = editor->params.paragraph_attributes;
-
-	skb_rich_text_add_paragraph(input_text, paragraph_attributes);
-
-	skb_rich_text_append_text(input_text, temp_alloc, text);
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
-	if (skb_rich_text_get_utf32_count(input_text) > 0) {
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-		editor->allow_append_undo = false;
-		skb__update_layout(editor, temp_alloc, change);
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
-void skb_editor_paste_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text)
-{
-	assert(editor);
-
-	if (editor->input_filter_callback) {
-
-		skb_rich_text_t* rich_text_copy = &editor->scratch_rich_text;
-		skb_rich_text_reset(rich_text_copy);
-		skb_rich_text_append(rich_text_copy, rich_text);
-
-		editor->input_filter_callback(editor, rich_text_copy, editor->selection, editor->input_filter_context);
-
-		if (skb_rich_text_get_utf32_count(rich_text_copy) > 0) {
-			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, rich_text_copy);
-			editor->allow_append_undo = false;
-			skb__update_layout(editor, temp_alloc, change);
-			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
-		}
-
-	} else {
-		skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, rich_text);
-		editor->allow_append_undo = false;
-		skb__update_layout(editor, temp_alloc, change);
-		skb__pick_active_attributes(editor);
-		skb__emit_on_change(editor);
-	}
-}
-
-void skb_editor_cut(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
-{
-	assert(editor);
-
-	skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, NULL);
-	editor->allow_append_undo = false;
-	skb__update_layout(editor, temp_alloc, change);
-	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
-}
-
-
-static skb_text_position_t skb__adjust_text_position(skb_text_position_t pos, skb_paragraph_range_t range, int32_t inserted_count)
-{
-	const int32_t removed_count = range.end_pos.global_text_offset - range.start_pos.global_text_offset;
-
-	if (pos.offset > range.end_pos.global_text_offset) {
+	if (pos.offset > removed_range.end) {
 		// Out of range, move by changed amount.
 		pos.offset += inserted_count - removed_count;
-	} else if (pos.offset >= range.start_pos.global_text_offset) {
+	} else if (pos.offset >= removed_range.start) {
 		// In range, make sure we stay inside the range.
-		const int32_t new_end_offset = range.end_pos.global_text_offset - removed_count + inserted_count;
+		const int32_t new_end_offset = removed_range.end - removed_count + inserted_count;
 		pos.offset = skb_mini(pos.offset, new_end_offset);
 		// Make sure the leading affinity stays inside the new range.
 		if (pos.offset == new_end_offset && pos.affinity == SKB_AFFINITY_LEADING)
@@ -2469,48 +2371,122 @@ static skb_text_position_t skb__adjust_text_position(skb_text_position_t pos, sk
 	return pos;
 }
 
-static skb_text_selection_t skb__adjust_text_selection(skb_text_selection_t selection, skb_paragraph_range_t range, int32_t inserted_count)
+
+static skb_text_range_t skb__adjust_text_selection(const skb_editor_t* editor, skb_text_range_t selection, skb_range_t removed_range, int32_t inserted_count)
 {
-	return (skb_text_selection_t) {
-		.start_pos = skb__adjust_text_position(selection.start_pos, range, inserted_count),
-		.end_pos = skb__adjust_text_position(selection.end_pos, range, inserted_count),
+	return (skb_text_range_t) {
+		.start = skb__adjust_text_position(editor, selection.start, removed_range, inserted_count),
+		.end = skb__adjust_text_position(editor, selection.end, removed_range, inserted_count),
 	};
 }
 
-void skb_editor_replace_range_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t range, const uint32_t* utf32, int32_t utf32_len)
+static bool skb__equals_current_selection(const skb_editor_t* editor, skb__paragraph_range_t paragraph_range)
 {
-	assert(editor);
+	skb__paragraph_range_t selection_range = skb__get_sanitized_range(editor, editor->selection);
+	return selection_range.start.global_text_offset == paragraph_range.start.global_text_offset
+		&& selection_range.end.global_text_offset == paragraph_range.end.global_text_offset;
+}
 
-	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
-
-	if (editor->input_filter_callback)
-		editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
-
+static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_append_undo)
+{
 	// Insert pos gets clamped to the layout text size.
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, range);
+	skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, sel_range.start_pos, sel_range.end_pos, input_text);
-	skb_rich_text_change_t change = skb__replace_range(editor, temp_alloc, sel_range.start_pos, sel_range.end_pos, input_text);
+	if (editor->input_filter_callback && rich_text) {
+		skb_rich_text_t* rich_text_copy = &editor->scratch_rich_text;
+		if (rich_text != rich_text_copy) {
+			skb_rich_text_reset(rich_text_copy);
+			skb_rich_text_append(rich_text_copy, rich_text);
+		}
 
-	// Adjust selection
-	editor->selection = skb__adjust_text_selection(editor->selection, sel_range, utf32_len);
+		editor->input_filter_callback(editor, rich_text_copy, editor->selection, editor->input_filter_context);
+		rich_text = rich_text_copy;
+	}
+
+	editor->allow_append_undo = allow_append_undo;
+
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, paragraph_range.start, paragraph_range.end, rich_text);
+	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = paragraph_range.start.global_text_offset, .end = paragraph_range.end.global_text_offset }, rich_text);
+
+	if (skb_text_range_is_current_selection(text_range)) {
+		skb__update_selection_from_change(editor, change);
+	} else {
+		// Adjust selection
+		const int32_t inserted_text_length = skb_rich_text_get_utf32_count(rich_text);
+		const skb_range_t removed_range = {
+			.start = paragraph_range.start.global_text_offset,
+			.end = paragraph_range.end.global_text_offset,
+		};
+		editor->selection = skb__adjust_text_selection(editor, editor->selection, removed_range, inserted_text_length);
+	}
 
 	skb__capture_undo_text_end(editor, transaction_id);
 
-	editor->allow_append_undo = false;
 	skb__update_layout(editor, temp_alloc, change);
 	skb__pick_active_attributes(editor);
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute)
+
+void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t paragraph_attribute)
+{
+	uint32_t cp = SKB_CHAR_LINE_FEED;
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
+
+	if (paragraph_attribute.kind != 0) {
+		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 2 }, paragraph_attribute);
+	}
+
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+}
+
+void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, uint32_t codepoint)
 {
 	assert(editor);
 
-	const skb_text_selection_t selection = editor->selection;
-	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &codepoint, 1);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, true);
+}
 
-	if (selection_count == 0) {
+void skb_editor_insert_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const char* utf8, int32_t utf8_len)
+{
+	assert(editor);
+	if (utf8 && utf8_len < 0) utf8_len = (int32_t)strlen(utf8);
+
+	const int32_t utf32_count = skb_utf8_to_utf32(utf8, utf8_len, NULL, 0);
+	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_count);
+	skb_utf8_to_utf32(utf8, utf8_len, utf32, utf32_count);
+
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_count);
+
+	SKB_TEMP_FREE(temp_alloc, utf32);
+
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+}
+
+void skb_editor_insert_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_len)
+{
+	assert(editor);
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+}
+
+void skb_editor_insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text)
+{
+	assert(editor);
+	skb__insert_rich_text(editor, temp_alloc, text_range, rich_text, false);
+}
+
+
+void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(editor);
+
+	assert(editor);
+
+	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
+
+	if (text_count == 0) {
 		// Apply to current style
 		int32_t attribute_idx = SKB_INVALID_INDEX;
 		for (int32_t i = 0; i < editor->active_attributes_count; i++) {
@@ -2531,22 +2507,21 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 		skb__update_preview_caret_slope(editor);
 	} else {
 		// Apply to selection
-		if (skb_editor_get_attribute_count(editor, selection, attribute) == selection_count) {
-			skb_editor_clear_attribute(editor, temp_alloc, selection, attribute);
+		if (skb_editor_get_attribute_count(editor, text_range, attribute) == text_count) {
+			skb_editor_clear_attribute(editor, temp_alloc, text_range, attribute);
 		} else {
-			skb_editor_set_attribute(editor, temp_alloc, selection, attribute);
+			skb_editor_set_attribute(editor, temp_alloc, text_range, attribute);
 		}
 	}
 }
 
-void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_attribute_t attribute)
+void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 
-	const skb_text_selection_t selection = editor->selection;
-	const int32_t selection_count = skb_editor_get_selection_count(editor, selection);
+	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
 
-	if (selection_count == 0) {
+	if (text_count == 0) {
 		// Apply to current style
 		int32_t attribute_idx = SKB_INVALID_INDEX;
 		for (int32_t i = 0; i < editor->active_attributes_count; i++) {
@@ -2563,22 +2538,77 @@ void skb_editor_apply_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 		skb__update_preview_caret_slope(editor);
 	} else {
 		// Apply to selection
-		skb_editor_set_attribute(editor, temp_alloc, selection, attribute);
+		skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
+		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, paragraph_range.start, paragraph_range.end);
+
+		skb_range_t range = {
+			.start = paragraph_range.start.global_text_offset,
+			.end = paragraph_range.end.global_text_offset,
+		};
+		skb_rich_text_set_attribute(&editor->rich_text, range, attribute);
+
+		skb__capture_undo_attributes_end(editor, transaction_id);
+
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+		skb__pick_active_attributes(editor);
+
+		skb__emit_on_change(editor);
 	}
 }
 
-void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute)
+void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start_pos, sel_range.end_pos);
+	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
 
-	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
+	if (text_count == 0) {
+		// Apply to current style
+		int32_t attribute_idx = SKB_INVALID_INDEX;
+		for (int32_t i = 0; i < editor->active_attributes_count; i++) {
+			if (editor->active_attributes[i].kind == attribute.kind) {
+				attribute_idx = i;
+				break;
+			}
+		}
+		if (attribute_idx != SKB_INVALID_INDEX) {
+			editor->active_attributes[attribute_idx] = editor->active_attributes[editor->active_attributes_count - 1];
+			editor->active_attributes_count--;
+		}
+		skb__update_preview_caret_slope(editor);
+	} else {
+		skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
+
+		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, paragraph_range.start, paragraph_range.end);
+
+		skb_range_t range = {
+			.start = paragraph_range.start.global_text_offset,
+			.end = paragraph_range.end.global_text_offset,
+		};
+		skb_rich_text_clear_attribute(&editor->rich_text, range, attribute);
+
+		skb__capture_undo_attributes_end(editor, transaction_id);
+
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+		skb__pick_active_attributes(editor);
+
+		skb__emit_on_change(editor);
+	}
+}
+
+void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range)
+{
+	assert(editor);
+
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
+
+	skb_range_t range = {
+		.start = sel_range.start.global_text_offset,
+		.end = sel_range.end.global_text_offset,
 	};
-	skb_rich_text_set_attribute(&editor->rich_text, text_range, attribute);
+	skb_rich_text_clear_all_attributes(&editor->rich_text, range);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2588,19 +2618,19 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute)
+void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start_pos, sel_range.end_pos);
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
 
-	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
+	skb_range_t range = {
+		.start = sel_range.start.global_text_offset,
+		.end = sel_range.end.global_text_offset,
 	};
-	skb_rich_text_clear_attribute(&editor->rich_text, text_range, attribute);
+	skb_rich_text_set_paragraph_attribute(&editor->rich_text, range, attribute);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2610,19 +2640,19 @@ void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection)
+void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start_pos, sel_range.end_pos);
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
 
-	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
+	skb_range_t range = {
+		.start = sel_range.start.global_text_offset,
+		.end = sel_range.end.global_text_offset,
 	};
-	skb_rich_text_clear_all_attributes(&editor->rich_text, text_range);
+	skb_rich_text_set_paragraph_attribute_delta(&editor->rich_text, range, attribute);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2632,59 +2662,52 @@ void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* tem
 	skb__emit_on_change(editor);
 }
 
-void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute)
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_rage, skb_attribute_t attribute)
 {
 	assert(editor);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start_pos, sel_range.end_pos);
-
+	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_rage);
 	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
-	};
-	skb_rich_text_set_paragraph_attribute(&editor->rich_text, text_range, attribute);
-
-	skb__capture_undo_attributes_end(editor, transaction_id);
-
-	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
-	skb__pick_active_attributes(editor);
-
-	skb__emit_on_change(editor);
-}
-
-void skb_editor_apply_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_selection_t selection, skb_attribute_t attribute)
-{
-	assert(editor);
-
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start_pos, sel_range.end_pos);
-
-	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
-	};
-	skb_rich_text_set_paragraph_attribute_delta(&editor->rich_text, text_range, attribute);
-
-	skb__capture_undo_attributes_end(editor, transaction_id);
-
-	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
-	skb__pick_active_attributes(editor);
-
-	skb__emit_on_change(editor);
-}
-
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_selection_t selection, skb_attribute_t attribute)
-{
-	assert(editor);
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	skb_range_t text_range = {
-		.start = sel_range.start_pos.global_text_offset,
-		.end = sel_range.end_pos.global_text_offset,
+		.start = sel_range.start.global_text_offset,
+		.end = sel_range.end.global_text_offset,
 	};
 	return skb_rich_text_get_attribute_count(&editor->rich_text, text_range, attribute);
+}
+
+bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	skb_range_t paragraph_range = skb_editor_get_paragraphs_range_from_text_range(editor, text_range);
+	int32_t match_count = 0;
+	for (int32_t i = paragraph_range.start; i < paragraph_range.end; i++) {
+		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(&editor->rich_text, i);
+		for (int32_t j = 0; j < paragraph_attributes.attributes_count; j++) {
+			if (paragraph_attributes.attributes[j].kind == attribute.kind && memcmp(&paragraph_attributes.attributes[j], &attribute, sizeof(skb_attribute_t)) == 0) {
+				match_count++;
+				break;
+			}
+		}
+	}
+	int32_t paragraph_count = paragraph_range.end - paragraph_range.start;
+	return paragraph_count == match_count;
+}
+
+bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	const int32_t selection_count = skb_editor_get_text_range_count(editor, text_range);
+
+	if (selection_count > 0)
+		return skb_editor_get_attribute_count(editor, text_range, attribute) == selection_count;
+
+	if (skb_text_position_is_current_selection_end(text_range.end)) {
+		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
+		const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(editor);
+
+		for (int32_t i = 0; i < active_attributes_count; i++) {
+			if (active_attributes[i].kind == attribute.kind && memcmp(&active_attributes[i], &attribute, sizeof(skb_attribute_t)) == 0)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor)
@@ -2714,11 +2737,11 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 	if (!had_ime_text) {
 		// Capture the text position the first time we set the text.
 		editor->composition_selection_base = skb_editor_get_selection_ordered_start(editor, editor->selection);
-		editor->composition_position = skb__get_sanitized_position(editor, editor->composition_selection_base, SKB_AFFINITY_USE);
+		editor->composition_text_offset = skb__get_sanitized_position(editor, editor->composition_selection_base, SKB_AFFINITY_USE).global_text_offset;
 		// Clear the selection. Since the IME can be cancelled ideally we would clear on commit,
 		// but it gets really complicated when multiple lines area involved.
 		editor->composition_cleared_selection = false;
-		if (skb_editor_get_selection_count(editor, editor->selection) > 0) {
+		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
 			skb__replace_selection(editor, temp_alloc, NULL);
 			editor->composition_cleared_selection = true;
 			editor->allow_append_undo = true; // Allow the inserted character to be appended to the undo where the text is removed.
@@ -2726,10 +2749,10 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 	}
 
 	// The ime cursor is within the IME string, offset from the selection base.
-	editor->composition_selection.start_pos = editor->composition_selection_base;
-	editor->composition_selection.end_pos = editor->composition_selection_base;
-	editor->composition_selection.start_pos.offset += caret_position;
-	editor->composition_selection.end_pos.offset += caret_position;
+	editor->composition_selection.start = editor->composition_selection_base;
+	editor->composition_selection.end = editor->composition_selection_base;
+	editor->composition_selection.start.offset += caret_position;
+	editor->composition_selection.end.offset += caret_position;
 
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
 }
@@ -2749,10 +2772,10 @@ void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t*
 	}
 
 	editor->composition_selection_base = (skb_text_position_t){0};
-	editor->composition_selection = (skb_text_selection_t){0};
-	editor->composition_position = (skb_paragraph_position_t){0};
+	editor->composition_selection = (skb_text_range_t){0};
+	editor->composition_text_offset = 0;
 
-	skb_editor_paste_utf32(editor, temp_alloc, utf32, utf32_len);
+	skb_editor_insert_text_utf32(editor, temp_alloc, SKB_CURRENT_SELECTION, utf32, utf32_len);
 }
 
 void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
@@ -2764,8 +2787,8 @@ void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 		skb_text_reset(&editor->composition_text);
 
 		editor->composition_selection_base = (skb_text_position_t){0};
-		editor->composition_selection = (skb_text_selection_t){0};
-		editor->composition_position = (skb_paragraph_position_t){0};
+		editor->composition_selection = (skb_text_range_t){0};
+		editor->composition_text_offset = 0;
 
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
 
@@ -2781,13 +2804,14 @@ int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_positi
 	assert(editor);
 
 	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
 
 	int32_t total_line_count = 0;
+
 	// Lines up to the text position.
 	for (int32_t i = 0; i < edit_pos.paragraph_idx; i++)
 		total_line_count += skb_layout_get_lines_count(skb__get_layout(editor, i));
-	total_line_count += edit_line_idx;
+
+	total_line_count += skb__get_line_index(editor, edit_pos);
 
 	return total_line_count;
 }
@@ -2797,93 +2821,32 @@ int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_posi
 	assert(editor);
 
 	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
 
-	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, edit_pos.paragraph_idx));
-	const skb_layout_line_t* line = &lines[edit_line_idx];
-	return edit_pos.text_offset - line->text_range.start;
+	const skb_layout_t* layout = skb__get_layout(editor, edit_pos.paragraph_idx);
+	if (layout) {
+		const int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
+		const skb_layout_line_t* lines = skb_layout_get_lines(layout);
+		const skb_layout_line_t* line = &lines[edit_line_idx];
+		return edit_pos.text_offset - line->text_range.start;
+	}
+
+	return 0;
 }
 
-int32_t skb_editor_text_position_to_text_offset(const skb_editor_t* editor, skb_text_position_t pos)
+skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t pos)
 {
 	assert(editor);
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	return edit_pos.global_text_offset;
-}
+	const bool use_current_selection = skb_text_position_is_current_selection_end(pos);
+	if (use_current_selection)
+		pos = editor->selection.end;
 
-skb_paragraph_position_t skb_editor_text_position_to_paragraph_position(const skb_editor_t* editor, skb_text_position_t pos)
-{
-	assert(editor);
-	return skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-}
+	skb_caret_info_t caret = skb_rich_layout_get_caret_info_at(&editor->rich_layout, pos);
 
-skb_text_direction_t skb_editor_get_text_direction_at(const skb_editor_t* editor, skb_text_position_t pos)
-{
-	assert(editor);
-
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
-	skb_text_position_t layout_pos = {
-		.offset = edit_pos.text_offset,
-		.affinity = SKB_AFFINITY_TRAILING,
-	};
-	return skb_layout_get_text_direction_at(skb__get_layout(editor, edit_pos.paragraph_idx), layout_pos);
-}
-
-skb_visual_caret_t skb_editor_get_visual_caret(const skb_editor_t* editor, skb_text_position_t pos)
-{
-	assert(editor);
-
-	skb_visual_caret_t caret = skb_rich_layout_get_visual_caret(&editor->rich_layout, pos);
+	if (use_current_selection) {
+		// Override slot from active attributes.
+		caret.slope = editor->preview_caret_slope;
+	}
 
 	return caret;
-}
-
-skb_visual_caret_t skb_editor_get_current_selection_visual_caret(const skb_editor_t* editor)
-{
-	assert(editor);
-
-	skb_visual_caret_t caret = skb_rich_layout_get_visual_caret(&editor->rich_layout, editor->selection.end_pos);
-
-	// Override slot from active attributes.
-	caret.slope = editor->preview_caret_slope;
-
-	return caret;
-}
-
-skb_range_t skb_editor_get_selection_text_offset_range(const skb_editor_t* editor, skb_text_selection_t selection)
-{
-	assert(editor);
-
-	const skb_paragraph_range_t range = skb__get_sanitized_range(editor, selection);
-	return (skb_range_t) {
-		.start = range.start_pos.global_text_offset,
-		.end = range.end_pos.global_text_offset,
-	};
-}
-
-int32_t skb_editor_get_selection_count(const skb_editor_t* editor, skb_text_selection_t selection)
-{
-	assert(editor);
-	const skb_paragraph_range_t range = skb__get_sanitized_range(editor, selection);
-	return range.end_pos.global_text_offset - range.start_pos.global_text_offset;
-}
-
-skb_range_t skb_editor_get_selection_paragraphs_range(const skb_editor_t* editor, skb_text_selection_t selection)
-{
-	if (skb__get_paragraph_count(editor) == 0)
-		return (skb_range_t){0};
-	skb_paragraph_range_t sel_range = skb__get_sanitized_range(editor, selection);
-	return (skb_range_t) {
-		.start = sel_range.start_pos.paragraph_idx,
-		.end = sel_range.end_pos.paragraph_idx + 1,
-	};
-}
-
-void skb_editor_get_selection_bounds(const skb_editor_t* editor, skb_text_selection_t selection, skb_selection_rect_func_t* callback, void* context)
-{
-	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
-
-	skb_rich_layout_get_selection_bounds(&editor->rich_layout, selection, callback, context);
 }
