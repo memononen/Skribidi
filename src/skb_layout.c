@@ -3266,7 +3266,7 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 	pos = skb__sanitize_offset(layout, line, pos);
 
-	skb_caret_info_t vis_caret = {
+	skb_caret_info_t caret_info = {
 		.x = line->bounds.x,
 		.y = line->baseline,
 		.slope = 0.f,
@@ -3275,12 +3275,18 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 		.direction = layout->resolved_direction,
 	};
 
+	// Skip synthetic content
+	if (line->layout_run_range.start != line->layout_run_range.end && layout->layout_runs[line->layout_run_range.start].content_run_idx == SKB_INVALID_INDEX) {
+		const skb_layout_run_t* first_run = &layout->layout_runs[line->layout_run_range.start];
+		caret_info.x += first_run->bounds.width;
+	}
+
 	skb_caret_iterator_t caret_iter = skb_caret_iterator_make(layout, line_idx);
 
 	// Caret style is picked from previous character.
 	int32_t caret_style_text_offset = skb_layout_get_offset_from_text_position(layout, pos);
 	caret_style_text_offset = skb_layout_prev_grapheme_offset(layout, caret_style_text_offset);
-	caret_style_text_offset = skb_clampi(caret_style_text_offset, line->text_range.start, line->text_range.end - 1);
+	caret_style_text_offset = skb_clampi(caret_style_text_offset, line->text_range.start, skb_maxi(0, line->text_range.end - 1));
 
 	int32_t layout_run_idx = SKB_INVALID_INDEX;
 	int32_t glyph_idx = SKB_INVALID_INDEX;
@@ -3306,13 +3312,13 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 		}
 
 		if (left.text_position.offset == pos.offset && left.text_position.affinity == pos.affinity) {
-			vis_caret.x = x;
-			vis_caret.direction = left.direction;
+			caret_info.x = x;
+			caret_info.direction = left.direction;
 			found_x = true;
 		}
 		if (right.text_position.offset == pos.offset && right.text_position.affinity == pos.affinity) {
-			vis_caret.x = x;
-			vis_caret.direction = right.direction;
+			caret_info.x = x;
+			caret_info.direction = right.direction;
 			found_x = true;
 		}
 	}
@@ -3323,18 +3329,18 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 		const skb_font_handle_t font_handle = layout_run->font_handle;
 
 		const skb_glyph_t* glyph = &layout->glyphs[glyph_idx];
-		vis_caret.y = glyph->offset_y;
+		caret_info.y = glyph->offset_y;
 
 		if (font_handle) {
 			const skb_font_metrics_t font_metrics = skb_font_get_metrics(layout->params.font_collection, font_handle);
 			const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(layout->params.font_collection, font_handle);
-			vis_caret.ascender = font_metrics.ascender * font_size;
-			vis_caret.descender = font_metrics.descender * font_size;
-			vis_caret.slope = caret_metrics.slope;
+			caret_info.ascender = font_metrics.ascender * font_size;
+			caret_info.descender = font_metrics.descender * font_size;
+			caret_info.slope = caret_metrics.slope;
 		}
 	}
 
-	return vis_caret;
+	return caret_info;
 }
 
 skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos)
