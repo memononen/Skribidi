@@ -38,19 +38,19 @@ static int test_rich_text_replace(void)
 	ENSURE(skb_rich_text_get_paragraphs_count(ins_rich_text) == 2); // Foo\n | bar
 
 	// Insert front
-	skb_rich_text_insert(rich_text, (skb_range_t){0}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_text_range_t){0}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 10);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 2); // Foo\n | barbaz
 
 	// Insert back
-	skb_rich_text_insert(rich_text, (skb_range_t){.start = text_count,.end = text_count}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_text_range_t){.start.offset = text_count,.end.offset = text_count}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 20);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 3); // Foo\n | barbazFoo\n | barbaz
 
 	// Insert middle
-	skb_rich_text_insert(rich_text, (skb_range_t){.start = 3,.end = 14}, ins_rich_text);
+	skb_rich_text_insert(rich_text, (skb_text_range_t){.start.offset = 3,.end.offset = 14}, ins_rich_text);
 	text_count = skb_rich_text_get_utf32_count(rich_text);
 	ENSURE(text_count == 19);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 2); // FooFoo\n | barbazbarbaz
@@ -72,7 +72,7 @@ static int test_rich_text_append(void)
 	skb_rich_text_append_utf8(rich_text, temp_alloc, "123456", -1, (skb_attribute_set_t){0});
 
 	skb_rich_text_t* rich_text2 = skb_rich_text_create();
-	skb_rich_text_append_range(rich_text2, rich_text, (skb_range_t){ .start = 2, .end = 5 });
+	skb_rich_text_append_range(rich_text2, rich_text, (skb_text_range_t){ .start.offset = 2, .end.offset = 5 });
 	ENSURE(skb_rich_text_get_utf32_count(rich_text2) == 3);
 
 	skb_rich_text_t* rich_text3 = skb_rich_text_create();
@@ -80,7 +80,7 @@ static int test_rich_text_append(void)
 
 	skb_rich_text_t* rich_text4 = skb_rich_text_create();
 	skb_rich_text_append_utf8(rich_text4, temp_alloc, "abc", -1, (skb_attribute_set_t){0});
-	skb_rich_text_append_range(rich_text4, rich_text3, (skb_range_t){ .start = 4, .end = 10 });
+	skb_rich_text_append_range(rich_text4, rich_text3, (skb_text_range_t){ .start.offset = 4, .end.offset = 10 });
 	ENSURE(skb_rich_text_get_utf32_count(rich_text4) == 9);
 	ENSURE(skb_rich_text_get_paragraphs_count(rich_text4) == 2); // abc456\n | 78
 

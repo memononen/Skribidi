@@ -376,26 +376,6 @@ typedef struct skb_decoration_t {
 	uint8_t style;
 } skb_decoration_t;
 
-/** Enum describing flags for skb_text_property_t. */
-enum skb_text_prop_flags_t {
-	/** Grapheme break after the codepoint. */
-	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
-	/** Word break after the codepoint. */
-	SKB_TEXT_PROP_WORD_BREAK       = 1 << 1,
-	/** Must break line after the code point. */
-	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
-	/** Allow line break after the codepoint. */
-	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
-	/** The codepoint is an emoji. */
-	SKB_TEXT_PROP_EMOJI            = 1 << 4,
-	/** The codepoint is a control character. */
-	SKB_TEXT_PROP_CONTROL          = 1 << 5,
-	/** The codepoint is a white space character. */
-	SKB_TEXT_PROP_WHITESPACE       = 1 << 6,
-	/** The codepoint is a punctuation character. */
-	SKB_TEXT_PROP_PUNCTUATION      = 1 << 7,
-};
-
 /** Struct describing properties if a single codepoint. */
 typedef struct skb_text_property_t {
 	/** Text property flags (see skb_text_prop_flags_t). */
@@ -605,7 +585,7 @@ skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layou
  * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the next grapheme.
  */
-int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
+int32_t skb_layout_get_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the previous grapheme in the layout based on text offset.
@@ -613,7 +593,7 @@ int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text
  * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the previous grapheme.
  */
-int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
+int32_t skb_layout_get_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the current grapheme in the layout based on text offset.

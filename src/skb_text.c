@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "graphemebreak.h"
 #include "skb_attribute_collection.h"
 
 skb_text_t* skb_text_create(void)
@@ -40,9 +41,11 @@ void skb_text_destroy(skb_text_t* text)
 	skb_temp_alloc_t* temp_alloc = text->temp_alloc;
 	if (temp_alloc) {
 		skb_temp_alloc_free(temp_alloc, text->spans);
+		skb_temp_alloc_free(temp_alloc, text->text_props);
 		skb_temp_alloc_free(temp_alloc, text->text);
 	} else {
 		skb_free(text->text);
+		skb_free(text->text_props);
 		skb_free(text->spans);
 	}
 
@@ -67,9 +70,25 @@ void skb_text_reset(skb_text_t* text)
 static void skb__text_reserve(skb_text_t* text, int32_t text_count)
 {
 	if (text->temp_alloc) {
-		SKB_TEMP_RESERVE(text->temp_alloc, text->text, text_count);
+		if (text_count > text->text_cap) {
+			const int32_t new_cap = skb_maxi(text_count, text->text_cap ? (text->text_cap + text->text_cap / 2) : 4);
+			text->text = skb_temp_alloc_realloc(text->temp_alloc, text->text, sizeof(text->text[0]) * new_cap);
+			text->text_props = skb_temp_alloc_realloc(text->temp_alloc, text->text_props, sizeof(text->text_props[0]) * new_cap);
+			assert(text->text);
+			memset(&text->text[text->text_cap], 0, sizeof((text->text)[0]) * (new_cap - text->text_cap));
+			memset(&text->text_props[text->text_cap], 0, sizeof((text->text_props)[0]) * (new_cap - text->text_cap));
+			text->text_cap = new_cap;
+		}
 	} else {
-		SKB_ARRAY_RESERVE(text->text, text_count);
+		if (text_count > text->text_cap) {
+			const int32_t new_cap = skb_maxi(text_count, text->text_cap ? (text->text_cap + text->text_cap / 2) : 4);
+			text->text = skb_realloc(text->text, sizeof(text->text[0]) * new_cap);
+			text->text_props = skb_realloc(text->text_props, sizeof(text->text_props[0]) * new_cap);
+			assert(text->text);
+			memset(&text->text[text->text_cap], 0, sizeof((text->text)[0]) * (new_cap - text->text_cap));
+			memset(&text->text_props[text->text_cap], 0, sizeof((text->text_props)[0]) * (new_cap - text->text_cap));
+			text->text_cap = new_cap;
+		}
 	}
 }
 
@@ -99,6 +118,11 @@ const uint32_t* skb_text_get_utf32(const skb_text_t* text)
 	return text ? text->text : NULL;
 }
 
+const uint8_t* skb_text_get_props(const skb_text_t* text)
+{
+	return text ? text->text_props : NULL;
+}
+
 int32_t skb_text_get_attribute_spans_count(const skb_text_t* text)
 {
 	return text ? text->spans_count : 0;
@@ -109,14 +133,90 @@ const skb_attribute_span_t* skb_text_get_attribute_spans(const skb_text_t* text)
 	return text ? text->spans : NULL;
 }
 
-
-skb_range_t skb_text_sanitize_range(const skb_text_t* text, skb_range_t range)
+int32_t skb_text_get_next_grapheme_offset(const skb_text_t* text, int32_t text_offset)
 {
+	text_offset = skb_clampi(text_offset, 0, text->text_count); // We allow one past the last codepoint as valid insertion point.
+
+	// Find end of the current grapheme.
+	while (text_offset < text->text_count && !(text->text_props[text_offset] & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset++;
+
+	if (text_offset >= text->text_count)
+		return text->text_count;
+
+	// Step over.
+	text_offset++;
+
+	return text_offset;
+}
+
+int32_t skb_text_get_prev_grapheme_offset(const skb_text_t* text, int32_t text_offset)
+{
+	text_offset = skb_clampi(text_offset, 0, text->text_count); // We allow one past the last codepoint as valid insertion point.
+
+	if (!text->text_count)
+		return text_offset;
+
+	// Find begining of the current grapheme.
+	if (text->text_count) {
+		while ((text_offset - 1) >= 0 && !(text->text_props[text_offset - 1] & SKB_TEXT_PROP_GRAPHEME_BREAK))
+			text_offset--;
+	}
+
+	if (text_offset <= 0)
+		return 0;
+
+	// Step over.
+	text_offset--;
+
+	// Find beginning of the previous grapheme.
+	while ((text_offset - 1) >= 0 && !(text->text_props[text_offset - 1] & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset--;
+
+	return text_offset;
+}
+
+
+int32_t skb_text_align_grapheme_offset(const skb_text_t* text, int32_t text_offset)
+{
+	text_offset = skb_clampi(text_offset, 0, text->text_count); // We allow one past the last codepoint as valid insertion point.
+
+	if (!text->text_count)
+		return text_offset;
+
+	// Find beginning of the current grapheme.
+	while ((text_offset - 1) >= 0 && !(text->text_props[text_offset - 1] & SKB_TEXT_PROP_GRAPHEME_BREAK))
+		text_offset--;
+
+	if (text_offset <= 0)
+		return 0;
+
+	return text_offset;
+}
+
+int32_t skb_text_get_offset_range_from_text_position(const skb_text_t* text, skb_text_position_t pos)
+{
+	assert(text);
+	if (pos.affinity == SKB_AFFINITY_LEADING || pos.affinity == SKB_AFFINITY_EOL)
+		return skb_text_get_next_grapheme_offset(text, pos.offset);
+	return skb_clampi(pos.offset, 0, text->text_count);
+}
+
+skb_range_t skb_text_get_range_from_text_range(const skb_text_t* text, skb_text_range_t text_range)
+{
+	assert(text);
+	int32_t start_offset = skb_text_get_offset_range_from_text_position(text, text_range.start);
+	int32_t end_offset = skb_text_get_offset_range_from_text_position(text, text_range.end);
+
+	if (start_offset > end_offset)
+		skb_swapi(&start_offset, &end_offset);
+
 	return (skb_range_t) {
-		.start = skb_clampi(range.start, 0, text->text_count),
-		.end = skb_clampi(range.end, range.start, text->text_count)
+		.start = skb_clampi(start_offset, 0, text->text_count),
+		.end = skb_clampi(end_offset, start_offset, text->text_count),
 	};
 }
+
 
 static void skb__span_remove(skb_text_t* text, int32_t idx)
 {
@@ -360,6 +460,18 @@ void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_c
 	skb__attributes_merge_adjacent(text);
 }
 
+static void skb__set_grapheme_breaks(const uint32_t* text, int32_t start_offset, int32_t text_count, uint8_t* text_props)
+{
+	if (!text_count) return;
+
+	set_graphemebreaks_utf32(text + start_offset, text_count, NULL, (char*)text_props + start_offset);
+
+	const int32_t end = start_offset + text_count;
+	for (int32_t i = start_offset; i < end; i++) {
+		const uint8_t prop = text_props[i];
+		text_props[i] = prop == GRAPHEMEBREAK_BREAK ? SKB_TEXT_PROP_GRAPHEME_BREAK : 0;
+	}
+}
 
 void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 {
@@ -373,6 +485,8 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 
 	// Copy text
 	memcpy(text->text + start_offset, text_from->text, text_from->text_count * sizeof(uint32_t));
+	skb__set_grapheme_breaks(text->text, start_offset, text_from->text_count, text->text_props);
+
 	text->text_count += text_from->text_count;
 
 	// Copy attributes
@@ -388,14 +502,15 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 	}
 }
 
-void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range)
+void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_text_range_t from_text_range)
 {
 	assert(text);
 
 	if (!from_text || !from_text->text_count)
 		return;
 
-	from_range = skb_text_sanitize_range(from_text, from_range);
+	const skb_range_t from_range = skb_text_get_range_from_text_range(from_text, from_text_range);
+
 	const int32_t copy_offset = from_range.start;
 	const int32_t copy_count = from_range.end - from_range.start;
 
@@ -407,6 +522,7 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_ra
 
 	// Copy text
 	memcpy(text->text + start_offset, from_text->text + copy_offset, copy_count * sizeof(uint32_t));
+	skb__set_grapheme_breaks(text->text, start_offset, copy_count, text->text_props);
 	text->text_count += copy_count;
 
 	// Copy attributes
@@ -441,6 +557,7 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	};
 
 	skb_utf8_to_utf32(utf8, utf8_count, text->text + text->text_count, utf32_count);
+	skb__set_grapheme_breaks(text->text, text->text_count, utf32_count, text->text_props);
 	text->text_count += utf32_count;
 
 	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
@@ -462,56 +579,63 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	};
 
 	memcpy(text->text + text->text_count, utf32, utf32_count * sizeof(uint32_t));
+	skb__set_grapheme_breaks(text->text, text->text_count, utf32_count, text->text_props);
 	text->text_count += utf32_count;
 
 	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
 	skb__insert_attributes(text, range, attributes);
 }
 
-void skb_text_replace(skb_text_t* text, skb_range_t range, const skb_text_t* from_text)
+void skb_text_insert(skb_text_t* text, skb_text_range_t text_range, const skb_text_t* source_text)
 {
 	assert(text);
-	assert(from_text);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 
 	const int32_t remove_count = range.end - range.start;
 
-	skb__text_reserve(text, text->text_count + from_text->text_count - remove_count);
+	const int32_t source_text_count = source_text ? source_text->text_count : 0;
+
+	skb__text_reserve(text, text->text_count + source_text_count - remove_count);
 
 	const int32_t start_offset = text->text_count;
 
 	// Make space for the inserted text
-	memmove(text->text + range.start + from_text->text_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
+	memmove(text->text + range.start + source_text_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
 
 	// Copy
-	memcpy(text->text + range.start, from_text->text, from_text->text_count * sizeof(uint32_t));
-	text->text_count += from_text->text_count - remove_count;
+	if (source_text_count > 0) {
+		memcpy(text->text + range.start, source_text->text, source_text_count * sizeof(uint32_t));
+		skb__set_grapheme_breaks(text->text, range.start, source_text_count, text->text_props);
+	}
+	text->text_count += source_text_count - remove_count;
 
 	// Make space for attributes.
 	skb__attributes_replace_with_empty(text, range, text->text_count);
 
 	// Insert existing spans
-	skb__spans_reserve(text, text->spans_count + from_text->spans_count);
-	for (int32_t i = 0; i < from_text->spans_count; i++) {
-		skb_range_t span_range = from_text->spans[i].text_range;
-		span_range.start += start_offset;
-		span_range.end += start_offset;
-		skb__span_insert(text, span_range, from_text->spans[i].attribute);
+	if (source_text_count > 0) {
+		skb__spans_reserve(text, text->spans_count + source_text->spans_count);
+		for (int32_t i = 0; i < source_text->spans_count; i++) {
+			skb_range_t span_range = source_text->spans[i].text_range;
+			span_range.start += start_offset;
+			span_range.end += start_offset;
+			skb__span_insert(text, span_range, source_text->spans[i].attribute);
+		}
 	}
 
 	skb__attributes_merge_adjacent(text);
 }
 
-void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
+void skb_text_insert_utf8(skb_text_t* text, skb_text_range_t text_range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
 {
 	assert(text);
-	assert(utf8);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 
 	const int32_t remove_count = range.end - range.start;
 
+	if (!utf8) utf8_count = 0;
 	if (utf8_count < 0) utf8_count = (int32_t)strlen(utf8);
 	const int32_t utf32_count = skb_utf8_to_utf32_count(utf8, utf8_count);
 
@@ -521,22 +645,25 @@ void skb_text_replace_utf8(skb_text_t* text, skb_range_t range, const char* utf8
 	memmove(text->text + range.start + utf32_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
 
 	// Copy
-	skb_utf8_to_utf32(utf8, utf8_count, text->text + range.start, utf32_count);
+	if (utf32_count > 0) {
+		skb_utf8_to_utf32(utf8, utf8_count, text->text + range.start, utf32_count);
+		skb__set_grapheme_breaks(text->text, range.start, utf32_count, text->text_props);
+	}
 	text->text_count += utf32_count - remove_count;
 
 	// Replace attributes
 	skb__attributes_replace(text, range, utf32_count, attributes);
 }
 
-void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
+void skb_text_insert_utf32(skb_text_t* text, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
 {
 	assert(text);
-	assert(utf32);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 
 	const int32_t remove_count = range.end - range.start;
 
+	if (!utf32) utf32_count = 0;
 	if (utf32_count < 0) utf32_count = skb_utf32_strlen(utf32);
 
 	skb__text_reserve(text, text->text_count + utf32_count - remove_count);
@@ -545,18 +672,22 @@ void skb_text_replace_utf32(skb_text_t* text, skb_range_t range, const uint32_t*
 	memmove(text->text + range.start + utf32_count, text->text + range.end, (text->text_count - range.end) * sizeof(uint32_t));
 
 	// Copy
-	memcpy(text->text + range.start, utf32, utf32_count * sizeof(uint32_t));
+	if (utf32_count > 0) {
+		memcpy(text->text + range.start, utf32, utf32_count * sizeof(uint32_t));
+		skb__set_grapheme_breaks(text->text, range.start, utf32_count, text->text_props);
+	}
 	text->text_count += utf32_count - remove_count;
 
 	// Replace attributes
 	skb__attributes_replace(text, range, utf32_count, attributes);
 }
 
-void skb_text_remove(skb_text_t* text, skb_range_t range)
+void skb_text_remove(skb_text_t* text, skb_text_range_t text_range)
 {
 	assert(text);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
+
 	if (range.end <= range.start) return;
 
 	// Remove text
@@ -579,7 +710,7 @@ void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, v
 				remove_start = i;
 		} else {
 			if (remove_start != SKB_INVALID_INDEX) {
-				skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = i });
+				skb_text_remove(text, (skb_text_range_t){.start.offset = remove_start, .end.offset = i});
 				i = remove_start;
 			}
 			remove_start = SKB_INVALID_INDEX;
@@ -587,14 +718,14 @@ void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, v
 	}
 
 	if (remove_start != SKB_INVALID_INDEX)
-		skb_text_remove(text, (skb_range_t){ .start = remove_start, .end = text->text_count });
+		skb_text_remove(text, (skb_text_range_t){.start.offset = remove_start, .end.offset = text->text_count});
 }
 
-skb_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_range_t search_range, const uint32_t* value_utf32, int32_t value_utf32_count)
+skb_text_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_text_range_t search_text_range, const uint32_t* value_utf32, int32_t value_utf32_count)
 {
 	assert(text);
 
-	search_range = skb_text_sanitize_range(text, search_range);
+	const skb_range_t search_range = skb_text_get_range_from_text_range(text, search_text_range);
 
 	if (value_utf32_count < 0)
 		value_utf32_count = skb_utf32_strlen(value_utf32);
@@ -614,9 +745,9 @@ skb_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_range_t sear
 
 			if (value_offset == -1) {
 				// Matched all codepoints in the value.
-				return (skb_range_t) {
-					.start = text_offset + 1,
-					.end = end_text_offset + 1,
+				return (skb_text_range_t){
+					.start.offset = text_offset + 1,
+					.end.offset = end_text_offset + 1,
 				};
 			}
 		} else {
@@ -624,17 +755,18 @@ skb_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_range_t sear
 		}
 	}
 
-	return (skb_range_t){0};
+	return (skb_text_range_t){0};
 }
 
-void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_text, skb_range_t from_range)
+void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_text, skb_text_range_t from_text_range)
 {
 	assert(text);
 
 	if (!from_text || !from_text->text_count)
 		return;
 
-	from_range = skb_text_sanitize_range(from_text, from_range);
+	const skb_range_t from_range = skb_text_get_range_from_text_range(from_text, from_text_range);
+
 	const int32_t copy_offset = from_range.start;
 	const int32_t copy_count = from_range.end - from_range.start;
 
@@ -659,12 +791,12 @@ void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_tex
 	}
 }
 
-void skb_text_replace_attributes(skb_text_t* text, skb_range_t range, const skb_text_t* from_text)
+void skb_text_insert_attributes(skb_text_t* text, skb_text_range_t text_range, const skb_text_t* from_text)
 {
 	assert(text);
 	assert(from_text);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(from_text, text_range);
 	if (skb_range_is_empty(range))
 		return;
 
@@ -686,29 +818,25 @@ void skb_text_replace_attributes(skb_text_t* text, skb_range_t range, const skb_
 	skb__attributes_merge_adjacent(text);
 }
 
-void skb_text_clear_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
+void skb_text_clear_attribute(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(text);
-
-	range = skb_text_sanitize_range(text, range);
-
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 	skb__attributes_clear(text, range, attribute);
 }
 
-void skb_text_clear_all_attributes(skb_text_t* text, skb_range_t range)
+void skb_text_clear_all_attributes(skb_text_t* text, skb_text_range_t text_range)
 {
 	assert(text);
-
-	range = skb_text_sanitize_range(text, range);
-
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 	skb__attributes_clear(text, range, (skb_attribute_t){0});
 }
 
-void skb_text_add_attribute(skb_text_t* text, skb_range_t range, skb_attribute_t attribute)
+void skb_text_add_attribute(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(text);
 
-	range = skb_text_sanitize_range(text, range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 
 	skb__attributes_clear(text, range, attribute);
 	skb__span_insert(text, range, attribute);
@@ -731,8 +859,7 @@ void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_i
 		// Expire active spans
 		for (int32_t i = 0; i < active_spans_count; i++) {
 			if (active_spans[i]->text_range.end <= pos) {
-
-				const skb_range_t range = { .start = start_pos, .end = active_spans[i]->text_range.end };
+				const skb_text_range_t range = {.start.offset = start_pos, .end.offset = active_spans[i]->text_range.end};
 				callback(text, range, active_spans, active_spans_count, context);
 				start_pos = active_spans[i]->text_range.end;
 
@@ -743,7 +870,7 @@ void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_i
 		}
 
 		if (start_pos < pos) {
-			const skb_range_t range = { .start = start_pos, .end = pos };
+			const skb_text_range_t range = {.start.offset = start_pos, .end.offset = pos};
 			callback(text, range, active_spans, active_spans_count, context);
 			start_pos = pos;
 		}
@@ -760,7 +887,7 @@ void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_i
 	for (int32_t i = 0; i < active_spans_count; i++) {
 		int32_t pos = active_spans[i]->text_range.end;
 		if (start_pos < pos) {
-			const skb_range_t range = { .start = start_pos, .end = pos };
+			const skb_text_range_t range = {.start.offset = start_pos, .end.offset = pos};
 			callback(text, range, active_spans + i, active_spans_count - i, context);
 			start_pos = pos;
 		}
@@ -768,7 +895,7 @@ void skb_text_iterate_attribute_runs(const skb_text_t* text, skb_attribute_run_i
 
 	// The rest of the text, or if empty report at least one empty run.
 	if (start_pos < text->text_count || text->text_count == 0) {
-		const skb_range_t range = { .start = start_pos, .end = text->text_count };
+		const skb_text_range_t range = {.start.offset = start_pos, .end.offset = text->text_count};
 		callback(text, range, NULL, 0, context);
 	}
 }

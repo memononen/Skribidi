@@ -45,11 +45,6 @@ void skb_rich_layout_set_from_rich_text(
 
 void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_change_t change);
 
-typedef enum {
-	SKB_AFFINITY_USE = 0,
-	SKB_AFFINITY_IGNORE = 1,
-} skb_affinity_usage_t;
-
 skb_paragraph_position_t skb_rich_layout_get_paragraph_position_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage);
 int32_t skb_rich_layout_get_offset_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
 skb_range_t skb_rich_layout_get_range_from_text_range(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range);

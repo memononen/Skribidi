@@ -177,6 +177,33 @@ typedef enum skb_caret_affinity_t {
 	SKB_AFFINITY_EOL,
 } skb_caret_affinity_t;
 
+/** Enum describing if text position to offset should take affinity into account */
+typedef enum {
+	SKB_AFFINITY_USE = 0,
+	SKB_AFFINITY_IGNORE = 1,
+} skb_affinity_usage_t;
+
+/** Enum describing flags for skb_text_property_t. */
+enum skb_text_prop_flags_t {
+	/** Grapheme break after the codepoint. */
+	SKB_TEXT_PROP_GRAPHEME_BREAK   = 1 << 0,
+	/** Word break after the codepoint. */
+	SKB_TEXT_PROP_WORD_BREAK       = 1 << 1,
+	/** Must break line after the code point. */
+	SKB_TEXT_PROP_MUST_LINE_BREAK  = 1 << 2,
+	/** Allow line break after the codepoint. */
+	SKB_TEXT_PROP_ALLOW_LINE_BREAK = 1 << 3,
+	/** The codepoint is an emoji. */
+	SKB_TEXT_PROP_EMOJI            = 1 << 4,
+	/** The codepoint is a control character. */
+	SKB_TEXT_PROP_CONTROL          = 1 << 5,
+	/** The codepoint is a white space character. */
+	SKB_TEXT_PROP_WHITESPACE       = 1 << 6,
+	/** The codepoint is a punctuation character. */
+	SKB_TEXT_PROP_PUNCTUATION      = 1 << 7,
+};
+
+
 /** Struct describing position within the text in a layout. */
 typedef struct skb_text_position_t {
 	/** Offset (codepoints) within the text. */
@@ -187,9 +214,9 @@ typedef struct skb_text_position_t {
 
 /** Struct describing a range of the text in a layout. */
 typedef struct skb_text_range_t {
-	/** Start position of the selection. */
+	/** Start position of the range. */
 	skb_text_position_t start;
-	/** End position of the selection. */
+	/** End position of the range. */
 	skb_text_position_t end;
 } skb_text_range_t;
 
@@ -202,6 +229,14 @@ typedef struct skb_paragraph_position_t {
 	/** Text offset amongst all paragraphs. */
 	int32_t global_text_offset;
 } skb_paragraph_position_t;
+
+/** Struct describing range of positions within rich text */
+typedef struct skb_paragraph_range_t {
+	/** Start position of the range. */
+	skb_paragraph_position_t start;
+	/** End position of the range. */
+	skb_paragraph_position_t end;
+} skb_paragraph_range_t;
 
 /**
  * Logs a debug message.

@@ -2576,7 +2576,7 @@ typedef struct skb__text_to_runs_context_t {
 	skb_temp_alloc_t* temp_alloc;
 } skb__text_to_runs_context_t;
 
-static void skb__iter_text_run(const skb_text_t* text, skb_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
+static void skb__iter_text_run(const skb_text_t* text, skb_text_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
 {
 	skb__text_to_runs_context_t* ctx = context;
 
@@ -2597,7 +2597,7 @@ static void skb__iter_text_run(const skb_text_t* text, skb_range_t range, skb_at
 		run_attributes.attributes_count = active_spans_count;
 	}
 
-	*run = skb_content_run_make_utf32(utf32 + range.start, range.end - range.start, run_attributes, 0);
+	*run = skb_content_run_make_utf32(utf32 + range.start.offset, range.end.offset - range.start.offset, run_attributes, 0);
 }
 
 
@@ -2889,8 +2889,10 @@ skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layou
 	return layout->resolved_direction;
 }
 
-int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
+int32_t skb_layout_get_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
+	assert(layout);
+
 	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	// Find end of the current grapheme.
@@ -2906,8 +2908,10 @@ int32_t skb_layout_next_grapheme_offset(const skb_layout_t* layout, int32_t text
 	return text_offset;
 }
 
-int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
+int32_t skb_layout_get_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
+	assert(layout);
+
 	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	if (!layout->text_count)
@@ -2935,6 +2939,8 @@ int32_t skb_layout_prev_grapheme_offset(const skb_layout_t* layout, int32_t text
 
 int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t text_offset)
 {
+	assert(layout);
+
 	text_offset = skb_clampi(text_offset, 0, layout->text_count); // We allow one past the last codepoint as valid insertion point.
 
 	if (!layout->text_count)
@@ -2968,6 +2974,8 @@ skb_text_position_t skb__caret_prune_control_eol(const skb_layout_t* layout, con
 
 int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+
 	int32_t line_idx = SKB_INVALID_INDEX;
 	for (int32_t i = 0; i < layout->lines_count; i++) {
 		const skb_layout_line_t* line = &layout->lines[i];
@@ -2988,8 +2996,10 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 
 int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+
 	if (pos.affinity == SKB_AFFINITY_LEADING || pos.affinity == SKB_AFFINITY_EOL)
-		return skb_layout_next_grapheme_offset(layout, pos.offset);
+		return skb_layout_get_next_grapheme_offset(layout, pos.offset);
 	return skb_clampi(pos.offset, 0, layout->text_count);
 }
 
@@ -3037,6 +3047,8 @@ skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout
 
 skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x)
 {
+	assert(layout);
+
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 
 	skb_text_position_t result = {0};
@@ -3098,6 +3110,8 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
 
 skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement_type_t type, float hit_x, float hit_y)
 {
+	assert(layout);
+
 	if (layout->lines_count == 0)
 		return (skb_text_position_t){0};
 
@@ -3119,6 +3133,8 @@ skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement
 
 skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t* layout, int32_t line_idx, float hit_x)
 {
+	assert(layout);
+
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 
 	skb_layout_content_hit_t result = { 0 };
@@ -3143,6 +3159,8 @@ skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t*
 
 skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout, float hit_x, float hit_y)
 {
+	assert(layout);
+
 	if (layout->lines_count == 0)
 		return (skb_layout_content_hit_t){ 0 };
 
@@ -3285,7 +3303,7 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 
 	// Caret style is picked from previous character.
 	int32_t caret_style_text_offset = skb_layout_get_offset_from_text_position(layout, pos);
-	caret_style_text_offset = skb_layout_prev_grapheme_offset(layout, caret_style_text_offset);
+	caret_style_text_offset = skb_layout_get_prev_grapheme_offset(layout, caret_style_text_offset);
 	caret_style_text_offset = skb_clampi(caret_style_text_offset, line->text_range.start, skb_maxi(0, line->text_range.end - 1));
 
 	int32_t layout_run_idx = SKB_INVALID_INDEX;
@@ -3778,10 +3796,10 @@ bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advanc
 			// Advance cluster
 			bool end_of_graphemes = false;
 			if (skb_is_rtl(cur_layout_run->direction)) {
-				iter->grapheme_pos = iter->grapheme_pos > 0 ? skb_layout_prev_grapheme_offset(layout, iter->grapheme_pos) : -1;
+				iter->grapheme_pos = iter->grapheme_pos > 0 ? skb_layout_get_prev_grapheme_offset(layout, iter->grapheme_pos) : -1;
 				end_of_graphemes = iter->grapheme_pos <= iter->grapheme_end;
 			} else {
-				iter->grapheme_pos = skb_layout_next_grapheme_offset(layout, iter->grapheme_pos);
+				iter->grapheme_pos = skb_layout_get_next_grapheme_offset(layout, iter->grapheme_pos);
 				end_of_graphemes = iter->grapheme_pos >= iter->grapheme_end;
 			}
 

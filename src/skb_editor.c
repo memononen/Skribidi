@@ -26,11 +26,6 @@ skb_text_position_t skb__caret_prune_control_eol(const skb_layout_t* layout, con
 //
 
 
-typedef struct skb__paragraph_range_t {
-	skb_paragraph_position_t start;
-	skb_paragraph_position_t end;
-} skb__paragraph_range_t;
-
 typedef enum {
 	SKB_UNDO_TEXT,
 	SKB_UNDO_TEXT_ATTRIBUTES,
@@ -40,10 +35,10 @@ typedef enum {
 typedef struct skb__editor_undo_state_t {
 	skb__undo_state_type_t type;
 
-	skb_range_t removed_range;		// Removed text range before replace.
+	skb_text_range_t removed_range;		// Removed text range before replace.
 	skb_rich_text_t removed_text;		// Removed attributed text
 
-	skb_range_t inserted_range;		// Inserted text range after replace.
+	skb_text_range_t inserted_range;		// Inserted text range after replace.
 	skb_rich_text_t inserted_text;		// Inserted attributed text
 } skb__editor_undo_state_t;
 
@@ -114,9 +109,28 @@ typedef struct skb_editor_t {
 
 // fwd decl
 static void skb__reset_undo(skb_editor_t* editor);
-static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_paragraph_position_t start, skb_paragraph_position_t end, const skb_rich_text_t* rich_text);
+static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text);
 static void skb__capture_undo_text_end(skb_editor_t* editor, int32_t transaction_id);
-static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage);
+//static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage);
+
+static skb_text_position_t skb__resolve_text_position(const skb_editor_t* editor, skb_text_position_t text_pos)
+{
+	if (skb_text_position_is_current_selection_end(text_pos)) {
+		// Call get current selection, so that we get correct handling of composition cursor too.
+		const skb_text_range_t current_selection = skb_editor_get_current_selection(editor);
+		text_pos = current_selection.end;
+	}
+	return text_pos;
+}
+
+static skb_text_range_t skb__resolve_text_range(const skb_editor_t* editor, skb_text_range_t text_range)
+{
+	if (skb_text_range_is_current_selection(text_range)) {
+		// Call get current selection, so that we get correct handling of composition cursor too.
+		text_range = skb_editor_get_current_selection(editor);
+	}
+	return text_range;
+}
 
 static void skb__update_selection_from_change(skb_editor_t* editor, skb_rich_text_change_t change)
 {
@@ -147,8 +161,8 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	skb_rich_layout_set_from_rich_text(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, editor->composition_text_offset, &editor->composition_text);
 
 	// Make sure the selection conforms the new layout.
-	skb_paragraph_position_t selection_start_pos = skb__get_sanitized_position(editor, editor->selection.start, SKB_AFFINITY_IGNORE);
-	skb_paragraph_position_t selection_end_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t selection_start_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.start, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t selection_end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.start, SKB_AFFINITY_IGNORE);
 	editor->selection.start.offset = selection_start_pos.global_text_offset;
 	editor->selection.end.offset = selection_end_pos.global_text_offset;
 }
@@ -196,9 +210,11 @@ static int32_t skb__get_paragraph_count(const skb_editor_t* editor)
 
 static void skb__update_preview_caret(skb_editor_t* editor)
 {
-	skb_paragraph_position_t caret_edit_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
-	const skb_layout_t* layout = skb__get_layout(editor, caret_edit_pos.paragraph_idx);
-	const int32_t pick_offset = skb_layout_prev_grapheme_offset(layout, caret_edit_pos.text_offset);
+	const skb_text_position_t caret_pos = skb__resolve_text_position(editor, editor->selection.end);
+	const skb_paragraph_position_t caret_paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, caret_pos, SKB_AFFINITY_USE);
+
+	const skb_layout_t* layout = skb__get_layout(editor, caret_paragraph_pos.paragraph_idx);
+	const int32_t pick_offset = skb_layout_get_prev_grapheme_offset(layout, caret_paragraph_pos.text_offset);
 
 	editor->is_preview_caret_valid = false;
 	editor->preview_caret_slope = 0.f;
@@ -213,7 +229,7 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 		const uint8_t script = text_properties[pick_offset].script;
 
 		// Create attribute set chain (active > paragraph > layout)
-		skb_attribute_set_t paragraph_attributes = skb__get_paragraph_attributes(editor, caret_edit_pos.paragraph_idx);
+		skb_attribute_set_t paragraph_attributes = skb__get_paragraph_attributes(editor, caret_paragraph_pos.paragraph_idx);
 		paragraph_attributes.parent_set = &editor->params.layout_attributes;
 
 		skb_attribute_set_t active_attributes = {
@@ -251,25 +267,25 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 static void skb__pick_active_attributes(skb_editor_t* editor)
 {
 	// Pick the active attributes from the text before the cursor.
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
-
+	skb_text_position_t caret_pos = skb__resolve_text_position(editor, editor->selection.end);
 	// Pick style from the character before.
-	const int32_t pick_pos = skb_layout_prev_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
+	caret_pos = skb_rich_text_get_prev_grapheme_pos(&editor->rich_text, caret_pos);
+	const skb_paragraph_position_t caret_paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, caret_pos, SKB_AFFINITY_USE);
 
-	const skb_text_t* paragraph_text = skb__get_text(editor, edit_pos.paragraph_idx);
+	const skb_text_t* paragraph_text = skb__get_text(editor, caret_paragraph_pos.paragraph_idx);
 	int32_t attribute_spans_count = skb_text_get_attribute_spans_count(paragraph_text);
 	const skb_attribute_span_t* attribute_spans = skb_text_get_attribute_spans(paragraph_text);
 
 	editor->active_attributes_count = 0;
 	for (int32_t i = 0; i < attribute_spans_count; i++) {
-		if (skb_range_contains(attribute_spans[i].text_range, pick_pos)) {
+		if (skb_range_contains(attribute_spans[i].text_range, caret_pos.offset)) {
 			SKB_ARRAY_RESERVE(editor->active_attributes, editor->active_attributes_count + 1);
 			skb_attribute_t* attribute = &editor->active_attributes[editor->active_attributes_count++];
 			*attribute = attribute_spans[i].attribute;
 		}
 	}
 
-	editor->active_attribute_paragraph_idx = edit_pos.paragraph_idx;
+	editor->active_attribute_paragraph_idx = caret_paragraph_pos.paragraph_idx;
 
 	skb__update_preview_caret(editor);
 }
@@ -324,37 +340,6 @@ static void skb__set_params(skb_editor_t* editor, const skb_editor_params_t* par
 }
 
 
-static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage)
-{
-	assert(editor);
-	assert(skb__get_paragraph_count(editor) > 0);
-	assert(skb__are_paragraphs_in_sync(editor));
-
-	if (skb_text_position_is_current_selection_end(pos))
-		pos = editor->selection.end;
-
-	return skb_rich_layout_get_paragraph_position_from_text_position(&editor->rich_layout, pos, affinity_usage);
-}
-
-static skb__paragraph_range_t skb__get_sanitized_range(const skb_editor_t* editor, skb_text_range_t text_range)
-{
-	if (skb_text_range_is_current_selection(text_range))
-		text_range = editor->selection;
-
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, text_range.start, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, text_range.end, SKB_AFFINITY_USE);
-
-	skb__paragraph_range_t result = {0};
-	if (start_pos.global_text_offset <= end_pos.global_text_offset) {
-		result.start = start_pos;
-		result.end = end_pos;
-	} else {
-		result.start = end_pos;
-		result.end = start_pos;
-	}
-	return result;
-}
-
 static int32_t skb__get_line_index(const skb_editor_t* editor, skb_paragraph_position_t edit_pos)
 {
 	const int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, edit_pos.paragraph_idx));
@@ -382,9 +367,7 @@ static int32_t skb__get_line_index(const skb_editor_t* editor, skb_paragraph_pos
 
 static skb_paragraph_position_t skb__get_next_grapheme_pos(const skb_editor_t* editor, skb_paragraph_position_t edit_pos)
 {
-	assert(skb__are_paragraphs_in_sync(editor));
-
-	edit_pos.text_offset = skb_layout_next_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
+	edit_pos.text_offset = skb_text_get_next_grapheme_offset(skb__get_text(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
 
 	// Affinity adjustment may push the offset to next edit line
 	if (edit_pos.text_offset >= skb__get_text_count(editor, edit_pos.paragraph_idx)) {
@@ -401,8 +384,6 @@ static skb_paragraph_position_t skb__get_next_grapheme_pos(const skb_editor_t* e
 
 static skb_paragraph_position_t skb__get_prev_grapheme_pos(const skb_editor_t* editor, skb_paragraph_position_t edit_pos)
 {
-	assert(skb__are_paragraphs_in_sync(editor));
-
 	if (edit_pos.text_offset == 0) {
 		if ((edit_pos.paragraph_idx - 1) >= 0) {
 			edit_pos.paragraph_idx--;
@@ -410,7 +391,7 @@ static skb_paragraph_position_t skb__get_prev_grapheme_pos(const skb_editor_t* e
 		}
 	}
 
-	edit_pos.text_offset = skb_layout_prev_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
+	edit_pos.text_offset = skb_text_get_prev_grapheme_offset(skb__get_text(editor, edit_pos.paragraph_idx), edit_pos.text_offset);
 
 	edit_pos.global_text_offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + edit_pos.text_offset;
 
@@ -623,34 +604,26 @@ const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor)
 int32_t skb_editor_get_text_utf8_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
-
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
-	return skb_rich_text_get_utf8_count_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+	return skb_rich_text_get_utf8_count_in_range(&editor->rich_text, text_range);
 }
 
 int32_t skb_editor_get_text_utf8_in_range(const skb_editor_t* editor, skb_text_range_t text_range, char* utf8, int32_t utf8_cap)
 {
 	assert(editor);
-
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
-	return skb_rich_text_get_utf8_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, utf8, utf8_cap);
+	return skb_rich_text_get_utf8_in_range(&editor->rich_text, text_range, utf8, utf8_cap);
 }
 
 int32_t skb_editor_get_text_utf32_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
-
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
-	return skb_rich_text_get_utf32_count_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+	return skb_rich_text_get_utf32_count_in_range(&editor->rich_text, text_range);
 }
 
 int32_t skb_editor_get_text_utf32_in_range(const skb_editor_t* editor, skb_text_range_t text_range, uint32_t* utf32, int32_t utf32_cap)
 {
 	assert(editor);
 	assert(utf32);
-
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
-	return skb_rich_text_get_utf32_in_range(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, utf32, utf32_cap);
+	return skb_rich_text_get_utf32_in_range(&editor->rich_text, text_range, utf32, utf32_cap);
 }
 
 void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_range_t text_range, skb_rich_text_t* rich_text)
@@ -658,9 +631,8 @@ void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_rang
 	assert(editor);
 	assert(rich_text);
 
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
 	skb_rich_text_reset(rich_text);
-	skb_rich_text_append_range(rich_text, &editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset });
+	skb_rich_text_append_range(rich_text, &editor->rich_text, text_range);
 }
 
 //
@@ -811,36 +783,44 @@ skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t*
 // Text position
 //
 
-int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t pos)
+int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	return edit_pos.global_text_offset;
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
+
+	return paragraph_pos.global_text_offset;
 }
 
-skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t pos)
+skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
-	return skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
+
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	return skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
 }
 
 skb_range_t skb_editor_get_paragraphs_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
+	assert(editor);
 	if (skb__get_paragraph_count(editor) == 0)
 		return (skb_range_t){0};
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
+	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 	return (skb_range_t) {
-		.start = sel_range.start.paragraph_idx,
-		.end = sel_range.end.paragraph_idx + 1,
+		.start = range.start.paragraph_idx,
+		.end = range.end.paragraph_idx + 1,
 	};
 }
 
 skb_range_t skb_editor_get_offset_range_from_text_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
-
-	const skb__paragraph_range_t range = skb__get_sanitized_range(editor, text_range);
+	if (skb__get_paragraph_count(editor) == 0)
+		return (skb_range_t){0};
+	text_range = skb__resolve_text_range(editor, text_range);
+	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 	return (skb_range_t) {
 		.start = range.start.global_text_offset,
 		.end = range.end.global_text_offset,
@@ -850,59 +830,65 @@ skb_range_t skb_editor_get_offset_range_from_text_range(const skb_editor_t* edit
 int32_t skb_editor_get_text_range_count(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
-	const skb__paragraph_range_t range = skb__get_sanitized_range(editor, text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
+	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 	return range.end.global_text_offset - range.start.global_text_offset;
 }
 
-skb_text_position_t skb_editor_get_line_start_at(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_get_line_start_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
-	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, edit_pos.paragraph_idx));
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
+
+	int32_t edit_line_idx = skb__get_line_index(editor, paragraph_pos);
+	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, paragraph_pos.paragraph_idx));
 	const skb_layout_line_t* line = &lines[edit_line_idx];
 
 	skb_text_position_t result = {
-		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + line->text_range.start,
+		.offset = skb__get_global_text_offset(editor, paragraph_pos.paragraph_idx) + line->text_range.start,
 		.affinity = SKB_AFFINITY_SOL,
 	};
 	return result;
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_line_end_at(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_get_line_end_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
-	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, edit_pos.paragraph_idx));
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
+
+	int32_t edit_line_idx = skb__get_line_index(editor, paragraph_pos);
+	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, paragraph_pos.paragraph_idx));
 	const skb_layout_line_t* line = &lines[edit_line_idx];
 
 	skb_text_position_t result = {
-		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + line->last_grapheme_offset,
+		.offset = skb__get_global_text_offset(editor, paragraph_pos.paragraph_idx) + line->last_grapheme_offset,
 		.affinity = SKB_AFFINITY_EOL,
 	};
-	return skb__caret_prune_control_eol(skb__get_layout(editor, edit_pos.paragraph_idx), line, result);
+	return skb__caret_prune_control_eol(skb__get_layout(editor, paragraph_pos.paragraph_idx), line, result);
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_word_start_at(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_get_word_start_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
+	text_pos = skb__resolve_text_position(editor, text_pos);
 	// Ignoring affinity, since we want to start from the "character" the user has hit.
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
 
-	int32_t offset = edit_pos.text_offset;
+	int32_t offset = paragraph_pos.text_offset;
 
-	const skb_text_property_t* text_props = skb_layout_get_text_properties(skb__get_layout(editor, edit_pos.paragraph_idx));
+	const skb_text_property_t* text_props = skb_layout_get_text_properties(skb__get_layout(editor, paragraph_pos.paragraph_idx));
 
 	if (text_props) {
 		while (offset >= 0) {
 			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), offset);
+				offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, paragraph_pos.paragraph_idx), offset);
 				break;
 			}
 			offset--;
@@ -913,28 +899,29 @@ skb_text_position_t skb_editor_get_word_start_at(const skb_editor_t* editor, skb
 		offset = 0;
 
 	return (skb_text_position_t) {
-		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, paragraph_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_TRAILING,
 	};
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_word_end_at(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_get_word_end_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
+	text_pos = skb__resolve_text_position(editor, text_pos);
 	// Ignoring affinity, since we want to start from the "character" the user has hit.
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
 
-	int32_t offset = edit_pos.text_offset;
+	int32_t offset = paragraph_pos.text_offset;
 
-	const int32_t text_count = skb_layout_get_text_count(skb__get_layout(editor, edit_pos.paragraph_idx));
-	const skb_text_property_t* text_props = skb_layout_get_text_properties(skb__get_layout(editor, edit_pos.paragraph_idx));
+	const int32_t text_count = skb_layout_get_text_count(skb__get_layout(editor, paragraph_pos.paragraph_idx));
+	const skb_text_property_t* text_props = skb_layout_get_text_properties(skb__get_layout(editor, paragraph_pos.paragraph_idx));
 
 	if (text_props) {
 		while (offset < text_count) {
 			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), offset);
+				offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, paragraph_pos.paragraph_idx), offset);
 				break;
 			}
 			offset++;
@@ -942,82 +929,82 @@ skb_text_position_t skb_editor_get_word_end_at(const skb_editor_t* editor, skb_t
 	}
 
 	if (offset >= text_count)
-		offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, edit_pos.paragraph_idx), text_count-1);
+		offset = skb_layout_align_grapheme_offset(skb__get_layout(editor, paragraph_pos.paragraph_idx), text_count-1);
 
 	return (skb_text_position_t) {
-		.offset = skb__get_global_text_offset(editor, edit_pos.paragraph_idx) + offset,
+		.offset = skb__get_global_text_offset(editor, paragraph_pos.paragraph_idx) + offset,
 		.affinity = SKB_AFFINITY_LEADING,
 	};
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* editor, skb_text_range_t selection)
+skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end, SKB_AFFINITY_USE);
+	text_range = skb__resolve_text_range(editor, text_range);
+	skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start : selection.end;
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, paragraph_range.end.paragraph_idx)))
+		return paragraph_range.start.global_text_offset > paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
 
-	return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start : selection.end;
+	return paragraph_range.start.global_text_offset <= paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* editor, skb_text_range_t selection)
+skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t start_pos = skb__get_sanitized_position(editor, selection.start, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb__get_sanitized_position(editor, selection.end, SKB_AFFINITY_USE);
+	text_range = skb__resolve_text_range(editor, text_range);
+	skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset <= end_pos.global_text_offset ? selection.start : selection.end;
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, paragraph_range.end.paragraph_idx)))
+		return paragraph_range.start.global_text_offset <= paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
 
-	return start_pos.global_text_offset > end_pos.global_text_offset ? selection.start : selection.end;
+	return paragraph_range.start.global_text_offset > paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
 }
 
-static bool skb__is_at_first_line(const skb_editor_t* editor, skb_paragraph_position_t edit_pos)
+static bool skb__is_at_first_line(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos)
 {
-	const int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
-	return edit_pos.paragraph_idx == 0 && edit_line_idx == 0;
+	const int32_t edit_line_idx = skb__get_line_index(editor, paragraph_pos);
+	return paragraph_pos.paragraph_idx == 0 && edit_line_idx == 0;
 }
 
-static bool skb__is_at_last_line(const skb_editor_t* editor, skb_paragraph_position_t edit_pos, int32_t edit_line_idx)
-{
-	assert(skb__are_paragraphs_in_sync(editor));
-
-	const int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, edit_pos.paragraph_idx));
-	return (edit_pos.paragraph_idx == skb__get_paragraph_count(editor) - 1) && (edit_line_idx == lines_count - 1);
-}
-
-static bool skb__is_past_end_of_line(const skb_editor_t* editor, skb_paragraph_position_t edit_pos, int32_t edit_line_idx)
+static bool skb__is_at_last_line(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos, int32_t line_idx)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, edit_pos.paragraph_idx));
-	const skb_layout_line_t* line = &lines[edit_line_idx];
-	return edit_pos.text_offset > line->last_grapheme_offset;
+	const int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, paragraph_pos.paragraph_idx));
+	return (paragraph_pos.paragraph_idx == skb__get_paragraph_count(editor) - 1) && (line_idx == lines_count - 1);
 }
 
-static bool skb__is_rtl(const skb_editor_t* editor, skb_paragraph_position_t edit_pos, skb_caret_affinity_t affinity)
+static bool skb__is_past_end_of_line(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos, int32_t line_idx)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	const bool layout_is_rtl = skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx));
+	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, paragraph_pos.paragraph_idx));
+	const skb_layout_line_t* line = &lines[line_idx];
+	return paragraph_pos.text_offset > line->last_grapheme_offset;
+}
+
+static bool skb__is_rtl(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos, skb_caret_affinity_t affinity)
+{
+	assert(skb__are_paragraphs_in_sync(editor));
+
+	const bool layout_is_rtl = skb_is_rtl(skb__get_layout_resolved_direction(editor, paragraph_pos.paragraph_idx));
 
 	if (affinity == SKB_AFFINITY_EOL || affinity == SKB_AFFINITY_SOL)
 		return layout_is_rtl;
 
-	const int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
-	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, edit_pos.paragraph_idx));
+	const int32_t edit_line_idx = skb__get_line_index(editor, paragraph_pos);
+	const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, paragraph_pos.paragraph_idx));
 	const skb_layout_line_t* line = &lines[edit_line_idx];
 
-	if (edit_pos.text_offset > line->last_grapheme_offset)
+	if (paragraph_pos.text_offset > line->last_grapheme_offset)
 		return layout_is_rtl;
 
-	return skb_is_rtl(skb_layout_get_text_direction_at(skb__get_layout(editor, edit_pos.paragraph_idx), (skb_text_position_t){.offset = edit_pos.text_offset}));
+	return skb_is_rtl(skb_layout_get_text_direction_at(skb__get_layout(editor, paragraph_pos.paragraph_idx), (skb_text_position_t){.offset = paragraph_pos.text_offset}));
 }
 
 static bool skb__are_on_same_line(const skb_editor_t* editor, skb_paragraph_position_t a, skb_paragraph_position_t b)
@@ -1030,20 +1017,20 @@ static bool skb__are_on_same_line(const skb_editor_t* editor, skb_paragraph_posi
 	return false;
 }
 
-static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_edit_pos, skb_caret_affinity_t cur_affinity)
+static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t next_edit_pos = skb__get_next_grapheme_pos(editor, cur_edit_pos);
+	skb_paragraph_position_t next_edit_pos = skb__get_next_grapheme_pos(editor, cur_pos);
 
-	const int32_t next_edit_line_idx = skb__get_line_index(editor, cur_edit_pos);
+	const int32_t next_edit_line_idx = skb__get_line_index(editor, cur_pos);
 	bool is_next_last_line = skb__is_at_last_line(editor, next_edit_pos, next_edit_line_idx);
 
-	bool cur_is_rtl = skb__is_rtl(editor, cur_edit_pos, cur_affinity);
+	bool cur_is_rtl = skb__is_rtl(editor, cur_pos, cur_affinity);
 	bool next_is_rtl = skb__is_rtl(editor, next_edit_pos, SKB_AFFINITY_TRAILING);
 
 	// Do not add extra stop at the end of the line on intermediate lines.
-	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI &&  (is_next_last_line || skb__are_on_same_line(editor, cur_edit_pos, next_edit_pos));
+	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI &&  (is_next_last_line || skb__are_on_same_line(editor, cur_pos, next_edit_pos));
 
 	uint8_t affinity = SKB_AFFINITY_TRAILING;
 	bool check_eol = true;
@@ -1053,7 +1040,7 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 		if (cur_affinity == SKB_AFFINITY_LEADING || cur_affinity == SKB_AFFINITY_EOL) {
 			// Switch over to the next character.
 			affinity = SKB_AFFINITY_TRAILING;
-			cur_edit_pos = next_edit_pos;
+			cur_pos = next_edit_pos;
 		} else if (cur_affinity == SKB_AFFINITY_SOL) {
 			// Move up to the trailing edge before proceeding.
 			affinity = SKB_AFFINITY_TRAILING;
@@ -1067,10 +1054,10 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 		if (cur_affinity == SKB_AFFINITY_LEADING || cur_affinity == SKB_AFFINITY_EOL) {
 			// If on leading edge, normalize the index to next trailing location.
 			cur_is_rtl = next_is_rtl;
-			cur_edit_pos = next_edit_pos;
+			cur_pos = next_edit_pos;
 
 			// Update next
-			next_edit_pos = skb__get_next_grapheme_pos(editor, cur_edit_pos);
+			next_edit_pos = skb__get_next_grapheme_pos(editor, cur_pos);
 			next_is_rtl = skb__is_rtl(editor, next_edit_pos, SKB_AFFINITY_TRAILING);
 		}
 
@@ -1082,42 +1069,42 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 		} else {
 			// Direction will stay the same, advance.
 			affinity = SKB_AFFINITY_TRAILING;
-			cur_edit_pos = next_edit_pos;
+			cur_pos = next_edit_pos;
 		}
 	}
 
 	if (check_eol) {
-		const int32_t cur_edit_line_idx = skb__get_line_index(editor, cur_edit_pos);
-		if (skb__is_at_last_line(editor, cur_edit_pos, cur_edit_line_idx) && skb__is_past_end_of_line(editor, cur_edit_pos, cur_edit_line_idx)) {
-			const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, cur_edit_pos.paragraph_idx));
+		const int32_t cur_edit_line_idx = skb__get_line_index(editor, cur_pos);
+		if (skb__is_at_last_line(editor, cur_pos, cur_edit_line_idx) && skb__is_past_end_of_line(editor, cur_pos, cur_edit_line_idx)) {
+			const skb_layout_line_t* lines = skb_layout_get_lines(skb__get_layout(editor, cur_pos.paragraph_idx));
 			const skb_layout_line_t* line = &lines[cur_edit_line_idx];
 			affinity = SKB_AFFINITY_EOL;
-			cur_edit_pos.text_offset = line->last_grapheme_offset;
+			cur_pos.text_offset = line->last_grapheme_offset;
 		}
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
+		.offset = skb__get_global_text_offset(editor, cur_pos.paragraph_idx) + cur_pos.text_offset,
 		.affinity = affinity,
 	};
 }
 
-static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb_paragraph_position_t cur_edit_pos, skb_caret_affinity_t cur_affinity)
+static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t prev_edit_pos = skb__get_prev_grapheme_pos(editor, cur_edit_pos);
+	skb_paragraph_position_t prev_edit_pos = skb__get_prev_grapheme_pos(editor, cur_pos);
 
-	const bool layout_is_rtl = skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_edit_pos.paragraph_idx));
-	const bool is_at_start = cur_edit_pos.global_text_offset == 0;
+	const bool layout_is_rtl = skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx));
+	const bool is_at_start = cur_pos.global_text_offset == 0;
 	const bool prev_at_start = prev_edit_pos.global_text_offset == 0;
 
-	bool cur_is_rtl = skb__is_rtl(editor, cur_edit_pos, cur_affinity);
+	bool cur_is_rtl = skb__is_rtl(editor, cur_pos, cur_affinity);
 	bool prev_is_rtl = is_at_start ? layout_is_rtl : skb__is_rtl(editor, prev_edit_pos, SKB_AFFINITY_TRAILING);
 
 
 	// Do not add extra stop at the end of the line on intermediate lines.
-	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI && skb__are_on_same_line(editor, cur_edit_pos, prev_edit_pos);
+	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI && skb__are_on_same_line(editor, cur_pos, prev_edit_pos);
 
 	skb_caret_affinity_t affinity = SKB_AFFINITY_TRAILING;
 
@@ -1135,7 +1122,7 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 				// On a trailing edge, and the direction will change in next character.
 				// Switch over to the leading edge of the previous character.
 				affinity = SKB_AFFINITY_LEADING;
-				cur_edit_pos = prev_edit_pos;
+				cur_pos = prev_edit_pos;
 			}
 		}
 	} else {
@@ -1145,41 +1132,45 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 		} else {
 			if (is_at_start || (prev_at_start && prev_is_rtl == layout_is_rtl)) {
 				affinity = SKB_AFFINITY_SOL;
-				cur_edit_pos = prev_edit_pos;
+				cur_pos = prev_edit_pos;
 			} else {
 				// On a trailing edge, advance to the previous character.
 				affinity = SKB_AFFINITY_TRAILING;
-				cur_edit_pos = prev_edit_pos;
+				cur_pos = prev_edit_pos;
 			}
 		}
 	}
 
 	return (skb_text_position_t) {
-		.offset = skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx) + cur_edit_pos.text_offset,
+		.offset = skb__get_global_text_offset(editor, cur_pos.paragraph_idx) + cur_pos.text_offset,
 		.affinity = affinity,
 	};
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_next_char(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_move_to_next_char(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
-		return skb__advance_backward(editor, edit_pos, pos.affinity);
-	return skb__advance_forward(editor, edit_pos, pos.affinity);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
+
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
+		return skb__advance_backward(editor, cur_pos, text_pos.affinity);
+	return skb__advance_forward(editor, cur_pos, text_pos.affinity);
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_prev_char(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_move_to_prev_char(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
-		return skb__advance_forward(editor, edit_pos, pos.affinity);
-	return skb__advance_backward(editor, edit_pos, pos.affinity);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
+
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
+		return skb__advance_forward(editor, cur_pos, text_pos.affinity);
+	return skb__advance_backward(editor, cur_pos, text_pos.affinity);
 }
 
 static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_edit_pos)
@@ -1198,7 +1189,7 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 		// Stop at the end of the word.
 		while (offset < text_count) {
 			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				int32_t next_offset = skb_layout_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
+				int32_t next_offset = skb_layout_get_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
 				offset = next_offset;
 				break;
 			}
@@ -1208,7 +1199,7 @@ static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor,
 		// Stop after the white space at the end of the word.
 		while (offset < text_count) {
 			if (text_props[offset].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				int32_t next_offset = skb_layout_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
+				int32_t next_offset = skb_layout_get_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
 				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
 					offset = next_offset;
 					break;
@@ -1269,10 +1260,10 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 		while (offset > 0 && text_props[offset-1].flags & (SKB_TEXT_PROP_WHITESPACE | SKB_TEXT_PROP_PUNCTUATION))
 			offset--;
 		// Stop at the beginning of the word.
-		offset = skb_layout_prev_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
+		offset = skb_layout_get_prev_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
 		while (offset > 0) {
 			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				int32_t next_offset = skb_layout_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset-1);
+				int32_t next_offset = skb_layout_get_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset-1);
 				offset = next_offset;
 				break;
 			}
@@ -1280,10 +1271,10 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 		}
 	} else {
 		// Stop at the beginning of a word (the exact same logic as moving forward).
-		offset = skb_layout_prev_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
+		offset = skb_layout_get_prev_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset);
 		while (offset > 0) {
 			if (text_props[offset-1].flags & SKB_TEXT_PROP_WORD_BREAK) {
-				int32_t next_offset = skb_layout_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset-1);
+				int32_t next_offset = skb_layout_get_next_grapheme_offset(skb__get_layout(editor, cur_edit_pos.paragraph_idx), offset-1);
 				if (!(text_props[next_offset].flags & SKB_TEXT_PROP_WHITESPACE)) {
 					offset = next_offset;
 					break;
@@ -1300,87 +1291,94 @@ static skb_text_position_t skb__advance_word_backward(const skb_editor_t* editor
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_move_to_next_word(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
-		return skb__advance_word_backward(editor, edit_pos);
-	return skb__advance_word_forward(editor, edit_pos);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
+
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
+		return skb__advance_word_backward(editor, cur_pos);
+	return skb__advance_word_forward(editor, cur_pos);
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_prev_word(const skb_editor_t* editor, skb_text_position_t pos)
+skb_text_position_t skb_editor_move_to_prev_word(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, edit_pos.paragraph_idx)))
-		return skb__advance_word_forward(editor, edit_pos);
-	return skb__advance_word_backward(editor, edit_pos);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
+
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
+		return skb__advance_word_forward(editor, cur_pos);
+	return skb__advance_word_backward(editor, cur_pos);
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_next_line(const skb_editor_t* editor, skb_text_position_t pos, float preferred_x)
+skb_text_position_t skb_editor_move_to_next_line(const skb_editor_t* editor, skb_text_position_t text_pos, float preferred_x)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t cur_edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
-	int32_t cur_edit_line_idx = skb__get_line_index(editor, cur_edit_pos);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
 
-	if (skb__is_at_last_line(editor, cur_edit_pos, cur_edit_line_idx)) {
+	int32_t cur_line_idx = skb__get_line_index(editor, cur_pos);
+
+	if (skb__is_at_last_line(editor, cur_pos, cur_line_idx)) {
 		// Goto end of the text
-		return skb_editor_get_line_end_at(editor, pos);
+		return skb_editor_get_line_end_at(editor, text_pos);
 	}
 
-	const int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_edit_pos.paragraph_idx));
+	const int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_pos.paragraph_idx));
 
 	// Goto next line
-	if (cur_edit_line_idx + 1 >= lines_count) {
+	if (cur_line_idx + 1 >= lines_count) {
 		// End of current paragraph, goto first line of next paragraph.
-		assert(cur_edit_pos.paragraph_idx + 1 < skb__get_paragraph_count(editor)); // should have been handled by skb__is_at_last_line() above.
-		cur_edit_pos.paragraph_idx++;
-		cur_edit_line_idx = 0;
+		assert(cur_pos.paragraph_idx + 1 < skb__get_paragraph_count(editor)); // should have been handled by skb__is_at_last_line() above.
+		cur_pos.paragraph_idx++;
+		cur_line_idx = 0;
 	} else {
-		cur_edit_line_idx++;
+		cur_line_idx++;
 	}
 
-	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_edit_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_edit_line_idx, preferred_x);
-	hit_pos.offset += skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx);
+	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_line_idx, preferred_x);
+	hit_pos.offset += skb__get_global_text_offset(editor, cur_pos.paragraph_idx);
 
 	return hit_pos;
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb_text_position_t pos, float preferred_x)
+skb_text_position_t skb_editor_move_to_prev_line(const skb_editor_t* editor, skb_text_position_t text_pos, float preferred_x)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
-	skb_paragraph_position_t cur_edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_IGNORE);
-	int32_t cur_edit_line_idx = skb__get_line_index(editor, cur_edit_pos);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
+	int32_t cur_line_idx = skb__get_line_index(editor, cur_pos);
 
-	if (skb__is_at_first_line(editor, cur_edit_pos)) {
+	if (skb__is_at_first_line(editor, cur_pos)) {
 		// Goto beginning of the text
-		return skb_editor_get_line_start_at(editor, pos);
+		return skb_editor_get_line_start_at(editor, text_pos);
 	}
 
-	int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_edit_pos.paragraph_idx));
+	int32_t lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_pos.paragraph_idx));
 
 	// Goto prev line
-	if (cur_edit_line_idx - 1 < 0) {
+	if (cur_line_idx - 1 < 0) {
 		// Beginning of current paragraph, goto last line of prev paragraph.
 
-		assert(cur_edit_pos.paragraph_idx - 1 >= 0); // should have been handled by skb__is_at_first_line() above.
-		cur_edit_pos.paragraph_idx--;
-		lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_edit_pos.paragraph_idx));
-		cur_edit_line_idx = lines_count - 1;
+		assert(cur_pos.paragraph_idx - 1 >= 0); // should have been handled by skb__is_at_first_line() above.
+		cur_pos.paragraph_idx--;
+		lines_count = skb_layout_get_lines_count(skb__get_layout(editor, cur_pos.paragraph_idx));
+		cur_line_idx = lines_count - 1;
 	} else {
-		cur_edit_line_idx--;
+		cur_line_idx--;
 	}
 
-	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_edit_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_edit_line_idx, preferred_x);
-	hit_pos.offset += skb__get_global_text_offset(editor, cur_edit_pos.paragraph_idx);
+	skb_text_position_t hit_pos = skb_layout_hit_test_at_line(skb__get_layout(editor, cur_pos.paragraph_idx), SKB_MOVEMENT_CARET, cur_line_idx, preferred_x);
+	hit_pos.offset += skb__get_global_text_offset(editor, cur_pos.paragraph_idx);
 
 	return hit_pos;
 }
@@ -1420,7 +1418,6 @@ static skb_text_position_t skb__editor_get_document_end(const skb_editor_t* edit
 skb_text_range_t skb_editor_get_current_selection(const skb_editor_t* editor)
 {
 	assert(editor);
-	assert(skb__are_paragraphs_in_sync(editor));
 
 	if (skb_text_get_utf32_count(&editor->composition_text) > 0) {
 		return editor->composition_selection;
@@ -1504,24 +1501,24 @@ void skb_editor_process_mouse_click(skb_editor_t* editor, float x, float y, uint
 
 	editor->last_click_time = time;
 
-	skb_text_position_t hit_caret = skb_editor_hit_test(editor, SKB_MOVEMENT_CARET, x, y);
+	skb_text_position_t hit_caret_pos = skb_editor_hit_test(editor, SKB_MOVEMENT_CARET, x, y);
 
 	if (mods & SKB_MOD_SHIFT) {
 		// Shift click makes selection from current start pos to the new hit pos.
-		editor->selection.end = hit_caret;
+		editor->selection.end = hit_caret_pos;
 		editor->drag_mode = SKB_DRAG_CHAR;
 	} else {
 		if (editor->click_count == 1) {
-			editor->selection.end = hit_caret;
+			editor->selection.end = hit_caret_pos;
 			editor->selection.start = editor->selection.end;
 			editor->drag_mode = SKB_DRAG_CHAR;
 		} else if (editor->click_count == 2) {
-			editor->selection.start = skb_editor_get_word_start_at(editor, hit_caret);
-			editor->selection.end = skb_editor_get_word_end_at(editor, hit_caret);
+			editor->selection.start = skb_editor_get_word_start_at(editor, hit_caret_pos);
+			editor->selection.end = skb_editor_get_word_end_at(editor, hit_caret_pos);
 			editor->drag_mode = SKB_DRAG_WORD;
 		} else if (editor->click_count == 3) {
-			editor->selection.start = skb_editor_get_line_start_at(editor, hit_caret);
-			editor->selection.end = skb_editor_get_line_end_at(editor, hit_caret);
+			editor->selection.start = skb_editor_get_line_start_at(editor, hit_caret_pos);
+			editor->selection.end = skb_editor_get_line_end_at(editor, hit_caret_pos);
 			editor->drag_mode = SKB_DRAG_LINE;
 		}
 		skb__pick_active_attributes(editor);
@@ -1567,11 +1564,11 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 		}
 
 		// Note: here the start/end positions are in order (not generally true).
-		const skb_paragraph_position_t sel_start = skb__get_sanitized_position(editor, sel_start_pos, SKB_AFFINITY_USE);
-		const skb_paragraph_position_t sel_end = skb__get_sanitized_position(editor, sel_end_pos, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t sel_start = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, sel_start_pos, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t sel_end = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, sel_end_pos, SKB_AFFINITY_USE);
 
-		const skb_paragraph_position_t initial_start = skb__get_sanitized_position(editor, editor->drag_initial_selection.start, SKB_AFFINITY_USE);
-		const skb_paragraph_position_t initial_end = skb__get_sanitized_position(editor, editor->drag_initial_selection.end, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t initial_start = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->drag_initial_selection.start, SKB_AFFINITY_USE);
+		const skb_paragraph_position_t initial_end = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->drag_initial_selection.end, SKB_AFFINITY_USE);
 
 		if (sel_start.global_text_offset < initial_start.global_text_offset) {
 			// The selection got expanded before the initial selection range start.
@@ -1594,10 +1591,10 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 static skb_rich_text_change_t skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text)
 {
 	// Insert pos gets clamped to the layout text size.
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, editor->selection);
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, editor->selection, rich_text);
 
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, sel_range.start, sel_range.end, rich_text);
-	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = sel_range.start.global_text_offset, .end = sel_range.end.global_text_offset }, rich_text);
+	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, editor->selection, rich_text);
+
 	skb__update_selection_from_change(editor, change);
 	skb__capture_undo_text_end(editor, transaction_id);
 
@@ -1658,7 +1655,6 @@ static void skb__undo_clear_first_transaction(skb_editor_t* editor)
 		editor->undo_stack[i].states_range.end -= removed_state_count;
 	}
 
-
 	SKB_ZERO_STRUCT(transaction);
 	editor->undo_stack_count--;
 	memmove(editor->undo_stack, editor->undo_stack + 1, sizeof(skb__editor_undo_transaction_t) * editor->undo_stack_count);
@@ -1676,10 +1672,12 @@ static void skb__reset_undo(skb_editor_t* editor)
 	editor->undo_stack_head = -1;
 }
 
-static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_paragraph_position_t start, skb_paragraph_position_t end, const skb_rich_text_t* rich_text)
+static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text)
 {
 	if (editor->params.max_undo_levels < 0)
 		return SKB_INVALID_INDEX;
+
+	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 
 	// Check if we can amend the last undo state.
 	if (editor->allow_append_undo && editor->undo_stack_head != -1) {
@@ -1687,9 +1685,10 @@ static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_paragraph_
 		skb__editor_undo_state_t* prev_undo_state = &editor->undo_states[prev_undo_transaction->states_range.end - 1];
 		if (prev_undo_state->type == SKB_UNDO_TEXT) {
 			// If there's no text to remove, and we're inserting at the end of the previous undo insert.
-			if (start.global_text_offset == end.global_text_offset && end.global_text_offset == prev_undo_state->inserted_range.end) {
+			if (range.start.global_text_offset == range.end.global_text_offset && range.end.global_text_offset == prev_undo_state->inserted_range.end.offset) {
+				assert(prev_undo_state->inserted_range.end.affinity == SKB_AFFINITY_NONE);
 				skb_rich_text_append(&prev_undo_state->inserted_text, rich_text);
-				prev_undo_state->inserted_range.end += skb_rich_text_get_utf32_count(rich_text);
+				prev_undo_state->inserted_range.end.offset += skb_rich_text_get_utf32_count(rich_text);
 				return SKB_INVALID_INDEX;
 			}
 		}
@@ -1706,13 +1705,13 @@ static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_paragraph_
 	transaction->states_range.end = editor->undo_states_count;
 
 	// Capture the text we're about to remove.
-	undo_state->removed_range.start = start.global_text_offset;
-	undo_state->removed_range.end = end.global_text_offset;
+	undo_state->removed_range.start.offset = range.start.global_text_offset;
+	undo_state->removed_range.end.offset = range.end.global_text_offset;
 	skb_rich_text_append_range(&undo_state->removed_text, &editor->rich_text, undo_state->removed_range);
 
 	// Capture the text we're about to insert.
-	undo_state->inserted_range.start = start.global_text_offset;
-	undo_state->inserted_range.end = start.global_text_offset + skb_rich_text_get_utf32_count(rich_text);
+	undo_state->inserted_range.start.offset = range.start.global_text_offset;
+	undo_state->inserted_range.end.offset = range.start.global_text_offset + skb_rich_text_get_utf32_count(rich_text);
 	skb_rich_text_append(&undo_state->inserted_text, rich_text);
 
 	return transaction_id;
@@ -1725,10 +1724,12 @@ static void skb__capture_undo_text_end(skb_editor_t* editor, int32_t transaction
 	skb_editor_undo_transaction_end(editor, transaction_id);
 }
 
-static int32_t skb__capture_undo_attributes_begin(skb_editor_t* editor, skb_paragraph_position_t start, skb_paragraph_position_t end)
+static int32_t skb__capture_undo_attributes_begin(skb_editor_t* editor, skb_text_range_t text_range)
 {
 	if (editor->params.max_undo_levels < 0)
 		return SKB_INVALID_INDEX;
+
+	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 
 	const int32_t transaction_id = skb_editor_undo_transaction_begin(editor);
 	assert(editor->undo_stack_head >= 0);
@@ -1741,8 +1742,8 @@ static int32_t skb__capture_undo_attributes_begin(skb_editor_t* editor, skb_para
 	transaction->states_range.end = editor->undo_states_count;
 
 	// Capture the text we're about to change.
-	undo_state->removed_range.start = start.global_text_offset;
-	undo_state->removed_range.end = end.global_text_offset;
+	undo_state->removed_range.start.offset = range.start.global_text_offset;
+	undo_state->removed_range.end.offset = range.end.global_text_offset;
 	skb_rich_text_copy_attributes_range(&undo_state->removed_text, &editor->rich_text, undo_state->removed_range);
 
 	// Store the range after the change.
@@ -1755,7 +1756,7 @@ static int32_t skb__capture_undo_attributes_begin(skb_editor_t* editor, skb_para
 static void skb__capture_undo_attributes_end(skb_editor_t* editor, int32_t transaction_id)
 {
 	assert(editor->undo_stack_head != -1);
-	skb__editor_undo_transaction_t* transaction = &editor->undo_stack[editor->undo_stack_head];
+	const skb__editor_undo_transaction_t* transaction = &editor->undo_stack[editor->undo_stack_head];
 	skb__editor_undo_state_t* prev_undo_state = &editor->undo_states[transaction->states_range.end - 1];
 
 	skb_rich_text_copy_attributes_range(&prev_undo_state->inserted_text, &editor->rich_text, prev_undo_state->inserted_range);
@@ -1836,7 +1837,7 @@ void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			if (undo_state->type == SKB_UNDO_TEXT) {
 				change = skb_rich_text_insert(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
-				skb_rich_text_replace_attributes_range(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
+				skb_rich_text_insert_attributes_range(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			}
 			skb_rich_layout_apply_change(&editor->rich_layout, change);
 		}
@@ -1871,7 +1872,7 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			if (undo_state->type == SKB_UNDO_TEXT) {
 				change = skb_rich_text_insert(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
-				skb_rich_text_replace_attributes_range(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
+				skb_rich_text_insert_attributes_range(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			}
 			skb_rich_layout_apply_change(&editor->rich_layout, change);
 		}
@@ -1906,21 +1907,27 @@ enum {
 	BACKSPACE_STATE_FINISHED = 13, // The state machine has been stopped.
 };
 
-static skb_paragraph_position_t skb__get_backspace_start_offset(const skb_editor_t* editor, skb_paragraph_position_t pos)
+static skb_text_position_t skb__get_backspace_start_offset(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
 
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
+
 	// If at beginning of line, go to the end of the previous line.
-	if (pos.text_offset == 0) {
+	if (pos.text_offset <= 0) {
 		if (pos.paragraph_idx > 0) {
 			pos.paragraph_idx--;
 			pos.text_offset = skb__get_text_count(editor, pos.paragraph_idx);
-			pos.global_text_offset = skb__get_global_text_offset(editor, pos.paragraph_idx) + pos.text_offset;
 		}
 	}
 
-	if (pos.text_offset <= 0)
-		return pos;
+	if (pos.text_offset <= 0) {
+		return (skb_text_position_t) {
+			.offset = 0,
+			.affinity = SKB_AFFINITY_SOL,
+		};
+	}
 
 	int32_t offset = pos.text_offset;
 
@@ -2067,7 +2074,10 @@ static skb_paragraph_position_t skb__get_backspace_start_offset(const skb_editor
 	pos.text_offset -= delete_char_count;
 	pos.global_text_offset = skb__get_global_text_offset(editor, pos.paragraph_idx) + pos.text_offset;
 
-	return pos;
+	return (skb_text_position_t) {
+		.offset = pos.global_text_offset,
+		.affinity = SKB_AFFINITY_TRAILING,
+	};
 }
 
 static skb_rich_text_t* skb__make_scratch_text_input_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count)
@@ -2292,11 +2302,12 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
 		} else {
-			skb_paragraph_position_t range_end = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
-			skb_paragraph_position_t range_start = skb__get_backspace_start_offset(editor, range_end);
-
-			int32_t transaction_id = skb__capture_undo_text_begin(editor, range_start, range_end, NULL);
-			skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = range_start.global_text_offset, .end = range_end.global_text_offset }, NULL);
+			skb_text_range_t remove_range = {
+				.start = skb__get_backspace_start_offset(editor, editor->selection.end),
+				.end = editor->selection.end,
+			};
+			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL);
+			skb_rich_text_change_t change = skb_rich_text_remove(&editor->rich_text, remove_range);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
@@ -2315,11 +2326,13 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
 		} else {
-			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
-			skb_paragraph_position_t range_end = skb__get_next_grapheme_pos(editor, range_start);
+			skb_text_range_t remove_range = {
+				.start = editor->selection.end,
+				.end = skb_rich_text_get_next_grapheme_pos(&editor->rich_text, editor->selection.end),
+			};
 
-			int32_t transaction_id = skb__capture_undo_text_begin(editor, range_start, range_end, NULL);
-			skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = range_start.global_text_offset, .end = range_end.global_text_offset }, NULL);
+			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL);
+			skb_rich_text_change_t change = skb_rich_text_remove(&editor->rich_text, remove_range);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
@@ -2345,9 +2358,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 			// The call to skb__replace_selection changes selection to after the inserted text.
 			// The caret is placed on the leading edge, which is usually good, but for new line we want trailing.
-			skb_paragraph_position_t range_start = skb__get_sanitized_position(editor, editor->selection.end, SKB_AFFINITY_USE);
+			skb_paragraph_position_t caret_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.end, SKB_AFFINITY_USE);
 			editor->selection.end = (skb_text_position_t) {
-				.offset = range_start.global_text_offset,
+				.offset = caret_pos.global_text_offset,
 				.affinity = SKB_AFFINITY_TRAILING,
 			};
 			editor->selection.start = editor->selection.end;
@@ -2358,7 +2371,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 }
 
 
-static skb_text_position_t skb__adjust_text_position(const skb_editor_t* editor, skb_text_position_t pos, skb_range_t removed_range, int32_t inserted_count)
+static skb_text_position_t skb__adjust_text_position(skb_text_position_t pos, skb_range_t removed_range, int32_t inserted_count)
 {
 	const int32_t removed_count = removed_range.end - removed_range.start;
 
@@ -2382,26 +2395,19 @@ static skb_text_position_t skb__adjust_text_position(const skb_editor_t* editor,
 	return pos;
 }
 
-
-static skb_text_range_t skb__adjust_text_selection(const skb_editor_t* editor, skb_text_range_t selection, skb_range_t removed_range, int32_t inserted_count)
+static skb_text_range_t skb__adjust_text_selection(const skb_editor_t* editor, skb_text_range_t selection, skb_text_range_t removed_text_range, int32_t inserted_count)
 {
+	skb_range_t removed_range = skb_rich_text_get_offset_range_from_text_range(&editor->rich_text, removed_text_range);
 	return (skb_text_range_t) {
-		.start = skb__adjust_text_position(editor, selection.start, removed_range, inserted_count),
-		.end = skb__adjust_text_position(editor, selection.end, removed_range, inserted_count),
+		.start = skb__adjust_text_position(selection.start, removed_range, inserted_count),
+		.end = skb__adjust_text_position(selection.end, removed_range, inserted_count),
 	};
-}
-
-static bool skb__equals_current_selection(const skb_editor_t* editor, skb__paragraph_range_t paragraph_range)
-{
-	skb__paragraph_range_t selection_range = skb__get_sanitized_range(editor, editor->selection);
-	return selection_range.start.global_text_offset == paragraph_range.start.global_text_offset
-		&& selection_range.end.global_text_offset == paragraph_range.end.global_text_offset;
 }
 
 static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_append_undo)
 {
-	// Insert pos gets clamped to the layout text size.
-	skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
+	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
 
 	if (editor->input_filter_callback && rich_text) {
 		skb_rich_text_t* rich_text_copy = &editor->scratch_rich_text;
@@ -2416,19 +2422,15 @@ static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 
 	editor->allow_append_undo = allow_append_undo;
 
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, paragraph_range.start, paragraph_range.end, rich_text);
-	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, (skb_range_t){ .start = paragraph_range.start.global_text_offset, .end = paragraph_range.end.global_text_offset }, rich_text);
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, text_range, rich_text);
+	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, text_range, rich_text);
 
-	if (skb_text_range_is_current_selection(text_range)) {
+	if (is_current_selection) {
 		skb__update_selection_from_change(editor, change);
 	} else {
 		// Adjust selection
 		const int32_t inserted_text_length = skb_rich_text_get_utf32_count(rich_text);
-		const skb_range_t removed_range = {
-			.start = paragraph_range.start.global_text_offset,
-			.end = paragraph_range.end.global_text_offset,
-		};
-		editor->selection = skb__adjust_text_selection(editor, editor->selection, removed_range, inserted_text_length);
+		editor->selection = skb__adjust_text_selection(editor, editor->selection, text_range, inserted_text_length);
 	}
 
 	skb__capture_undo_text_end(editor, transaction_id);
@@ -2445,7 +2447,7 @@ void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &cp, 1);
 
 	if (paragraph_attribute.kind != 0) {
-		skb_rich_text_set_paragraph_attribute(input_text, (skb_range_t){.start = 0, .end = 2 }, paragraph_attribute);
+		skb_rich_text_set_paragraph_attribute(input_text, (skb_text_range_t){.start.offset = 0, .end.offset = 2 }, paragraph_attribute);
 	}
 
 	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
@@ -2488,6 +2490,11 @@ void skb_editor_insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	skb__insert_rich_text(editor, temp_alloc, text_range, rich_text, false);
 }
 
+void skb_editor_remove(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range)
+{
+	assert(editor);
+	skb__insert_rich_text(editor, temp_alloc, text_range, NULL, false);
+}
 
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
@@ -2530,6 +2537,8 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 {
 	assert(editor);
 
+	text_range = skb__resolve_text_range(editor, text_range);
+
 	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
 
 	if (text_count == 0) {
@@ -2549,14 +2558,9 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 		skb__update_preview_caret(editor);
 	} else {
 		// Apply to selection
-		skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
-		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, paragraph_range.start, paragraph_range.end);
+		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-		skb_range_t range = {
-			.start = paragraph_range.start.global_text_offset,
-			.end = paragraph_range.end.global_text_offset,
-		};
-		skb_rich_text_set_attribute(&editor->rich_text, range, attribute);
+		skb_rich_text_set_attribute(&editor->rich_text, text_range, attribute);
 
 		skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2570,6 +2574,8 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
+
+	text_range = skb__resolve_text_range(editor, text_range);
 
 	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
 
@@ -2588,15 +2594,9 @@ void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 		}
 		skb__update_preview_caret(editor);
 	} else {
-		skb__paragraph_range_t paragraph_range = skb__get_sanitized_range(editor, text_range);
+		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, paragraph_range.start, paragraph_range.end);
-
-		skb_range_t range = {
-			.start = paragraph_range.start.global_text_offset,
-			.end = paragraph_range.end.global_text_offset,
-		};
-		skb_rich_text_clear_attribute(&editor->rich_text, range, attribute);
+		skb_rich_text_clear_attribute(&editor->rich_text, text_range, attribute);
 
 		skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2611,15 +2611,11 @@ void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* tem
 {
 	assert(editor);
 
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-	skb_range_t range = {
-		.start = sel_range.start.global_text_offset,
-		.end = sel_range.end.global_text_offset,
-	};
-	skb_rich_text_clear_all_attributes(&editor->rich_text, range);
+	skb_rich_text_clear_all_attributes(&editor->rich_text, text_range);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2633,15 +2629,11 @@ void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* 
 {
 	assert(editor);
 
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-	skb_range_t range = {
-		.start = sel_range.start.global_text_offset,
-		.end = sel_range.end.global_text_offset,
-	};
-	skb_rich_text_set_paragraph_attribute(&editor->rich_text, range, attribute);
+	skb_rich_text_set_paragraph_attribute(&editor->rich_text, text_range, attribute);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2655,15 +2647,11 @@ void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_all
 {
 	assert(editor);
 
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
 
-	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, sel_range.start, sel_range.end);
+	int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-	skb_range_t range = {
-		.start = sel_range.start.global_text_offset,
-		.end = sel_range.end.global_text_offset,
-	};
-	skb_rich_text_set_paragraph_attribute_delta(&editor->rich_text, range, attribute);
+	skb_rich_text_set_paragraph_attribute_delta(&editor->rich_text, text_range, attribute);
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2673,19 +2661,18 @@ void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_all
 	skb__emit_on_change(editor);
 }
 
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_rage, skb_attribute_t attribute)
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
-	skb__paragraph_range_t sel_range = skb__get_sanitized_range(editor, text_rage);
-	skb_range_t text_range = {
-		.start = sel_range.start.global_text_offset,
-		.end = sel_range.end.global_text_offset,
-	};
+
+	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_get_attribute_count(&editor->rich_text, text_range, attribute);
 }
 
 bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
+	assert(editor);
+
 	skb_range_t paragraph_range = skb_editor_get_paragraphs_range_from_text_range(editor, text_range);
 	int32_t match_count = 0;
 	for (int32_t i = paragraph_range.start; i < paragraph_range.end; i++) {
@@ -2703,6 +2690,9 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
 
 bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
+	assert(editor);
+	text_range = skb__resolve_text_range(editor, text_range);
+
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, text_range);
 
 	if (selection_count > 0)
@@ -2748,7 +2738,10 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 	if (!had_ime_text) {
 		// Capture the text position the first time we set the text.
 		editor->composition_selection_base = skb_editor_get_selection_ordered_start(editor, editor->selection);
-		editor->composition_text_offset = skb__get_sanitized_position(editor, editor->composition_selection_base, SKB_AFFINITY_USE).global_text_offset;
+		// Text offset where we're displaying the composition text.
+		skb_paragraph_position_t base_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->composition_selection_base, SKB_AFFINITY_USE);
+		editor->composition_text_offset = base_pos.global_text_offset;
+
 		// Clear the selection. Since the IME can be cancelled ideally we would clear on commit,
 		// but it gets really complicated when multiple lines area involved.
 		editor->composition_cleared_selection = false;
@@ -2810,49 +2803,51 @@ void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 	}
 }
 
-int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos)
+int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
 
 	int32_t total_line_count = 0;
 
 	// Lines up to the text position.
-	for (int32_t i = 0; i < edit_pos.paragraph_idx; i++)
+	for (int32_t i = 0; i < paragraph_pos.paragraph_idx; i++)
 		total_line_count += skb_layout_get_lines_count(skb__get_layout(editor, i));
 
-	total_line_count += skb__get_line_index(editor, edit_pos);
+	total_line_count += skb__get_line_index(editor, paragraph_pos);
 
 	return total_line_count;
 }
 
-int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos)
+int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
 
-	skb_paragraph_position_t edit_pos = skb__get_sanitized_position(editor, pos, SKB_AFFINITY_USE);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+	skb_paragraph_position_t paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_USE);
 
-	const skb_layout_t* layout = skb__get_layout(editor, edit_pos.paragraph_idx);
+	const skb_layout_t* layout = skb__get_layout(editor, paragraph_pos.paragraph_idx);
 	if (layout) {
-		const int32_t edit_line_idx = skb__get_line_index(editor, edit_pos);
+		const int32_t edit_line_idx = skb__get_line_index(editor, paragraph_pos);
 		const skb_layout_line_t* lines = skb_layout_get_lines(layout);
 		const skb_layout_line_t* line = &lines[edit_line_idx];
-		return edit_pos.text_offset - line->text_range.start;
+		return paragraph_pos.text_offset - line->text_range.start;
 	}
 
 	return 0;
 }
 
-skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t pos)
+skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
 	assert(editor);
 
-	const bool use_current_selection = skb_text_position_is_current_selection_end(pos);
-	if (use_current_selection)
-		pos = editor->selection.end;
+	const bool use_current_selection = skb_text_position_is_current_selection_end(text_pos);
 
-	skb_caret_info_t caret = skb_rich_layout_get_caret_info_at(&editor->rich_layout, pos);
+	text_pos = skb__resolve_text_position(editor, text_pos);
+
+	skb_caret_info_t caret = skb_rich_layout_get_caret_info_at(&editor->rich_layout, text_pos);
 
 	if (use_current_selection && editor->is_preview_caret_valid) {
 		// Override slot from active attributes.

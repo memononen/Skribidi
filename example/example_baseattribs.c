@@ -150,8 +150,8 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_text_append_utf8(text, "Yellow mellow submarine", -1, (skb_attribute_set_t){0});
 
-	skb_text_add_attribute(text, (skb_range_t){ 0, 13 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
-	skb_text_add_attribute(text, (skb_range_t){ 7, 17 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
+	skb_text_add_attribute(text, (skb_text_range_t){ .start.offset = 0, .end.offset = 13 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
+	skb_text_add_attribute(text, (skb_text_range_t){ .start.offset = 7, .end.offset = 17 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
 
 	ctx->layout_text = skb_layout_create_from_text(ctx->temp_alloc, &params, text, (skb_attribute_set_t){0});
 	assert(ctx->layout_text);

@@ -38,7 +38,7 @@ skb_paragraph_position_t skb_rich_layout_get_paragraph_position_from_text_positi
 	// Adjust position based on affinity
 	if (affinity_usage == SKB_AFFINITY_USE) {
 		if (text_pos.affinity == SKB_AFFINITY_LEADING || text_pos.affinity == SKB_AFFINITY_EOL) {
-			result.text_offset = skb_layout_next_grapheme_offset(&rich_layout->paragraphs[result.paragraph_idx].layout, result.text_offset);
+			result.text_offset = skb_layout_get_next_grapheme_offset(&rich_layout->paragraphs[result.paragraph_idx].layout, result.text_offset);
 			// Affinity adjustment may push the offset to next paragraph
 			if (text_pos.affinity == SKB_AFFINITY_LEADING && result.text_offset >= skb_layout_get_text_count(&rich_layout->paragraphs[result.paragraph_idx].layout)) {
 				if ((result.paragraph_idx + 1) < rich_layout->paragraphs_count) {
@@ -288,13 +288,13 @@ void skb_rich_layout_set_from_rich_text(
 			skb_text_t* combined_text = skb_text_create_temp(temp_alloc);
 
 			// Before
-			skb_text_append_range(combined_text, paragraph_text, (skb_range_t){ .start = 0, .end = local_ime_text_offset });
+			skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = 0, .end.offset = local_ime_text_offset });
 
 			// Composition
 			skb_text_append(combined_text, ime_text);
 
 			// After
-			skb_text_append_range(combined_text, paragraph_text, (skb_range_t){ .start = local_ime_text_offset, .end = paragraph_text_count });
+			skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = local_ime_text_offset, .end.offset = paragraph_text_count });
 
 			skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, combined_text, (skb_attribute_set_t){0});
 

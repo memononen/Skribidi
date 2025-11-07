@@ -11,6 +11,8 @@ typedef struct skb_text_t {
 	int32_t text_count;
 	int32_t text_cap;
 
+	uint8_t* text_props;	// grapheme breaks
+
 	skb_attribute_span_t* spans;
 	int32_t spans_count;
 	int32_t spans_cap;

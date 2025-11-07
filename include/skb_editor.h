@@ -348,16 +348,16 @@ skb_text_position_t skb_editor_get_paragraph_content_end_pos(const skb_editor_t*
 //
 
 /** @return text offset of specified text position. */
-int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t pos);
+int32_t skb_editor_get_text_offset_from_text_position(const skb_editor_t* editor, skb_text_position_t text_pos);
 
 /**
  * Returns paragraph position based on text position.
  * Paragraph position contains more information how the text position relates to the paragraph at the text position.
  * @param editor editor to query.
- * @param pos the text position to convert
+ * @param text_pos the text position to convert
  * @return paragraph position info of the specified text position.
  */
-skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t pos);
+skb_paragraph_position_t skb_editor_get_paragraph_position_from_text_position(const skb_editor_t* editor, skb_text_position_t text_pos);
 
 /**
  * Returns the range of paragraphs the text range overlaps.
@@ -443,13 +443,13 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y);
 void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_editor_key_t key, uint32_t mods);
 
 /** @return visual caret at specified text position. */
-skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t pos);
+skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_text_position_t text_pos);
 
 /** @return line number of specified text position. */
-int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+int32_t skb_editor_get_line_index_at(const skb_editor_t* editor, skb_text_position_t text_pos);
 
 /** @return column number of specified text position. */
-int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t pos);
+int32_t skb_editor_get_column_index_at(const skb_editor_t* editor, skb_text_position_t text_pos);
 
 /**
  * Hit tests the editor, and returns text position of the nearest character.
@@ -550,8 +550,6 @@ void skb_editor_insert_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 /**
  * Inserts rich text replacing the text range.
  * The function will adjust the current selection to compensate the changed text.
- * If the range is empty (start_pos == end_pos), the function will act as insert.
- * If the utf-32 string is empty, the function will act as remove.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout.
  * @param text_range range of text to replace
@@ -559,6 +557,14 @@ void skb_editor_insert_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_a
  */
 void skb_editor_insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text);
 
+/**
+ * Removes range of text.
+ * The function will adjust the current selection to compensate the changed text.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range range of text to remove
+ */
+void skb_editor_remove(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range);
 
 //
 // Attribute edit

@@ -68,7 +68,7 @@ static int test_add_remove(void)
 	}
 
 
-	skb_text_remove(text, (skb_range_t){ 1,3 }); // end non-inclusive
+	skb_text_remove(text, (skb_text_range_t){ .start.offset = 1,.end.offset = 3 }); // end non-inclusive
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 3);
@@ -87,7 +87,7 @@ static int test_add_remove(void)
 		skb_attribute_make_font_size(30.f),
 	};
 	const char* str2 = "Turb";
-	skb_text_replace_utf8(text, (skb_range_t){0, 2}, str2, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes2));
+	skb_text_insert_utf8(text, (skb_text_range_t){.start.offset = 0, .end.offset = 2}, str2, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes2));
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 5);
@@ -110,7 +110,7 @@ static int test_add_remove(void)
 		skb_attribute_make_font_size(90.f),
 	};
 	const char* str3 = "ku Å";
-	skb_text_replace_utf8(text, (skb_range_t){3, 3}, str3, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes3));
+	skb_text_insert_utf8(text, (skb_text_range_t){.start.offset = 3, .end.offset = 3}, str3, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes3));
 
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 9);
@@ -139,7 +139,7 @@ static int test_add_remove(void)
 
 	skb_attribute_t attr_font_size = skb_attribute_make_font_size(90.f);
 
-	skb_text_clear_attribute(text, (skb_range_t){ 3,8}, attr_font_size);
+	skb_text_clear_attribute(text, (skb_text_range_t){ .start.offset =  3, .end.offset = 8}, attr_font_size);
 	{
 		ENSURE(skb_text_get_utf32_count(text) == 9);
 
@@ -161,7 +161,7 @@ static int test_add_remove(void)
 
 
 typedef struct attr_range_t {
-	skb_range_t range;
+	skb_text_range_t range;
 	int32_t active_span_count;
 } attr_range_t;
 
@@ -173,7 +173,7 @@ typedef struct attr_iter_context_t {
 	attr_range_t expected_ranges[MAX_EXPECTED_RANGES];
 } attr_iter_context_t;
 
-static void iter_test(const skb_text_t* text, skb_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
+static void iter_test(const skb_text_t* text, skb_text_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
 {
 	attr_iter_context_t* ctx = context;
 	if (ctx->idx < MAX_EXPECTED_RANGES) {
@@ -192,9 +192,9 @@ static int test_iter(void)
 	const char* str1 = "Hamburgerfontstiv";
 	skb_text_append_utf8(text, str1, -1, (skb_attribute_set_t){0});
 
-	skb_text_add_attribute(text, (skb_range_t){ .start = 1, .end = 9 }, skb_attribute_make_font_size(30.f));
-	skb_text_add_attribute(text, (skb_range_t){ .start = 4, .end = 7 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
-	skb_text_add_attribute(text, (skb_range_t){ .start = 8, .end = 12 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
+	skb_text_add_attribute(text, (skb_text_range_t){ .start.offset = 1, .end.offset = 9 }, skb_attribute_make_font_size(30.f));
+	skb_text_add_attribute(text, (skb_text_range_t){ .start.offset = 4, .end.offset = 7 }, skb_attribute_make_font_weight(SKB_WEIGHT_BOLD));
+	skb_text_add_attribute(text, (skb_text_range_t){ .start.offset = 8, .end.offset = 12 }, skb_attribute_make_font_style(SKB_STYLE_ITALIC));
 
 	attr_iter_context_t iter_ctx = { 0 };
 	skb_text_iterate_attribute_runs(text, iter_test, &iter_ctx);
@@ -202,38 +202,38 @@ static int test_iter(void)
 	ENSURE(iter_ctx.idx == 7); // Expect 7 runs
 
 	// Empty at start
-	ENSURE(iter_ctx.expected_ranges[0].range.start == 0);
-	ENSURE(iter_ctx.expected_ranges[0].range.end == 1);
+	ENSURE(iter_ctx.expected_ranges[0].range.start.offset == 0);
+	ENSURE(iter_ctx.expected_ranges[0].range.end.offset == 1);
 	ENSURE(iter_ctx.expected_ranges[0].active_span_count == 0);
 
 	// Font size
-	ENSURE(iter_ctx.expected_ranges[1].range.start == 1);
-	ENSURE(iter_ctx.expected_ranges[1].range.end == 4);
+	ENSURE(iter_ctx.expected_ranges[1].range.start.offset == 1);
+	ENSURE(iter_ctx.expected_ranges[1].range.end.offset == 4);
 	ENSURE(iter_ctx.expected_ranges[1].active_span_count == 1);
 
 	// Font size + Bold
-	ENSURE(iter_ctx.expected_ranges[2].range.start == 4);
-	ENSURE(iter_ctx.expected_ranges[2].range.end == 7);
+	ENSURE(iter_ctx.expected_ranges[2].range.start.offset == 4);
+	ENSURE(iter_ctx.expected_ranges[2].range.end.offset == 7);
 	ENSURE(iter_ctx.expected_ranges[2].active_span_count == 2);
 
 	// Font size
-	ENSURE(iter_ctx.expected_ranges[3].range.start == 7);
-	ENSURE(iter_ctx.expected_ranges[3].range.end == 8);
+	ENSURE(iter_ctx.expected_ranges[3].range.start.offset == 7);
+	ENSURE(iter_ctx.expected_ranges[3].range.end.offset == 8);
 	ENSURE(iter_ctx.expected_ranges[3].active_span_count == 1);
 
 	// Font size + Italic
-	ENSURE(iter_ctx.expected_ranges[4].range.start == 8);
-	ENSURE(iter_ctx.expected_ranges[4].range.end == 9);
+	ENSURE(iter_ctx.expected_ranges[4].range.start.offset == 8);
+	ENSURE(iter_ctx.expected_ranges[4].range.end.offset == 9);
 	ENSURE(iter_ctx.expected_ranges[4].active_span_count == 2);
 
 	// Italic
-	ENSURE(iter_ctx.expected_ranges[5].range.start == 9);
-	ENSURE(iter_ctx.expected_ranges[5].range.end == 12);
+	ENSURE(iter_ctx.expected_ranges[5].range.start.offset == 9);
+	ENSURE(iter_ctx.expected_ranges[5].range.end.offset == 12);
 	ENSURE(iter_ctx.expected_ranges[5].active_span_count == 1);
 
 	// Empty at end
-	ENSURE(iter_ctx.expected_ranges[6].range.start == 12);
-	ENSURE(iter_ctx.expected_ranges[6].range.end == 17);
+	ENSURE(iter_ctx.expected_ranges[6].range.start.offset == 12);
+	ENSURE(iter_ctx.expected_ranges[6].range.end.offset == 17);
 	ENSURE(iter_ctx.expected_ranges[6].active_span_count == 0);
 
 	skb_text_destroy(text);
