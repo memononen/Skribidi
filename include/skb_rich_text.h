@@ -62,8 +62,8 @@ skb_rich_text_change_t skb_rich_text_insert_range(skb_rich_text_t* rich_text, sk
 
 skb_rich_text_change_t skb_rich_text_remove(skb_rich_text_t* rich_text, skb_text_range_t text_range);
 
-void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_text_range_t source_text_range);
-void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text);
+void skb_rich_text_copy_attributes_in_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_text_range_t source_text_range);
+void skb_rich_text_insert_attributes(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text);
 
 void skb_rich_text_set_paragraph_attribute(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 void skb_rich_text_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);

@@ -90,7 +90,7 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_text_range_t
 	if (paragraph_range.start.paragraph_idx == paragraph_range.end.paragraph_idx) {
 		const skb_text_range_t range = {
 			.start.offset = paragraph_range.start.text_offset,
-			.end.offset = paragraph_range.end.text_offset + 1,
+			.end.offset = paragraph_range.end.text_offset,
 		};
 		func(rich_text, paragraph_range.start.paragraph_idx, range, context);
 		return;
@@ -121,7 +121,7 @@ static void skb__iterate_paragraphs(skb_rich_text_t* rich_text, skb_text_range_t
 	// Last paragraph
 	const skb_text_range_t last_range = {
 		.start.offset = 0,
-		.end.offset = skb_mini(paragraph_range.end.text_offset + 1, skb_text_get_utf32_count(&rich_text->paragraphs[paragraph_range.end.paragraph_idx].text)),
+		.end.offset = skb_mini(paragraph_range.end.text_offset, skb_text_get_utf32_count(&rich_text->paragraphs[paragraph_range.end.paragraph_idx].text)),
 	};
 	func(rich_text, paragraph_idx, last_range, context);
 }
@@ -795,7 +795,7 @@ skb_rich_text_change_t skb_rich_text_remove(skb_rich_text_t* rich_text, skb_text
 }
 
 
-void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_text_range_t source_text_range)
+void skb_rich_text_copy_attributes_in_range(skb_rich_text_t* rich_text, const skb_rich_text_t* source_rich_text, skb_text_range_t source_text_range)
 {
 	assert(rich_text);
 	skb_rich_text_reset(rich_text);
@@ -821,7 +821,12 @@ void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_r
 		assert(paragraph_idx < rich_text->paragraphs_count);
 		skb_text_paragraph_t* new_paragraph = &rich_text->paragraphs[paragraph_idx];
 		skb__text_paragraph_init(rich_text, new_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
-		skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, (skb_text_range_t){.start.offset = source_range.start.text_offset, .end.offset = source_range.start.text_offset});
+		const skb_text_range_t source_copy_range = {
+			.start.offset = source_range.start.text_offset,
+			.end.offset = source_range.end.text_offset
+		};
+		skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, source_copy_range);
+
 		new_paragraph->global_text_offset = 0;
 	} else if (source_paragraphs_count > 1) {
 		int32_t global_text_offset = 0;
@@ -831,13 +836,13 @@ void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_r
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* new_start_paragraph = &rich_text->paragraphs[paragraph_idx++];
 			skb__text_paragraph_init(rich_text, new_start_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
-			const skb_text_range_t new_start_paragraph_range = {
+			const skb_text_range_t source_copy_range = {
 				.start.offset = source_range.start.text_offset,
 				.end.offset = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
 			};
-			skb_text_copy_attributes_range(&new_start_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_start_paragraph_range);
+			skb_text_copy_attributes_range(&new_start_paragraph->text, &source_paragraphs[source_paragraph_idx].text, source_copy_range);
 			new_start_paragraph->global_text_offset = global_text_offset;
-			global_text_offset += new_start_paragraph_range.end.offset - new_start_paragraph_range.start.offset;
+			global_text_offset += source_copy_range.end.offset - source_copy_range.start.offset;
 			source_paragraph_idx++;
 		}
 
@@ -846,13 +851,13 @@ void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_r
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* new_paragraph = &rich_text->paragraphs[paragraph_idx++];
 			skb__text_paragraph_init(rich_text, new_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
-			const skb_text_range_t new_paragraph_range = {
+			const skb_text_range_t source_copy_range = {
 				.start.offset = 0,
 				.end.offset = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
 			};
-			skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_paragraph_range);
+			skb_text_copy_attributes_range(&new_paragraph->text, &source_paragraphs[source_paragraph_idx].text, source_copy_range);
 			new_paragraph->global_text_offset = global_text_offset;
-			global_text_offset += new_paragraph_range.end.offset - new_paragraph_range.start.offset;
+			global_text_offset += source_copy_range.end.offset - source_copy_range.start.offset;
 			source_paragraph_idx++;
 		}
 
@@ -861,27 +866,27 @@ void skb_rich_text_copy_attributes_range(skb_rich_text_t* rich_text, const skb_r
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* new_end_paragraph = &rich_text->paragraphs[paragraph_idx++];
 			skb__text_paragraph_init(rich_text, new_end_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
-			const skb_text_range_t new_end_paragraph_range = {
+			const skb_text_range_t source_copy_range = {
 				.start.offset = 0,
 				.end.offset = source_range.end.text_offset
 			};
-			skb_text_copy_attributes_range(&new_end_paragraph->text, &source_paragraphs[source_paragraph_idx].text, new_end_paragraph_range);
+			skb_text_copy_attributes_range(&new_end_paragraph->text, &source_paragraphs[source_paragraph_idx].text, source_copy_range);
 			new_end_paragraph->global_text_offset = global_text_offset;
 		}
 	}
 }
 
-void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text)
+void skb_rich_text_insert_attributes(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text)
 {
 	assert(rich_text);
 	if (!source_rich_text)
 		return;
 
-	const skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(source_rich_text, text_range, SKB_AFFINITY_USE);
-	const int32_t range_paragraph_count = (paragraph_range.end.paragraph_idx + 1) - paragraph_range.start.paragraph_idx;
+	const skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(rich_text, text_range, SKB_AFFINITY_USE);
+	const int32_t insert_paragraph_count = (paragraph_range.end.paragraph_idx + 1) - paragraph_range.start.paragraph_idx;
 
 	const skb_text_paragraph_t* source_paragraphs = source_rich_text->paragraphs;
-	const int32_t source_paragraphs_count = skb_mini(source_rich_text->paragraphs_count, range_paragraph_count);
+	const int32_t source_paragraphs_count = skb_mini(source_rich_text->paragraphs_count, insert_paragraph_count);
 
 	int32_t source_paragraph_idx = 0;
 	int32_t paragraph_idx = paragraph_range.start.paragraph_idx;
@@ -889,7 +894,11 @@ void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_
 	if (source_paragraphs_count == 1) {
 		assert(paragraph_idx < rich_text->paragraphs_count);
 		skb_text_paragraph_t* paragraph = &rich_text->paragraphs[paragraph_range.start.paragraph_idx];
-		skb_text_insert_attributes(&paragraph->text, (skb_text_range_t){.start.offset = paragraph_range.start.text_offset, .end.offset = paragraph_range.end.text_offset}, &source_paragraphs[source_paragraph_idx].text);
+		const skb_text_range_t insert_range = {
+			.start.offset = paragraph_range.start.text_offset,
+			.end.offset = paragraph_range.end.text_offset
+		};
+		skb_text_insert_attributes(&paragraph->text, insert_range, &source_paragraphs[source_paragraph_idx].text);
 		skb__text_paragraph_copy_attributes(paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
 		paragraph->version = ++rich_text->version_counter; // Mark as changed
 	} else if (source_paragraphs_count > 1) {
@@ -897,11 +906,11 @@ void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_
 		{
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* start_paragraph = &rich_text->paragraphs[paragraph_idx++];
-			const skb_text_range_t start_range = {
+			const skb_text_range_t insert_range = {
 				.start.offset = paragraph_range.start.text_offset,
 				.end.offset = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
 			};
-			skb_text_insert_attributes(&start_paragraph->text, start_range, &source_paragraphs[source_paragraph_idx].text);
+			skb_text_insert_attributes(&start_paragraph->text, insert_range, &source_paragraphs[source_paragraph_idx].text);
 			skb__text_paragraph_copy_attributes(start_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
 			start_paragraph->version = ++rich_text->version_counter; // Mark as changed
 			source_paragraph_idx++;
@@ -911,11 +920,11 @@ void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_
 		while (source_paragraph_idx < source_paragraphs_count - 1) {
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* paragraph = &rich_text->paragraphs[paragraph_idx++];
-			const skb_text_range_t range = {
+			const skb_text_range_t insert_range = {
 				.start.offset = 0,
 				.end.offset = skb_text_get_utf32_count(&source_paragraphs[source_paragraph_idx].text)
 			};
-			skb_text_insert_attributes(&paragraph->text, range, &source_paragraphs[source_paragraph_idx].text);
+			skb_text_insert_attributes(&paragraph->text, insert_range, &source_paragraphs[source_paragraph_idx].text);
 			skb__text_paragraph_copy_attributes(paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
 			paragraph->version = ++rich_text->version_counter; // Mark as changed
 			source_paragraph_idx++;
@@ -925,11 +934,11 @@ void skb_rich_text_insert_attributes_range(skb_rich_text_t* rich_text, skb_text_
 		{
 			assert(paragraph_idx < rich_text->paragraphs_count);
 			skb_text_paragraph_t* end_paragraph = &rich_text->paragraphs[paragraph_idx++];
-			const skb_text_range_t end_range = {
+			const skb_text_range_t insert_range = {
 				.start.offset = 0,
 				.end.offset = paragraph_range.end.text_offset
 			};
-			skb_text_insert_attributes(&end_paragraph->text, end_range, &source_paragraphs[source_paragraph_idx].text);
+			skb_text_insert_attributes(&end_paragraph->text, insert_range, &source_paragraphs[source_paragraph_idx].text);
 			skb__text_paragraph_copy_attributes(end_paragraph, skb__text_paragraph_get_attributes(&source_paragraphs[source_paragraph_idx]));
 			end_paragraph->version = ++rich_text->version_counter; // Mark as changed
 		}

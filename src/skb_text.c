@@ -796,7 +796,7 @@ void skb_text_insert_attributes(skb_text_t* text, skb_text_range_t text_range, c
 	assert(text);
 	assert(from_text);
 
-	const skb_range_t range = skb_text_get_range_from_text_range(from_text, text_range);
+	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 	if (skb_range_is_empty(range))
 		return;
 

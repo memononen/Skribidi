@@ -40,6 +40,8 @@ typedef struct skb__editor_undo_state_t {
 
 	skb_text_range_t inserted_range;		// Inserted text range after replace.
 	skb_rich_text_t inserted_text;		// Inserted attributed text
+
+	bool allow_amend_undo;
 } skb__editor_undo_state_t;
 
 typedef struct skb__editor_undo_transaction_t {
@@ -98,7 +100,6 @@ typedef struct skb_editor_t {
 	int32_t undo_stack_count;				// Size if the undo stack
 	int32_t undo_stack_cap;					// Allocated space for the undo stack.
 	int32_t undo_stack_head;				// Current state inside the undo stack. Initially -1, increases on each change. Undo moves down, redo up (up to stack count).
-	bool allow_append_undo;					// True if the next change can be appended to the current undo. E.g. typing characters in a row all goes into same undo. Moving caret will break the sequence.
 
 	skb__editor_undo_state_t* undo_states;	// The undo stack.
 	int32_t undo_states_count;				// Size if the undo stack
@@ -109,9 +110,8 @@ typedef struct skb_editor_t {
 
 // fwd decl
 static void skb__reset_undo(skb_editor_t* editor);
-static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text);
+static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_amend_undo);
 static void skb__capture_undo_text_end(skb_editor_t* editor, int32_t transaction_id);
-//static skb_paragraph_position_t skb__get_sanitized_position(const skb_editor_t* editor, skb_text_position_t pos, skb_affinity_usage_t affinity_usage);
 
 static skb_text_position_t skb__resolve_text_position(const skb_editor_t* editor, skb_text_position_t text_pos)
 {
@@ -162,7 +162,7 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 
 	// Make sure the selection conforms the new layout.
 	skb_paragraph_position_t selection_start_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.start, SKB_AFFINITY_IGNORE);
-	skb_paragraph_position_t selection_end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.start, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t selection_end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.end, SKB_AFFINITY_IGNORE);
 	editor->selection.start.offset = selection_start_pos.global_text_offset;
 	editor->selection.end.offset = selection_end_pos.global_text_offset;
 }
@@ -268,9 +268,11 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 {
 	// Pick the active attributes from the text before the cursor.
 	skb_text_position_t caret_pos = skb__resolve_text_position(editor, editor->selection.end);
-	// Pick style from the character before.
-	caret_pos = skb_rich_text_get_prev_grapheme_pos(&editor->rich_text, caret_pos);
 	const skb_paragraph_position_t caret_paragraph_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, caret_pos, SKB_AFFINITY_USE);
+
+	// Pick style from the character before.
+	const skb_layout_t* layout = skb__get_layout(editor, caret_paragraph_pos.paragraph_idx);
+	const int32_t pick_offset = skb_layout_get_prev_grapheme_offset(layout, caret_paragraph_pos.text_offset);
 
 	const skb_text_t* paragraph_text = skb__get_text(editor, caret_paragraph_pos.paragraph_idx);
 	int32_t attribute_spans_count = skb_text_get_attribute_spans_count(paragraph_text);
@@ -278,7 +280,7 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 
 	editor->active_attributes_count = 0;
 	for (int32_t i = 0; i < attribute_spans_count; i++) {
-		if (skb_range_contains(attribute_spans[i].text_range, caret_pos.offset)) {
+		if (skb_range_contains(attribute_spans[i].text_range, pick_offset)) {
 			SKB_ARRAY_RESERVE(editor->active_attributes, editor->active_attributes_count + 1);
 			skb_attribute_t* attribute = &editor->active_attributes[editor->active_attributes_count++];
 			*attribute = attribute_spans[i].attribute;
@@ -943,12 +945,14 @@ skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* e
 	assert(skb__are_paragraphs_in_sync(editor));
 
 	text_range = skb__resolve_text_range(editor, text_range);
-	skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
+	// Get positions separate (not range) so that we can compare the direction.
+	skb_paragraph_position_t start_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.end, SKB_AFFINITY_USE);
 
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, paragraph_range.end.paragraph_idx)))
-		return paragraph_range.start.global_text_offset > paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
+		return start_pos.global_text_offset > end_pos.global_text_offset ? text_range.start : text_range.end;
 
-	return paragraph_range.start.global_text_offset <= paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
+	return start_pos.global_text_offset <= end_pos.global_text_offset ? text_range.start : text_range.end;
 }
 
 // TODO: should we expose this?
@@ -957,12 +961,14 @@ skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* edi
 	assert(skb__are_paragraphs_in_sync(editor));
 
 	text_range = skb__resolve_text_range(editor, text_range);
-	skb_paragraph_range_t paragraph_range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
+	// Get positions separate (not range) so that we can compare the direction.
+	skb_paragraph_position_t start_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.end, SKB_AFFINITY_USE);
 
-	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, paragraph_range.end.paragraph_idx)))
-		return paragraph_range.start.global_text_offset <= paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
+	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
+		return start_pos.global_text_offset <= end_pos.global_text_offset ? text_range.start : text_range.end;
 
-	return paragraph_range.start.global_text_offset > paragraph_range.end.global_text_offset ? text_range.start : text_range.end;
+	return start_pos.global_text_offset > end_pos.global_text_offset ? text_range.start : text_range.end;
 }
 
 static bool skb__is_at_first_line(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos)
@@ -1593,10 +1599,10 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 	}
 }
 
-static skb_rich_text_change_t skb__replace_selection(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_rich_text_t* rich_text)
+static skb_rich_text_change_t skb__replace_selection(skb_editor_t* editor, const skb_rich_text_t* rich_text, bool allow_amend_undo)
 {
 	// Insert pos gets clamped to the layout text size.
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, editor->selection, rich_text);
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, editor->selection, rich_text, allow_amend_undo);
 
 	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, editor->selection, rich_text);
 
@@ -1677,7 +1683,7 @@ static void skb__reset_undo(skb_editor_t* editor)
 	editor->undo_stack_head = -1;
 }
 
-static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text)
+static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_amend_undo)
 {
 	if (editor->params.max_undo_levels < 0)
 		return SKB_INVALID_INDEX;
@@ -1685,12 +1691,16 @@ static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range
 	const skb_paragraph_range_t range = skb_rich_text_get_paragraph_range_from_text_range(&editor->rich_text, text_range, SKB_AFFINITY_USE);
 
 	// Check if we can amend the last undo state.
-	if (editor->allow_append_undo && editor->undo_stack_head != -1) {
+	if (allow_amend_undo && editor->undo_stack_head != -1) {
 		skb__editor_undo_transaction_t* prev_undo_transaction = &editor->undo_stack[editor->undo_stack_head];
 		skb__editor_undo_state_t* prev_undo_state = &editor->undo_states[prev_undo_transaction->states_range.end - 1];
-		if (prev_undo_state->type == SKB_UNDO_TEXT) {
-			// If there's no text to remove, and we're inserting at the end of the previous undo insert.
-			if (range.start.global_text_offset == range.end.global_text_offset && range.end.global_text_offset == prev_undo_state->inserted_range.end.offset) {
+		if (prev_undo_state->allow_amend_undo) {
+			// Try to amend the previous
+			const bool has_no_remove = range.start.global_text_offset == range.end.global_text_offset;
+			const bool prev_has_insert = prev_undo_state->inserted_range.start.offset < prev_undo_state->inserted_range.end.offset;
+			const bool prev_has_no_remove = prev_undo_state->removed_range.start.offset == prev_undo_state->removed_range.end.offset;
+			const bool caret_at_end_of_prev = range.end.global_text_offset == prev_undo_state->inserted_range.end.offset;
+			if (has_no_remove && prev_has_insert && prev_has_no_remove && caret_at_end_of_prev) {
 				assert(prev_undo_state->inserted_range.end.affinity == SKB_AFFINITY_NONE);
 				skb_rich_text_append(&prev_undo_state->inserted_text, rich_text);
 				prev_undo_state->inserted_range.end.offset += skb_rich_text_get_utf32_count(rich_text);
@@ -1708,6 +1718,8 @@ static int32_t skb__capture_undo_text_begin(skb_editor_t* editor, skb_text_range
 	skb__editor_undo_state_t* undo_state = &editor->undo_states[editor->undo_states_count++];
 	skb__undo_state_init(undo_state, SKB_UNDO_TEXT);
 	transaction->states_range.end = editor->undo_states_count;
+
+	undo_state->allow_amend_undo = allow_amend_undo;
 
 	// Capture the text we're about to remove.
 	undo_state->removed_range.start.offset = range.start.global_text_offset;
@@ -1749,7 +1761,7 @@ static int32_t skb__capture_undo_attributes_begin(skb_editor_t* editor, skb_text
 	// Capture the text we're about to change.
 	undo_state->removed_range.start.offset = range.start.global_text_offset;
 	undo_state->removed_range.end.offset = range.end.global_text_offset;
-	skb_rich_text_copy_attributes_range(&undo_state->removed_text, &editor->rich_text, undo_state->removed_range);
+	skb_rich_text_copy_attributes_in_range(&undo_state->removed_text, &editor->rich_text, undo_state->removed_range);
 
 	// Store the range after the change.
 	undo_state->inserted_range = undo_state->removed_range;
@@ -1764,7 +1776,7 @@ static void skb__capture_undo_attributes_end(skb_editor_t* editor, int32_t trans
 	const skb__editor_undo_transaction_t* transaction = &editor->undo_stack[editor->undo_stack_head];
 	skb__editor_undo_state_t* prev_undo_state = &editor->undo_states[transaction->states_range.end - 1];
 
-	skb_rich_text_copy_attributes_range(&prev_undo_state->inserted_text, &editor->rich_text, prev_undo_state->inserted_range);
+	skb_rich_text_copy_attributes_in_range(&prev_undo_state->inserted_text, &editor->rich_text, prev_undo_state->inserted_range);
 
 	skb_editor_undo_transaction_end(editor, transaction_id);
 }
@@ -1842,17 +1854,15 @@ void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			if (undo_state->type == SKB_UNDO_TEXT) {
 				change = skb_rich_text_insert(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
-				skb_rich_text_insert_attributes_range(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
+				skb_rich_text_insert_attributes(&editor->rich_text, undo_state->inserted_range, &undo_state->removed_text);
 			}
 			skb_rich_layout_apply_change(&editor->rich_layout, change);
 		}
 
-		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
-
-		// Setup selection after layout update, so that it does not get overridden from the change.
 		editor->selection = undo_transaction->selection_before;
-		editor->allow_append_undo = false;
+		editor->preferred_x = -1.f; // reset preferred.
 
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 	}
 }
@@ -1877,18 +1887,15 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 			if (undo_state->type == SKB_UNDO_TEXT) {
 				change = skb_rich_text_insert(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			} else if (undo_state->type == SKB_UNDO_TEXT_ATTRIBUTES) {
-				skb_rich_text_insert_attributes_range(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
+				skb_rich_text_insert_attributes(&editor->rich_text, undo_state->removed_range, &undo_state->inserted_text);
 			}
 			skb_rich_layout_apply_change(&editor->rich_layout, change);
 		}
 
-		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
-
-		// Setup selection after layout update, so that it does not get overridden from the change.
 		editor->selection = undo_transaction->selection_after;
 		editor->preferred_x = -1.f; // reset preferred.
-		editor->allow_append_undo = false;
 
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 	}
 }
@@ -2162,7 +2169,6 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
-		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_LEFT) {
@@ -2215,7 +2221,6 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
-		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_HOME) {
@@ -2225,7 +2230,6 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
-		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_END) {
@@ -2235,7 +2239,6 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
-		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_UP) {
@@ -2266,7 +2269,6 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
-		editor->allow_append_undo = false;
 	}
 	if (key == SKB_KEY_DOWN) {
 		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
@@ -2296,13 +2298,11 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
 		}
-		editor->allow_append_undo = false;
 	}
 
 	if (key == SKB_KEY_BACKSPACE) {
 		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
-			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, NULL);
-			editor->allow_append_undo = false;
+			skb_rich_text_change_t change = skb__replace_selection(editor, NULL, false);
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
@@ -2311,12 +2311,11 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				.start = skb__get_backspace_start_offset(editor, editor->selection.end),
 				.end = editor->selection.end,
 			};
-			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL);
+			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL, false);
 			skb_rich_text_change_t change = skb_rich_text_remove(&editor->rich_text, remove_range);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
-			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
@@ -2325,8 +2324,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 	if (key == SKB_KEY_DELETE) {
 		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
-			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, NULL);
-			editor->allow_append_undo = false;
+			skb_rich_text_change_t change = skb__replace_selection(editor, NULL, false);
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
@@ -2335,13 +2333,11 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				.start = editor->selection.end,
 				.end = skb_rich_text_get_next_grapheme_pos(&editor->rich_text, editor->selection.end),
 			};
-
-			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL);
+			int32_t transaction_id = skb__capture_undo_text_begin(editor, remove_range, NULL, false);
 			skb_rich_text_change_t change = skb_rich_text_remove(&editor->rich_text, remove_range);
 			skb__update_selection_from_change(editor, change);
 			skb__capture_undo_text_end(editor, transaction_id);
 
-			editor->allow_append_undo = false;
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
 			skb__emit_on_change(editor);
@@ -2356,9 +2352,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			editor->input_filter_callback(editor, input_text, editor->selection, editor->input_filter_context);
 
 		if (skb_rich_text_get_utf32_count(input_text) > 0) {
-			editor->allow_append_undo = false; // Do not allow to merge with previous change.
-			skb_rich_text_change_t change = skb__replace_selection(editor, temp_alloc, input_text);
-			editor->allow_append_undo = false;
+			skb_rich_text_change_t change = skb__replace_selection(editor, input_text, false);
 			skb__update_layout(editor, temp_alloc, change);
 
 			// The call to skb__replace_selection changes selection to after the inserted text.
@@ -2409,7 +2403,7 @@ static skb_text_range_t skb__adjust_text_selection(const skb_editor_t* editor, s
 	};
 }
 
-static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_append_undo)
+static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_amend_undo)
 {
 	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
 	text_range = skb__resolve_text_range(editor, text_range);
@@ -2425,9 +2419,7 @@ static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 		rich_text = rich_text_copy;
 	}
 
-	editor->allow_append_undo = allow_append_undo;
-
-	int32_t transaction_id = skb__capture_undo_text_begin(editor, text_range, rich_text);
+	int32_t transaction_id = skb__capture_undo_text_begin(editor, text_range, rich_text, allow_amend_undo);
 	skb_rich_text_change_t change = skb_rich_text_insert(&editor->rich_text, text_range, rich_text);
 
 	if (is_current_selection) {
@@ -2507,6 +2499,7 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 
 	assert(editor);
 
+	text_range = skb__resolve_text_range(editor, text_range);
 	const int32_t text_count = skb_editor_get_text_range_count(editor, text_range);
 
 	if (text_count == 0) {
@@ -2569,7 +2562,7 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 
 		skb__capture_undo_attributes_end(editor, transaction_id);
 
-		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 
 		skb__emit_on_change(editor);
@@ -2605,7 +2598,7 @@ void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 
 		skb__capture_undo_attributes_end(editor, transaction_id);
 
-		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 
 		skb__emit_on_change(editor);
@@ -2624,7 +2617,7 @@ void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* tem
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
-	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
 	skb__emit_on_change(editor);
@@ -2642,7 +2635,7 @@ void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* 
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
-	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
 	skb__emit_on_change(editor);
@@ -2660,7 +2653,7 @@ void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_all
 
 	skb__capture_undo_attributes_end(editor, transaction_id);
 
-	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
 	skb__emit_on_change(editor);
@@ -2751,9 +2744,8 @@ void skb_editor_set_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t* te
 		// but it gets really complicated when multiple lines area involved.
 		editor->composition_cleared_selection = false;
 		if (skb_editor_get_text_range_count(editor, editor->selection) > 0) {
-			skb__replace_selection(editor, temp_alloc, NULL);
+			skb__replace_selection(editor, NULL, true);
 			editor->composition_cleared_selection = true;
-			editor->allow_append_undo = true; // Allow the inserted character to be appended to the undo where the text is removed.
 		}
 	}
 
@@ -2800,8 +2792,6 @@ void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 		editor->composition_text_offset = 0;
 
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
-
-		editor->allow_append_undo = false;
 
 		if (editor->composition_cleared_selection)
 			skb__emit_on_change(editor);
