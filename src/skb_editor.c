@@ -1017,7 +1017,12 @@ static bool skb__are_on_same_line(const skb_editor_t* editor, skb_paragraph_posi
 	return false;
 }
 
-static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity)
+typedef enum {
+	SKB_MOVE_DEFAULT,
+	SKB_MOVE_WITH_SELECTION,
+} skb_move_mode_t;
+
+static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity, skb_move_mode_t move_mode)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
@@ -1030,7 +1035,7 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 	bool next_is_rtl = skb__is_rtl(editor, next_edit_pos, SKB_AFFINITY_TRAILING);
 
 	// Do not add extra stop at the end of the line on intermediate lines.
-	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI &&  (is_next_last_line || skb__are_on_same_line(editor, cur_pos, next_edit_pos));
+	const bool stop_at_dir_change = move_mode == SKB_MOVE_DEFAULT && editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI &&  (is_next_last_line || skb__are_on_same_line(editor, cur_pos, next_edit_pos));
 
 	uint8_t affinity = SKB_AFFINITY_TRAILING;
 	bool check_eol = true;
@@ -1089,7 +1094,7 @@ static skb_text_position_t skb__advance_forward(const skb_editor_t* editor, skb_
 	};
 }
 
-static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity)
+static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb_paragraph_position_t cur_pos, skb_caret_affinity_t cur_affinity, skb_move_mode_t move_mode)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
@@ -1104,7 +1109,7 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 
 
 	// Do not add extra stop at the end of the line on intermediate lines.
-	const bool stop_at_dir_change = editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI && skb__are_on_same_line(editor, cur_pos, prev_edit_pos);
+	const bool stop_at_dir_change = move_mode == SKB_MOVE_DEFAULT && editor->params.caret_mode == SKB_CARET_MODE_SKRIBIDI && skb__are_on_same_line(editor, cur_pos, prev_edit_pos);
 
 	skb_caret_affinity_t affinity = SKB_AFFINITY_TRAILING;
 
@@ -1148,7 +1153,7 @@ static skb_text_position_t skb__advance_backward(const skb_editor_t* editor, skb
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_next_char(const skb_editor_t* editor, skb_text_position_t text_pos)
+skb_text_position_t skb_editor_move_to_next_char(const skb_editor_t* editor, skb_text_position_t text_pos, skb_move_mode_t move_mode)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
@@ -1156,12 +1161,12 @@ skb_text_position_t skb_editor_move_to_next_char(const skb_editor_t* editor, skb
 	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
-		return skb__advance_backward(editor, cur_pos, text_pos.affinity);
-	return skb__advance_forward(editor, cur_pos, text_pos.affinity);
+		return skb__advance_backward(editor, cur_pos, text_pos.affinity, move_mode);
+	return skb__advance_forward(editor, cur_pos, text_pos.affinity, move_mode);
 }
 
 // TODO: should we expose this?
-skb_text_position_t skb_editor_move_to_prev_char(const skb_editor_t* editor, skb_text_position_t text_pos)
+skb_text_position_t skb_editor_move_to_prev_char(const skb_editor_t* editor, skb_text_position_t text_pos, skb_move_mode_t move_mode)
 {
 	assert(skb__are_paragraphs_in_sync(editor));
 
@@ -1169,8 +1174,8 @@ skb_text_position_t skb_editor_move_to_prev_char(const skb_editor_t* editor, skb
 	skb_paragraph_position_t cur_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_pos, SKB_AFFINITY_IGNORE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, cur_pos.paragraph_idx)))
-		return skb__advance_forward(editor, cur_pos, text_pos.affinity);
-	return skb__advance_backward(editor, cur_pos, text_pos.affinity);
+		return skb__advance_forward(editor, cur_pos, text_pos.affinity, move_mode);
+	return skb__advance_backward(editor, cur_pos, text_pos.affinity, move_mode);
 }
 
 static skb_text_position_t skb__advance_word_forward(const skb_editor_t* editor, skb_paragraph_position_t cur_edit_pos)
@@ -2115,7 +2120,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else if (mods & SKB_MOD_OPTION)
 					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				else
-					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
+					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// MacOS mode without shift
@@ -2128,7 +2133,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
 						editor->selection.end = skb_editor_get_selection_ordered_end(editor, editor->selection);
 					else
-						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
+						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_DEFAULT);
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
@@ -2139,7 +2144,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				if (mods & SKB_MOD_CONTROL)
 					editor->selection.end = skb_editor_move_to_next_word(editor, editor->selection.end);
 				else
-					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
+					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// Default mode without shift
@@ -2150,7 +2155,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
 						editor->selection.end = skb_editor_get_selection_ordered_end(editor, editor->selection);
 					else
-						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end);
+						editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_DEFAULT);
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
@@ -2169,7 +2174,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else if (mods & SKB_MOD_OPTION)
 					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				else
-					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
+					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// macOS mode without shift
@@ -2182,7 +2187,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
 						editor->selection.end = skb_editor_get_selection_ordered_start(editor, editor->selection);
 					else
-						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
+						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_DEFAULT);
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
@@ -2193,7 +2198,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				if (mods & SKB_MOD_CONTROL)
 					editor->selection.end = skb_editor_move_to_prev_word(editor, editor->selection.end);
 				else
-					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
+					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 			} else {
 				// Default mode without shift
@@ -2203,7 +2208,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					if (skb_editor_get_text_range_count(editor, editor->selection) > 0)
 						editor->selection.end = skb_editor_get_selection_ordered_start(editor, editor->selection);
 					else
-						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end);
+						editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_DEFAULT);
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
