@@ -1203,9 +1203,22 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				const int32_t layout_lines_count = skb_layout_get_lines_count(edit_layout);
 				for (int32_t i = 0; i < layout_lines_count; i++) {
 					const skb_layout_line_t* layout_line = &layout_lines[i];
+
 					debug_render_stroked_rect(ctx->rc,
 						layout_line->bounds.x, layout_line->bounds.y + edit_layout_y, layout_line->bounds.width, layout_line->bounds.height,
 						skb_rgba(0, 0, 0,32), 1.f);
+
+					if (layout_line->padding_left > 0) {
+						debug_render_filled_rect(ctx->rc,
+							layout_line->bounds.x, layout_line->bounds.y + edit_layout_y, layout_line->padding_left, layout_line->bounds.height,
+							skb_rgba(220,255,100,128));
+					}
+					if (layout_line->padding_right > 0) {
+						debug_render_filled_rect(ctx->rc,
+							layout_line->bounds.x+layout_line->bounds.width-layout_line->padding_right, layout_line->bounds.y + edit_layout_y, layout_line->padding_right, layout_line->bounds.height,
+							skb_rgba(220,255,100,128));
+					}
+
 				}
 			}
 

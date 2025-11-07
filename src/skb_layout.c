@@ -1436,13 +1436,12 @@ typedef struct skb__calculated_layout_size_t {
 	float first_line_cap_height;
 } skb__calculated_layout_size_t;
 
-static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bool is_last_line, const skb_attribute_list_marker_t* list_marker, skb__calculated_layout_size_t* layout_size)
+static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bool is_last_line, const skb_attribute_list_marker_t* list_marker, const float line_break_width, skb__calculated_layout_size_t* layout_size)
 {
 	// Do not finalize line if it's empty.
 	if (!is_last_line && line->layout_run_range.start == line->layout_run_range.end)
 		return false;
 
-	const float line_break_width = layout->params.layout_width;
 	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
 	const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
 
@@ -1631,23 +1630,31 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	line->bounds.height = line_height;
 	layout_size->height += line_height;
 
-	if (text_overflow != SKB_OVERFLOW_NONE && line->bounds.width > line_break_width)
-		skb__truncate_line(layout, line, line_break_width, text_overflow == SKB_OVERFLOW_ELLIPSIS);
+	const float list_marker_indent = list_marker ? list_marker->indent : 0.f;
 
-	float line_width = line->bounds.width;
-	// Prevent negative first line indent to affect the line width.
+	// The list marker is included in the line width, but it should not affect the truncation (it ise rendered outside).
+	// To get the truncation right, increase the truncation width instead.
+	const float truncate_width = line_break_width + list_marker_indent;
+
+	if (text_overflow != SKB_OVERFLOW_NONE && line->bounds.width > truncate_width)
+		skb__truncate_line(layout, line, truncate_width, text_overflow == SKB_OVERFLOW_ELLIPSIS);
+
+	float line_content_width = line->bounds.width;
 	if (line_idx == 0) {
-		const float list_marker_indent = (line_idx == 0 && list_marker) ? list_marker->indent : 0.f;
-		line_width -= list_marker_indent;
-
+		// Negative first line indent to should not affect the line width.
 		const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
-		if (indent_increment.first_line_increment < 0.f)
-			line_width += list_marker_indent;
+		const float negative_indent = skb_minf(0.f, indent_increment.first_line_increment - list_marker_indent);
 
-		line_width = skb_maxf(0.f, line_width);
+		const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
+		if (layout_is_rtl)
+			line->padding_right += -negative_indent;
+		else
+			line->padding_left += -negative_indent;
+
+		line_content_width = skb_maxf(0.f, line_content_width - line->padding_left - line->padding_right);
 	}
 
-	layout_size->width = skb_maxf(layout_size->width, line_width);
+	layout_size->width = skb_maxf(layout_size->width, line_content_width);
 
 	return false;
 }
@@ -1779,7 +1786,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
 
 			// Start a new line
-			max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
+			max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
 			cur_line = NULL;
 			if (max_heigh_reached)
 				break;
@@ -1814,7 +1821,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
 			const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
 			if (text_wrap != SKB_WRAP_NONE && (width_overflows || tab_overflows)) {
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -1829,7 +1836,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 			if (must_break && !ignore_must_breaks) {
 				// Line break character start a new line.
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -1844,7 +1851,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 	// Finalize last line
 	if (cur_line)
-		skb__finalize_line(layout, cur_line, true, list_marker, &layout_size);
+		skb__finalize_line(layout, cur_line, true, list_marker, line_break_width, &layout_size);
 
 	//
 	// Align layout and lines
@@ -1912,27 +1919,21 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 		// Trim white space from end of the line.
 		const float whitespace_width = skb__calc_run_end_whitespace(layout, line->layout_run_range);
-		// Trim whitespace from the end of line run.
-		if (!skb_range_is_empty(line->layout_run_range)) {
-			if (layout_is_rtl)
+		if (layout_is_rtl) {
+			if (!skb_range_is_empty(line->layout_run_range))
 				layout->layout_runs[line->layout_run_range.start].bounds.width -= whitespace_width;
-			else
+			line->padding_left += whitespace_width;
+		} else {
+			if (!skb_range_is_empty(line->layout_run_range))
 				layout->layout_runs[line->layout_run_range.end - 1].bounds.width -= whitespace_width;
+			line->padding_right += whitespace_width;
 		}
 
 		// Align line.
-		// Alignment takes white space into account, but we make sure that the line bounds include whitespace,
-		// so that it can be always used as line start location (i.e. for caret iterator).
-		line->bounds.x = content_bounds.x + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line->bounds.width - whitespace_width, layout_size.width);
-		if (layout_is_rtl)
-			line->bounds.x -= whitespace_width;
-
-		// Handle first line indent.
-		if (li == 0) {
-			const float delta_x = skb_minf(inner_layout_width, indent_increment.first_line_increment - list_marker_indent); // Undo list marker indent on first line.
-			line->bounds.x += layout_is_rtl ? -delta_x : delta_x;
-		}
-
+		// The line is aligned to content width, which does not include padding (negative indent, trimmed whitespace)
+		// The line bounds include padding, so that it can be always used as line start location (i.e. for caret iterator).
+		const float line_content_width = skb_maxf(0.f, line->bounds.width - line->padding_left - line->padding_right);
+		line->bounds.x = content_bounds.x - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, layout_size.width);
 		line->bounds.y = start_y;
 
 		// Update glyph offsets

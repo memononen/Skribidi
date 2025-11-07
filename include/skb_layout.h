@@ -251,6 +251,10 @@ typedef struct skb_layout_line_t {
 	float descender;
 	/** Y position of the baseline the text on the line was aligned to (see skb_layout_params_t.baseline_align). */
 	float baseline;
+	/** Left side content padding. Includes trimmed whitespace and negative indent. */
+	float padding_left;
+	/** Right side content padding. Includes trimmed whitespace and negative indent. */
+	float padding_right;
 	/** Logical bounding rectangle of the line. The Y extends of the rectangle is set to the line height, which can differ from the ascender and descender. */
 	skb_rect2_t bounds;
 	/** Bounding rectangle of the line that contains all the content (might overestimate). */

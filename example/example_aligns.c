@@ -41,7 +41,7 @@ typedef struct aligns_context_t {
 	uint8_t layout_size_idx;
 	uint8_t example_text_idx;
 
-	bool show_glyph_bounds;
+	bool show_run_details;
 	float atlas_scale;
 
 } aligns_context_t;
@@ -153,7 +153,7 @@ void aligns_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int m
 			ctx->vert_trim = inc_wrap(ctx->vert_trim, 2);
 
 		if (key == GLFW_KEY_F9) {
-			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
+			ctx->show_run_details = !ctx->show_run_details;
 		}
 		if (key == GLFW_KEY_F10) {
 			ctx->atlas_scale += 0.25f;
@@ -273,7 +273,8 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				skb_attribute_make_vertical_align(valign),
 				skb_attribute_make_text_wrap(ctx->wrap),
 				skb_attribute_make_text_overflow(ctx->overflow),
-				skb_attribute_make_vertical_trim(ctx->overflow),
+				skb_attribute_make_vertical_trim(ctx->vert_trim),
+				skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2022), // bullet
 			};
 
 			skb_layout_params_t params = {
@@ -296,6 +297,41 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Draw layout
 			render_draw_layout(ctx->rc, tx, ty, layout, SKB_RASTERIZE_ALPHA_SDF);
+
+			if (ctx->show_run_details) {
+				const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+				const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+				const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
+				for (int32_t i = 0; i < layout_runs_count; i++) {
+					const skb_layout_run_t* layout_run = &layout_runs[i];
+
+					const skb_color_t col = skb_is_rtl(layout_run->direction) ? skb_rgba(255,100,128,128) : skb_rgba(128,100,255,128);
+
+					debug_render_stroked_rect(ctx->rc,
+						tx + layout_run->bounds.x, ty + layout_run->bounds.y, layout_run->bounds.width, layout_run->bounds.height,
+						col, 1.f);
+
+					if (layout_run->padding.left > 0) {
+						debug_render_filled_rect(ctx->rc,
+							tx + layout_run->bounds.x, ty + layout_run->bounds.y, layout_run->padding.left, layout_run->bounds.height,
+							skb_rgba(128,255,100,128));
+					}
+					if (layout_run->padding.right > 0) {
+						debug_render_filled_rect(ctx->rc,
+							tx + layout_run->bounds.x+layout_run->bounds.width-layout_run->padding.right, ty + layout_run->bounds.y, layout_run->padding.right, layout_run->bounds.height,
+							skb_rgba(128,255,100,128));
+					}
+
+					float mid_x = layout_run->bounds.x + layout_run->bounds.width * 0.5f;
+					debug_render_text(ctx->rc, tx + mid_x, ty + layout_run->bounds.y + layout_run->bounds.height + 8, 5, RENDER_ALIGN_CENTER, col,
+					"%d%c", i, skb_is_rtl(layout_run->direction) ? '<' : '>');
+
+					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
+						const skb_glyph_t* glyph = &glyphs[gi];
+						debug_render_tick(ctx->rc, tx + glyph->offset_x, ty + glyph->offset_y, 3.f, skb_rgba(0,0,0,128), -1.f);
+					}
+				}
+			}
 		}
 		y += layout_height + 120.f;
 	}
@@ -308,6 +344,6 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F4: Change layout size   F5: Change example text   Wrap (F6): %s   Overflow (F7): %s   Vert trim (F8): %s   F9: Glyph details %s   F10: Atlas %.1f%%",
-		wrap_labels[ctx->wrap], overflow_labels[ctx->overflow], vert_trim_labels[ctx->vert_trim], ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
+		"F4: Change layout size   F5: Change example text   Wrap (F6): %s   Overflow (F7): %s   Vert trim (F8): %s   F9: Run details %s   F10: Atlas %.1f%%",
+		wrap_labels[ctx->wrap], overflow_labels[ctx->overflow], vert_trim_labels[ctx->vert_trim], ctx->show_run_details ? "ON" : "OFF", ctx->atlas_scale * 100.f);
 }
