@@ -573,6 +573,14 @@ skb_rect2_t skb_layout_get_content_bounds(const skb_layout_t* layout);
 /** @return padding applied to the layout. */
 skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout);
 
+/** Enum describing flags for skb_layout_t. */
+typedef enum {
+	/** Flag indicating that layout is truncated vertically (see skb_text_overflow_t). */
+	SKB_LAYOUT_IS_TRUNCATED	= 1 << 0,
+} skb_layout_flags_t;
+
+uint32_t skb_layout_get_flags(const skb_layout_t* layout);
+
 /**
  * Returns how much to advance the y position when layouts are stacked.
  * @param layout layout to query

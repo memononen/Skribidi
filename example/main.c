@@ -218,7 +218,7 @@ int main(int argc, char** args)
 	}
 
 	// Init first example
-	set_example(11);
+	set_example(6);//3);
 
 	while (!g_done) {
 		main_loop(0);

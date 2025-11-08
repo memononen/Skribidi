@@ -40,6 +40,7 @@ typedef struct skb_layout_t {
 	skb_padding2_t padding;
 	float advance_y;
 	uint8_t resolved_direction;
+	uint32_t flags; // See skb_layout_flags_t
 
 	// Text, text props, content_runs, and attributes are create based on the input text.
 	uint32_t* text;

@@ -19,6 +19,7 @@
 #include "budoux.h"
 
 #include <assert.h>
+#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -797,6 +798,7 @@ static void skb__calc_run_range_end_points(const skb_layout_t* layout, const skb
 static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, float max_width)
 {
 	const bool remove_from_start = skb_is_rtl(layout->resolved_direction);
+	bool is_line_end_whitespace = true;
 
 	while (line->layout_run_range.start < line->layout_run_range.end) {
 		skb_layout_run_t* layout_run = remove_from_start ? &layout->layout_runs[line->layout_run_range.start] : &layout->layout_runs[line->layout_run_range.end - 1];
@@ -805,18 +807,35 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 			const bool run_remove_from_start = (remove_from_start ^ skb_is_rtl(layout_run->direction));
 			const skb_cluster_t* cluster = run_remove_from_start ? &layout->clusters[layout_run->cluster_range.start] : &layout->clusters[layout_run->cluster_range.end - 1];
 			// Stop when line fits in max width, and there's no white space at the end of the line.
-			if (line->bounds.width <= max_width) {
+			const float line_contents_width = line->bounds.width - line->padding_left - line->padding_right;
+			if (line_contents_width <= max_width) {
 				if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) == 0 && (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL) == 0)
 					break;
 			}
 
-			// TODO: this does not work with inline padding.
-			// We should do absolute positioning and inline padding bofre truncation.
+			if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) == 0 && (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL) == 0)
+				is_line_end_whitespace = false;
 
 			// Remove cluster and all of it's glyphs.
 			skb_range_t cluster_glyph_range = { . start = cluster->glyphs_offset, .end = cluster->glyphs_offset + cluster->glyphs_count };
-			for (int32_t gi = cluster_glyph_range.start; gi < cluster_glyph_range.end; gi++)
-				line->bounds.width -= layout->glyphs[gi].advance_x;
+			for (int32_t gi = cluster_glyph_range.start; gi < cluster_glyph_range.end; gi++) {
+				const float advance_x = layout->glyphs[gi].advance_x;
+				if (remove_from_start) {
+					// If removing from start, we need to move the bounds too.
+					line->bounds.x += advance_x;
+					layout_run->bounds.x += advance_x;
+				}
+				line->bounds.width -= advance_x;
+				layout_run->bounds.width -= advance_x;
+
+				if (is_line_end_whitespace) {
+					// Eat white space as long as it's at the start of the line.
+					if (remove_from_start)
+						line->padding_left = skb_maxf(0.f, line->padding_left - advance_x);
+					else
+						line->padding_right = skb_maxf(0.f, line->padding_right - advance_x);
+				}
+			}
 
 			// Remove glyph range
 			if (cluster_glyph_range.start == layout_run->glyph_range.start)
@@ -827,18 +846,26 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 				assert(0); // Since we are removing cluster from front or back, we should be able to do the same for the glyphs.
 
 			// Remove cluster
-			if (run_remove_from_start) {
+			if (run_remove_from_start)
 				layout_run->cluster_range.start++;
-			} else {
+			else
 				layout_run->cluster_range.end--;
-			}
 		}
 		// Remove run if empty
 		if (layout_run->cluster_range.start == layout_run->cluster_range.end) {
-			if (remove_from_start) // Removing from end, shift down.
-				memmove(&layout->layout_runs[layout_run->glyph_range.start], &layout->layout_runs[layout_run->glyph_range.start+1], layout_run->glyph_range.end - layout_run->glyph_range.start - 1);
-			assert(layout->layout_runs_count == line->layout_run_range.end);
-			layout->layout_runs_count--;
+
+			// Remove padding when when removing the run.
+			const float padding = layout->padding.left + layout->padding.right;
+			if (remove_from_start)
+				line->bounds.x += padding;
+			line->bounds.width -= padding;
+
+			if (remove_from_start) {
+				// Removing from end, shift down.
+				const int32_t move_count = layout_run->glyph_range.end - layout_run->glyph_range.start - 1;
+				if (move_count > 0)
+					memmove(&layout->layout_runs[layout_run->glyph_range.start], &layout->layout_runs[layout_run->glyph_range.start+1], move_count * sizeof(skb_layout_run_t));
+			}
 			line->layout_run_range.end--;
 		}
 	}
@@ -1304,17 +1331,47 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	}
 }
 
+static void skb__compact_layout_runs(skb_layout_t* layout, skb_layout_line_t* line, skb_range_t orig_layout_run_range, int32_t insert_count)
+{
+	// Assume that the pruning did not change the start of the layout run range.
+	assert(line->layout_run_range.start == orig_layout_run_range.start);
+
+	line->layout_run_range.end += insert_count;
+
+	const int32_t change = line->layout_run_range.end - orig_layout_run_range.end;
+	const int32_t old_tail_count = layout->layout_runs_count - orig_layout_run_range.end;
+	const int32_t old_tail_idx = orig_layout_run_range.end;
+	const int32_t new_tail_idx = line->layout_run_range.end;
+
+	SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count + change);
+	layout->layout_runs_count += change;
+
+	if (old_tail_count > 0)
+		memmove(&layout->layout_runs[new_tail_idx], &layout->layout_runs[old_tail_idx], old_tail_count * sizeof(skb_layout_run_t));
+
+	// Update indices
+	const int32_t line_idx = (int32_t)(line - layout->lines);
+	for (int32_t i = line_idx+1; i < layout->lines_count; i++) {
+		layout->lines[i].layout_run_range.start += change;
+		layout->lines[i].layout_run_range.end += change;
+	}
+}
+
 static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, float line_break_width, bool add_ellipsis)
 {
 	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 
 	SKB_SET_FLAG(line->flags, SKB_LAYOUT_LINE_IS_TRUNCATED, true);
 
+	skb_range_t orig_layout_run_range = line->layout_run_range;
+
 	// Prune characters to fit the line (this is common with clip and ellipsis).
 	skb__prune_line_end(layout, line, line_break_width);
 
-	if (!add_ellipsis)
+	if (!add_ellipsis) {
+		skb__compact_layout_runs(layout, line, orig_layout_run_range, 0);
 		return;
+	}
 
 	// Find a text run to use as reference for the ellipsis text.
 	int32_t ref_layout_run_idx = SKB_INVALID_INDEX;
@@ -1337,12 +1394,16 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 			}
 		}
 	}
-	if (ref_layout_run_idx == SKB_INVALID_INDEX)
+	if (ref_layout_run_idx == SKB_INVALID_INDEX) {
+		skb__compact_layout_runs(layout, line, orig_layout_run_range, 0);
 		return;
+	}
 
 	const skb_layout_run_t ref_layout_run = layout->layout_runs[ref_layout_run_idx]; // We take copy, since the array may change later.
-	if (!ref_layout_run.font_handle)
+	if (!ref_layout_run.font_handle) {
+		skb__compact_layout_runs(layout, line, orig_layout_run_range, 0);
 		return;
+	}
 
 	// We expect these to exist, if the handle is valid.
 	const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, ref_layout_run.font_handle);
@@ -1351,7 +1412,6 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	const float baseline = skb_font_get_baseline(
 		layout->params.font_collection, ref_layout_run.font_handle, baseline_align,
 		ref_layout_run.direction, ref_layout_run.script, ref_layout_run.font_size);
-	const float offset_y = -baseline;
 
 	// Try to use the actual ellipsis character, but fall back to 3 periods.
 	int32_t ellipsis_glyph_count = 0;
@@ -1361,24 +1421,32 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	else if (hb_font_get_glyph(font->hb_font, 0x2e /*period*/, 0, &ellipsis_gid))
 		ellipsis_glyph_count = 3;
 
-	if (!ellipsis_glyph_count)
+	if (!ellipsis_glyph_count) {
+		skb__compact_layout_runs(layout, line, orig_layout_run_range, 0);
 		return;
+	}
 
 	const float font_size = ref_layout_run.font_size;
 	const float scale = font_size * font->upem_scale;
 	const float ellipsis_x_advance = (float)hb_font_get_glyph_h_advance(font->hb_font, ellipsis_gid) * scale;
 	const float ellipsis_width = ellipsis_x_advance * (float)ellipsis_glyph_count;
+	float offset_x = 0.f;
+	float offset_y = 0.f;
+	hb_position_t x, y;
+	if (hb_font_get_glyph_h_origin (font->hb_font, ellipsis_gid, &x, &y)) {
+		offset_x = (float)x * scale;
+		offset_y = (float)y * scale;
+	}
+	offset_y -= baseline;
 
 	// Prune the line further until the ellipsis fits.
 	const float max_line_width = line_break_width - ellipsis_width;
 	skb__prune_line_end(layout, line, max_line_width);
 
 	// Place the ellipsis characters.
-	assert(line->layout_run_range.end == layout->layout_runs_count);
-	SKB_ARRAY_RESERVE(layout->layout_runs, layout->layout_runs_count + 1);
-	layout->layout_runs_count++;
-	line->layout_run_range.end++;
-	assert(line->layout_run_range.end == layout->layout_runs_count);
+
+	// Compact the removed runs, and add a new one at the end of the range for the ellipsis.
+	skb__compact_layout_runs(layout, line, orig_layout_run_range, 1);
 
 	// Add the ellipsis layout run front or back depending on the layout direction.
 	skb_layout_run_t* ellipsis_run = NULL;
@@ -1409,6 +1477,19 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	ellipsis_run->cluster_range.start = layout->clusters_count;
 	ellipsis_run->cluster_range.end = layout->clusters_count + 1;
 
+	ellipsis_run->bounds.y = ref_layout_run.bounds.y;
+	ellipsis_run->bounds.height = ref_layout_run.bounds.height;
+
+	if (layout_is_rtl) {
+		line->bounds.x -= ellipsis_width;
+		ellipsis_run->bounds.x = line->bounds.x + line->padding_left;
+	} else {
+		ellipsis_run->bounds.x = line->bounds.x + line->bounds.width - line->padding_right;
+	}
+	ellipsis_run->bounds.width += ellipsis_width;
+
+	line->bounds.width += ellipsis_width;
+
 	SKB_ARRAY_RESERVE(layout->clusters, layout->clusters_count + 1);
 	skb_cluster_t* ellipsis_cluster = &layout->clusters[layout->clusters_count++];
 	SKB_ZERO_STRUCT(ellipsis_cluster);
@@ -1417,16 +1498,19 @@ static void skb__truncate_line(skb_layout_t* layout, skb_layout_line_t* line, fl
 	ellipsis_cluster->glyphs_offset = layout->glyphs_count;
 	ellipsis_cluster->glyphs_count = (uint8_t)ellipsis_glyph_count;
 
+	float cur_x = ellipsis_run->bounds.x;
 	SKB_ARRAY_RESERVE(layout->glyphs, layout->glyphs_count + ellipsis_glyph_count);
 	for (int32_t ei = 0; ei < ellipsis_glyph_count; ei++) {
 		skb_glyph_t* glyph = &layout->glyphs[layout->glyphs_count++];
 		SKB_ZERO_STRUCT(glyph);
-		glyph->offset_x = 0.f;
-		glyph->offset_y = offset_y;
+
+		glyph->offset_x = cur_x + offset_x;
+		glyph->offset_y = line->baseline + offset_y;
+
 		glyph->advance_x = ellipsis_x_advance;
 		glyph->gid = (uint16_t)ellipsis_gid;
 
-		line->bounds.width += ellipsis_x_advance;
+		cur_x += ellipsis_x_advance;
 	}
 }
 
@@ -1442,7 +1526,7 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 	if (!is_last_line && line->layout_run_range.start == line->layout_run_range.end)
 		return false;
 
-	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
+	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 	const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	const int32_t line_idx = (int32_t)(line - layout->lines);
@@ -1605,6 +1689,19 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 		}
 	}
 
+	// Trim white space from end of the line.
+	const float whitespace_width = skb__calc_run_end_whitespace(layout, line->layout_run_range);
+	if (layout_is_rtl) {
+		if (!skb_range_is_empty(line->layout_run_range))
+			layout->layout_runs[line->layout_run_range.start].bounds.width -= whitespace_width;
+		line->padding_left += whitespace_width;
+	} else {
+		if (!skb_range_is_empty(line->layout_run_range))
+			layout->layout_runs[line->layout_run_range.end - 1].bounds.width -= whitespace_width;
+		line->padding_right += whitespace_width;
+	}
+
+	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
 	if (text_overflow != SKB_OVERFLOW_NONE) {
 		if (line_idx > 0 && (layout_size->height + line_height) > max_height) {
 			// The line will overflow the max height for the layout, trim this and any following lines.
@@ -1612,17 +1709,11 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 			// Remove the current line.
 			assert(layout->layout_runs_count == line->layout_run_range.end);
 			layout->layout_runs_count = line->layout_run_range.start;
-
-			// Ellipsize previous line if needed.
-			if (text_overflow == SKB_OVERFLOW_ELLIPSIS) {
-				skb_layout_line_t* prev_line = &layout->lines[line_idx - 1];
-				skb__truncate_line(layout, prev_line, line_break_width, true);
-				layout_size->width = skb_maxf(layout_size->width, prev_line->bounds.width);
-			}
-
 			layout->lines_count--;
 
-			// Report max height reached.
+			// Report max height reached, we'll add ellipsis later.
+			layout->flags |= SKB_LAYOUT_IS_TRUNCATED;
+
 			return true;
 		}
 	}
@@ -1632,20 +1723,12 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 
 	const float list_marker_indent = list_marker ? list_marker->indent : 0.f;
 
-	// The list marker is included in the line width, but it should not affect the truncation (it ise rendered outside).
-	// To get the truncation right, increase the truncation width instead.
-	const float truncate_width = line_break_width + list_marker_indent;
-
-	if (text_overflow != SKB_OVERFLOW_NONE && line->bounds.width > truncate_width)
-		skb__truncate_line(layout, line, truncate_width, text_overflow == SKB_OVERFLOW_ELLIPSIS);
-
 	float line_content_width = line->bounds.width;
 	if (line_idx == 0) {
 		// Negative first line indent to should not affect the line width.
 		const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 		const float negative_indent = skb_minf(0.f, indent_increment.first_line_increment - list_marker_indent);
 
-		const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
 		if (layout_is_rtl)
 			line->padding_right += -negative_indent;
 		else
@@ -1675,6 +1758,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	layout->bounds = (skb_rect2_t){0};
 	layout->padding = (skb_padding2_t){0};
 	layout->advance_y = 0.f;
+	layout->flags = 0;
 
 	layout->layout_runs_count = 0;
 
@@ -1851,7 +1935,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 	// Finalize last line
 	if (cur_line)
-		skb__finalize_line(layout, cur_line, true, list_marker, line_break_width, &layout_size);
+		max_heigh_reached = skb__finalize_line(layout, cur_line, true, list_marker, line_break_width, &layout_size);
 
 	//
 	// Align layout and lines
@@ -1879,6 +1963,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const float paragraph_padding_left = layout_is_rtl ? horizontal_padding_end : horizontal_padding_start;
 	const float paragraph_padding_right = layout_is_rtl ? horizontal_padding_start : horizontal_padding_end;
 	const float paragraph_padding_top = vertical_padding_top;
+	const float paragraph_padding_bottom = vertical_padding_bottom;
 
 	skb_rect2_t content_bounds = {0};
 	content_bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
@@ -1892,17 +1977,17 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 	content_bounds.width = layout_size.width;
 	content_bounds.height = layout_size.height;
-	layout->advance_y = vertical_padding_top + layout_size.height + vertical_padding_bottom;
+	layout->advance_y = paragraph_padding_top + layout_size.height + paragraph_padding_bottom;
 
 	layout->bounds.x = content_bounds.x - paragraph_padding_left;
 	layout->bounds.y = content_bounds.y - paragraph_padding_top;
-	layout->bounds.width = content_bounds.width + horizontal_padding_start + horizontal_padding_end;
-	layout->bounds.height = content_bounds.height + vertical_padding_top + vertical_padding_bottom;
+	layout->bounds.width = content_bounds.width + paragraph_padding_left + paragraph_padding_right;
+	layout->bounds.height = content_bounds.height + paragraph_padding_top + paragraph_padding_bottom;
 
 	layout->padding.left = paragraph_padding_left;
 	layout->padding.right = paragraph_padding_right;
 	layout->padding.top = paragraph_padding_top;
-	layout->padding.bottom = vertical_padding_bottom;
+	layout->padding.bottom = paragraph_padding_bottom;
 
 	float start_y = content_bounds.y;
 
@@ -1917,23 +2002,11 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	for (int32_t li = 0; li < layout->lines_count; li++) {
 		skb_layout_line_t* line = &layout->lines[li];
 
-		// Trim white space from end of the line.
-		const float whitespace_width = skb__calc_run_end_whitespace(layout, line->layout_run_range);
-		if (layout_is_rtl) {
-			if (!skb_range_is_empty(line->layout_run_range))
-				layout->layout_runs[line->layout_run_range.start].bounds.width -= whitespace_width;
-			line->padding_left += whitespace_width;
-		} else {
-			if (!skb_range_is_empty(line->layout_run_range))
-				layout->layout_runs[line->layout_run_range.end - 1].bounds.width -= whitespace_width;
-			line->padding_right += whitespace_width;
-		}
-
 		// Align line.
 		// The line is aligned to content width, which does not include padding (negative indent, trimmed whitespace)
 		// The line bounds include padding, so that it can be always used as line start location (i.e. for caret iterator).
 		const float line_content_width = skb_maxf(0.f, line->bounds.width - line->padding_left - line->padding_right);
-		line->bounds.x = content_bounds.x - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, layout_size.width);
+		line->bounds.x = paragraph_padding_left - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, inner_layout_width);
 		line->bounds.y = start_y;
 
 		// Update glyph offsets
@@ -2008,6 +2081,54 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 		start_y += line->bounds.height;
 	}
+
+	// Truncate lines
+	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
+	if (text_overflow != SKB_OVERFLOW_NONE) {
+		float content_min_x = FLT_MAX;
+		float content_max_x = -FLT_MAX;
+		bool was_truncated = false;
+
+		for (int32_t li = 0; li < layout->lines_count; li++) {
+			skb_layout_line_t* line = &layout->lines[li];
+
+			const float line_truncate_width = (li == 0) ? skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment) : inner_layout_width;
+			const float line_contents_width = skb_maxf(0.f, line->bounds.width - line->padding_left - line->padding_right);
+			const bool is_last_line_ellipsis = layout->flags & SKB_LAYOUT_IS_TRUNCATED &&  li == (layout->lines_count - 1);
+
+			if (line_contents_width > line_truncate_width || is_last_line_ellipsis) {
+				skb__truncate_line(layout, line, line_truncate_width, text_overflow == SKB_OVERFLOW_ELLIPSIS);
+
+				// Realign the line
+				const float old_x = line->bounds.x;
+				const float line_content_width = skb_maxf(0.f, line->bounds.width - line->padding_left - line->padding_right);
+				line->bounds.x = paragraph_padding_left - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, inner_layout_width);
+
+				// Move content
+				const float delta_x = line->bounds.x - old_x;
+				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+					skb_layout_run_t* layout_run = &layout->layout_runs[ri];
+					layout_run->bounds.x += delta_x;
+					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
+						skb_glyph_t* glyph = &layout->glyphs[gi];
+						glyph->offset_x += delta_x;
+					}
+				}
+
+				was_truncated = true;
+			}
+
+			content_min_x = skb_minf(content_min_x, line->bounds.x + line->padding_left);
+			content_max_x = skb_maxf(content_max_x, line->bounds.x + line->bounds.width - line->padding_right);
+		}
+
+		// Update bounds after trunction
+		if (was_truncated && layout->lines_count > 0) {
+			layout->bounds.x = content_min_x - paragraph_padding_left;
+			layout->bounds.width = (content_max_x - content_min_x) + horizontal_padding_start + horizontal_padding_end;
+		}
+	}
+
 
 	//
 	// Calculate culling bounds
@@ -2876,6 +2997,12 @@ skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout)
 {
 	assert(layout);
 	return layout->padding;
+}
+
+uint32_t skb_layout_get_flags(const skb_layout_t* layout)
+{
+	assert(layout);
+	return layout->flags;
 }
 
 float skb_layout_get_advance_y(const skb_layout_t* layout)
