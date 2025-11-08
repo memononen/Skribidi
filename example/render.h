@@ -221,7 +221,7 @@ typedef struct render_override_slice_t {
 	int32_t count;
 } render_override_slice_t;
 
-#define RENDER_OVERRIDE_SLICE_FROM_ARRAY(array) SKB_MAKE(render_override_slice_t) { .items = (array), .count = SKB_COUNTOF(array) }
+#define RENDER_OVERRIDE_SLICE_FROM_ARRAY(array) SKB_LITERAL(render_override_slice_t) { .items = (array), .count = SKB_COUNTOF(array) }
 
 render_override_t render_color_override_make_fill(intptr_t content_data, skb_color_t color);
 render_override_t render_color_override_make_decoration(intptr_t content_data, skb_color_t color);

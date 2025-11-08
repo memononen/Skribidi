@@ -39,11 +39,11 @@ typedef struct skb_editor_t skb_editor_t;
 
 /** Specific text position value that is used in editor to describe current selection end (current caret location). */
 #define SKB_CURRENT_SELECTION_END \
-	SKB_MAKE(skb_text_position_t) { .offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE }
+	SKB_LITERAL(skb_text_position_t) { .offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE }
 
 /** Specific text range value that is used in editor to describe current selection. */
 #define SKB_CURRENT_SELECTION \
-	SKB_MAKE(skb_text_range_t) { .start = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE}, .end = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE} }
+	SKB_LITERAL(skb_text_range_t) { .start = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE}, .end = {.offset = INT32_MIN, .affinity = SKB_AFFINITY_NONE} }
 
 /** @return true if given text position is SKB_CURRENT_SELECTION_END. */
 static inline bool skb_text_position_is_current_selection_end(skb_text_position_t pos)
