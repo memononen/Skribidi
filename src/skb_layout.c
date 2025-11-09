@@ -1818,6 +1818,144 @@ static void skb__update_line_culling_bounds(skb_layout_t* layout, skb_layout_lin
 
 }
 
+static void skb__clear_decorations_for_line(skb_layout_t* layout, int32_t line_idx)
+{
+	skb_layout_line_t* line = &layout->lines[line_idx];
+
+	if (skb_range_is_empty(line->decorations_range))
+		return;
+
+	const int32_t old_tail_idx = line->decorations_range.end;
+	const int32_t new_tail_idx = line->decorations_range.start;
+	const int32_t tail_count = layout->decorations_count - old_tail_idx;
+	const int32_t remove_count = line->decorations_range.end - line->decorations_range.start;
+
+	memmove(layout->decorations + new_tail_idx, layout->decorations + old_tail_idx, tail_count * sizeof(skb_decoration_t));
+	layout->decorations_count -= remove_count;
+
+	for (int32_t i = line_idx + 1; i < layout->lines_count; i++) {
+		layout->lines[i].decorations_range.start -= remove_count;
+		layout->lines[i].decorations_range.end -= remove_count;
+	}
+
+	// Make range empty
+	line->decorations_range.end = line->decorations_range.start;
+}
+
+static void skb__build_decorations_for_line(skb_layout_t* layout, int32_t line_idx)
+{
+	skb_layout_line_t* line = &layout->lines[line_idx];
+
+	line->decorations_range.start = layout->decorations_count;
+
+	// Iterate over runs of same attribute span.
+	for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+
+		// Find range of runs that share same content run.
+		skb_range_t decoration_run_range = { .start = ri, .end = ri + 1 };
+		const int32_t content_run_idx = layout->layout_runs[decoration_run_range.start].content_run_idx;
+		while (decoration_run_range.end < line->layout_run_range.end && layout->layout_runs[decoration_run_range.end].content_run_idx == content_run_idx)
+			decoration_run_range.end++;
+		ri = decoration_run_range.end - 1;
+
+		// For each decoration.
+		const float font_size = layout->layout_runs[decoration_run_range.start].font_size;
+		const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout->layout_runs[decoration_run_range.start].attributes_range);
+
+		const skb_attribute_t* decorations[16];
+		const int32_t decorations_count = skb_attributes_get_by_kind(layout_run_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_DECORATION, decorations, SKB_COUNTOF(decorations));
+
+		for (int32_t i = 0; i < decorations_count; i++) {
+			if (decorations[i]->kind != SKB_ATTRIBUTE_DECORATION)
+				continue;
+
+			const skb_attribute_decoration_t attr_decoration = decorations[i]->decoration;
+
+			// Find line position.
+			float line_position = 0.f; // At baseline
+			float line_position_div = 0.0f;
+			float thickness = 0.f;
+			float thickness_div = 0.f;
+
+			// Calculate the position of the line.
+			// The OpenType file format is not specific about in which coordinate system the baseline metrics are reported.
+			// We assume that they are relative to the alphabetic baseline, as that seems to be the recommendation to author fonts.
+			const float base_ref_baseline = layout->layout_runs[decoration_run_range.start].ref_baseline;
+			skb_font_handle_t prev_font_handle = 0;
+			for (int32_t sri = decoration_run_range.start; sri < decoration_run_range.end; sri++) {
+				const skb_layout_run_t* run = &layout->layout_runs[sri];
+
+				if (run->font_handle != prev_font_handle) {
+					const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, run->font_handle);
+					if (font) {
+						const float delta_y = run->ref_baseline - base_ref_baseline;
+						if (attr_decoration.position == SKB_DECORATION_UNDERLINE) {
+							line_position = skb_maxf(line_position, delta_y + font->metrics.underline_offset * font_size);
+							thickness += font->metrics.underline_size * font_size;
+						} else if (attr_decoration.position == SKB_DECORATION_BOTTOMLINE) {
+							line_position = skb_maxf(line_position, delta_y + font->metrics.descender * font_size);
+							thickness += font->metrics.underline_size * font_size;
+						} else if (attr_decoration.position == SKB_DECORATION_OVERLINE) {
+							line_position = skb_minf(line_position, delta_y + font->metrics.ascender * font_size);
+							thickness += font->metrics.underline_size * font_size;
+						} else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
+							line_position += delta_y + font->metrics.strikeout_offset * font_size;
+							line_position_div += 1.0f;
+							thickness += font->metrics.strikeout_size * font_size;
+						}
+						thickness_div += 1.f;
+					}
+					prev_font_handle = run->font_handle;
+				}
+			}
+
+			// Average position if requested.
+			if (line_position_div > 0.f)
+				line_position /= line_position_div;
+
+			// Use thickness from the attribute if specified, or calculate average of thickness based on font data.
+			if (attr_decoration.thickness > 0.f) {
+				thickness = attr_decoration.thickness;
+			} else {
+				if (thickness_div > 0.f)
+					thickness /= thickness_div;
+			}
+
+			// Apply offset.
+			if (attr_decoration.position == SKB_DECORATION_UNDERLINE || attr_decoration.position == SKB_DECORATION_BOTTOMLINE)
+				line_position += attr_decoration.offset;
+			else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE || attr_decoration.position == SKB_DECORATION_OVERLINE)
+				line_position -= attr_decoration.offset;
+
+			// Calculate position of the range.
+			float start_x = 0.f, end_x = 0.f;
+			skb__calc_run_range_end_points(layout, line, decoration_run_range, &start_x, &end_x);
+
+			// Figure out color
+			skb_color_t color = attr_decoration.color;
+			if (attr_decoration.color_source == SKB_DECORATION_COLOR_FROM_TEXT) {
+				const skb_attribute_fill_t fill = skb_attributes_get_fill(layout_run_attributes, layout->params.attribute_collection);
+				color = fill.color;
+			}
+
+			// Add decoration
+			SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
+			skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
+			decoration->offset_x = start_x;
+			decoration->offset_y = base_ref_baseline + line_position;
+			decoration->length = end_x - start_x;
+			decoration->pattern_offset = start_x;
+			decoration->thickness = thickness;
+			decoration->style = attr_decoration.style;
+			decoration->position = attr_decoration.position;
+			decoration->color = color;
+			decoration->layout_run_idx = (uint16_t)decoration_run_range.start;
+		}
+	}
+
+	line->decorations_range.end = layout->decorations_count;
+}
+
 void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t* layout)
 {
 	const bool ignore_must_breaks = layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
@@ -2187,119 +2325,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	// Build decorations.
 	//
 	layout->decorations_count = 0;
-
-	for (int32_t li = 0; li < layout->lines_count; li++) {
-		skb_layout_line_t* line = &layout->lines[li];
-
-		line->decorations_range.start = layout->decorations_count;
-
-		// Iterate over runs of same attribute span.
-		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-
-			// Find range of runs that share same content run.
-			skb_range_t decoration_run_range = { .start = ri, .end = ri + 1 };
-			const int32_t content_run_idx = layout->layout_runs[decoration_run_range.start].content_run_idx;
-			while (decoration_run_range.end < line->layout_run_range.end && layout->layout_runs[decoration_run_range.end].content_run_idx == content_run_idx)
-				decoration_run_range.end++;
-			ri = decoration_run_range.end - 1;
-
-			// For each decoration.
-			const float font_size = layout->layout_runs[decoration_run_range.start].font_size;
-			const skb_attribute_set_t layout_run_attributes = skb__get_run_attributes(layout, layout->layout_runs[decoration_run_range.start].attributes_range);
-
-			const skb_attribute_t* decorations[16];
-			const int32_t decorations_count = skb_attributes_get_by_kind(layout_run_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_DECORATION, decorations, SKB_COUNTOF(decorations));
-
-			for (int32_t i = 0; i < decorations_count; i++) {
-				if (decorations[i]->kind != SKB_ATTRIBUTE_DECORATION)
-					continue;
-
-				const skb_attribute_decoration_t attr_decoration = decorations[i]->decoration;
-
-				// Find line position.
-				float line_position = 0.f; // At baseline
-				float line_position_div = 0.0f;
-				float thickness = 0.f;
-				float thickness_div = 0.f;
-
-				// Calculate the position of the line.
-				// The OpenType file format is not specific about in which coordinate system the baseline metrics are reported.
-				// We assume that they are relative to the alphabetic baseline, as that seems to be the recommendation to author fonts.
-				const float base_ref_baseline = layout->layout_runs[decoration_run_range.start].ref_baseline;
-				skb_font_handle_t prev_font_handle = 0;
-				for (int32_t sri = decoration_run_range.start; sri < decoration_run_range.end; sri++) {
-					const skb_layout_run_t* run = &layout->layout_runs[sri];
-
-					if (run->font_handle != prev_font_handle) {
-						const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, run->font_handle);
-						if (font) {
-							const float delta_y = run->ref_baseline - base_ref_baseline;
-							if (attr_decoration.position == SKB_DECORATION_UNDERLINE) {
-								line_position = skb_maxf(line_position, delta_y + font->metrics.underline_offset * font_size);
-								thickness += font->metrics.underline_size * font_size;
-							} else if (attr_decoration.position == SKB_DECORATION_BOTTOMLINE) {
-								line_position = skb_maxf(line_position, delta_y + font->metrics.descender * font_size);
-								thickness += font->metrics.underline_size * font_size;
-							} else if (attr_decoration.position == SKB_DECORATION_OVERLINE) {
-								line_position = skb_minf(line_position, delta_y + font->metrics.ascender * font_size);
-								thickness += font->metrics.underline_size * font_size;
-							} else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE) {
-								line_position += delta_y + font->metrics.strikeout_offset * font_size;
-								line_position_div += 1.0f;
-								thickness += font->metrics.strikeout_size * font_size;
-							}
-							thickness_div += 1.f;
-						}
-						prev_font_handle = run->font_handle;
-					}
-				}
-
-				// Average position if requested.
-				if (line_position_div > 0.f)
-					line_position /= line_position_div;
-
-				// Use thickness from the attribute if specified, or calculate average of thickness based on font data.
-				if (attr_decoration.thickness > 0.f) {
-					thickness = attr_decoration.thickness;
-				} else {
-					if (thickness_div > 0.f)
-						thickness /= thickness_div;
-				}
-
-				// Apply offset.
-				if (attr_decoration.position == SKB_DECORATION_UNDERLINE || attr_decoration.position == SKB_DECORATION_BOTTOMLINE)
-					line_position += attr_decoration.offset;
-				else if (attr_decoration.position == SKB_DECORATION_THROUGHLINE || attr_decoration.position == SKB_DECORATION_OVERLINE)
-					line_position -= attr_decoration.offset;
-
-				// Calculate position of the range.
-				float start_x = 0.f, end_x = 0.f;
-				skb__calc_run_range_end_points(layout, line, decoration_run_range, &start_x, &end_x);
-
-				// Figure out color
-				skb_color_t color = attr_decoration.color;
-				if (attr_decoration.color_source == SKB_DECORATION_COLOR_FROM_TEXT) {
-					const skb_attribute_fill_t fill = skb_attributes_get_fill(layout_run_attributes, layout->params.attribute_collection);
-					color = fill.color;
-				}
-
-				// Add decoration
-				SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
-				skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
-				decoration->offset_x = start_x;
-				decoration->offset_y = base_ref_baseline + line_position;
-				decoration->length = end_x - start_x;
-				decoration->pattern_offset = start_x;
-				decoration->thickness = thickness;
-				decoration->style = attr_decoration.style;
-				decoration->position = attr_decoration.position;
-				decoration->color = color;
-				decoration->layout_run_idx = (uint16_t)decoration_run_range.start;
-			}
-		}
-
-		line->decorations_range.end = layout->decorations_count;
-	}
+	for (int32_t li = 0; li < layout->lines_count; li++)
+		skb__build_decorations_for_line(layout, li);
 }
 
 bool skb_layout_add_ellipsis_to_last_line(skb_layout_t* layout)
@@ -2324,6 +2351,10 @@ bool skb_layout_add_ellipsis_to_last_line(skb_layout_t* layout)
 	const float line_truncate_width = (line_idx == 0) ? skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment) : inner_layout_width;
 
 	if (skb__truncate_line(layout, line_idx, true, line_truncate_width, SKB_OVERFLOW_ELLIPSIS, paragraph_padding_left, inner_layout_width, horizontal_align)) {
+
+		// Update decorations
+		skb__clear_decorations_for_line(layout, line_idx);
+		skb__build_decorations_for_line(layout, line_idx);
 
 		skb__update_line_culling_bounds(layout, line);
 
