@@ -1489,7 +1489,7 @@ static bool skb__truncate_line(skb_layout_t* layout, int32_t line_idx, bool is_l
 
 			const float run_ascender = font->metrics.ascender * font_size - baseline;
 			const float run_descender = font->metrics.descender * font_size - baseline;
-			ellipsis_run->bounds.y = run_ascender;
+			ellipsis_run->bounds.y = line->baseline + run_ascender;
 			ellipsis_run->bounds.height = -run_ascender + run_descender;
 
 			ellipsis_run->ref_baseline = line->baseline + ref_baseline;
