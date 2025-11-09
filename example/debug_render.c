@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "skb_image_atlas.h"
 #include "skb_common.h"
+#include "skb_layout.h"
 
 static skb_vec2_t rot90(skb_vec2_t v)
 {
@@ -637,4 +638,84 @@ void debug_render_atlas_overlay(render_context_t* rc, float sx, float sy, float 
 		row_y += row_height + 20.f;
 	}
 
+}
+
+
+static void debug_draw__padding(render_context_t* rc, float x, float y, skb_rect2_t bounds, skb_padding2_t padding, skb_color_t color)
+{
+	const float left = x + bounds.x;
+	const float right = left + bounds.width;
+	const float top = y + bounds.y;
+	const float bottom = top + bounds.height;
+	const float inner_width = skb_maxf(0.f, bounds.width - padding.left - padding.right);
+
+	if (padding.left > 0)
+		debug_render_filled_rect(rc, left, top, padding.left, bounds.height, color);
+	if (padding.right > 0)
+		debug_render_filled_rect(rc, right - padding.right, top, padding.right, bounds.height, color);
+	if (padding.top > 0)
+		debug_render_filled_rect(rc, left + padding.left, top, inner_width, padding.top, color);
+	if (padding.bottom > 0)
+		debug_render_filled_rect(rc, left + padding.left, bottom - padding.bottom, inner_width, padding.bottom, color);
+}
+
+void debug_render_layout(render_context_t* rc, float x, float y, const skb_layout_t* layout)
+{
+	const skb_rect2_t layout_bounds = skb_layout_get_bounds(layout);
+	const skb_padding2_t layout_padding = skb_layout_get_padding(layout);
+
+	debug_draw__padding(rc, x, y, layout_bounds, layout_padding, skb_rgba(220, 192, 0,32));
+	debug_render_stroked_rect(rc,
+		x + layout_bounds.x, layout_bounds.y + y, layout_bounds.width, layout_bounds.height,
+		skb_rgba(220, 192, 0,128), 1.f);
+}
+
+
+void debug_render_layout_lines(render_context_t* rc, float x, float y, const skb_layout_t* layout)
+{
+	const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
+	const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
+	for (int32_t i = 0; i < layout_lines_count; i++) {
+		const skb_layout_line_t* layout_line = &layout_lines[i];
+
+		const skb_padding2_t line_padding = { .left = layout_line->padding_left, .right = layout_line->padding_right };
+		debug_draw__padding(rc, x, y, layout_line->bounds, line_padding, skb_rgba(192,220,100,92));
+
+		debug_render_stroked_rect(rc, x + layout_line->bounds.x, y + layout_line->bounds.y, layout_line->bounds.width, layout_line->bounds.height, skb_rgba(192,220,100,196), 1.f);
+	}
+}
+
+void debug_render_layout_runs(render_context_t* rc, float x, float y, const skb_layout_t* layout)
+{
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+	for (int32_t i = 0; i < layout_runs_count; i++) {
+		const skb_layout_run_t* layout_run = &layout_runs[i];
+
+		const skb_color_t col = skb_is_rtl(layout_run->direction) ? skb_rgba(255,100,128,128) : skb_rgba(128,100,255,128);
+
+		debug_draw__padding(rc, x, y, layout_run->bounds, layout_run->padding, skb_color_with_alpha(col, 64));
+
+		debug_render_stroked_rect(rc,
+			x + layout_run->bounds.x, y + layout_run->bounds.y, layout_run->bounds.width, layout_run->bounds.height,
+			col, 1.f);
+
+		float mid_x = layout_run->bounds.x + layout_run->bounds.width * 0.5f;
+		debug_render_text(rc, x + mid_x, y + layout_run->bounds.y + layout_run->bounds.height - 2, 5, RENDER_ALIGN_CENTER, col,
+			"%d%c", i, skb_is_rtl(layout_run->direction) ? '<' : '>');
+	}
+}
+
+void debug_render_layout_glyphs(render_context_t* rc, float x, float y, const skb_layout_t* layout)
+{
+	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+	const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+	const skb_glyph_t* glyphs = skb_layout_get_glyphs(layout);
+	for (int32_t i = 0; i < layout_runs_count; i++) {
+		const skb_layout_run_t* layout_run = &layout_runs[i];
+		for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
+			const skb_glyph_t* glyph = &glyphs[gi];
+			debug_render_tick(rc, x + glyph->offset_x, y + glyph->offset_y, 2.f, skb_rgba(0,0,0,128), -1.f);
+		}
+	}
 }

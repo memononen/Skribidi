@@ -41,7 +41,7 @@ typedef struct paragraphs_context_t {
 	bool drag_view;
 	bool drag_text;
 
-	bool show_glyph_bounds;
+	bool show_layout_details;
 	float atlas_scale;
 
 } paragraphs_context_t;
@@ -77,7 +77,7 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	render_reset_atlas(rc, NULL);
 
 	ctx->atlas_scale = 0.0f;
-	ctx->show_glyph_bounds = true;
+	ctx->show_layout_details = true;
 
 	ctx->text_overflow = SKB_OVERFLOW_NONE;
 
@@ -273,7 +273,7 @@ void paragraphs_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, i
 
 	if (action == GLFW_PRESS) {
 		if (key == GLFW_KEY_F9) {
-			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
+			ctx->show_layout_details = !ctx->show_layout_details;
 		}
 		if (key == GLFW_KEY_F6) {
 			ctx->text_overflow = inc_wrap(ctx->text_overflow, 3);
@@ -359,7 +359,7 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 		render_draw_layout(ctx->rc, 0.f, layout_offset_y, layout, SKB_RASTERIZE_ALPHA_SDF);
 	}
 
-	if (ctx->show_glyph_bounds) {
+	if (ctx->show_layout_details) {
 
 		// Input size
 		const skb_layout_params_t* layout_params = skb_rich_layout_get_params(ctx->rich_layout);
@@ -373,11 +373,10 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 		for (int32_t pi = 0; pi < skb_rich_layout_get_paragraphs_count(ctx->rich_layout); pi++) {
 			const skb_layout_t* layout = skb_rich_layout_get_layout(ctx->rich_layout, pi);
 			const float layout_offset_y = skb_rich_layout_get_layout_offset_y(ctx->rich_layout, pi);
-			const skb_rect2_t layout_bounds = skb_rect2_translate(skb_layout_get_bounds(layout), (skb_vec2_t){.x = 0.f, .y = layout_offset_y});
-			const skb_rect2_t inner_bounds = skb_rect2_translate(skb_layout_get_content_bounds(layout), (skb_vec2_t){.x = 0.f, .y = layout_offset_y});
 
-			debug_render_stroked_rect(ctx->rc, layout_bounds.x, layout_bounds.y, layout_bounds.width, layout_bounds.height, skb_rgba(0,0,0,32), -1.0f);
-			debug_render_stroked_rect(ctx->rc, inner_bounds.x, inner_bounds.y, inner_bounds.width, inner_bounds.height, skb_rgba(255,128,64,128), -1.0f);
+			debug_render_layout(ctx->rc, 0.f, layout_offset_y, layout);
+			debug_render_layout_lines(ctx->rc, 0.f, layout_offset_y, layout);
+			debug_render_layout_runs(ctx->rc, 0.f, layout_offset_y, layout);
 		}
 	}
 
@@ -391,6 +390,6 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13.f, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"Text Overflow (F6) %s   F9: Glyph details %s   F10: Atlas %.1f%%",
-		overflow_labels[ctx->text_overflow], ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
+		"Text Overflow (F6) %s   F9: Layout details %s   F10: Atlas %.1f%%",
+		overflow_labels[ctx->text_overflow], ctx->show_layout_details ? "ON" : "OFF", ctx->atlas_scale * 100.f);
 }

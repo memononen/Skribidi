@@ -1191,71 +1191,10 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			}
 
 			if (ctx->show_run_details) {
-
-				{
-					const skb_rect2_t layout_bounds = skb_layout_get_bounds(edit_layout);
-					debug_render_dashed_rect(ctx->rc,
-						layout_bounds.x, layout_bounds.y + edit_layout_y, layout_bounds.width, layout_bounds.height,
-						5, skb_rgba(0, 0, 0,32), 1.f);
-				}
-
-				const skb_layout_line_t* layout_lines = skb_layout_get_lines(edit_layout);
-				const int32_t layout_lines_count = skb_layout_get_lines_count(edit_layout);
-				for (int32_t i = 0; i < layout_lines_count; i++) {
-					const skb_layout_line_t* layout_line = &layout_lines[i];
-
-					debug_render_stroked_rect(ctx->rc,
-						layout_line->bounds.x, layout_line->bounds.y + edit_layout_y, layout_line->bounds.width, layout_line->bounds.height,
-						skb_rgba(0, 0, 0,32), 1.f);
-
-					if (layout_line->padding_left > 0) {
-						debug_render_filled_rect(ctx->rc,
-							layout_line->bounds.x, layout_line->bounds.y + edit_layout_y, layout_line->padding_left, layout_line->bounds.height,
-							skb_rgba(220,255,100,128));
-					}
-					if (layout_line->padding_right > 0) {
-						debug_render_filled_rect(ctx->rc,
-							layout_line->bounds.x+layout_line->bounds.width-layout_line->padding_right, layout_line->bounds.y + edit_layout_y, layout_line->padding_right, layout_line->bounds.height,
-							skb_rgba(220,255,100,128));
-					}
-
-				}
-			}
-
-			if (ctx->show_run_details) {
-				const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
-				const int32_t layout_runs_count = skb_layout_get_layout_runs_count(edit_layout);
-				const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
-				for (int32_t i = 0; i < layout_runs_count; i++) {
-					const skb_layout_run_t* layout_run = &layout_runs[i];
-
-					const skb_color_t col = skb_is_rtl(layout_run->direction) ? skb_rgba(255,100,128,128) : skb_rgba(128,100,255,128);
-
-					debug_render_stroked_rect(ctx->rc,
-						layout_run->bounds.x, layout_run->bounds.y + edit_layout_y, layout_run->bounds.width, layout_run->bounds.height,
-						col, 1.f);
-
-					if (layout_run->padding.left > 0) {
-						debug_render_filled_rect(ctx->rc,
-							layout_run->bounds.x, layout_run->bounds.y + edit_layout_y, layout_run->padding.left, layout_run->bounds.height,
-							skb_rgba(128,255,100,128));
-					}
-					if (layout_run->padding.right > 0) {
-						debug_render_filled_rect(ctx->rc,
-							layout_run->bounds.x+layout_run->bounds.width-layout_run->padding.right, layout_run->bounds.y + edit_layout_y, layout_run->padding.right, layout_run->bounds.height,
-							skb_rgba(128,255,100,128));
-					}
-
-					float mid_x = layout_run->bounds.x + layout_run->bounds.width * 0.5f;
-					debug_render_text(ctx->rc, mid_x, edit_layout_y + layout_run->bounds.y + layout_run->bounds.height + 8, 5, RENDER_ALIGN_CENTER, col,
-					"%d%c", i, skb_is_rtl(layout_run->direction) ? '<' : '>');
-
-					for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
-						const skb_glyph_t* glyph = &glyphs[gi];
-						debug_render_tick(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y, 3.f, skb_rgba(0,0,0,128), -1.f);
-					}
-				}
-
+				debug_render_layout(ctx->rc, 0.f, edit_layout_y, edit_layout);
+				debug_render_layout_lines(ctx->rc, 0.f, edit_layout_y, edit_layout);
+				debug_render_layout_runs(ctx->rc, 0.f, edit_layout_y, edit_layout);
+				//debug_render_layout_glyphs(ctx->rc, 0.f, edit_layout_y, edit_layout);
 			}
 		}
 

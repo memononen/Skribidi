@@ -443,6 +443,13 @@ static inline skb_color_t skb_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 	return res;
 }
 
+/** @return specified color with new alpha value */
+static inline skb_color_t skb_color_with_alpha(skb_color_t col, uint8_t alpha)
+{
+	col.a = alpha;
+	return col;
+}
+
 /** @return true if the colors are equal. */
 static inline bool skb_color_equals(skb_color_t lhs, skb_color_t rhs)
 {

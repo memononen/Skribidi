@@ -46,4 +46,11 @@ float debug_render_text_width(render_context_t* rc, float size, const char* fmt,
 /** Renders debug overlay of the image atlas on render context. */
 void debug_render_atlas_overlay(render_context_t* rc, float sx, float sy, float scale, int32_t columns);
 
+typedef struct skb_layout_t skb_layout_t;
+
+void debug_render_layout(render_context_t* rc, float x, float y, const skb_layout_t* layout);
+void debug_render_layout_lines(render_context_t* rc, float x, float y, const skb_layout_t* layout);
+void debug_render_layout_runs(render_context_t* rc, float x, float y, const skb_layout_t* layout);
+void debug_render_layout_glyphs(render_context_t* rc, float x, float y, const skb_layout_t* layout);
+
 #endif // DEBUG_RENDER_H
