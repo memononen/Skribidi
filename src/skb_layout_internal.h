@@ -88,5 +88,6 @@ typedef struct skb_layout_t {
 } skb_layout_t;
 
 skb_layout_t skb_layout_make_empty(void);
+bool skb_layout_add_ellipsis_to_last_line(skb_layout_t* layout);
 
 #endif // SKB_LAYOUT_INTERNAL_H

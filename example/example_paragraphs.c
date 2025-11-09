@@ -35,6 +35,8 @@ typedef struct paragraphs_context_t {
 	skb_rich_text_t* rich_text;
 	skb_rich_layout_t* rich_layout;
 
+	uint8_t text_overflow;
+
 	view_t view;
 	bool drag_view;
 	bool drag_text;
@@ -52,6 +54,8 @@ void paragraphs_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int
 void paragraphs_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void paragraphs_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
+
+void paragraphs_update_layout(paragraphs_context_t* ctx);
 
 void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 {
@@ -74,6 +78,8 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 
 	ctx->atlas_scale = 0.0f;
 	ctx->show_glyph_bounds = true;
+
+	ctx->text_overflow = SKB_OVERFLOW_NONE;
 
 	ctx->font_collection = skb_font_collection_create();
 	assert(ctx->font_collection);
@@ -210,21 +216,7 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	skb_rich_text_append_paragraph(ctx->rich_text, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(list_attributes_l2));
 	skb_rich_text_append_utf8(ctx->rich_text, ctx->temp_alloc, "Blue cheese", -1, (skb_attribute_set_t){0});
 
-
-	const skb_attribute_t layout_attributes[] = {
-		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
-		skb_attribute_make_vertical_align(SKB_ALIGN_CENTER),
-	};
-	skb_layout_params_t layout_params = {
-		.font_collection = ctx->font_collection,
-		.layout_width = 600.f,
-		.layout_height = 600.f,
-		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
-	};
-
-	ctx->rich_layout = skb_rich_layout_create();
-	skb_rich_layout_set_from_rich_text(ctx->rich_layout, ctx->temp_alloc, &layout_params, ctx->rich_text, 0, NULL);
-
+	paragraphs_update_layout(ctx);
 
 	ctx->view = (view_t) { .cx = 400.f, .cy = 120.f, .scale = 1.f, .zoom_level = 0.f, };
 
@@ -251,6 +243,29 @@ void paragraphs_destroy(void* ctx_ptr)
 	skb_free(ctx);
 }
 
+void paragraphs_update_layout(paragraphs_context_t* ctx)
+{
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_text_overflow(ctx->text_overflow),
+	};
+	skb_layout_params_t layout_params = {
+		.font_collection = ctx->font_collection,
+		.layout_width = 600.f,
+		.layout_height = 600.f,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
+	};
+
+	ctx->rich_layout = skb_rich_layout_create();
+	skb_rich_layout_set_from_rich_text(ctx->rich_layout, ctx->temp_alloc, &layout_params, ctx->rich_text, 0, NULL);
+}
+
+static uint8_t inc_wrap(uint8_t n, uint8_t max)
+{
+	if ((n+1) >= max) return 0;
+	return n + 1;
+}
+
 void paragraphs_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mods)
 {
 	paragraphs_context_t* ctx = ctx_ptr;
@@ -259,6 +274,10 @@ void paragraphs_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, i
 	if (action == GLFW_PRESS) {
 		if (key == GLFW_KEY_F9) {
 			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
+		}
+		if (key == GLFW_KEY_F6) {
+			ctx->text_overflow = inc_wrap(ctx->text_overflow, 3);
+			paragraphs_update_layout(ctx);
 		}
 		if (key == GLFW_KEY_F10) {
 			ctx->atlas_scale += 0.25f;
@@ -368,8 +387,10 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 	render_update_atlas(ctx->rc);
 	debug_render_atlas_overlay(ctx->rc, 20.f, 50.f, ctx->atlas_scale, 1);
 
+	const char* overflow_labels[] = { "None", "Clip", "Ellipsis" };
+
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13.f, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F9: Glyph details %s   F10: Atlas %.1f%%",
-		ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
+		"Text Overflow (F6) %s   F9: Glyph details %s   F10: Atlas %.1f%%",
+		overflow_labels[ctx->text_overflow], ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
 }

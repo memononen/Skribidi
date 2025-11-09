@@ -237,12 +237,18 @@ void skb_rich_layout_set_from_rich_text(
 		cur_group_tag = skb_attributes_get_group(paragraph_attributes, rich_layout->params.attribute_collection);
 	}
 
+	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(rich_layout->params.layout_attributes, rich_layout->params.attribute_collection);
+	bool is_truncated = false;
+
 	for (int32_t i = 0; i < rich_text_paragraph_count; i++) {
 		skb_layout_paragraph_t* layout_paragraph = &rich_layout->paragraphs[i];
 
 		skb_attribute_set_t paragraph_attributes = skb_rich_text_get_paragraph_attributes(rich_text, i);
 		paragraph_attributes.parent_set = &rich_layout->params.layout_attributes;
 		layout_params.layout_attributes = paragraph_attributes;
+
+		if (text_overflow != SKB_OVERFLOW_NONE)
+			layout_params.layout_height = skb_maxf(0.f, rich_layout->params.layout_height - start_y);
 
 		// Group tag
 		uint32_t next_group_tag = 0;
@@ -281,49 +287,67 @@ void skb_rich_layout_set_from_rich_text(
 
 		layout_paragraph->global_text_offset = global_text_offset;
 
-		if (local_ime_text_offset >= 0 && local_ime_text_offset < paragraph_text_count) {
-			skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
+		if (!is_truncated) {
+			if (local_ime_text_offset >= 0 && local_ime_text_offset < paragraph_text_count) {
+				skb_temp_alloc_mark_t mark = skb_temp_alloc_save(temp_alloc);
 
-			// Combine IME text with the line.
-			skb_text_t* combined_text = skb_text_create_temp(temp_alloc);
+				// Combine IME text with the line.
+				skb_text_t* combined_text = skb_text_create_temp(temp_alloc);
 
-			// Before
-			skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = 0, .end.offset = local_ime_text_offset });
+				// Before
+				skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = 0, .end.offset = local_ime_text_offset });
 
-			// Composition
-			skb_text_append(combined_text, ime_text);
+				// Composition
+				skb_text_append(combined_text, ime_text);
 
-			// After
-			skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = local_ime_text_offset, .end.offset = paragraph_text_count });
+				// After
+				skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = local_ime_text_offset, .end.offset = paragraph_text_count });
 
-			skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, combined_text, (skb_attribute_set_t){0});
+				skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, combined_text, (skb_attribute_set_t){0});
 
-			skb_text_destroy(combined_text);
+				skb_text_destroy(combined_text);
 
-			skb_temp_alloc_restore(temp_alloc, mark);
+				skb_temp_alloc_restore(temp_alloc, mark);
 
-			// Reset ID so that when the IME state changes the paragraph will update.
-			layout_paragraph->version = 0;
-		} else {
-			bool rebuild = rebuild_all;
+				// Reset ID so that when the IME state changes the paragraph will update.
+				layout_paragraph->version = 0;
+			} else {
+				bool rebuild = rebuild_all;
 
-			// If the contents has changed, rebuild.
-			if (layout_paragraph->version != paragraph_id)
-				rebuild = true;
+				// If the contents has changed, rebuild.
+				if (layout_paragraph->version != paragraph_id)
+					rebuild = true;
 
-			if (layout_paragraph->list_marker_counter != list_marker_counter)
-				rebuild = true;
+				if (layout_paragraph->list_marker_counter != list_marker_counter)
+					rebuild = true;
 
-			// TODO: if just this changes we could optimize.
-			if (layout_paragraph->group_flags != layout_params.flags)
-				rebuild = true;
+				// TODO: if just this changes we could optimize.
+				if (layout_paragraph->group_flags != layout_params.flags)
+					rebuild = true;
 
-			if (rebuild) {
-				skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, paragraph_text, (skb_attribute_set_t){0});
-				layout_paragraph->version = paragraph_id;
-				layout_paragraph->list_marker_counter = list_marker_counter;
-				layout_paragraph->group_flags = layout_params.flags;
+				if (rebuild) {
+					skb_layout_set_from_text(&layout_paragraph->layout, temp_alloc, &layout_params, paragraph_text, (skb_attribute_set_t){0});
+					layout_paragraph->version = paragraph_id;
+					layout_paragraph->list_marker_counter = list_marker_counter;
+					layout_paragraph->group_flags = layout_params.flags;
+				}
 			}
+		} else {
+			layout_paragraph->version = 0;
+			skb_layout_reset(&layout_paragraph->layout);
+		}
+
+		const uint32_t layout_flags = skb_layout_get_flags(&layout_paragraph->layout);
+		if (layout_flags & SKB_LAYOUT_IS_TRUNCATED) {
+			if (skb_layout_get_lines_count(&layout_paragraph->layout) == 0) {
+				// Truncate previous paragraph
+				if (text_overflow == SKB_OVERFLOW_ELLIPSIS && i > 0) {
+					skb_layout_paragraph_t* prev_layout_paragraph = &rich_layout->paragraphs[i-1];
+					skb_layout_add_ellipsis_to_last_line(&prev_layout_paragraph->layout);
+				}
+				skb_layout_reset(&layout_paragraph->layout);
+			}
+			is_truncated = true;
 		}
 
 		const skb_rect2_t layout_bounds = skb_layout_get_bounds(&layout_paragraph->layout);
