@@ -444,7 +444,7 @@ static void skb__insert_attributes(skb_text_t* text, skb_range_t range, skb_attr
 		skb__insert_attributes(text, range, *attributes.parent_set);
 
 	if (attributes.set_handle)
-		skb__span_insert(text, range, skb_attribute_make_reference(attributes.set_handle));
+		skb__span_insert(text, range, skb_attribute_make_reference(attributes.set_handle, 0));
 
 	for (int32_t i = 0; i < attributes.attributes_count; i++)
 		skb__span_insert(text, range, attributes.attributes[i]);

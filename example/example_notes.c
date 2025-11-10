@@ -182,6 +182,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	const skb_color_t quote_color = skb_rgba(16,16,16,192);
 	const skb_color_t code_color = skb_rgba(64,50,128,255);
 	const skb_color_t code_bg_color = skb_rgba(64,50,128,32);
+	const skb_color_t link_color = skb_rgba(64,0,255,255);
 
 	{
 		const skb_attribute_t h1_attributes[] = {
@@ -271,6 +272,11 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			skb_attribute_make_baseline_shift(SKB_BASELINE_SHIFT_SUBSCRIPT, 0.f),
 		};
 
+		const skb_attribute_t link_attributes[] = {
+			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f),
+			skb_attribute_make_fill(link_color),
+		};
+
 		const skb_attribute_t align_start[] = {
 			skb_attribute_make_horizontal_align(SKB_ALIGN_START),
 		};
@@ -312,6 +318,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_collection_add_set(ctx->attribute_collection, "code", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(code_attributes));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "sup", "baseline-shift", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(superscript_attributes));
 		skb_attribute_collection_add_set_with_group(ctx->attribute_collection, "sub", "baseline-shift", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(subscript_attributes));
+		skb_attribute_collection_add_set(ctx->attribute_collection, "link", SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(link_attributes));
 	}
 
 	const skb_attribute_t layout_attributes[] = {
@@ -411,13 +418,13 @@ static bool nodes__match_prefix_at_paragraph_start(const skb_editor_t* editor, c
 
 static void notes__handle_space(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
-	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
-	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t quoteblock = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE");
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
-	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
-	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE");
+	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1", 0);
+	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2", 0);
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY", 0);
+	skb_attribute_t quoteblock = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE", 0);
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI", 0);
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL", 0);
+	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE", 0);
 
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, SKB_CURRENT_SELECTION);
 	const skb_paragraph_position_t caret_paragraph_pos = skb_editor_get_paragraph_position_from_text_position(editor, SKB_CURRENT_SELECTION_END);
@@ -522,11 +529,11 @@ static int32_t notes__get_paragraph_start_tab_count(const skb_editor_t* editor, 
 
 static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
-	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
-	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE");
-	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE");
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI", 0);
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL", 0);
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY", 0);
+	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE", 0);
+	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE", 0);
 
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, SKB_CURRENT_SELECTION);
 	const skb_paragraph_position_t caret_paragraph_pos = skb_editor_get_paragraph_position_from_text_position(editor, SKB_CURRENT_SELECTION_END);
@@ -589,11 +596,11 @@ static void notes__handle_tab(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 
 static void notes__handle_backspace(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE");
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
-	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
-	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE");
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY", 0);
+	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE", 0);
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI", 0);
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL", 0);
+	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE", 0);
 
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, SKB_CURRENT_SELECTION);
 	const skb_paragraph_position_t paragraph_pos = skb_editor_get_paragraph_position_from_text_position(editor, SKB_CURRENT_SELECTION_END);
@@ -637,13 +644,13 @@ static void notes__handle_backspace(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 static void notes__handle_enter(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const skb_attribute_collection_t* attribute_collection, uint32_t edit_mods)
 {
-	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1");
-	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2");
-	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY");
-	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE");
-	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI");
-	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL");
-	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE");
+	skb_attribute_t h1 = skb_attribute_make_reference_by_name(attribute_collection, "H1", 0);
+	skb_attribute_t h2 = skb_attribute_make_reference_by_name(attribute_collection, "H2", 0);
+	skb_attribute_t body = skb_attribute_make_reference_by_name(attribute_collection, "BODY", 0);
+	skb_attribute_t quote = skb_attribute_make_reference_by_name(attribute_collection, "QUOTE", 0);
+	skb_attribute_t list = skb_attribute_make_reference_by_name(attribute_collection, "LI", 0);
+	skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(attribute_collection, "OL", 0);
+	skb_attribute_t codeblock = skb_attribute_make_reference_by_name(attribute_collection, "CODE", 0);
 
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, SKB_CURRENT_SELECTION);
 	const skb_paragraph_position_t caret_paragraph_pos = skb_editor_get_paragraph_position_from_text_position(editor, SKB_CURRENT_SELECTION_END);
@@ -733,7 +740,7 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 			// Paste
 			const char* clipboard_text = glfwGetClipboardString(window);
 			const uint64_t clipboard_hash = skb_hash64_append_str(skb_hash64_empty(), clipboard_text);
-			if (clipboard_hash == ctx->rich_text_clipboard_hash) {
+			if (clipboard_hash == ctx->rich_text_clipboard_hash && (mods & GLFW_MOD_SHIFT) == 0) {
 				// The text matches what we copied, paste the rich text version instead.
 				skb_editor_insert_rich_text(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, ctx->rich_text_clipboard);
 			} else {
@@ -777,61 +784,61 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 
 		if (key == GLFW_KEY_0 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// Body
-			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY");
+			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, body);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_1 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// H1
-			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1");
+			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h1);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_2 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// H2
-			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2");
+			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h2);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_6 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// H2
-			skb_attribute_t quote = skb_attribute_make_reference_by_name(ctx->attribute_collection, "QUOTE");
+			skb_attribute_t quote = skb_attribute_make_reference_by_name(ctx->attribute_collection, "QUOTE", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, quote);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_7 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// Codeblock
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "CODE");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "CODE", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_8 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// List
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_9 && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_ALT) == 0) {
 			// Ordered list
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_L && (mods & GLFW_MOD_CONTROL)) {
 			// Align left
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_T && (mods & GLFW_MOD_CONTROL)) {
 			// Align Center
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_R && (mods & GLFW_MOD_CONTROL)) {
 			// Align end
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end", 0);
 			skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			ctx->allow_char = false;
 		}
@@ -853,12 +860,12 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 		}
 		if (key == GLFW_KEY_U && (mods & GLFW_MOD_CONTROL)) {
 			// Underline
-			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "u"));
+			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "u", 0));
 			ctx->allow_char = false;
 		}
 		if (key == GLFW_KEY_E && (mods & GLFW_MOD_CONTROL)) {
 			// Inline Code
-			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "code"));
+			skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "code", 0));
 			ctx->allow_char = false;
 		}
 
@@ -872,7 +879,7 @@ void notes_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, int mo
 		if (key == GLFW_KEY_X) {
 			if ((mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
 				// Strike through
-				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "s"));
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, skb_attribute_make_reference_by_name(ctx->attribute_collection, "s", 0));
 				ctx->allow_char = false;
 			} else if (mods & GLFW_MOD_CONTROL) {
 				// Cut
@@ -1281,7 +1288,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Underline
-			skb_attribute_t underline = skb_attribute_make_reference_by_name(ctx->attribute_collection, "u");
+			skb_attribute_t underline = skb_attribute_make_reference_by_name(ctx->attribute_collection, "u", 0);
 			bool underline_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, underline);
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "U", underline_sel)) {
@@ -1292,7 +1299,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Inline Code
-			skb_attribute_t code = skb_attribute_make_reference_by_name(ctx->attribute_collection, "code");
+			skb_attribute_t code = skb_attribute_make_reference_by_name(ctx->attribute_collection, "code", 0);
 			bool code_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, code);
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "[]", code_sel)) {
@@ -1303,7 +1310,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Striketrough
-			skb_attribute_t strikethrough = skb_attribute_make_reference_by_name(ctx->attribute_collection, "s");
+			skb_attribute_t strikethrough = skb_attribute_make_reference_by_name(ctx->attribute_collection, "s", 0);
 			bool strikethrough_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, strikethrough);
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", strikethrough_sel)) {
@@ -1314,7 +1321,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Superscript
-			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup");
+			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup", 0);
 			bool superscript_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, superscript);
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "^", superscript_sel)) {
@@ -1325,7 +1332,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Subscript
-			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub");
+			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub", 0);
 			bool subscript_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, subscript);
 
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "_", subscript_sel)) {
@@ -1334,11 +1341,22 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			tx += but_size + but_spacing;
 		}
 
+		{
+			// Link
+			skb_attribute_t link = skb_attribute_make_reference_by_name(ctx->attribute_collection, "link", SKB_ATTRIBUTE_REFERENCE_RANGE_END_EXCLUSIVE);
+			bool link_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, link);
+
+			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "#", link_sel)) {
+				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, link);
+			}
+			tx += but_size + but_spacing;
+		}
+
 		tx += spacer;
 
 		{
 			// H1
-			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1");
+			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1", 0);
 			bool h1_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, h1);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H1", h1_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h1);
@@ -1348,7 +1366,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// H2
-			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2");
+			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2", 0);
 			bool h2_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, h2);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H2", h2_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h2);
@@ -1358,7 +1376,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Body
-			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY");
+			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY", 0);
 			bool body_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, body);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "Body", body_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, body);
@@ -1368,7 +1386,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// List
-			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI");
+			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI", 0);
 			bool list_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, list);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "LI", list_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
@@ -1378,7 +1396,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Ordered List
-			skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL");
+			skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL", 0);
 			bool ordered_list_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, ordered_list);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "OL", ordered_list_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, ordered_list);
@@ -1388,7 +1406,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Quoteblock
-			skb_attribute_t quoteblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "QUOTE");
+			skb_attribute_t quoteblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "QUOTE", 0);
 			bool quoteblock_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, quoteblock);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "\"\"", quoteblock_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, quoteblock);
@@ -1398,7 +1416,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		{
 			// Codeblock
-			skb_attribute_t codeblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "CODE");
+			skb_attribute_t codeblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "CODE", 0);
 			bool codeblock_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, codeblock);
 			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "{}", codeblock_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, codeblock);
@@ -1430,12 +1448,12 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		// Align
 		{
-			skb_attribute_t ltr = skb_attribute_make_reference_by_name(ctx->attribute_collection, "ltr");
-			skb_attribute_t rtl = skb_attribute_make_reference_by_name(ctx->attribute_collection, "rtl");
+			skb_attribute_t ltr = skb_attribute_make_reference_by_name(ctx->attribute_collection, "ltr", 0);
+			skb_attribute_t rtl = skb_attribute_make_reference_by_name(ctx->attribute_collection, "rtl", 0);
 
-			skb_attribute_t align_start = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start");
-			skb_attribute_t align_center = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center");
-			skb_attribute_t align_end = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end");
+			skb_attribute_t align_start = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-start", 0);
+			skb_attribute_t align_center = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-center", 0);
+			skb_attribute_t align_end = skb_attribute_make_reference_by_name(ctx->attribute_collection, "align-end", 0);
 
 			bool is_ltr = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, ltr);
 			bool is_rtl = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, rtl);

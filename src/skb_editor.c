@@ -264,6 +264,15 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 	}
 }
 
+static bool skb__attribute_spand_contains(const skb_attribute_span_t* attribute_span, int32_t offset)
+{
+	if (attribute_span->attribute.kind == SKB_ATTRIBUTE_REFERENCE &&
+		(attribute_span->attribute.reference.flags & SKB_ATTRIBUTE_REFERENCE_RANGE_END_EXCLUSIVE)) {
+		return skb_range_contains((skb_range_t){ .start = attribute_span->text_range.start, .end = attribute_span->text_range.end-1 }, offset);
+	}
+	return skb_range_contains(attribute_span->text_range, offset);
+}
+
 static void skb__pick_active_attributes(skb_editor_t* editor)
 {
 	// Pick the active attributes from the text before the cursor.
@@ -280,7 +289,7 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 
 	editor->active_attributes_count = 0;
 	for (int32_t i = 0; i < attribute_spans_count; i++) {
-		if (skb_range_contains(attribute_spans[i].text_range, pick_offset)) {
+		if (skb__attribute_spand_contains(&attribute_spans[i], pick_offset)) {
 			SKB_ARRAY_RESERVE(editor->active_attributes, editor->active_attributes_count + 1);
 			skb_attribute_t* attribute = &editor->active_attributes[editor->active_attributes_count++];
 			*attribute = attribute_spans[i].attribute;
@@ -606,18 +615,21 @@ const skb_rich_text_t* skb_editor_get_rich_text(const skb_editor_t* editor)
 int32_t skb_editor_get_text_utf8_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
+	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_get_utf8_count_in_range(&editor->rich_text, text_range);
 }
 
 int32_t skb_editor_get_text_utf8_in_range(const skb_editor_t* editor, skb_text_range_t text_range, char* utf8, int32_t utf8_cap)
 {
 	assert(editor);
+	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_get_utf8_in_range(&editor->rich_text, text_range, utf8, utf8_cap);
 }
 
 int32_t skb_editor_get_text_utf32_count_in_range(const skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
+	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_get_utf32_count_in_range(&editor->rich_text, text_range);
 }
 
@@ -625,6 +637,7 @@ int32_t skb_editor_get_text_utf32_in_range(const skb_editor_t* editor, skb_text_
 {
 	assert(editor);
 	assert(utf32);
+	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_get_utf32_in_range(&editor->rich_text, text_range, utf32, utf32_cap);
 }
 
@@ -632,7 +645,7 @@ void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_rang
 {
 	assert(editor);
 	assert(rich_text);
-
+	text_range = skb__resolve_text_range(editor, text_range);
 	skb_rich_text_reset(rich_text);
 	skb_rich_text_append_range(rich_text, &editor->rich_text, text_range);
 }
@@ -2689,6 +2702,7 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
 bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
+	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
 	text_range = skb__resolve_text_range(editor, text_range);
 
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, text_range);
@@ -2696,7 +2710,7 @@ bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_
 	if (selection_count > 0)
 		return skb_editor_get_attribute_count(editor, text_range, attribute) == selection_count;
 
-	if (skb_text_position_is_current_selection_end(text_range.end)) {
+	if (is_current_selection) {
 		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
 		const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(editor);
 
