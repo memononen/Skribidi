@@ -55,7 +55,9 @@ skb_rich_text_change_t skb_rich_text_append_paragraph(skb_rich_text_t* rich_text
 skb_rich_text_change_t skb_rich_text_append_text(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const skb_text_t* source_text);
 skb_rich_text_change_t skb_rich_text_append_text_range(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const skb_text_t* source_text, skb_text_range_t source_text_range);
 skb_rich_text_change_t skb_rich_text_append_utf8(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes);
+skb_rich_text_change_t skb_rich_text_append_utf8_with_payload(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
 skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
+skb_rich_text_change_t skb_rich_text_append_utf32_with_payload(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
 
 skb_rich_text_change_t skb_rich_text_insert(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text);
 skb_rich_text_change_t skb_rich_text_insert_range(skb_rich_text_t* rich_text, skb_text_range_t text_range, const skb_rich_text_t* source_rich_text, skb_text_range_t source_text_range);
@@ -69,10 +71,14 @@ void skb_rich_text_set_paragraph_attribute(skb_rich_text_t* rich_text, skb_text_
 void skb_rich_text_set_paragraph_attribute_delta(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 
 void skb_rich_text_set_attribute(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
+void skb_rich_text_set_attribute_with_payload(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload);
 
 void skb_rich_text_clear_attribute(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 void skb_rich_text_clear_all_attributes(skb_rich_text_t* rich_text, skb_text_range_t text_range);
 int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
+bool skb_rich_text_has_attribute(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
+skb_text_range_t skb_rich_text_get_attribute_text_range(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
+skb_data_blob_t* skb_rich_text_get_attribute_payload(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 
 typedef bool skb_rich_text_remove_func_t(uint32_t codepoint, int32_t paragraph_idx, int32_t text_offset, void* context);
 

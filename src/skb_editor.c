@@ -264,10 +264,9 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 	}
 }
 
-static bool skb__attribute_spand_contains(const skb_attribute_span_t* attribute_span, int32_t offset)
+static bool skb__attribute_span_contains(const skb_attribute_span_t* attribute_span, int32_t offset)
 {
-	if (attribute_span->attribute.kind == SKB_ATTRIBUTE_REFERENCE &&
-		(attribute_span->attribute.reference.flags & SKB_ATTRIBUTE_REFERENCE_RANGE_END_EXCLUSIVE)) {
+	if (attribute_span->flags & SKB_ATTRIBUTE_SPAN_END_EXCLUSIVE) {
 		return skb_range_contains((skb_range_t){ .start = attribute_span->text_range.start, .end = attribute_span->text_range.end-1 }, offset);
 	}
 	return skb_range_contains(attribute_span->text_range, offset);
@@ -289,7 +288,7 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 
 	editor->active_attributes_count = 0;
 	for (int32_t i = 0; i < attribute_spans_count; i++) {
-		if (skb__attribute_spand_contains(&attribute_spans[i], pick_offset)) {
+		if (skb__attribute_span_contains(&attribute_spans[i], pick_offset)) {
 			SKB_ARRAY_RESERVE(editor->active_attributes, editor->active_attributes_count + 1);
 			skb_attribute_t* attribute = &editor->active_attributes[editor->active_attributes_count++];
 			*attribute = attribute_spans[i].attribute;
@@ -2508,8 +2507,11 @@ void skb_editor_remove(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_t
 
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
 {
-	assert(editor);
+	skb_editor_toggle_attribute_with_payload(editor, temp_alloc, text_range, attribute, 0, NULL);
+}
 
+void skb_editor_toggle_attribute_with_payload(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload)
+{
 	assert(editor);
 
 	text_range = skb__resolve_text_range(editor, text_range);
@@ -2539,12 +2541,17 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 		if (skb_editor_get_attribute_count(editor, text_range, attribute) == text_count) {
 			skb_editor_clear_attribute(editor, temp_alloc, text_range, attribute);
 		} else {
-			skb_editor_set_attribute(editor, temp_alloc, text_range, attribute);
+			skb_editor_set_attribute_with_payload(editor, temp_alloc, text_range, attribute, span_flags, payload);
 		}
 	}
 }
 
 void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	skb_editor_set_attribute_with_payload(editor, temp_alloc, text_range, attribute, 0, NULL);
+}
+
+void skb_editor_set_attribute_with_payload(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(editor);
 
@@ -2571,7 +2578,7 @@ void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 		// Apply to selection
 		int32_t transaction_id = skb__capture_undo_attributes_begin(editor, text_range);
 
-		skb_rich_text_set_attribute(&editor->rich_text, text_range, attribute);
+		skb_rich_text_set_attribute_with_payload(&editor->rich_text, text_range, attribute, span_flags, payload);
 
 		skb__capture_undo_attributes_end(editor, transaction_id);
 
@@ -2699,7 +2706,7 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
 	return paragraph_count == match_count;
 }
 
-bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
@@ -2708,7 +2715,8 @@ bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_
 	const int32_t selection_count = skb_editor_get_text_range_count(editor, text_range);
 
 	if (selection_count > 0)
-		return skb_editor_get_attribute_count(editor, text_range, attribute) == selection_count;
+		return skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute);
+//		return skb_editor_get_attribute_count(editor, text_range, attribute) == selection_count;
 
 	if (is_current_selection) {
 		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
@@ -2721,6 +2729,29 @@ bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_
 	}
 
 	return false;
+}
+
+bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(editor);
+	text_range = skb__resolve_text_range(editor, text_range);
+	return skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute);
+}
+
+skb_data_blob_t* skb_editor_get_attribute_payload(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(editor);
+
+	text_range = skb__resolve_text_range(editor, text_range);
+	return skb_rich_text_get_attribute_payload(&editor->rich_text, text_range, attribute);
+}
+
+skb_text_range_t skb_editor_get_attribute_text_range(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(editor);
+
+	text_range = skb__resolve_text_range(editor, text_range);
+	return skb_rich_text_get_attribute_text_range(&editor->rich_text, text_range, attribute);
 }
 
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor)

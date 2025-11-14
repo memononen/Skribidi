@@ -438,15 +438,6 @@ typedef struct skb_attribute_group_tag_t {
 // Forward declaration
 typedef uint64_t skb_attribute_set_handle_t;
 
-/** Enum describing flags for skb_attribute_reference_t */
-typedef enum {
-	/**
-	 * The range of the reference should not include the end.
-	 * This is used i.e. for links, so that typing right after the link will not expand the link.
-	 */
-	SKB_ATTRIBUTE_REFERENCE_RANGE_END_EXCLUSIVE = (1<<0)
-} skb_attribute_reference_flags_t;
-
 /**
  * Attribute collection reference attribute.
  * The referenced attribute set from the attribute collection is used at the place of the reference attribute.
@@ -456,8 +447,6 @@ typedef struct skb_attribute_reference_t {
 	uint32_t kind;
 	/** Handle attribute set in layouts attribute collection. */
 	skb_attribute_set_handle_t handle;
-	/** Flags for the attribute, see skb_attribute_reference_flags_t */
-	uint8_t flags;
 } skb_attribute_reference_t;
 
 
@@ -705,10 +694,10 @@ skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object
 skb_attribute_t skb_attribute_make_group_tag(uint32_t group_tag);
 
 /** @returns new reference attribute. See skb_attribute_reference_t */
-skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle, uint8_t flags);
+skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle);
 
 /** @returns new reference attribute. See skb_attribute_reference_t */
-skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name, uint8_t flags);
+skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
 
 /**
  * Returns text direction attribute or default value if not found.

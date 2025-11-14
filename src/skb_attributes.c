@@ -455,26 +455,24 @@ skb_attribute_t skb_attribute_make_group_tag(uint32_t group_tag)
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle, uint8_t flags)
+skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_handle)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.reference = (skb_attribute_reference_t) {
 		.kind = SKB_ATTRIBUTE_REFERENCE,
 		.handle = set_handle,
-		.flags = flags,
 	};
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name, uint8_t flags)
+skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
 	attribute.reference = (skb_attribute_reference_t) {
 		.kind = SKB_ATTRIBUTE_REFERENCE,
 		.handle = skb_attribute_collection_find_set_by_name(attribute_collection, name),
-		.flags = flags,
 	};
 	return attribute;
 }
@@ -771,7 +769,7 @@ int32_t skb_attributes_copy_flat(const skb_attribute_set_t attributes, skb_attri
 		copied += skb_attributes_copy_flat(*attributes.parent_set, dest + copied, dest_cap - copied);
 
 	if (attributes.set_handle && (copied + 1) <= dest_cap) {
-		dest[copied] = skb_attribute_make_reference(attributes.set_handle, 0);
+		dest[copied] = skb_attribute_make_reference(attributes.set_handle);
 		copied++;
 	}
 

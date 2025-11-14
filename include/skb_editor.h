@@ -577,9 +577,24 @@ void skb_editor_remove(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_t
  * This is useful for attributes like bold, italic, and underline.
  * @param editor editor to update
  * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range
  * @param attribute attribute to toggle.
  */
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Toggles attribute with payload for the current selection.
+ * If the whole current selection range has the specified attribute, the attribute is cleared, else the attribute is set.
+ * If the current selection is empty, the active attributes will be changed instead. Active attributes define what style is applied to the next text that is inserted.
+ * This is useful for attributes like bold, italic, and underline.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range
+ * @param attribute attribute to toggle.
+ * @param span_flags span flags to apply for the attribute, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for the attribute.
+ */
+void skb_editor_toggle_attribute_with_payload(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload);
 
 /**
  * Applies attribute for the current selection.
@@ -592,6 +607,20 @@ void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_al
  * @param attribute attribute to apply.
  */
 void skb_editor_set_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Applies attribute with payload for the current selection.
+ * Sets attribute the whole current selection range, overriding any attribute of same kind.
+ * If the current selection is empty, the active attributes will be changed instead. Active attributes define what style is applied to the next text that is inserted.
+ * This is useful for attributes like font size or color.
+ * @param editor editor to update
+ * @param temp_alloc temp alloc to use for text modifications and relayout.
+ * @param text_range text range to apply the attribute for.
+ * @param attribute attribute to apply.
+ * @param span_flags span flags to apply for the attribute, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for the attribute.
+ */
+void skb_editor_set_attribute_with_payload(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload);
 
 /**
  * Clears attribute for specified selection range.
@@ -632,11 +661,11 @@ void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_all
 /**
  * Counts number of codepoints the attribute is applied in the selection range.
  * @param editor editor to update
- * @param text_rage range of text to query
+ * @param text_range range of text to query
  * @param attribute attribute to query
  * @return number of codepoints the attribute is applied to
  */
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_rage, skb_attribute_t attribute);
+int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Checks if all the paragraphs overlapping the text range has the specified attribute.
@@ -650,13 +679,47 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
 /**
  * Checks if the text range has the specified attribute.
  * If the text range is empty, and equals current selection, the active attributes are tested.
+ * Active attributes are picker from the text before the empty selection.
+ * This function can be used to check what the current text style is under the caret or selection for most styles.
+ * Some content-like styles, like hyperlinks or hilights, should use skb_editor_has_attribute() instead.
  * @param editor editor to query
  * @param text_range text range to check
  * @param attribute attribute to check
- * @return true if all paragraph in the text range has specified attribute.
+ * @return true the whole text range contains the specified style.
+ */
+bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Checks if the text range has the specified attribute.
+ * If the text range is empty, attribute of the text (or at) the text location is returned.
+ * This function can be used to check the current status for content-like style, like hyperlinks or hilights.
+ * Most text styles, like bold and italic, should use skb_editor_has_active_attribute() instead.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return true the whole text range contains the specified style.
  */
 bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
 
+/**
+ * Returns payload of specified attribute in given range.
+ * The queried range must be completely inside inside the specified attribute span, for a valid result to be returned.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return pointer to the found payload.
+ */
+skb_data_blob_t* skb_editor_get_attribute_payload(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Returns the whole text range of specified attribute in given range.
+ * The queried range must be completely inside inside the specified attribute span, for a valid result to be returned.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return text range of the text, or empty range if not found.
+ */
+skb_text_range_t skb_editor_get_attribute_text_range(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /** @return number of active attributes. Active attributes define what style is applied to the next text that is inserted. */
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);

@@ -40,10 +40,14 @@ void skb_text_destroy(skb_text_t* text)
 
 	skb_temp_alloc_t* temp_alloc = text->temp_alloc;
 	if (temp_alloc) {
+		for (int32_t i = 0; i < text->spans_count; i++)
+			skb_data_blob_destroy(text->spans[i].payload);
 		skb_temp_alloc_free(temp_alloc, text->spans);
 		skb_temp_alloc_free(temp_alloc, text->text_props);
 		skb_temp_alloc_free(temp_alloc, text->text);
 	} else {
+		for (int32_t i = 0; i < text->spans_count; i++)
+			skb_data_blob_destroy(text->spans[i].payload);
 		skb_free(text->text);
 		skb_free(text->text_props);
 		skb_free(text->spans);
@@ -222,6 +226,8 @@ static void skb__span_remove(skb_text_t* text, int32_t idx)
 {
 	assert(idx >= 0 && idx < text->spans_count);
 
+	skb_data_blob_destroy(text->spans[idx].payload);
+
 	for (int32_t i = idx; i < text->spans_count - 1; i++)
 		text->spans[i] = text->spans[i + 1];
 	text->spans_count--;
@@ -241,7 +247,7 @@ static int32_t skb__spans_lower_bound(const skb_text_t* text, int32_t pos)
 	return low;
 }
 
-static int32_t skb__span_insert(skb_text_t* text, skb_range_t text_range, skb_attribute_t attribute)
+static int32_t skb__span_insert(skb_text_t* text, skb_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* associated_data)
 {
 	assert(text);
 	assert(text_range.start <= text_range.end);
@@ -257,6 +263,12 @@ static int32_t skb__span_insert(skb_text_t* text, skb_range_t text_range, skb_at
 
 	text->spans[idx].text_range = text_range;
 	text->spans[idx].attribute = attribute;
+	text->spans[idx].flags = span_flags;
+
+	if (text->temp_alloc)
+		text->spans[idx].payload = skb_data_blob_duplicate_temp(associated_data, text->temp_alloc);
+	else
+		text->spans[idx].payload = skb_data_blob_duplicate(associated_data);
 
 	return idx;
 }
@@ -382,7 +394,7 @@ static void skb__attributes_clear(skb_text_t* text, skb_range_t range, skb_attri
 				// Trim head
 				span->text_range.end = range.start;
 				// Add tail
-				skb__span_insert(text, tail_range, span->attribute);
+				skb__span_insert(text, tail_range, span->attribute, span->flags, span->payload);
 			}
 		}
 	}
@@ -431,31 +443,31 @@ void skb__attributes_replace_with_empty(skb_text_t* text, skb_range_t range, int
 				// Trim head
 				span->text_range.end = range.start;
 				// Add tail
-				int32_t idx = skb__span_insert(text, tail_range, span->attribute);
+				int32_t idx = skb__span_insert(text, tail_range, span->attribute, span->flags, span->payload);
 				assert(idx > i); // we assume that the tail will come after this span, but not sure where.
 			}
 		}
 	}
 }
 
-static void skb__insert_attributes(skb_text_t* text, skb_range_t range, skb_attribute_set_t attributes)
+static void skb__insert_attributes(skb_text_t* text, skb_range_t range, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	if (attributes.parent_set)
-		skb__insert_attributes(text, range, *attributes.parent_set);
+		skb__insert_attributes(text, range, *attributes.parent_set, span_flags, payload);
 
 	if (attributes.set_handle)
-		skb__span_insert(text, range, skb_attribute_make_reference(attributes.set_handle, 0));
+		skb__span_insert(text, range, skb_attribute_make_reference(attributes.set_handle), span_flags, payload);
 
 	for (int32_t i = 0; i < attributes.attributes_count; i++)
-		skb__span_insert(text, range, attributes.attributes[i]);
+		skb__span_insert(text, range, attributes.attributes[i], span_flags, payload);
 }
 
-void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_count, skb_attribute_set_t attributes)
+void skb__attributes_replace(skb_text_t* text, skb_range_t range, int32_t text_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	skb__attributes_replace_with_empty(text, range, text_count);
 
 	skb_range_t insert_range = {.start = range.start, .end = range.start + text_count};
-	skb__insert_attributes(text, insert_range, attributes);
+	skb__insert_attributes(text, insert_range, attributes, span_flags, payload);
 
 	skb__attributes_merge_adjacent(text);
 }
@@ -493,23 +505,24 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from)
 	if (text_from->spans_count > 0) {
 		skb__spans_reserve(text, text->spans_count + text_from->spans_count);
 		for (int32_t i = 0; i < text_from->spans_count; i++) {
-			skb_range_t span_range = text_from->spans[i].text_range;
+			const skb_attribute_span_t* span = &text_from->spans[i];
+			skb_range_t span_range = span->text_range;
 			span_range.start += start_offset;
 			span_range.end += start_offset;
-			skb__span_insert(text, span_range, text_from->spans[i].attribute);
+			skb__span_insert(text, span_range, span->attribute, span->flags, span->payload);
 		}
 		skb__attributes_merge_adjacent(text);
 	}
 }
 
-void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_text_range_t from_text_range)
+void skb_text_append_range(skb_text_t* text, const skb_text_t* source_text, skb_text_range_t source_text_range)
 {
 	assert(text);
 
-	if (!from_text || !from_text->text_count)
+	if (!source_text || !source_text->text_count)
 		return;
 
-	const skb_range_t from_range = skb_text_get_range_from_text_range(from_text, from_text_range);
+	const skb_range_t from_range = skb_text_get_range_from_text_range(source_text, source_text_range);
 
 	const int32_t copy_offset = from_range.start;
 	const int32_t copy_count = from_range.end - from_range.start;
@@ -521,27 +534,32 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_te
 	const int32_t start_offset = text->text_count;
 
 	// Copy text
-	memcpy(text->text + start_offset, from_text->text + copy_offset, copy_count * sizeof(uint32_t));
+	memcpy(text->text + start_offset, source_text->text + copy_offset, copy_count * sizeof(uint32_t));
 	skb__set_grapheme_breaks(text->text, start_offset, copy_count, text->text_props);
 	text->text_count += copy_count;
 
 	// Copy attributes
-	if (from_text->spans_count > 0) {
+	if (source_text->spans_count > 0) {
 		const int32_t span_offset = start_offset - copy_offset;
-		for (int32_t i = 0; i < from_text->spans_count; i++) {
-			const skb_attribute_span_t* span = &from_text->spans[i];
+		for (int32_t i = 0; i < source_text->spans_count; i++) {
+			const skb_attribute_span_t* span = &source_text->spans[i];
 			skb_range_t span_range = {
 				.start = skb_maxi(span->text_range.start, from_range.start) + span_offset,
 				.end = skb_mini(span->text_range.end, from_range.end) + span_offset,
 			};
 			if (span_range.end > span_range.start)
-				skb__span_insert(text, span_range, span->attribute);
+				skb__span_insert(text, span_range, span->attribute, span->flags, span->payload);
 		}
 		skb__attributes_merge_adjacent(text);
 	}
 }
 
 void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
+{
+	skb_text_append_utf8_with_payload(text, utf8, utf8_count, attributes, 0, NULL);
+}
+
+void skb_text_append_utf8_with_payload(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(text);
 
@@ -561,10 +579,15 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
 	text->text_count += utf32_count;
 
 	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
-	skb__insert_attributes(text, range, attributes);
+	skb__insert_attributes(text, range, attributes, span_flags, payload);
 }
 
 void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
+{
+	skb_text_append_utf32_with_payload(text, utf32, utf32_count, attributes, 0, NULL);
+}
+
+void skb_text_append_utf32_with_payload(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(text);
 
@@ -583,7 +606,7 @@ void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf3
 	text->text_count += utf32_count;
 
 	skb__spans_reserve(text, text->spans_count + skb_attributes_get_copy_flat_count(attributes));
-	skb__insert_attributes(text, range, attributes);
+	skb__insert_attributes(text, range, attributes, span_flags, payload);
 }
 
 void skb_text_insert(skb_text_t* text, skb_text_range_t text_range, const skb_text_t* source_text)
@@ -617,10 +640,11 @@ void skb_text_insert(skb_text_t* text, skb_text_range_t text_range, const skb_te
 	if (source_text_count > 0) {
 		skb__spans_reserve(text, text->spans_count + source_text->spans_count);
 		for (int32_t i = 0; i < source_text->spans_count; i++) {
+			const skb_attribute_span_t* span = &source_text->spans[i];
 			skb_range_t span_range = source_text->spans[i].text_range;
 			span_range.start += start_offset;
 			span_range.end += start_offset;
-			skb__span_insert(text, span_range, source_text->spans[i].attribute);
+			skb__span_insert(text, span_range, span->attribute, span->flags, span->payload);
 		}
 	}
 
@@ -628,6 +652,11 @@ void skb_text_insert(skb_text_t* text, skb_text_range_t text_range, const skb_te
 }
 
 void skb_text_insert_utf8(skb_text_t* text, skb_text_range_t text_range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
+{
+	skb_text_insert_utf8_with_payload(text, text_range, utf8, utf8_count, attributes, 0, NULL);
+}
+
+void skb_text_insert_utf8_with_payload(skb_text_t* text, skb_text_range_t text_range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(text);
 
@@ -652,10 +681,15 @@ void skb_text_insert_utf8(skb_text_t* text, skb_text_range_t text_range, const c
 	text->text_count += utf32_count - remove_count;
 
 	// Replace attributes
-	skb__attributes_replace(text, range, utf32_count, attributes);
+	skb__attributes_replace(text, range, utf32_count, attributes, span_flags, payload);
 }
 
 void skb_text_insert_utf32(skb_text_t* text, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
+{
+	skb_text_insert_utf32_with_payload(text, text_range, utf32, utf32_count, attributes, 0, NULL);
+}
+
+void skb_text_insert_utf32_with_payload(skb_text_t* text, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(text);
 
@@ -679,7 +713,7 @@ void skb_text_insert_utf32(skb_text_t* text, skb_text_range_t text_range, const 
 	text->text_count += utf32_count - remove_count;
 
 	// Replace attributes
-	skb__attributes_replace(text, range, utf32_count, attributes);
+	skb__attributes_replace(text, range, utf32_count, attributes, span_flags, payload);
 }
 
 void skb_text_remove(skb_text_t* text, skb_text_range_t text_range)
@@ -695,7 +729,7 @@ void skb_text_remove(skb_text_t* text, skb_text_range_t text_range)
 	text->text_count -= range.end - range.start;
 
 	// Remove attributes
-	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0});
+	skb__attributes_replace(text, range, 0, (skb_attribute_set_t){0}, 0, NULL);
 }
 
 void skb_text_remove_if(skb_text_t* text, skb_text_remove_func_t* filter_func, void* context)
@@ -785,7 +819,7 @@ void skb_text_copy_attributes_range(skb_text_t* text, const skb_text_t* from_tex
 				.end = skb_mini(span->text_range.end, from_range.end) + span_offset,
 			};
 			if (span_range.end > span_range.start)
-				skb__span_insert(text, span_range, span->attribute);
+				skb__span_insert(text, span_range, span->attribute, span->flags, span->payload);
 		}
 		skb__attributes_merge_adjacent(text);
 	}
@@ -812,7 +846,7 @@ void skb_text_insert_attributes(skb_text_t* text, skb_text_range_t text_range, c
 			.end = skb_mini(span->text_range.end + range.start, range.end),
 		};
 		if (span_range.end > span_range.start)
-			skb__span_insert(text, span_range, span->attribute);
+			skb__span_insert(text, span_range, span->attribute, span->flags, span->payload);
 	}
 
 	skb__attributes_merge_adjacent(text);
@@ -834,12 +868,17 @@ void skb_text_clear_all_attributes(skb_text_t* text, skb_text_range_t text_range
 
 void skb_text_add_attribute(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute)
 {
+	skb_text_add_attribute_with_payload(text, text_range, attribute, 0, NULL);
+}
+
+void skb_text_add_attribute_with_payload(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload)
+{
 	assert(text);
 
 	const skb_range_t range = skb_text_get_range_from_text_range(text, text_range);
 
 	skb__attributes_clear(text, range, attribute);
-	skb__span_insert(text, range, attribute);
+	skb__span_insert(text, range, attribute, span_flags, payload);
 	skb__attributes_merge_adjacent(text);
 }
 

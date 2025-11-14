@@ -283,6 +283,14 @@ enum {
 void* skb_malloc(size_t size);
 
 /**
+ * Allocates memory, and zeroinitializes it.
+ * The malloc will assert if the allocation failed.
+ * @param size number of bytes to allocate
+ * @return pointer to the allocated memory.
+ */
+void* skb_malloc_zero(size_t size);
+
+/**
  * Reallocates existing memory to fit new size.
  * @param ptr pointer to existing memory to allocate, if NULL, realloc will behave like malloc
  * @param new_size new size
@@ -297,7 +305,7 @@ void* skb_realloc(void* ptr, size_t new_size);
 void skb_free(void* ptr);
 
 /** Signature of destroy function */
-typedef void skb_destroy_func_t(void *context);
+typedef void skb_destroy_func_t(void* context);
 
 /**
  * Helper macro to reserve space in an allocated array.
@@ -315,6 +323,9 @@ typedef void skb_destroy_func_t(void *context);
 		memset(&(arr)[arr##_cap], 0, sizeof((arr)[0]) * (new_cap - arr##_cap)); \
 		arr##_cap = new_cap; \
 	}
+
+/** Helper macro to alloc a struct initialized to zero. */
+#define SKB_MALLOC_STRUCT(type) skb_malloc_zero(sizeof(type))
 
 /** Helper macro to zero out a struct passed in by a pointer */
 #define SKB_ZERO_STRUCT(ptr) memset(ptr, 0, sizeof((ptr)[0]))
@@ -1308,6 +1319,148 @@ static inline void skb_list_move_to_front(skb_list_t* list, int32_t item_idx, sk
 
 /** @} */
 
+
+/**
+ * @defgroup data_blob Data blob
+ * Data blob is a piece of data with duplicate and destroy handlers.
+ * @{
+ */
+
+typedef struct skb_data_blob_t skb_data_blob_t;
+
+/** Enum describing predefined types. */
+enum {
+	SKB_DATA_BLOB_UTF8 = SKB_TAG('u','t','0','8'),
+	SKB_DATA_BLOB_UTF32 = SKB_TAG('u','t','3','2'),
+};
+
+/**
+ * Signature for data blob duplicate function.
+ * @param data const pointer to data to duplicate
+ * @param data_size size of the data
+ * @param temp_alloc if set, the data should be duplicated using the temp allocator if possible
+ * @return duplicate of the data
+ */
+typedef void* skb_data_blob_duplicate_func_t(const void* data, int32_t data_size, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Signature for data blob destroy function.
+ * @param data const pointer to data to destroy
+ * @param data_size size of the data
+ * @param temp_alloc if set, the data should be freed using the temp allocator
+ */
+typedef void skb_data_blob_destroy_func_t(void* data, int32_t data_size, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Creates new empty data blob
+ * @return pointer to new data blob
+ */
+skb_data_blob_t* skb_data_blob_create(void);
+
+/**
+ * Creates new empty data blob with temp allocator
+ * @param temp_alloc temp allocator to use
+ * @return pointer to new data blob
+ */
+skb_data_blob_t* skb_data_blob_create_temp(skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Duplicates data blob
+ * @param data_blob data blob to duplicate
+ * @return new duplicate of the given data blob.
+ */
+skb_data_blob_t* skb_data_blob_duplicate(const skb_data_blob_t* data_blob);
+
+/**
+ * Duplicates data blob with temp allocator
+ * @param data_blob data blob to duplicate
+ * @param temp_alloc temp allocator to use
+ * @return new duplicate of the given data blob.
+ */
+skb_data_blob_t* skb_data_blob_duplicate_temp(const skb_data_blob_t* data_blob, skb_temp_alloc_t* temp_alloc);
+
+/**
+ * Destroys the data blob
+ * @param data_blob data blob to destroy
+ */
+void skb_data_blob_destroy(skb_data_blob_t* data_blob);
+
+/**
+ * Reset a data blob and destroys the contents.
+ * @param data_blob data blob to reset
+ */
+void skb_data_blob_reset(skb_data_blob_t* data_blob);
+
+/**
+ * Sets data blob to a utf-8 string
+ * @param data_blob data blob to set
+ * @param utf8 utf-8 string to copy
+ * @param utf8_count length of the utf-8 string, or -1 if null terminated.
+ */
+void skb_data_blob_set_utf8(skb_data_blob_t* data_blob, const char* utf8, int32_t utf8_count);
+
+/**
+ * Sets data blob to a utf-32 string
+ * @param data_blob data blob to set
+ * @param utf32 utf-32 string to copy
+ * @param utf32_count length of the utf-32 string, or -1 if null terminated.
+ */
+void skb_data_blob_set_utf32(skb_data_blob_t* data_blob, const uint32_t* utf32, int32_t utf32_count);
+
+/**
+ * Sets the data blob to custom data. The data is duplicated using the duplicate function.
+ * @param data_blob data blob to set
+ * @param type custom type of the data
+ * @param data data to copy
+ * @param data_size size of the data to copy
+ * @param duplicate function to use to duplicate the data
+ * @param destroy function to use to destroy the data
+ */
+void skb_data_blob_set(skb_data_blob_t* data_blob, uint32_t type, const void* data, int32_t data_size, skb_data_blob_duplicate_func_t* duplicate, skb_data_blob_destroy_func_t* destroy);
+
+/**
+ * Assings the data blob a custom data. The data pointer and size are stored as is, and are later passed to the destroy function.
+ * @param data_blob data blob to set
+ * @param type custom type of the data
+ * @param data data to copy
+ * @param data_size size of the data to copy
+ * @param duplicate function to use to duplicate the data
+ * @param destroy function to use to destroy the data
+ */
+void skb_data_blob_assign(skb_data_blob_t* data_blob, uint32_t type, void* data, int32_t data_size, skb_data_blob_duplicate_func_t* duplicate, skb_data_blob_destroy_func_t* destroy);
+
+/**
+ * Returns const pointer to zero terminated utf-8 string stored in data blob.
+ * @param data_blob data blob to query
+ * @param utf8_count (out, optional) length of the utf-8 string (zero terminator not included)
+ * @return const pointer to the utf-8 string, or NULL if the data is not utf-8, or is empty
+ */
+const char* skb_data_blob_get_utf8(const skb_data_blob_t* data_blob, int32_t* utf8_count);
+
+/**
+ * Returns const pointer to zero terminated utf-32 string stored in data blob.
+ * @param data_blob data blob to query
+ * @param utf32_count (out, optional) length of the utf-32 string (zero terminator not included)
+ * @return const pointer to the utf-32 string, or NULL if the data is not utf-32, or is empty
+ */
+const uint32_t* skb_data_blob_get_utf32(const skb_data_blob_t* data_blob, int32_t* utf32_count);
+
+/**
+ * Returns the type of the data blob.
+ * @param data_blob data blob to query
+ * @return type tag of the data stored in the data blob
+ */
+uint32_t skb_data_blob_get_type(const skb_data_blob_t* data_blob);
+
+/**
+ * Returns pointer the data stored in the data blob.
+ * @param data_blob
+ * @param data_size (out, optional) size of the data
+ * @return pointer to the  blob data.
+ */
+void* skb_data_blob_get_data(skb_data_blob_t* data_blob, int32_t* data_size);
+
+/** @} */
 
 /**
  * @defgroup text Text

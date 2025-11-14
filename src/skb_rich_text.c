@@ -508,6 +508,11 @@ skb_rich_text_change_t skb_rich_text_append_text_range(skb_rich_text_t* rich_tex
 
 skb_rich_text_change_t skb_rich_text_append_utf8(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes)
 {
+	return skb_rich_text_append_utf8_with_payload(rich_text, temp_alloc, utf8, utf8_count, attributes, 0, NULL);
+}
+
+skb_rich_text_change_t skb_rich_text_append_utf8_with_payload(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
+{
 	assert(rich_text);
 	assert(utf8);
 
@@ -517,7 +522,7 @@ skb_rich_text_change_t skb_rich_text_append_utf8(skb_rich_text_t* rich_text, skb
 	uint32_t* utf32 = SKB_TEMP_ALLOC(temp_alloc, uint32_t, utf32_count);
 	skb_utf8_to_utf32(utf8, utf8_count, utf32, utf32_count);
 
-	skb_rich_text_change_t change = skb_rich_text_append_utf32(rich_text, temp_alloc, utf32, utf32_count, attributes);
+	skb_rich_text_change_t change = skb_rich_text_append_utf32_with_payload(rich_text, temp_alloc, utf32, utf32_count, attributes, span_flags, payload);
 
 	SKB_TEMP_FREE(temp_alloc, utf32);
 
@@ -525,6 +530,11 @@ skb_rich_text_change_t skb_rich_text_append_utf8(skb_rich_text_t* rich_text, skb
 }
 
 skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes)
+{
+	return skb_rich_text_append_utf32_with_payload(rich_text, temp_alloc, utf32, utf32_count, attributes, 0, NULL);
+}
+
+skb_rich_text_change_t skb_rich_text_append_utf32_with_payload(skb_rich_text_t* rich_text, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload)
 {
 	assert(rich_text);
 
@@ -550,7 +560,7 @@ skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, sk
 		skb_text_paragraph_t* last_paragraph = &rich_text->paragraphs[rich_text->paragraphs_count - 1];
 
 		const int32_t text_count = inserted_paragraph_ranges[range_idx].end - inserted_paragraph_ranges[range_idx].start;
-		skb_text_append_utf32(&last_paragraph->text, utf32 + inserted_paragraph_ranges[range_idx].start, text_count, attributes);
+		skb_text_append_utf32_with_payload(&last_paragraph->text, utf32 + inserted_paragraph_ranges[range_idx].start, text_count, attributes, span_flags, payload);
 
 		text_offset += text_count;
 		range_idx++;
@@ -574,7 +584,7 @@ skb_rich_text_change_t skb_rich_text_append_utf32(skb_rich_text_t* rich_text, sk
 		skb__text_paragraph_init(rich_text, new_paragraph, paragraph_attributes);
 		new_paragraph->global_text_offset = text_offset;
 
-		skb_text_append_utf32(&new_paragraph->text, utf32 + paragraph_range.start, paragraph_range.end - paragraph_range.start, attributes);
+		skb_text_append_utf32_with_payload(&new_paragraph->text, utf32 + paragraph_range.start, paragraph_range.end - paragraph_range.start, attributes, span_flags, payload);
 
 		text_offset += paragraph_range.end - paragraph_range.start;
 		range_idx++;
@@ -947,7 +957,10 @@ void skb_rich_text_insert_attributes(skb_rich_text_t* rich_text, skb_text_range_
 
 typedef struct skb__paragraph_attribute_context_t {
 	skb_attribute_t attribute;
+	uint8_t span_flags;
 	int32_t count;
+	skb_text_range_t text_range;
+	const skb_data_blob_t* payload;
 } skb__paragraph_attribute_context_t;
 
 static bool skb__iter_set_paragraph_attribute(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
@@ -1038,7 +1051,7 @@ static bool skb__iter_set_attribute(skb_rich_text_t* rich_text, int32_t paragrap
 {
 	skb__paragraph_attribute_context_t* ctx = context;
 	skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
-	skb_text_add_attribute(&text_paragraph->text, text_range, ctx->attribute);
+	skb_text_add_attribute_with_payload(&text_paragraph->text, text_range, ctx->attribute, ctx->span_flags, ctx->payload);
 
 	// Mark as changed
 	text_paragraph->version = ++rich_text->version_counter;
@@ -1048,8 +1061,13 @@ static bool skb__iter_set_attribute(skb_rich_text_t* rich_text, int32_t paragrap
 
 void skb_rich_text_set_attribute(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute)
 {
+	skb_rich_text_set_attribute_with_payload(rich_text, text_range, attribute, 0, NULL);
+}
+
+void skb_rich_text_set_attribute_with_payload(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload)
+{
 	assert(rich_text);
-	skb__paragraph_attribute_context_t ctx = {.attribute = attribute};
+	skb__paragraph_attribute_context_t ctx = {.attribute = attribute, .span_flags = span_flags, .payload = payload};
 	skb__iterate_paragraphs(rich_text, text_range, skb__iter_set_attribute, &ctx);
 }
 
@@ -1115,6 +1133,96 @@ int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_
 	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_get_attribute_count, &ctx);
 	return ctx.count;
 }
+
+
+static bool skb__iter_has_attribute(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	const skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
+	const skb_attribute_span_t* attribute_spans = skb_text_get_attribute_spans(&text_paragraph->text);
+	const int32_t attribute_spans_count = skb_text_get_attribute_spans_count(&text_paragraph->text);
+
+	for (int32_t si = 0; si < attribute_spans_count; si++) {
+		const skb_attribute_span_t* attribute_span = &attribute_spans[si];
+		if (attribute_span->attribute.kind == ctx->attribute.kind && memcmp(&attribute_span->attribute, &ctx->attribute, sizeof(skb_attribute_t)) == 0) {
+			if ((text_range.start.offset >= attribute_span->text_range.start && text_range.start.offset < attribute_span->text_range.end) && text_range.end.offset <= attribute_span->text_range.end)
+				ctx->count++;
+		}
+	}
+
+	return true;
+}
+
+bool skb_rich_text_has_attribute(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(rich_text);
+	skb__paragraph_attribute_context_t ctx = {.attribute = attribute, .count = 0};
+	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_has_attribute, &ctx);
+	return ctx.count > 0;
+}
+
+
+
+static bool skb__iter_get_text_range(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	const skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
+	const skb_attribute_span_t* attribute_spans = skb_text_get_attribute_spans(&text_paragraph->text);
+	const int32_t attribute_spans_count = skb_text_get_attribute_spans_count(&text_paragraph->text);
+
+	for (int32_t si = 0; si < attribute_spans_count; si++) {
+		const skb_attribute_span_t* attribute_span = &attribute_spans[si];
+		if (attribute_span->attribute.kind == ctx->attribute.kind && memcmp(&attribute_span->attribute, &ctx->attribute, sizeof(skb_attribute_t)) == 0) {
+			if ((text_range.start.offset >= attribute_span->text_range.start && text_range.start.offset < attribute_span->text_range.end) && text_range.end.offset <= attribute_span->text_range.end) {
+				ctx->text_range = (skb_text_range_t) {
+					.start = { .offset = text_paragraph->global_text_offset + attribute_span->text_range.start },
+					.end = { .offset = text_paragraph->global_text_offset + attribute_span->text_range.end },
+				};
+				ctx->count++;
+				return false; // stop iterating
+			}
+		}
+	}
+
+	return true;
+}
+
+skb_text_range_t skb_rich_text_get_attribute_text_range(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(rich_text);
+	skb__paragraph_attribute_context_t ctx = {.attribute = attribute, .count = 0};
+	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_get_text_range, &ctx);
+	return ctx.count > 0 ? ctx.text_range : (skb_text_range_t){0};
+}
+
+static bool skb__iter_get_attribute_payload(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
+{
+	skb__paragraph_attribute_context_t* ctx = context;
+	const skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
+	const skb_attribute_span_t* attribute_spans = skb_text_get_attribute_spans(&text_paragraph->text);
+	const int32_t attribute_spans_count = skb_text_get_attribute_spans_count(&text_paragraph->text);
+
+	for (int32_t si = 0; si < attribute_spans_count; si++) {
+		const skb_attribute_span_t* attribute_span = &attribute_spans[si];
+		if ((text_range.start.offset >= attribute_span->text_range.start && text_range.start.offset < attribute_span->text_range.end) && text_range.end.offset <= attribute_span->text_range.end) {
+			if (attribute_span->attribute.kind == ctx->attribute.kind && memcmp(&attribute_span->attribute, &ctx->attribute, sizeof(skb_attribute_t)) == 0) {
+				ctx->payload = attribute_span->payload;
+				return false; // Stop iterating
+			}
+		}
+	}
+
+	return true;
+}
+
+skb_data_blob_t* skb_rich_text_get_attribute_payload(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute)
+{
+	assert(rich_text);
+	skb__paragraph_attribute_context_t ctx = {.attribute = attribute };
+	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_get_attribute_payload, &ctx);
+	return (skb_data_blob_t*)ctx.payload;
+}
+
 
 void skb_rich_text_remove_if(skb_rich_text_t* rich_text, skb_rich_text_remove_func_t* filter_func, void* context)
 {

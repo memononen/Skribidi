@@ -26,12 +26,24 @@ enum {
 	SKB_MAX_ACTIVE_ATTRIBUTES = 64,
 };
 
+typedef enum {
+	/**
+	 * The range of the reference should not include the end.
+	 * This is used i.e. for links, so that typing right after the link will not expand the link.
+	 */
+	SKB_ATTRIBUTE_SPAN_END_EXCLUSIVE = (1<<0)
+} skb_attribute_span_flags_t;
+
 /** Struct describing attribute applied to a span of text. */
 typedef struct skb_attribute_span_t {
 	/** Range of text the attribute is applied to. */
 	skb_range_t text_range;
 	/** The attribute to apply. */
 	skb_attribute_t attribute;
+	/** Falgs for the span, see skb_attribute_span_flags_t */
+	uint8_t flags;
+	/** Pointer to payload assigned to the span. */
+	skb_data_blob_t* payload;
 } skb_attribute_span_t;
 
 /** Opaque type for the text. Use skb_text_create() to create. */
@@ -129,10 +141,10 @@ void skb_text_append(skb_text_t* text, const skb_text_t* text_from);
 /**
  * Appends range of contents from other text.
  * @param text pointer to the text to modify
- * @param from_text text to copy from.
- * @param from_text_range text range to copy (in utf-32 codepoints).
+ * @param source_text text to copy from.
+ * @param source_text_range text range to copy (in utf-32 codepoints).
  */
-void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_text_range_t from_text_range);
+void skb_text_append_range(skb_text_t* text, const skb_text_t* source_text, skb_text_range_t source_text_range);
 
 /**
  * Appends utf-8 string with attributes.
@@ -144,6 +156,17 @@ void skb_text_append_range(skb_text_t* text, const skb_text_t* from_text, skb_te
 void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes);
 
 /**
+ * Appends utf-8 string with attributes and payload.
+ * @param text pointer to the text to modify
+ * @param utf8 pointer to a utf-8 string
+ * @param utf8_count length of the utf-8 string, or -1 if the string is zero terminated.
+ * @param attributes slice of attributes to apply to the appended text.
+ * @param span_flags span flags to apply for all the attributes, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for all the attributes.
+ */
+void skb_text_append_utf8_with_payload(skb_text_t* text, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
+
+/**
  * Appends utf-32 string with attributes.
  * @param text pointer to the text to modify
  * @param utf32 pointer to a utf-32 string
@@ -151,6 +174,17 @@ void skb_text_append_utf8(skb_text_t* text, const char* utf8, int32_t utf8_count
  * @param attributes slice of attributes to apply to the appended text.
  */
 void skb_text_append_utf32(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
+
+/**
+ * Appends utf-32 string with attributes and payload.
+ * @param text pointer to the text to modify
+ * @param utf32 pointer to a utf-32 string
+ * @param utf32_count length of the utf-32 string, or -1 if the string is zero terminated.
+ * @param attributes slice of attributes to apply to the appended text.
+ * @param span_flags span flags to apply for all the attributes, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for all the attributes.
+ */
+void skb_text_append_utf32_with_payload(skb_text_t* text, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
 
 /**
  * Inserts text replacing the text range.
@@ -171,6 +205,18 @@ void skb_text_insert(skb_text_t* text, skb_text_range_t text_range, const skb_te
 void skb_text_insert_utf8(skb_text_t* text, skb_text_range_t text_range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes);
 
 /**
+ * Inserts utf-8 string and payload replacing the text range.
+ * @param text pointer to the text to modify
+ * @param text_range text range to replace (in utf-32 codepoints)
+ * @param utf8 pointer to the utf-8 string to insert
+ * @param utf8_count length of the utf-8 string, or -1 if the string is zero terminated.
+ * @param attributes slice of attributes to apply to the inserted text.
+ * @param span_flags span flags to apply for all the attributes, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for all the attributes.
+ */
+void skb_text_insert_utf8_with_payload(skb_text_t* text, skb_text_range_t text_range, const char* utf8, int32_t utf8_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
+
+/**
  * Inserts utf-32 string replacing the text range.
  * @param text pointer to the text to modify
  * @param text_range text range to replace (in utf-32 codepoints)
@@ -179,6 +225,18 @@ void skb_text_insert_utf8(skb_text_t* text, skb_text_range_t text_range, const c
  * @param attributes slice of attributes to apply to the inserted text.
  */
 void skb_text_insert_utf32(skb_text_t* text, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes);
+
+/**
+ * Inserts utf-32 string and payload replacing the text range.
+ * @param text pointer to the text to modify
+ * @param text_range text range to replace (in utf-32 codepoints)
+ * @param utf32 pointer to the utf-32 string to insert
+ * @param utf32_count length of the utf-32 string, or -1 if the string is zero terminated.
+ * @param attributes slice of attributes to apply to the inserted text.
+ * @param span_flags span flags to apply for all the attributes, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for all the attributes.
+ */
+void skb_text_insert_utf32_with_payload(skb_text_t* text, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_count, skb_attribute_set_t attributes, uint8_t span_flags, const skb_data_blob_t* payload);
 
 /**
  * Removes range of text.
@@ -255,6 +313,16 @@ void skb_text_clear_all_attributes(skb_text_t* text, skb_text_range_t text_range
  * @param attribute attribute to add
  */
 void skb_text_add_attribute(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Add attribute and payload to specified text range.
+ * @param text pointer to the text to modify
+ * @param text_range text range to apply the attributes for (in utf-32 codepoints)
+ * @param attribute attribute to add
+ * @param span_flags span flags to apply for the attribute, see skb_attribute_span_flags_t.
+ * @param payload payload to apply for the attribute.
+ */
+void skb_text_add_attribute_with_payload(skb_text_t* text, skb_text_range_t text_range, skb_attribute_t attribute, uint8_t span_flags, const skb_data_blob_t* payload);
 
 /**
  * Signature of attribute iterator callback.
