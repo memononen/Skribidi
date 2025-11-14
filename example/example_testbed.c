@@ -216,12 +216,12 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t text_attributes[] = {
 		skb_attribute_make_font_size(92.f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	const skb_attribute_t composition_attributes[] = {
-		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -575,9 +575,14 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
+					const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
+					const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(edit_layout, run);
+					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
+					if (paint.color.a > 0) {
+						render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
+							decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
+							paint.color, SKB_RASTERIZE_ALPHA_SDF);
+					}
 				}
 			}
 
@@ -608,7 +613,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 					const skb_layout_run_t* layout_run = &layout_runs[ri];
 					const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
-					const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
+					const skb_attribute_paint_t paint = skb_attributes_get_paint(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, layout_run_attributes, layout_params->attribute_collection);
 					const float font_size = layout_run->font_size;
 
 					if (ctx->show_run_details) {
@@ -655,7 +660,7 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 							// Text
 							render_draw_glyph(ctx->rc, gx, gy,
 								layout_params->font_collection, layout_run->font_handle, glyph->gid, font_size,
-								attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
+								paint.color, SKB_RASTERIZE_ALPHA_SDF);
 						}
 
 						if (ctx->show_baseline_details) {
@@ -744,9 +749,14 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
 				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
+					const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
+					const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(edit_layout, run);
+					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
+					if (paint.color.a > 0) {
+						render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
+							decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
+							paint.color, SKB_RASTERIZE_ALPHA_SDF);
+					}
 				}
 			}
 

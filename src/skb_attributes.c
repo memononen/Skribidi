@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include "hb.h"
 
@@ -351,56 +352,36 @@ skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, flo
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_fill(skb_color_t color)
+skb_attribute_t skb_attribute_make_paint_color(uint32_t paint_tag, uint32_t state, skb_color_t color)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.fill = (skb_attribute_fill_t) {
-		.kind = SKB_ATTRIBUTE_FILL,
+	attribute.paint = (skb_attribute_paint_t) {
+		.kind = SKB_ATTRIBUTE_PAINT,
+		.paint_tag = paint_tag,
+		.state = state,
 		.color = color,
+		.paint_id = 0,
 	};
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_background_fill(skb_color_t color)
+skb_attribute_t skb_attribute_make_paint_id(uint32_t paint_tag, uint32_t state, intptr_t paint_id)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.background_fill = (skb_attribute_background_fill_t) {
-		.kind = SKB_ATTRIBUTE_BACKGROUND_FILL,
-		.color = color,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.paragraph_fill = (skb_attribute_paragraph_fill_t) {
-		.kind = SKB_ATTRIBUTE_PARAGRAPH_FILL,
-		.color = color,
-	};
-	return attribute;
-}
-
-skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset)
-{
-	skb_attribute_t attribute;
-	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
-	attribute.decoration = (skb_attribute_decoration_t) {
-		.kind = SKB_ATTRIBUTE_DECORATION,
-		.position = (uint8_t)position,
-		.style = (uint8_t)style,
-		.color_source = SKB_DECORATION_COLOR_FROM_TEXT,
-		.thickness = thickness,
-		.offset = offset,
+	attribute.paint = (skb_attribute_paint_t) {
+		.kind = SKB_ATTRIBUTE_PAINT,
+		.paint_tag = paint_tag,
+		.state = state,
 		.color = (skb_color_t){0},
+		.paint_id = paint_id,
 	};
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color)
+
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, uint32_t paint_tag)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
@@ -408,15 +389,14 @@ skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position
 		.kind = SKB_ATTRIBUTE_DECORATION,
 		.position = (uint8_t)position,
 		.style = (uint8_t)style,
-		.color_source = SKB_DECORATION_COLOR_SPECIFIC,
 		.thickness = thickness,
 		.offset = offset,
-		.color = color,
+		.paint_tag = paint_tag,
 	};
 	return attribute;
 }
 
-skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width, skb_color_t color)
+skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width)
 {
 	skb_attribute_t attribute;
 	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
@@ -426,7 +406,6 @@ skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t 
 		.max_level = max_level,
 		.offset_x = offset_x,
 		.width = width,
-		.color = color,
 	};
 	return attribute;
 }
@@ -653,31 +632,28 @@ skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t a
 	return attr ? attr->list_marker : default_list_marker;
 }
 
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+skb_attribute_paint_t skb_attributes_get_paint(uint32_t paint_tag, uint32_t state, const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	static const skb_attribute_fill_t default_fill = {
+	static const skb_attribute_paint_t default_paint = {
 		.color = {0, 0, 0, 255 },
 	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FILL);
-	return attr ? attr->fill : default_fill;
-}
 
-skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_background_fill_t default_background_fill = {
-		.color = {0, 0, 0, 0 },
-	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BACKGROUND_FILL);
-	return attr ? attr->background_fill : default_background_fill;
-}
+	const skb_attribute_t* paints[16];
+	int32_t paints_count = skb_attributes_get_by_kind(attributes, collection, SKB_ATTRIBUTE_PAINT, paints, SKB_COUNTOF(paints));
 
-skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
-{
-	static const skb_attribute_paragraph_fill_t default_paragraph_fill = {
-		.color = {0, 0, 0, 0 },
-	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_FILL);
-	return attr ? attr->paragraph_fill : default_paragraph_fill;
+	skb_attribute_paint_t fallback = default_paint;
+
+	for (int32_t i = 0; i < paints_count; i++) {
+		const skb_attribute_paint_t* paint = &paints[i]->paint;
+		if (paint->paint_tag == paint_tag) {
+			if (paint->state & state)
+				return *paint;
+			if (paint->state == SKB_PAINT_STATE_DEFAULT)
+				fallback = *paint;
+		}
+	}
+
+	return fallback;
 }
 
 skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)

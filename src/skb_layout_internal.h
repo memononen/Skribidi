@@ -11,10 +11,11 @@ typedef struct skb__content_run_t {
 	float content_width;				// Width of object or icon specified by the run
 	float content_height;				// Height of object or icon specified by the run
 	intptr_t content_data;				// Data of object or icon specified by the run
-	intptr_t run_id;					// Custom identifier for a content run.
+	intptr_t content_id;				// Custom identifier for a content run.
 	skb_range_t text_range;				// Range of text the attributes apply to.
 	skb_range_t attributes_range;		// The content attributes
 	uint8_t type;						// Type of the content run which described the attributes. See skb_content_run_type_t.
+	bool has_text_background;
 } skb__content_run_t;
 
 // Represents run of text in same script, font and style, for shaping.

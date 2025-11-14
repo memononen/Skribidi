@@ -105,36 +105,41 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t deco_solid_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_double_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_dotted_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_dashed_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_wavy_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 
@@ -252,7 +257,7 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
 	// Draw visual result
-	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw examples of the decoration patterns.
 	{

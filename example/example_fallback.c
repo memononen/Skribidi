@@ -78,7 +78,7 @@ static void set_text(fallback_context_t* ctx, const char* text)
 
 	const skb_attribute_t attributes[] = {
 		skb_attribute_make_font_size(32.f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	skb_layout_set_utf8(ctx->layout, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
@@ -309,7 +309,7 @@ void fallback_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
-	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw visual result
 

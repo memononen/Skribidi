@@ -199,45 +199,24 @@ void render_draw_decoration(render_context_t* rc,
 /**
  * Draws text layout
  * @param rc render context
- * @param layout layout to draw
- * @param alpha_mode whether to render as SDF or alpha mask.
- */
-void render_draw_layout(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
-
-
-typedef enum {
-	RENDER_OVERRIDE_FILL,
-	RENDER_OVERRIDE_DECORATION,
-} render_override_type_t;
-
-typedef struct render_override_t {
-	intptr_t content_id;
-	skb_color_t color;
-	uint8_t type;
-} render_override_t;
-
-typedef struct render_override_slice_t {
-	const render_override_t* items;
-	int32_t count;
-} render_override_slice_t;
-
-#define RENDER_OVERRIDE_SLICE_FROM_ARRAY(array) SKB_LITERAL(render_override_slice_t) { .items = (array), .count = SKB_COUNTOF(array) }
-
-render_override_t render_color_override_make_fill(intptr_t content_data, skb_color_t color);
-render_override_t render_color_override_make_decoration(intptr_t content_data, skb_color_t color);
-
-void render_draw_layout_with_color_overrides(render_context_t* rc, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, render_override_slice_t color_overrides);
-
-/**
- * Draws text layout with culling.
- * Items (glyphs, icons, objects) that fall completely outside the viewport will not be drawn nor requested from the image atlas.
- * The viewport is in the same coordinate space as the layout.
- * @param rc render context
  * @param view_bounds view bounds to cull the items against.
+ * @param offset_x asd
+ * @param offset_y asd
  * @param layout layout to draw
  * @param alpha_mode whether to render as SDF or alpha mask.
  */
-void render_draw_layout_with_culling(render_context_t* rc, const skb_rect2_t view_bounds, float offset_x, float offset_y, const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
+void render_draw_layout(
+	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+	const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
+
+typedef struct render_content_state_t {
+	intptr_t content_id;
+	uint32_t state;
+} render_content_state_t;
+
+void render_draw_layout_with_state(
+	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+	const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, const render_content_state_t* content_states, int32_t content_states_count);
 
 
 #endif // RENDERER_H

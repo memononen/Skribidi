@@ -108,7 +108,7 @@ void* culling_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
 		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 		skb_attribute_make_font_size(24.f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	const char* text = "Hamburgerfontstiv 🤣🥰💀✌️🌴🐢🐐🍄⚽🍻👑📸 این یک تست است 😬👀🚨🏡🕊️🏆😻🌟私はその人を常に先生と 呼んでいた。";
@@ -282,7 +282,7 @@ void culling_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	}
 
 	// Draw layout
-	render_draw_layout_with_culling(ctx->rc, local_view, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, &local_view, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	render_pop_transform(ctx->rc);
 

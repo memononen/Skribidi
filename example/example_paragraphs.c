@@ -113,14 +113,14 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t h1_attributes[] = {
 		skb_attribute_make_font_size(48.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
-		skb_attribute_make_fill(skb_rgba(96,96,96,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(96,96,96,255)),
 		skb_attribute_make_paragraph_padding(0,0,10,5),
 	};
 
 	const skb_attribute_t h2_attributes[] = {
 		skb_attribute_make_font_size(24.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
-		skb_attribute_make_fill(skb_rgba(96,96,96,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(96,96,96,255)),
 		skb_attribute_make_horizontal_align(SKB_ALIGN_END),
 		skb_attribute_make_paragraph_padding(10,10,10,5),
 	};
@@ -128,14 +128,14 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t body_attributes[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(16,16,16,255)),
 		skb_attribute_make_paragraph_padding(0,0,5,5),
 		skb_attribute_make_indent_increment(0, 20.f),
 	};
 	const skb_attribute_t body_attributes_right[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(16,16,16,255)),
 		skb_attribute_make_horizontal_align(SKB_ALIGN_END),
 		skb_attribute_make_paragraph_padding(0,0,5,5),
 	};
@@ -143,13 +143,13 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t body_attributes_padding[] = {
 		skb_attribute_make_font_size(16.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(16,16,16,255)),
 		skb_attribute_make_paragraph_padding(80,20,5,5),
 	};
 
 	const skb_attribute_t list_attributes_l1[] = {
 		skb_attribute_make_font_size(16.f),
-		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(16,16,16,255)),
 		skb_attribute_make_paragraph_padding_with_spacing(0,0,10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(0),
@@ -159,7 +159,7 @@ void* paragraphs_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t list_attributes_l2[] = {
 		skb_attribute_make_font_size(16.f),
-		skb_attribute_make_fill(skb_rgba(16,16,16,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(16,16,16,255)),
 		skb_attribute_make_paragraph_padding_with_spacing(0,0,10,10,5),
 		skb_attribute_make_indent_increment(40.f, 0.f),
 		skb_attribute_make_indent_level(1),
@@ -356,7 +356,7 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 	for (int32_t pi = 0; pi < skb_rich_layout_get_paragraphs_count(ctx->rich_layout); pi++) {
 		const skb_layout_t* layout = skb_rich_layout_get_layout(ctx->rich_layout, pi);
 		const float layout_offset_y = skb_rich_layout_get_layout_offset_y(ctx->rich_layout, pi);
-		render_draw_layout(ctx->rc, 0.f, layout_offset_y, layout, SKB_RASTERIZE_ALPHA_SDF);
+		render_draw_layout(ctx->rc, NULL, 0.f, layout_offset_y, layout, SKB_RASTERIZE_ALPHA_SDF);
 	}
 
 	if (ctx->show_layout_details) {

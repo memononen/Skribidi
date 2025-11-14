@@ -287,7 +287,7 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			const skb_attribute_t attributes[] = {
 				skb_attribute_make_font_size(24.f),
-				skb_attribute_make_fill(skb_rgba(0,0,0,255)),
+				skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,255)),
 			};
 
 			const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, example_text[ctx->example_text_idx], -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
@@ -297,7 +297,7 @@ void aligns_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			debug_render_stroked_rect(ctx->rc, tx + bounds.x, ty + bounds.y, bounds.width, bounds.height, skb_rgba(0,0,0,64), -1.f);
 
 			// Draw layout
-			render_draw_layout(ctx->rc, tx, ty, layout, SKB_RASTERIZE_ALPHA_SDF);
+			render_draw_layout(ctx->rc, NULL, tx, ty, layout, SKB_RASTERIZE_ALPHA_SDF);
 
 			if (ctx->show_run_details) {
 				debug_render_layout_lines(ctx->rc, tx, ty, layout);

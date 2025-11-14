@@ -280,18 +280,27 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		const skb_attribute_t text_attributes[] = {
 			skb_attribute_make_font_size(24.f),
-			skb_attribute_make_fill(text_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, 0, text_color),
 		};
 
 		const skb_attribute_t link_attributes[] = {
 			skb_attribute_make_font_size(24.f),
-			skb_attribute_make_fill(link_color),
-			skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, skb_rgba(0,0,0,0)),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, 0, link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_ACTIVE, active_link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,0)),
+			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_HOVER, link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_ACTIVE, active_link_color),
+			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, SKB_PAINT_DECORATION_LINK),
 		};
 
 		const skb_attribute_t icon_attributes[] = {
+			skb_attribute_make_inline_padding(4,4,2,2),
 			skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
-			skb_attribute_make_fill(link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, text_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_HOVER, link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_ACTIVE, active_link_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT_BACKGROUND, SKB_PAINT_STATE_HOVER, link_color_trans),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT_BACKGROUND, SKB_PAINT_STATE_ACTIVE, active_link_color_trans),
 		};
 
 		skb_content_run_t runs[] = {
@@ -307,39 +316,24 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		const skb_layout_t* layout = skb_layout_cache_get_from_runs(ctx->layout_cache, ctx->temp_alloc, &params, runs, SKB_COUNTOF(runs));
 
 		skb_layout_content_hit_t hit = skb_layout_hit_test_content(layout, ctx->mouse_pos.x, ctx->mouse_pos.y);
-		ctx->hover_item = hit.run_id;
+		ctx->hover_item = hit.content_id;
 
-		const render_override_t hover_color_overrides[] = {
-			render_color_override_make_fill(ctx->hover_item, link_color),
-			render_color_override_make_decoration(ctx->hover_item, link_color),
+		render_content_state_t content_state = {
+			.content_id = ctx->hover_item,
+			.state = SKB_PAINT_STATE_DEFAULT,
 		};
 
-		const render_override_t active_color_overrides[] = {
-			render_color_override_make_fill(ctx->hover_item, active_link_color),
-			render_color_override_make_decoration(ctx->hover_item, active_link_color),
-		};
-
-		render_override_slice_t color_overrides = { 0 };
 		if (ctx->hover_item != 0) {
-
-			draw_content_context_t content_ctx = {
-				.rc = ctx->rc,
-				.layout = layout,
-				.color = ctx->mouse_pressed ? active_link_color_trans : link_color_trans,
-			};
-			skb_layout_get_content_run_bounds_by_id(layout, ctx->hover_item, draw_content_bounds, &content_ctx);
-
 			glfwSetCursor(ctx->window, ctx->hand_cursor);
-
 			if (ctx->mouse_pressed)
-				color_overrides = RENDER_OVERRIDE_SLICE_FROM_ARRAY(active_color_overrides);
+				content_state.state = SKB_PAINT_STATE_ACTIVE;
 			else
-				color_overrides = RENDER_OVERRIDE_SLICE_FROM_ARRAY(hover_color_overrides);
+				content_state.state = SKB_PAINT_STATE_HOVER;
 		} else {
 			glfwSetCursor(ctx->window, NULL);
 		}
 
-		render_draw_layout_with_color_overrides(ctx->rc, 0, 0, layout, SKB_RASTERIZE_ALPHA_SDF, color_overrides);
+		render_draw_layout_with_state(ctx->rc, NULL, 0, 0, layout, SKB_RASTERIZE_ALPHA_SDF, &content_state, 1);
 	}
 
 	render_pop_transform(ctx->rc);

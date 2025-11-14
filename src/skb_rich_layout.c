@@ -278,6 +278,7 @@ void skb_rich_layout_set_from_rich_text(
 			marker_counters[indent_level] = 0;
 		}
 		layout_params.list_marker_counter = list_marker_counter;
+		layout_params.text_content_id_base = layout_paragraph->global_text_offset;
 
 		const skb_text_t* paragraph_text = skb_rich_text_get_paragraph_text(rich_text, i);
 		const int32_t paragraph_text_count = skb_text_get_utf32_count(paragraph_text);

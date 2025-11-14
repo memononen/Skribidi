@@ -166,10 +166,13 @@
         </Expand>
     </Type>
 
-    <Type Name="skb_attribute_fill_t">
+    <Type Name="skb_attribute_paint_t">
         <Expand>
             <Synthetic Name="kind"><DisplayString>{((char*)&amp;kind)+3,[1]sb}, {((char*)&amp;kind)+2,[1]sb}, {((char*)&amp;kind)+1,[1]sb}, {((char*)&amp;kind)+0,[1]sb}</DisplayString></Synthetic>
+            <Synthetic Name="paint_tag"><DisplayString>{((char*)&amp;paint_tag)+3,[1]sb}, {((char*)&amp;paint_tag)+2,[1]sb}, {((char*)&amp;paint_tag)+1,[1]sb}, {((char*)&amp;paint_tag)+0,[1]sb}</DisplayString></Synthetic>
+            <Item Name="state">(skb_paint_state_t)state</Item>
             <Item Name="color">color</Item>
+            <Item Name="paint_id">paint_id</Item>
         </Expand>
     </Type>
 
@@ -180,7 +183,7 @@
             <Item Name="style">(skb_decoration_style_t)style</Item>
             <Item Name="thickness">thickness</Item>
             <Item Name="offset">offset</Item>
-            <Item Name="color">color</Item>
+            <Synthetic Name="paint_tag"><DisplayString>{((char*)&amp;paint_tag)+3,[1]sb}, {((char*)&amp;paint_tag)+2,[1]sb}, {((char*)&amp;paint_tag)+1,[1]sb}, {((char*)&amp;paint_tag)+0,[1]sb}</DisplayString></Synthetic>
         </Expand>
     </Type>
 
@@ -223,20 +226,17 @@
         <DisplayString Condition="kind=='wosp'">Word Spacing</DisplayString>
         <DisplayString Condition="kind=='lnhe'">Line height</DisplayString>
         <DisplayString Condition="kind=='tabs'">Tab Stop Increment</DisplayString>
-
         <DisplayString Condition="kind=='vpad'">Vertical Padding</DisplayString>
         <DisplayString Condition="kind=='hpad'">Horizontal Padding</DisplayString>
         <DisplayString Condition="kind=='ilvl'">Indent Level</DisplayString>
         <DisplayString Condition="kind=='iinc'">Idnent Increment</DisplayString>
-
         <DisplayString Condition="kind=='twrp'">Text Wrap</DisplayString>
         <DisplayString Condition="kind=='tofl'">Text Overflow</DisplayString>
         <DisplayString Condition="kind=='vtrm'">Vertical Trim</DisplayString>
         <DisplayString Condition="kind=='haln'">Horizontal Align</DisplayString>
         <DisplayString Condition="kind=='valn'">Vertical Align</DisplayString>
         <DisplayString Condition="kind=='baln'">Baseline Align</DisplayString>
-
-        <DisplayString Condition="kind=='fill'">Fill</DisplayString>
+        <DisplayString Condition="kind=='pant'">Paint</DisplayString>
         <DisplayString Condition="kind=='deco'">Decoration</DisplayString>
         <DisplayString Condition="kind=='obal'">Object Align</DisplayString>
         <DisplayString Condition="kind=='obpa'">Object Padding</DisplayString>
@@ -265,7 +265,7 @@
             <ExpandedItem Condition="kind=='haln'">horizontal_align</ExpandedItem>
             <ExpandedItem Condition="kind=='valn'">vertical_align</ExpandedItem>
             <ExpandedItem Condition="kind=='baln'">baseline_align</ExpandedItem>
-            <ExpandedItem Condition="kind=='fill'">fill</ExpandedItem>
+            <ExpandedItem Condition="kind=='pant'">paint</ExpandedItem>
             <ExpandedItem Condition="kind=='deco'">decoration</ExpandedItem>
             <ExpandedItem Condition="kind=='obal'">object_align</ExpandedItem>
             <ExpandedItem Condition="kind=='obpa'">object_padding</ExpandedItem>
@@ -437,11 +437,26 @@
             <Item Name="ref_baseline">ref_baseline</Item>
             <Item Name="font_size">font_size</Item>
             <Item Name="attributes_range">attributes_range</Item>
-            <Item Name="flags">flags</Item>
-            <Item Name="content_run_id">content_run_id</Item>
+            <Item Name="(skb_layout_run_flags_t)flags">flags</Item>
+            <Item Name="content_id">content_id</Item>
             <Item Name="font_handle" Condition="type==0 || type==1">font_handle</Item>
             <Item Name="object_data" Condition="type==2">object_data</Item>
             <Item Name="icon_handle" Condition="type==3">icon_handle</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="skb_decoration_t">
+        <DisplayString>Style {(skb_decoration_style_t)style}</DisplayString>
+        <Expand>
+            <Item Name="layout_run_idx">layout_run_idx</Item>
+            <Item Name="offset_x">offset_x</Item>
+            <Item Name="offset_y">offset_y</Item>
+            <Item Name="length">length</Item>
+            <Item Name="pattern_offset">pattern_offset</Item>
+            <Item Name="thickness">thickness</Item>
+            <Item Name="position">(skb_decoration_position_t)position</Item>
+            <Item Name="style">(skb_decoration_style_t)style</Item>
+            <Synthetic Name="paint_tag"><DisplayString>{((char*)&amp;paint_tag)+3,[1]sb}, {((char*)&amp;paint_tag)+2,[1]sb}, {((char*)&amp;paint_tag)+1,[1]sb}, {((char*)&amp;paint_tag)+0,[1]sb}</DisplayString></Synthetic>
         </Expand>
     </Type>
 

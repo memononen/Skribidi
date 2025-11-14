@@ -335,38 +335,53 @@ typedef struct skb_attribute_baseline_shift_t {
 	float offset;
 } skb_attribute_baseline_shift_t;
 
-/**
- * Text fill color attribute.
- * It is up to the client code to decide if multiple fill attributes are supported.
- */
-typedef struct skb_attribute_fill_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Color of the text */
-	skb_color_t color;
-} skb_attribute_fill_t;
+/** Enum describing common paint tags. The users can define their own as they see fit. */
+typedef enum {
+	/** Paint for text, or icon. */
+	SKB_PAINT_TEXT = SKB_TAG('t','e','x','t'),
+	/** Paint for text background. */
+	SKB_PAINT_TEXT_BACKGROUND = SKB_TAG('t','x','b','g'),
+	/** Paint for paragraph background. */
+	SKB_PAINT_PARAGRAPH_BACKGROUND = SKB_TAG('p','a','b','g'),
+	/** Paint for indent decoration. */
+	SKB_PAINT_INDENT_DECORATION = SKB_TAG('i','n','d','e'),
+	/** Paint for decoration used as link. */
+	SKB_PAINT_DECORATION_LINK = SKB_TAG('l','i','n','k'),
+	/** Paint for decoration used as underline. */
+	SKB_PAINT_DECORATION_UNDERLINE = SKB_TAG('u','l','i','n'),
+	/** Paint for decoration used as strike-through. */
+	SKB_PAINT_DECORATION_STRIKETHROUGH = SKB_TAG('s','t','r','k'),
+} skb_paint_name_tags_t;
+
+/** Num desciring bitmask for common paint states. The users can define their own as they see fit. */
+typedef enum {
+	/** Default paint. If any other state is requested, but is not found, default is picked if it exists. */
+	SKB_PAINT_STATE_DEFAULT = 0,
+	/** Paint for hover state. */
+	SKB_PAINT_STATE_HOVER = 1<<0,
+	/** Paint for active state. */
+	SKB_PAINT_STATE_ACTIVE = 1<<1,
+	/** Paint for disabled state. */
+	SKB_PAINT_STATE_DISABLED = 1<<2,
+} skb_paint_state_t;
 
 /**
- * Background fill color attribute.
- * It is up to the client code to decide if multiple fill attributes are supported.
+ * Paint attribute.
+ * Paint attributes are defined based on usage (paint_tag) and state.
+ * This allows to adjust the text rendering based on UI feedback without having to rebuild the layout.
  */
-typedef struct skb_attribute_background_fill_t {
+typedef struct skb_attribute_paint_t {
 	// Attribute kind tag, must be first.
 	uint32_t kind;
-	/** Color of the background */
+	/** Tag used to describe the paint usage. See skb_paint_name_tags_t. */
+	uint32_t paint_tag;
+	/** Bitmask of states the paint can be used for. See skb_paint_state_t. */
+	uint32_t state;
+	/** Color of the paint. */
 	skb_color_t color;
-} skb_attribute_background_fill_t;
-
-/**
- * Paragraph background fill color attribute.
- * It is up to the client code to decide if multiple fill attributes are supported.
- */
-typedef struct skb_attribute_paragraph_fill_t {
-	// Attribute kind tag, must be first.
-	uint32_t kind;
-	/** Color of the paragraph back ground */
-	skb_color_t color;
-} skb_attribute_paragraph_fill_t;
+	/** Custom external paint id for the paint. */
+	intptr_t paint_id;
+} skb_attribute_paint_t;
 
 /**
  * Text decoration attribute.
@@ -380,14 +395,12 @@ typedef struct skb_attribute_decoration_t {
 	uint8_t position;
 	/** Style of the decoration line. See skb_decoration_style_t. */
 	uint8_t style;
-	/** Source of the decoration color. See skb_decoration_color_source_t */
-	uint8_t color_source;
 	/** Thickness of the decoration line to draw. If left to 0.0, the thickness will be based on the font. */
 	float thickness;
 	/** Offset of the decoration line relative to the position. For under and bottom the offset grows down, and for through and top line the offset grows up. */
 	float offset;
-	/** Color of the decoration line. */
-	skb_color_t color;
+	/** Tag to find the paint for the decoration, see skb_paint_name_tags_t. */
+	uint32_t paint_tag;
 } skb_attribute_decoration_t;
 
 /**
@@ -405,8 +418,6 @@ typedef struct skb_attribute_indent_decoration_t {
 	float offset_x;
 	/** Width of the decoration line. */
 	float width;
-	/** Color of the decoration bar. */
-	skb_color_t color;
 } skb_attribute_indent_decoration_t;
 
 /**
@@ -502,12 +513,8 @@ typedef enum {
 	SKB_ATTRIBUTE_BASELINE_ALIGN = SKB_TAG('b','a','l','n'),
 	/** Tag for skb_attribute_baseline_shift_t */
 	SKB_ATTRIBUTE_BASELINE_SHIFT = SKB_TAG('b','l','s','f'),
-	/** Tag for skb_attribute_fill_t */
-	SKB_ATTRIBUTE_FILL = SKB_TAG('f','i','l','l'),
-	/** Tag for skb_attribute_background_fill_t */
-	SKB_ATTRIBUTE_BACKGROUND_FILL = SKB_TAG('b','g','f','l'),
-	/** Tag for skb_attribute_paragraph_fill_t */
-	SKB_ATTRIBUTE_PARAGRAPH_FILL = SKB_TAG('p','a','f','i'),
+	/** Tag for skb_attribute_paint_t */
+	SKB_ATTRIBUTE_PAINT = SKB_TAG('p','a','n','t'),
 	/** Tag for skb_attribute_decoration_t */
 	SKB_ATTRIBUTE_DECORATION = SKB_TAG('d','e','c','o'),
 	/** Tag for skb_attribute_indent_decoration_t */
@@ -551,9 +558,7 @@ typedef union skb_attribute_t {
 	skb_attribute_align_t vertical_align;
 	skb_attribute_baseline_align_t baseline_align;
 	skb_attribute_baseline_shift_t baseline_shift;
-	skb_attribute_fill_t fill;
-	skb_attribute_background_fill_t background_fill;
-	skb_attribute_paragraph_fill_t paragraph_fill;
+	skb_attribute_paint_t paint;
 	skb_attribute_decoration_t decoration;
 	skb_attribute_indent_decoration_t indent_decoration;
 	skb_attribute_object_align_t object_align;
@@ -669,23 +674,17 @@ skb_attribute_t skb_attribute_make_baseline_align(skb_baseline_t baseline_align)
 /** @returns new baseline shift attribute. See skb_attribute_baseline_shift_t */
 skb_attribute_t skb_attribute_make_baseline_shift(skb_baseline_shift_t type, float shift);
 
-/** @returns new fill color text attribute. See skb_attribute_fill_t */
-skb_attribute_t skb_attribute_make_fill(skb_color_t color);
+/** @returns new color paint attribute. See skb_attribute_paint_t */
+skb_attribute_t skb_attribute_make_paint_color(uint32_t paint_tag, uint32_t state, skb_color_t color);
 
-/** @returns new background fill color attribute. See skb_attribute_background_fill_t */
-skb_attribute_t skb_attribute_make_background_fill(skb_color_t color);
-
-/** @returns new paragraph fill attribute. See skb_attribute_paragraph_fill_t */
-skb_attribute_t skb_attribute_make_paragraph_fill(skb_color_t color);
+/** @returns new custom paint attribute. See skb_attribute_paint_t */
+skb_attribute_t skb_attribute_make_paint_id(uint32_t paint_tag, uint32_t state, intptr_t paint_id);
 
 /** @returns new text decoration attribute, decoration color is inerited from text. See skb_attribute_decoration_t */
-skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset);
+skb_attribute_t skb_attribute_make_decoration(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, uint32_t paint_tag);
 
-/** @returns new text decoration attribute. See skb_attribute_decoration_t */
-skb_attribute_t skb_attribute_make_decoration_with_color(skb_decoration_position_t position, skb_decoration_style_t style, float thickness, float offset, skb_color_t color);
-
-/** @returns new idnent decoration attribute. See skb_attribute_indent_decoration_t */
-skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width, skb_color_t color);
+/** @returns new indent decoration attribute. See skb_attribute_indent_decoration_t */
+skb_attribute_t skb_attribute_make_indent_decoration(int32_t min_level, int32_t max_level, float offset_x, float width);
 
 /** @returns new object align attribute. See skb_attribute_object_align_t */
 skb_attribute_t skb_attribute_make_object_align(float baseline_ratio, skb_object_align_reference_t align_ref, skb_baseline_t align_baseline);
@@ -853,31 +852,15 @@ skb_attribute_indent_increment_t skb_attributes_get_indent_increment(skb_attribu
 skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
- * Returns first fill attribute or default value if not found.
- * The default value is opaque black.
+ * Returns first paint attribute based on paint tag and state, or default value if no matching color is found.
+ * The default value is opaque black. The default values, name_tag is 0.
+ * @param paint_tag paintg tag to find.
+ * @param state paint state to find.
  * @param attributes attribute set where to look for the attributes from.
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_fill_t skb_attributes_get_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first background fill attribute or default value if not found.
- * The default value is transparent.
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_background_fill_t skb_attributes_get_background_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
-
-/**
- * Returns first paragraph fill attribute or default value if not found.
- * The default value is transparent.
- * @param attributes attribute set where to look for the attributes from.
- * @param collection attribute collection which is used to lookup attribute references.
- * @return first found attribute or default value.
- */
-skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+skb_attribute_paint_t skb_attributes_get_paint(uint32_t paint_tag, uint32_t state, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first indent decoration attribute or default value if not found.
@@ -886,7 +869,7 @@ skb_attribute_paragraph_fill_t skb_attributes_get_paragraph_fill(const skb_attri
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first object align attribute or default value if not found.
@@ -896,7 +879,7 @@ skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb
  * @param collection attribute collection which is used to lookup attribute references.
  * @return first found attribute or default value.
  */
-skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+skb_attribute_object_align_t skb_attributes_get_object_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
  * Returns first text wrap attribute or default value if not found.

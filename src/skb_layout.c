@@ -37,11 +37,11 @@ typedef struct skb__layout_build_context_t {
 // Content
 //
 
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF8,
-		.run_id = run_id,
+		.content_id = content_id,
 		.utf8 = {
 			.text = text,
 			.text_count = text_count,
@@ -51,11 +51,11 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
 }
 
 
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_UTF32,
-		.run_id = run_id,
+		.content_id = content_id,
 		.utf32 = {
 			.text = text,
 			.text_count = text_count,
@@ -65,11 +65,11 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
 }
 
 
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t content_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_OBJECT,
-		.run_id = run_id,
+		.content_id = content_id,
 		.object = {
 			.data = data,
 			.width = width,
@@ -79,11 +79,11 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
 	};
 }
 
-skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t run_id)
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t content_id)
 {
 	return (skb_content_run_t) {
 		.type = SKB_CONTENT_RUN_ICON,
-		.run_id = run_id,
+		.content_id = content_id,
 		.icon = {
 			.icon_handle = icon_handle,
 			.width = width,
@@ -1048,13 +1048,14 @@ static skb_layout_run_t* skb__line_append_shaping_run(skb_layout_t* layout, skb_
 	layout_run->font_size = shaping_run->font_size;
 
 	layout_run->attributes_range = content_run->attributes_range;
-	layout_run->content_run_id = content_run->run_id;
+	layout_run->content_id = content_run->content_id;
 
 	layout_run->cluster_range = cluster_range;
 	skb__update_glyph_range(layout, layout_run);
 
 	SKB_SET_FLAG(layout_run->flags, SKB_LAYOUT_RUN_HAS_START, cluster_range.start == shaping_run->cluster_range.start);
 	SKB_SET_FLAG(layout_run->flags, SKB_LAYOUT_RUN_HAS_END, cluster_range.end == shaping_run->cluster_range.end);
+	SKB_SET_FLAG(layout_run->flags, SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT, content_run->has_text_background);
 
 	if (layout_run->type == SKB_CONTENT_RUN_OBJECT || layout_run->type == SKB_CONTENT_RUN_ICON) {
 		if (layout_run->type == SKB_CONTENT_RUN_OBJECT)
@@ -1294,7 +1295,7 @@ static void skb__line_append_list_marker_run(skb_layout_t* layout, skb_layout_li
 	marker_run->ref_baseline = ref_baseline;
 	marker_run->font_handle = font_handle;
 	marker_run->content_run_idx = SKB_INVALID_INDEX; // Mark as invalid so that the run can be skipped e.g. by caret iterator.
-	marker_run->content_run_id = 0;
+	marker_run->content_id = 0;
 	marker_run->attributes_range = (skb_range_t){0}; // This will return return empty attribute set, with layout params as parent.
 	marker_run->glyph_range.start = layout->glyphs_count;
 	marker_run->glyph_range.end = layout->glyphs_count + marker_glyph_count;
@@ -1480,7 +1481,7 @@ static bool skb__truncate_line(skb_layout_t* layout, int32_t line_idx, bool is_l
 			ellipsis_run->font_size = font_size;
 			ellipsis_run->font_handle = font_handle;
 			ellipsis_run->content_run_idx = 0;
-			ellipsis_run->content_run_id = 0;
+			ellipsis_run->content_id = 0;
 			ellipsis_run->attributes_range = attributes_range;
 			ellipsis_run->glyph_range.start = layout->glyphs_count;
 			ellipsis_run->glyph_range.end = layout->glyphs_count + ellipsis_glyph_count;
@@ -1851,6 +1852,9 @@ static void skb__build_decorations_for_line(skb_layout_t* layout, int32_t line_i
 	// Iterate over runs of same attribute span.
 	for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 
+		if (layout->layout_runs[ri].type != SKB_CONTENT_RUN_UTF8 && layout->layout_runs[ri].type != SKB_CONTENT_RUN_UTF32)
+			continue;
+
 		// Find range of runs that share same content run.
 		skb_range_t decoration_run_range = { .start = ri, .end = ri + 1 };
 		const int32_t content_run_idx = layout->layout_runs[decoration_run_range.start].content_run_idx;
@@ -1931,13 +1935,6 @@ static void skb__build_decorations_for_line(skb_layout_t* layout, int32_t line_i
 			float start_x = 0.f, end_x = 0.f;
 			skb__calc_run_range_end_points(layout, line, decoration_run_range, &start_x, &end_x);
 
-			// Figure out color
-			skb_color_t color = attr_decoration.color;
-			if (attr_decoration.color_source == SKB_DECORATION_COLOR_FROM_TEXT) {
-				const skb_attribute_fill_t fill = skb_attributes_get_fill(layout_run_attributes, layout->params.attribute_collection);
-				color = fill.color;
-			}
-
 			// Add decoration
 			SKB_ARRAY_RESERVE(layout->decorations, layout->decorations_count + 1);
 			skb_decoration_t* decoration = &layout->decorations[layout->decorations_count++];
@@ -1948,7 +1945,7 @@ static void skb__build_decorations_for_line(skb_layout_t* layout, int32_t line_i
 			decoration->thickness = thickness;
 			decoration->style = attr_decoration.style;
 			decoration->position = attr_decoration.position;
-			decoration->color = color;
+			decoration->paint_tag = attr_decoration.paint_tag;
 			decoration->layout_run_idx = (uint16_t)decoration_run_range.start;
 		}
 	}
@@ -2240,7 +2237,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 				skb_layout_run_t* prev_layout_run = (ri > line->layout_run_range.start) ? &layout->layout_runs[ri - 1] : NULL;
 
 				const bool are_same_run = prev_layout_run
-					&& prev_layout_run->content_run_id == layout_run->content_run_id
+					&& prev_layout_run->content_id == layout_run->content_id
 					&& skb__equals_inline_padding(&prev_inline_padding, &inline_padding);
 
 				if (!are_same_run) {
@@ -2556,7 +2553,7 @@ static void skb__build_layout(skb__layout_build_context_t* build_context, skb_la
 		const skb__content_run_t* prev_content_run = prev_shaping_run ? &layout->content_runs[prev_shaping_run->content_run_idx] : NULL;
 
 		const bool are_same_run = prev_content_run
-			&& prev_content_run->run_id == content_run->run_id
+			&& prev_content_run->content_id == content_run->content_id
 			&& skb__equals_inline_padding(&prev_inline_padding, &inline_padding);
 
 		if (!are_same_run) {
@@ -2798,6 +2795,7 @@ typedef struct skb__text_to_runs_context_t {
 	int32_t content_runs_cap;
 	skb_attribute_set_t attributes;
 	skb_temp_alloc_t* temp_alloc;
+	int32_t base_content_id;
 } skb__text_to_runs_context_t;
 
 static void skb__iter_text_run(const skb_text_t* text, skb_text_range_t range, skb_attribute_span_t** active_spans, int32_t active_spans_count, void* context)
@@ -2813,17 +2811,23 @@ static void skb__iter_text_run(const skb_text_t* text, skb_text_range_t range, s
 		.parent_set = &ctx->attributes,
 	};
 
+	intptr_t content_id = 0;
+
 	if (active_spans_count > 0) {
 		skb_attribute_t* attributes = SKB_TEMP_ALLOC(ctx->temp_alloc, skb_attribute_t, active_spans_count);
 		for (int32_t i = 0; i < active_spans_count; i++)
 			attributes[i] = active_spans[i]->attribute;
 		run_attributes.attributes = attributes;
 		run_attributes.attributes_count = active_spans_count;
+
+		for (int32_t i = 0; i < active_spans_count; i++) {
+			if (active_spans[i]->flags & SKB_ATTRIBUTE_SPAN_TEXT_POSITION_TO_CONTENT_ID)
+				content_id = active_spans[i]->text_range.start + ctx->base_content_id;
+		}
 	}
 
-	*run = skb_content_run_make_utf32(utf32 + range.start.offset, range.end.offset - range.start.offset, run_attributes, 0);
+	*run = skb_content_run_make_utf32(utf32 + range.start.offset, range.end.offset - range.start.offset, run_attributes, content_id);
 }
-
 
 void skb_layout_set_from_text(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text, skb_attribute_set_t attributes)
 {
@@ -2835,6 +2839,7 @@ void skb_layout_set_from_text(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 	skb__text_to_runs_context_t ctx = {
 		.temp_alloc = temp_alloc,
 		.attributes = attributes,
+		.base_content_id = layout->params.text_content_id_base,
 	};
 	SKB_TEMP_RESERVE(temp_alloc, ctx.content_runs, 16);
 
@@ -2923,7 +2928,7 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 		SKB_ZERO_STRUCT(content_run);
 
 		content_run->type = run->type;
-		content_run->run_id = run->run_id;
+		content_run->content_id = run->content_id;
 		content_run->text_range.start = offset;
 		content_run->text_range.end = offset + count;
 		content_run->content_width = content_width;
@@ -2941,6 +2946,17 @@ void skb_layout_set_from_runs(skb_layout_t* layout, skb_temp_alloc_t* temp_alloc
 			layout->attributes_count += run_attributes_count;
 
 			skb_attributes_copy_flat(run->attributes, run_attributes, run_attributes_count);
+		}
+
+		// Set flag if the content run has background attributes.
+		const skb_attribute_set_t content_run_attributes = skb__get_run_attributes(layout, content_run->attributes_range);
+		const skb_attribute_t* paints[16];
+		const int32_t paints_count = skb_attributes_get_by_kind(content_run_attributes, layout->params.attribute_collection, SKB_ATTRIBUTE_PAINT, paints, SKB_COUNTOF(paints));
+		for (int32_t pi = 0; pi < paints_count; pi++) {
+			if (paints[pi]->paint.paint_tag == SKB_PAINT_TEXT_BACKGROUND) {
+				content_run->has_text_background = true;
+				break;
+			}
 		}
 	}
 
@@ -3373,11 +3389,11 @@ skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t*
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			const skb_layout_run_t* run = &layout->layout_runs[ri];
 			if (hit_x < (run->bounds.x + run->bounds.width)) {
-				const intptr_t run_id = run->content_run_id;
-				if (run_id != 0) {
+				const intptr_t content_id = run->content_id;
+				if (content_id != 0) {
 					result.line_idx = line_idx;
 					result.layout_run_idx = ri;
-					result.run_id = run->content_run_id;
+					result.content_id = run->content_id;
 				}
 				break;
 			}
@@ -3411,13 +3427,13 @@ skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout,
 	return skb_layout_hit_test_content_at_line(layout, line_idx, hit_x);
 }
 
-void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t content_id, skb_content_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
 
 	// If run id is invalid, nothing to do.
-	if (run_id == 0)
+	if (content_id == 0)
 		return;
 
 	if (line_idx < 0 || line_idx >= layout->lines_count)
@@ -3427,10 +3443,10 @@ void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* 
 
 	for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 		const skb_layout_run_t* run = &layout->layout_runs[ri];
-		if (run->content_run_id == run_id) {
+		if (run->content_id == content_id) {
 			// Combine consecutive runs of same span into one rectangle.
 			skb_rect2_t rect = run->bounds;
-			while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].content_run_id == run_id) {
+			while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].content_id == content_id) {
 				const skb_layout_run_t* next_run = &layout->layout_runs[ri+1];
 				rect = skb_rect2_union(rect, next_run->bounds);
 				ri++;
@@ -3440,13 +3456,13 @@ void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* 
 	}
 }
 
-void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context)
+void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t content_id, skb_content_rect_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
 
 	// If run id is invalid, nothing to do.
-	if (run_id == 0)
+	if (content_id == 0)
 		return;
 
 	for (int32_t li = 0; li < layout->lines_count; li++) {
@@ -3454,10 +3470,10 @@ void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_
 
 		for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
 			const skb_layout_run_t* run = &layout->layout_runs[ri];
-			if (run->content_run_id == run_id) {
+			if (run->content_id == content_id) {
 				// Combine consecutive runs of same span into one rectangle.
 				skb_rect2_t rect = run->bounds;
-				while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].content_run_id == run_id) {
+				while (ri+1 < line->layout_run_range.end && (int32_t)layout->layout_runs[ri+1].content_id == content_id) {
 					const skb_layout_run_t* next_run = &layout->layout_runs[ri+1];
 					rect = skb_rect2_union(rect, next_run->bounds);
 					ri++;

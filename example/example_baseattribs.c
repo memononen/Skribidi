@@ -107,7 +107,7 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_baseline_align(SKB_BASELINE_MIDDLE),
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	skb_layout_params_t params = {
@@ -117,17 +117,18 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 	};
 
 	const skb_attribute_t underline_attributes[] = {
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 3.f, 0.f, skb_rgba(220,32,0,192)),
+		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,160,92,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 3.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t italic_attributes[] = {
 		skb_attribute_make_font_style(SKB_STYLE_ITALIC),
-		skb_attribute_make_fill(skb_rgba(0,160,92,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,160,92,255)),
 	};
 
 	const skb_attribute_t bold_attributes[] = {
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
-		skb_attribute_make_fill(skb_rgba(0,64,220,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,64,220,255)),
 	};
 
 	skb_content_run_t runs[] = {
@@ -307,11 +308,11 @@ void baseattribs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	render_draw_layout(ctx->rc, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0.f, 0.f, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
-	render_draw_layout(ctx->rc, 0.f, 100.f, ctx->layout_text, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0.f, 100.f, ctx->layout_text, SKB_RASTERIZE_ALPHA_SDF);
 
-	render_draw_layout(ctx->rc, 0.f, 200.f, ctx->layout_ref, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0.f, 200.f, ctx->layout_ref, SKB_RASTERIZE_ALPHA_SDF);
 
 	if (ctx->show_glyph_bounds) {
 		// Draw layout details

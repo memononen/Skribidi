@@ -182,12 +182,12 @@ void* inputfilter_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t text_attributes[] = {
 		skb_attribute_make_font_size(64.f),
-		skb_attribute_make_fill(skb_rgba(64,64,64,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(64,64,64,255)),
 	};
 
 	const skb_attribute_t composition_attributes[] = {
-		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -461,52 +461,7 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
 			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
 			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
-			const skb_layout_line_t* lines = skb_layout_get_lines(edit_layout);
-			const int32_t lines_count = skb_layout_get_lines_count(edit_layout);
-			const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(edit_layout);
-			const skb_glyph_t* glyphs = skb_layout_get_glyphs(edit_layout);
-			const skb_layout_params_t* layout_params = skb_layout_get_params(edit_layout);
-			const int32_t decorations_count = skb_layout_get_decorations_count(edit_layout);
-			const skb_decoration_t* decorations = skb_layout_get_decorations(edit_layout);
-
-			// Draw underlines
-			for (int32_t i = 0; i < decorations_count; i++) {
-				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
-				}
-			}
-
-			for (int li = 0; li < lines_count; li++) {
-				const skb_layout_line_t* line = &lines[li];
-				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-					const skb_layout_run_t* layout_run = &layout_runs[ri];
-					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
-						const skb_attribute_set_t layout_run_attributes = skb_layout_get_layout_run_attributes(edit_layout, layout_run);
-						const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(layout_run_attributes, layout_params->attribute_collection);
-						const float font_size = layout_run->font_size;
-						for (int32_t gi = layout_run->glyph_range.start; gi < layout_run->glyph_range.end; gi++) {
-							const skb_glyph_t* glyph = &glyphs[gi];
-							render_draw_glyph(ctx->rc, glyph->offset_x, edit_layout_y + glyph->offset_y,
-								layout_params->font_collection, layout_run->font_handle, glyph->gid, font_size,
-								attr_fill.color, SKB_RASTERIZE_ALPHA_SDF);
-						}
-					}
-				}
-			}
-
-			// Draw through lines
-			for (int32_t i = 0; i < decorations_count; i++) {
-				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					render_draw_decoration(ctx->rc, decoration->offset_x, edit_layout_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						decoration->color, SKB_RASTERIZE_ALPHA_SDF);
-				}
-			}
-
+			render_draw_layout(ctx->rc, NULL, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
 		}
 
 		// Caret is generally drawn only when there is no selection.

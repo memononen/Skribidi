@@ -198,14 +198,14 @@ static void render_cached_text(cached_context_t* ctx, float x, float y, float fo
 	const skb_attribute_t attributes[] = {
 		skb_attribute_make_font_size(font_size),
 		skb_attribute_make_font_weight(font_weight),
-		skb_attribute_make_fill(color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, color),
 	};
 
 	const skb_layout_t* layout = skb_layout_cache_get_utf8(ctx->layout_cache, ctx->temp_alloc, &params, text, -1, SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes));
 	assert(layout);
 
 	// Draw layout
-	render_draw_layout(ctx->rc, x, y, layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, x, y, layout, SKB_RASTERIZE_ALPHA_SDF);
 }
 
 void cached_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)

@@ -187,36 +187,37 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	{
 		const skb_attribute_t h1_attributes[] = {
 			skb_attribute_make_font_size(32.f),
-			skb_attribute_make_fill(header_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, header_color),
 			skb_attribute_make_paragraph_padding(0,0,20,5),
 		};
 
 		const skb_attribute_t h2_attributes[] = {
 			skb_attribute_make_font_size(22.f),
-			skb_attribute_make_fill(header_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, header_color),
 			skb_attribute_make_paragraph_padding(0,0,10,5),
 		};
 
 		const skb_attribute_t body_attributes[] = {
 			skb_attribute_make_font_size(16.f),
-			skb_attribute_make_fill(body_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, body_color),
 			skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 			skb_attribute_make_paragraph_padding(0,0,5,5),
 		};
 
 		const skb_attribute_t quoteblock_attributes[] = {
 			skb_attribute_make_font_size(16.f),
-			skb_attribute_make_fill(quote_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, quote_color),
 			skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 			skb_attribute_make_paragraph_padding(16,16,5,5),
 			skb_attribute_make_indent_increment(16.f, 0.f),
 			skb_attribute_make_group_tag(SKB_TAG_STR("quote")),
-			skb_attribute_make_indent_decoration(0, -1, 13, 4, skb_rgba(0,0,0,64)),
+			skb_attribute_make_paint_color(SKB_PAINT_INDENT_DECORATION, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,64)),
+			skb_attribute_make_indent_decoration(0, -1, 13, 4),
 		};
 
 		const skb_attribute_t list_attributes[] = {
 			skb_attribute_make_font_size(16.f),
-			skb_attribute_make_fill(body_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, body_color),
 			skb_attribute_make_paragraph_padding(0,0,5,5),
 //			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2013), // en-dash
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_CODEPOINT, 32, 5, 0x2022), // bullet
@@ -225,26 +226,26 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		const skb_attribute_t codeblock_attributes[] = {
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
 			skb_attribute_make_font_size(16.f),
-			skb_attribute_make_fill(code_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, code_color),
 			skb_attribute_make_paragraph_padding(20,20,10,10),
-			skb_attribute_make_paragraph_fill(code_bg_color),
+			skb_attribute_make_paint_color(SKB_PAINT_PARAGRAPH_BACKGROUND, SKB_PAINT_STATE_DEFAULT, code_bg_color),
 			skb_attribute_make_group_tag(SKB_TAG_STR("code"))
 		};
 
 		const skb_attribute_t ordered_list_attributes[] = {
 			skb_attribute_make_font_size(16.f),
-			skb_attribute_make_fill(body_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, body_color),
 			skb_attribute_make_paragraph_padding(0,0,5,5),
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_LOWER_LATIN, 32, 5, 0),
 			skb_attribute_make_list_marker(SKB_LIST_MARKER_COUNTER_DECIMAL, 32, 5, 0), // Most prominent attrib is the last one, this will be picked first.
 		};
 
 		const skb_attribute_t underline_attributes[] = {
-			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f),
+			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, SKB_PAINT_TEXT),
 		};
 
 		const skb_attribute_t strikethrough_attributes[] = {
-			skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 1.5f, 0.f),
+			skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 1.5f, 0.f, SKB_PAINT_TEXT),
 		};
 
 		const skb_attribute_t italic_attributes[] = {
@@ -257,8 +258,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 
 		const skb_attribute_t code_attributes[] = {
 			skb_attribute_make_font_family(SKB_FONT_FAMILY_MONOSPACE),
-			skb_attribute_make_fill(code_color),
-			skb_attribute_make_background_fill(code_bg_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, code_color),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT_BACKGROUND, SKB_PAINT_STATE_DEFAULT, code_bg_color),
 			skb_attribute_make_inline_padding(4,4,0,0),
 		};
 
@@ -273,8 +274,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		};
 
 		const skb_attribute_t link_attributes[] = {
-			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f),
-			skb_attribute_make_fill(link_color),
+			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 1.f, 1.f, SKB_PAINT_TEXT),
+			skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, link_color),
 		};
 
 		const skb_attribute_t align_start[] = {
@@ -330,8 +331,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	skb_attribute_set_t body = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "BODY");
 
 	const skb_attribute_t composition_attributes[] = {
-		skb_attribute_make_fill(skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,128,192,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -1182,7 +1183,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
 			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
 			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
-			render_draw_layout(ctx->rc, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
+			render_draw_layout(ctx->rc, NULL, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
 
 			// Tick at paragraph start
 			if (ctx->show_caret_details) {

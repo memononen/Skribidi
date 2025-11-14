@@ -123,38 +123,38 @@ void* inlineobj_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t text_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	const skb_attribute_t text2_attributes[] = {
 		skb_attribute_make_font_size(50.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	static const float object_size = 50.f;
 	const skb_attribute_t object_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_BEFORE, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_inline_padding(10,10,0,0),
-		skb_attribute_make_fill(skb_rgba(255,128,128,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,128,128,255)),
 	};
 
 	const skb_attribute_t object2_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_inline_padding(10,10,0,0),
-		skb_attribute_make_fill(skb_rgba(128,220,128,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(128,220,128,255)),
 	};
 
 	const skb_attribute_t object3_attributes[] = {
 		skb_attribute_make_object_align(0.65f, SKB_OBJECT_ALIGN_SELF, SKB_BASELINE_ALPHABETIC),
 		skb_attribute_make_inline_padding(10,10,0,0),
-		skb_attribute_make_fill(skb_rgba(128,128,255,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(128,128,255,255)),
 	};
 
 	const skb_attribute_t icon_attributes[] = {
 		skb_attribute_make_object_align(0.5f, SKB_OBJECT_ALIGN_TEXT_AFTER_OR_BEFORE, SKB_BASELINE_CENTRAL),
 		skb_attribute_make_inline_padding(5,5,5,5),
-		skb_attribute_make_fill(skb_rgba(32,32,220,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(32,32,220,255)),
 	};
 
 	skb_content_run_t runs[] = {
@@ -287,7 +287,7 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	render_push_transform(ctx->rc, ctx->view.cx, ctx->view.cy, ctx->view.scale);
 
 	// Draw visual result
-	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	// Draw objects
 	{
@@ -298,14 +298,15 @@ void inlineobj_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		for (int32_t ri = 0; ri < layout_runs_count; ri++) {
 			const skb_layout_run_t* run = &layout_runs[ri];
 			const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(ctx->layout, run);
-			const skb_attribute_fill_t attr_fill = skb_attributes_get_fill(run_attributes, params->attribute_collection);
+
+			skb_attribute_paint_t paint = skb_attributes_get_paint(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, run_attributes, params->attribute_collection);
 
 			if (run->type == SKB_CONTENT_RUN_OBJECT) {
 				skb_rect2_t object_rect = skb_layout_get_layout_run_content_bounds(ctx->layout, run);
 
 				// Draw object
 				const skb_attribute_object_align_t attr_object_align = skb_attributes_get_object_align(run_attributes, params->attribute_collection);
-				debug_render_filled_rect(ctx->rc, object_rect.x, object_rect.y, object_rect.width, object_rect.height, attr_fill.color);
+				debug_render_filled_rect(ctx->rc, object_rect.x, object_rect.y, object_rect.width, object_rect.height, paint.color);
 
 				// Draw baseline
 				const float baseline = object_rect.height * attr_object_align.baseline_ratio;

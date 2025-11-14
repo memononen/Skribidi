@@ -88,6 +88,8 @@ typedef struct skb_layout_params_t {
 	skb_attribute_set_t layout_attributes;
 	/** Counter value to used for list marker. */
 	int32_t list_marker_counter;
+	/** Base value for attribute span based content id. */
+	int32_t text_content_id_base;
 } skb_layout_params_t;
 
 
@@ -146,8 +148,8 @@ typedef struct skb_content_run_t {
 		/** The icon content, if type == SKB_CONTENT_RUN_OBJECT. */
 		skb_content_icon_t icon;
 	};
-	/** ID of the run, which can be later used to identify content in the layout. 0 is treated as invalid value. */
-	intptr_t run_id;
+	/** Content ID of the run, which can be later used to identify content in the layout. 0 is treated as invalid value. */
+	intptr_t content_id;
 	/** Attribute set to apply for the run. */
 	skb_attribute_set_t attributes;
 	/** Type of the content, see skb_content_run_type_t. */
@@ -163,10 +165,10 @@ typedef struct skb_content_run_t {
  * @param text pointer to the utf-8 text.
  * @param text_count length of the text, or -1 if not known.
  * @param attributes attributes to apply for the text.
- * @param run_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
+ * @param content_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes utf-32 content run.
@@ -177,10 +179,10 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
  * @param text pointer to the utf-32 text.
  * @param text_count length of the text, or -1 if not known.
  * @param attributes attributes to apply for the text.
- * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
+ * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes inline object content run.
@@ -197,9 +199,9 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
  * @param height height of the object.
  * @param attributes attributes to apply for the object.
  * @return initialized content run.
- * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
+ * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  */
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes inline icon content run.
@@ -217,10 +219,10 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * @param width width of the icon, if SKB_SIZE_AUTO the width will be calculated from height keeping aspect ratio.
  * @param height height of the icon, if SKB_SIZE_AUTO the height will be calculated from width keeping aspect ratio.
  * @param attributes attributes to apply for the icon.
- * @param run_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
+ * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t run_id);
+skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
 
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
@@ -270,13 +272,15 @@ typedef struct skb_layout_line_t {
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
 	/** Flag indicating that the run has content run start. */
-	SKB_LAYOUT_RUN_HAS_START		= 1 << 0,
+	SKB_LAYOUT_RUN_HAS_START			= 1 << 0,
 	/** Flag indicating that the run has content run end. */
-	SKB_LAYOUT_RUN_HAS_END			= 1 << 1,
+	SKB_LAYOUT_RUN_HAS_END				= 1 << 1,
 	/** Flag indicating that the run is created for list marker. */
-	SKB_LAYOUT_RUN_IS_LIST_MARKER	= 1 << 2,
+	SKB_LAYOUT_RUN_IS_LIST_MARKER		= 1 << 2,
 	/** Flag indicating that the run is created for list ellipsis. */
-	SKB_LAYOUT_RUN_IS_ELLIPSIS		= 1 << 3,
+	SKB_LAYOUT_RUN_IS_ELLIPSIS			= 1 << 3,
+	/** Flag indicating the that the run has background paint */
+	SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT	= 1 << 4,
 } skb_layout_run_flags_t;
 
 /**
@@ -319,7 +323,7 @@ typedef struct skb_layout_run_t {
 	/** Flags for the run, see skb_layout_run_flags_t. */
 	uint8_t flags;
 	/** ID of the content run where the layout run originates. */
-	intptr_t content_run_id;
+	intptr_t content_id;
 	union {
 		/** Font handle of the text content, if text content. */
 		skb_font_handle_t font_handle;
@@ -360,8 +364,6 @@ typedef struct skb_glyph_t {
 typedef struct skb_decoration_t {
 	/** Index of the layout run the decoration is related to. */
 	int32_t layout_run_idx;
-	/** Range of glyphs the decoration relates to. */
-	skb_range_t glyph_range;
 	/** X offset of the decoration (including layout origin). */
 	float offset_x;
 	/** Y offset of the decoration (including layout origin). */
@@ -372,12 +374,12 @@ typedef struct skb_decoration_t {
 	float pattern_offset;
 	/** Thickness of the decoration. */
 	float thickness;
-	/** Color of the decoration line. */
-	skb_color_t color;
 	/** Position of the decoration line relative to the text. See skb_decoration_position_t. */
 	uint8_t position;
 	/** Style of the decoration line. See skb_decoration_style_t. */
 	uint8_t style;
+	/** Name tag of the paint, use skb_attributes_get_paint() with run attributes to get the color. */
+	uint32_t paint_tag;
 } skb_decoration_t;
 
 /** Struct describing properties if a single codepoint. */
@@ -698,7 +700,7 @@ skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement
 /** Struct identifying run of content. */
 typedef struct skb_layout_content_hit_t {
 	/** Run id of the hit content, 0 if no hit was found. */
-	intptr_t run_id;
+	intptr_t content_id;
 	/** Line index of the hit content. */
 	int32_t line_idx;
 	/** Layout run index of the hit content. */
@@ -707,7 +709,7 @@ typedef struct skb_layout_content_hit_t {
 
 /**
  * Returns data identifying the content under the hit location at specified line.
- * If no hit was found, the "run_id" of the return value will be 0.
+ * If no hit was found, the "content_id" of the return value will be 0.
  * @param layout layout to use.
  * @param line_idx index of the line to test.
  * @param hit_x hit X location
@@ -717,7 +719,7 @@ skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t*
 
 /**
  * Returns data identifying the content under the hit location.
- * If no hit was found, the "run_id" of the return value will be 0.
+ * If no hit was found, the "content_id" of the return value will be 0.
  * @param layout layout to use.
  * @param hit_x hit X location
  * @param hit_y hit Y location
@@ -738,25 +740,25 @@ typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, i
  * Return set of rectangles that represent the specified content run at specified line.
  * Runs what come one after each other are reported as one rectangle.
  * If the content got broken into multiple lines, multiple rectangles will be returned.
- * Note: runs with run_id = 0 will be ignored.
+ * Note: runs with content_id = 0 will be ignored.
  * @param layout layout to use.
  * @param line_idx index of the line where to look for the runs
- * @param run_id id of the run to query
+ * @param content_id content id of the runs to query
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
 
 /**
  * Return set of rectangles that represent the specified content run in the layout.
  * Runs what come one after each other are reported as one rectangle.
- * Note: runs with run_id = 0 will be ignored.
+ * Note: runs with content_id = 0 will be ignored.
  * @param layout layout to use.
- * @param run_id id of the run to query
+ * @param content_id content id of the runs to query
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t run_id, skb_content_rect_func_t* callback, void* context);
+void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
 
 
 /**

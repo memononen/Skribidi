@@ -48,6 +48,13 @@ void richtext_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y);
 void richtext_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods);
 void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height);
 
+enum {
+	PAINT_DECORATION_0 = SKB_TAG('d','e','c','0'),
+	PAINT_DECORATION_1 = SKB_TAG('d','e','c','1'),
+	PAINT_DECORATION_2 = SKB_TAG('d','e','c','2'),
+	PAINT_DECORATION_3 = SKB_TAG('d','e','c','3'),
+};
+
 void* richtext_create(GLFWwindow* window, render_context_t* rc)
 {
 	assert(rc);
@@ -107,44 +114,50 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 	const skb_attribute_t small_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	const skb_attribute_t ja_jp_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_lang("ja-jp"),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 	};
 
 	const skb_attribute_t deco1_attributes[] = {
 		skb_attribute_make_font_size(15.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, skb_rgba(255,64,0,128)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(PAINT_DECORATION_0, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,128)),
+		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, PAINT_DECORATION_0),
 	};
 
 	const skb_attribute_t deco2_attributes[] = {
 		skb_attribute_make_font_size(25.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,192)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(PAINT_DECORATION_0, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,128)),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_0),
 	};
 
 	const skb_attribute_t deco3_attributes[] = {
 		skb_attribute_make_font_size(18.f),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
-		skb_attribute_make_fill(ink_color),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, skb_rgba(0,0,0,255)),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_BOTTOMLINE, SKB_DECORATION_STYLE_DASHED, 0.f, 0.f, skb_rgba(0,64,255,255)),
-		skb_attribute_make_decoration_with_color(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, skb_rgba(0,192,64,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
+		skb_attribute_make_paint_color(PAINT_DECORATION_0, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
+		skb_attribute_make_paint_color(PAINT_DECORATION_1, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,255)),
+		skb_attribute_make_paint_color(PAINT_DECORATION_2, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,64,255,255)),
+		skb_attribute_make_paint_color(PAINT_DECORATION_3, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,192,64,255)),
+		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, PAINT_DECORATION_0),
+		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_1),
+		skb_attribute_make_decoration(SKB_DECORATION_BOTTOMLINE, SKB_DECORATION_STYLE_DASHED, 0.f, 0.f, PAINT_DECORATION_2),
+		skb_attribute_make_decoration(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, PAINT_DECORATION_3),
 	};
 
 	const skb_attribute_t italic_attributes[] = {
 		skb_attribute_make_font_size(64.f),
 		skb_attribute_make_font_style(SKB_STYLE_ITALIC),
-		skb_attribute_make_fill(ink_color),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_letter_spacing(20.f),
 	};
 
@@ -152,13 +165,13 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_font_size(128.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 0.75f),
-		skb_attribute_make_fill(skb_rgba(220,40,40,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(220,40,40,255)),
 	};
 
 	const skb_attribute_t fracts_attributes[] = {
 		skb_attribute_make_font_size(48.f),
 		skb_attribute_make_font_weight(SKB_WEIGHT_BOLD),
-		skb_attribute_make_fill(skb_rgba(180,110,190,255)),
+		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(180,110,190,255)),
 		skb_attribute_make_font_feature(SKB_TAG_STR("frac"), 1),
 		skb_attribute_make_font_feature(SKB_TAG_STR("numr"), 1),
 		skb_attribute_make_font_feature(SKB_TAG_STR("dmon"), 1),
@@ -304,7 +317,7 @@ void richtext_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	const skb_color_t ink_color_trans = skb_rgba(32,32,32,128);
 
-	render_draw_layout(ctx->rc, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
+	render_draw_layout(ctx->rc, NULL, 0, 0, ctx->layout, SKB_RASTERIZE_ALPHA_SDF);
 
 	if (ctx->show_glyph_bounds) {
 		// Draw layout details
