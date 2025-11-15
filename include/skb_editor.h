@@ -221,7 +221,7 @@ void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_
  * @param on_change_func pointer to the on change callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context);
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_selection_change_func_t* on_change_func, void* context);
 
 /**
  * Sets input filter function.

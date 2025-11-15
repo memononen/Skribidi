@@ -470,7 +470,7 @@ void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_
 	editor->on_text_change_context = context;
 }
 
-void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context)
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_selection_change_func_t* on_change_func, void* context)
 {
 	assert(editor);
 	editor->on_selection_change_callback = on_change_func;
