@@ -75,7 +75,6 @@ void skb_rich_text_set_attribute_with_payload(skb_rich_text_t* rich_text, skb_te
 
 void skb_rich_text_clear_attribute(skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 void skb_rich_text_clear_all_attributes(skb_rich_text_t* rich_text, skb_text_range_t text_range);
-int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 bool skb_rich_text_has_attribute(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 skb_text_range_t skb_rich_text_get_attribute_text_range(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);
 skb_data_blob_t* skb_rich_text_get_attribute_payload(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute);

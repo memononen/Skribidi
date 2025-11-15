@@ -58,12 +58,51 @@ static inline bool skb_text_range_is_current_selection(skb_text_range_t text_ran
 		&& text_range.end.offset == INT32_MIN && text_range.end.affinity == SKB_AFFINITY_NONE;
 }
 
+/** Enum describing text change reason. */
+typedef enum {
+	/** The editor text was reset to empty or set externally. */
+	SKB_EDITOR_TEXT_RESET,
+	/** The text is set externally via edit API */
+	SKB_EDITOR_TEXT_EXTERNAL,
+	/** The text is changed via typing */
+	SKB_EDITOR_TEXT_EDIT,
+	/** The change is attribute only */
+	SKB_EDITOR_TEXT_ATTRIBUTE,
+	/** The change is from undo or redo. */
+	SKB_EDITOR_TEXT_UNDO,
+} skb_editor_text_change_reason_t;
+
 /**
- * Signature of text editor change function.
+ * Signature of editor text change function.
  * @param editor editor that changed.
- * @param context context pointer that was passed to skb_editor_set_on_change_callback().
+ * @param reason reason why the text changed, see skb_editor_text_change_reason_t.
+ * @param context context pointer that was passed to skb_editor_set_on_text_change_callback().
  */
-typedef void skb_editor_on_change_func_t(skb_editor_t* editor, void* context);
+typedef void skb_editor_on_change_func_t(skb_editor_t* editor, skb_editor_text_change_reason_t reason, void* context);
+
+/** Enum describing text change reason. */
+typedef enum {
+	/** The editor text was reset to empty or set externally. */
+	SKB_EDITOR_SELECTION_RESET,
+	/** The selection is set externally via edit API */
+	SKB_EDITOR_SELECTION_EXTERNAL,
+	/** The selection is grown using mouse or keyboard. */
+	SKB_EDITOR_SELECTION_GROW,
+	/** The selection is moved (caret) using mouse or keyboard. */
+	SKB_EDITOR_SELECTION_MOVE,
+	/** The change is from text edit. */
+	SKB_EDITOR_SELECTION_EDIT,
+	/** The change is from undo or redo. */
+	SKB_EDITOR_SELECTION_UNDO,
+} skb_editor_selection_change_reason_t;
+
+/**
+ * Signature of editor selection change function.
+ * @param editor editor that changed.
+ * @param reason reason why the selection changed, see skb_editor_selection_change_reason_t.
+ * @param context context pointer that was passed to skb_editor_set_on_selection_change_callback().
+ */
+typedef void skb_editor_on_selection_change_func_t(skb_editor_t* editor, skb_editor_selection_change_reason_t reason, void* context);
 
 /**
  * Signature of input filter function.
@@ -169,12 +208,20 @@ skb_editor_t* skb_editor_create(const skb_editor_params_t* params);
 void skb_editor_destroy(skb_editor_t* editor);
 
 /**
+ * Sets text change callback function.
+ * @param editor editor to change.
+ * @param on_change_func pointer to the on change callback function
+ * @param context context pointer that is passed to the callback function each time it is called.
+ */
+void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
+
+/**
  * Sets change callback function.
  * @param editor editor to change.
  * @param on_change_func pointer to the on change callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
 
 /**
  * Sets input filter function.
@@ -657,15 +704,6 @@ void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* 
  * @param attribute attribute delta to apply.
  */
 void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute);
-
-/**
- * Counts number of codepoints the attribute is applied in the selection range.
- * @param editor editor to update
- * @param text_range range of text to query
- * @param attribute attribute to query
- * @return number of codepoints the attribute is applied to
- */
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
 
 /**
  * Checks if all the paragraphs overlapping the text range has the specified attribute.

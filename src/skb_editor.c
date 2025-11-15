@@ -57,8 +57,11 @@ typedef struct skb_editor_t {
 	int32_t attributes_count;
 	int32_t attributes_cap;
 
-	skb_editor_on_change_func_t* on_change_callback;
-	void* on_change_context;
+	skb_editor_on_change_func_t* on_text_change_callback;
+	void* on_text_change_context;
+
+	skb_editor_on_change_func_t* on_selection_change_callback;
+	void* on_selection_change_context;
 
 	skb_editor_input_filter_func_t* input_filter_callback;
 	void* input_filter_context;
@@ -300,10 +303,16 @@ static void skb__pick_active_attributes(skb_editor_t* editor)
 	skb__update_preview_caret(editor);
 }
 
-static void skb__emit_on_change(skb_editor_t* editor)
+static void skb__emit_on_text_change(skb_editor_t* editor, skb_editor_text_change_reason_t reason)
 {
-	if (editor->on_change_callback)
-		editor->on_change_callback(editor, editor->on_change_context);
+	if (editor->on_text_change_callback)
+		editor->on_text_change_callback(editor, reason, editor->on_text_change_context);
+}
+
+static void skb__emit_on_selection_change(skb_editor_t* editor, skb_editor_selection_change_reason_t reason)
+{
+	if (editor->on_selection_change_callback)
+		editor->on_selection_change_callback(editor, reason, editor->on_text_change_context);
 }
 
 static void skb__set_params(skb_editor_t* editor, const skb_editor_params_t* params)
@@ -454,11 +463,18 @@ void skb_editor_destroy(skb_editor_t* editor)
 	skb_free(editor);
 }
 
-void skb_editor_set_on_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
+void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
 {
 	assert(editor);
-	editor->on_change_callback = on_change_func;
-	editor->on_change_context = context;
+	editor->on_text_change_callback = on_change_func;
+	editor->on_text_change_context = context;
+}
+
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
+{
+	assert(editor);
+	editor->on_selection_change_callback = on_change_func;
+	editor->on_selection_change_context = context;
 }
 
 void skb_editor_set_input_filter_callback(skb_editor_t* editor, skb_editor_input_filter_func_t* filter_func, void* context)
@@ -493,7 +509,8 @@ void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
 
 	skb__reset_undo(editor);
 
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_RESET);
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_RESET);
 }
 
 void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const char* utf8, int32_t utf8_len)
@@ -508,7 +525,8 @@ void skb_editor_set_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 
 	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_RESET);
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_RESET);
 }
 
 void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, const uint32_t* utf32, int32_t utf32_len)
@@ -523,7 +541,8 @@ void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 
 	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_RESET);
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_RESET);
 }
 
 void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_rich_text_t* rich_text)
@@ -538,7 +557,8 @@ void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 
 	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_RESET);
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_RESET);
 }
 
 //
@@ -1453,6 +1473,7 @@ void skb_editor_select(skb_editor_t* editor, skb_text_range_t text_range)
 {
 	assert(editor);
 	editor->selection = text_range;
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EXTERNAL);
 }
 
 void skb_editor_select_all(skb_editor_t* editor)
@@ -1470,6 +1491,7 @@ void skb_editor_select_all(skb_editor_t* editor)
 		editor->selection.start = (skb_text_position_t) { 0 };
 		editor->selection.end = (skb_text_position_t) { 0 };
 	}
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EXTERNAL);
 }
 
 void skb_editor_select_none(skb_editor_t* editor)
@@ -1477,6 +1499,7 @@ void skb_editor_select_none(skb_editor_t* editor)
 	assert(editor);
 	// Clear selection, but retain current caret position.
 	editor->selection.start = editor->selection.end;
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EXTERNAL);
 }
 
 skb_text_position_t skb_editor_hit_test(const skb_editor_t* editor, skb_movement_type_t type, float hit_x, float hit_y)
@@ -1530,6 +1553,7 @@ void skb_editor_process_mouse_click(skb_editor_t* editor, float x, float y, uint
 		// Shift click makes selection from current start pos to the new hit pos.
 		editor->selection.end = hit_caret_pos;
 		editor->drag_mode = SKB_DRAG_CHAR;
+		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 	} else {
 		if (editor->click_count == 1) {
 			editor->selection.end = hit_caret_pos;
@@ -1545,6 +1569,10 @@ void skb_editor_process_mouse_click(skb_editor_t* editor, float x, float y, uint
 			editor->drag_mode = SKB_DRAG_LINE;
 		}
 		skb__pick_active_attributes(editor);
+		if (editor->drag_mode = SKB_DRAG_CHAR)
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+		else
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 	}
 
 	editor->drag_initial_selection = editor->selection;
@@ -1606,6 +1634,7 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 			editor->selection.start = editor->drag_initial_selection.start;
 			editor->selection.end = editor->drag_initial_selection.end;
 		}
+		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 
 		editor->preferred_x = -1.f; // reset preferred.
 	}
@@ -1876,6 +1905,8 @@ void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
+		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_UNDO);
+		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_UNDO);
 	}
 }
 
@@ -1909,6 +1940,8 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
+		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_UNDO);
+		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_UNDO);
 	}
 }
 
@@ -2141,6 +2174,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else
 					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 			} else {
 				// MacOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
@@ -2156,6 +2190,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
@@ -2165,6 +2200,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else
 					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
@@ -2178,6 +2214,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2194,6 +2231,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else
 					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 			} else {
 				// macOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
@@ -2209,6 +2247,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
@@ -2218,6 +2257,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				else
 					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
@@ -2230,6 +2270,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				}
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
+				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2240,6 +2281,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+		} else {
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 	}
@@ -2249,6 +2293,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+		} else {
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
 		editor->preferred_x = -1.f; // reset preferred.
 	}
@@ -2280,6 +2327,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+		} else {
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
 	}
 	if (key == SKB_KEY_DOWN) {
@@ -2309,6 +2359,9 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		if ((mods & SKB_MOD_SHIFT) == 0) {
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+		} else {
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
 	}
 
@@ -2317,7 +2370,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb_rich_text_change_t change = skb__replace_selection(editor, NULL, false);
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 		} else {
 			skb_text_range_t remove_range = {
 				.start = skb__get_backspace_start_offset(editor, editor->selection.end),
@@ -2330,7 +2384,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 		}
 	}
 
@@ -2339,7 +2394,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb_rich_text_change_t change = skb__replace_selection(editor, NULL, false);
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 		} else {
 			skb_text_range_t remove_range = {
 				.start = editor->selection.end,
@@ -2352,7 +2408,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 
 			skb__update_layout(editor, temp_alloc, change);
 			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 		}
 	}
 
@@ -2376,7 +2433,8 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			};
 			editor->selection.start = editor->selection.end;
 			skb__pick_active_attributes(editor);
-			skb__emit_on_change(editor);
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 		}
 	}
 }
@@ -2415,7 +2473,9 @@ static skb_text_range_t skb__adjust_text_selection(const skb_editor_t* editor, s
 	};
 }
 
-static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text, bool allow_amend_undo)
+static void skb__insert_rich_text(
+	skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range,
+	const skb_rich_text_t* rich_text, bool allow_amend_undo, bool external)
 {
 	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
 	text_range = skb__resolve_text_range(editor, text_range);
@@ -2446,7 +2506,8 @@ static void skb__insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 
 	skb__update_layout(editor, temp_alloc, change);
 	skb__pick_active_attributes(editor);
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, external ? SKB_EDITOR_TEXT_EXTERNAL : SKB_EDITOR_TEXT_EDIT);
+	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
 }
 
 
@@ -2459,7 +2520,7 @@ void skb_editor_insert_paragraph(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 		skb_rich_text_set_paragraph_attribute(input_text, (skb_text_range_t){.start.offset = 0, .end.offset = 2 }, paragraph_attribute);
 	}
 
-	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false, true);
 }
 
 void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, uint32_t codepoint)
@@ -2467,7 +2528,7 @@ void skb_editor_insert_codepoint(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 	assert(editor);
 
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, &codepoint, 1);
-	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, true);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, true, false);
 }
 
 void skb_editor_insert_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const char* utf8, int32_t utf8_len)
@@ -2483,26 +2544,26 @@ void skb_editor_insert_text_utf8(skb_editor_t* editor, skb_temp_alloc_t* temp_al
 
 	SKB_TEMP_FREE(temp_alloc, utf32);
 
-	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false, true);
 }
 
 void skb_editor_insert_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const uint32_t* utf32, int32_t utf32_len)
 {
 	assert(editor);
 	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
-	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false);
+	skb__insert_rich_text(editor, temp_alloc, text_range, input_text, false, true);
 }
 
 void skb_editor_insert_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, const skb_rich_text_t* rich_text)
 {
 	assert(editor);
-	skb__insert_rich_text(editor, temp_alloc, text_range, rich_text, false);
+	skb__insert_rich_text(editor, temp_alloc, text_range, rich_text, false, true);
 }
 
 void skb_editor_remove(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range)
 {
 	assert(editor);
-	skb__insert_rich_text(editor, temp_alloc, text_range, NULL, false);
+	skb__insert_rich_text(editor, temp_alloc, text_range, NULL, false, true);
 }
 
 void skb_editor_toggle_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
@@ -2538,7 +2599,7 @@ void skb_editor_toggle_attribute_with_payload(skb_editor_t* editor, skb_temp_all
 		skb__update_preview_caret(editor);
 	} else {
 		// Apply to selection
-		if (skb_editor_get_attribute_count(editor, text_range, attribute) == text_count) {
+		if (skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute)) {
 			skb_editor_clear_attribute(editor, temp_alloc, text_range, attribute);
 		} else {
 			skb_editor_set_attribute_with_payload(editor, temp_alloc, text_range, attribute, span_flags, payload);
@@ -2585,7 +2646,7 @@ void skb_editor_set_attribute_with_payload(skb_editor_t* editor, skb_temp_alloc_
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 
-		skb__emit_on_change(editor);
+		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_ATTRIBUTE);
 	}
 }
 
@@ -2621,7 +2682,7 @@ void skb_editor_clear_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_all
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 		skb__pick_active_attributes(editor);
 
-		skb__emit_on_change(editor);
+		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_ATTRIBUTE);
 	}
 }
 
@@ -2640,7 +2701,7 @@ void skb_editor_clear_all_attributes(skb_editor_t* editor, skb_temp_alloc_t* tem
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_ATTRIBUTE);
 }
 
 void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
@@ -2658,7 +2719,7 @@ void skb_editor_set_paragraph_attribute(skb_editor_t* editor, skb_temp_alloc_t* 
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
-	skb__emit_on_change(editor);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_ATTRIBUTE);
 }
 
 void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_text_range_t text_range, skb_attribute_t attribute)
@@ -2676,15 +2737,7 @@ void skb_editor_set_paragraph_attribute_delta(skb_editor_t* editor, skb_temp_all
 	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
 	skb__pick_active_attributes(editor);
 
-	skb__emit_on_change(editor);
-}
-
-int32_t skb_editor_get_attribute_count(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
-{
-	assert(editor);
-
-	text_range = skb__resolve_text_range(editor, text_range);
-	return skb_rich_text_get_attribute_count(&editor->rich_text, text_range, attribute);
+	skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_ATTRIBUTE);
 }
 
 bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
@@ -2716,7 +2769,6 @@ bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_
 
 	if (selection_count > 0)
 		return skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute);
-//		return skb_editor_get_attribute_count(editor, text_range, attribute) == selection_count;
 
 	if (is_current_selection) {
 		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
@@ -2810,7 +2862,7 @@ void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t*
 	if (utf32 == NULL) {
 		utf32 = skb_text_get_utf32(&editor->composition_text);
 		utf32_len = skb_text_get_utf32_count(&editor->composition_text);
-		// This makes bold assumption that the text memory bugger is not freed.
+		// This makes bold assumption that the text memory buffer is not freed.
 		skb_text_reset(&editor->composition_text);
 		assert(utf32 == skb_text_get_utf32(&editor->composition_text));
 	} else {
@@ -2821,7 +2873,8 @@ void skb_editor_commit_composition_utf32(skb_editor_t* editor, skb_temp_alloc_t*
 	editor->composition_selection = (skb_text_range_t){0};
 	editor->composition_text_offset = 0;
 
-	skb_editor_insert_text_utf32(editor, temp_alloc, SKB_CURRENT_SELECTION, utf32, utf32_len);
+	skb_rich_text_t* input_text = skb__make_scratch_text_input_utf32(editor, temp_alloc, utf32, utf32_len);
+	skb__insert_rich_text(editor, temp_alloc, SKB_CURRENT_SELECTION, input_text, false, false);
 }
 
 void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
@@ -2838,8 +2891,10 @@ void skb_editor_clear_composition(skb_editor_t* editor, skb_temp_alloc_t* temp_a
 
 		skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){ .edit_end_position.offset = SKB_INVALID_INDEX });
 
-		if (editor->composition_cleared_selection)
-			skb__emit_on_change(editor);
+		if (editor->composition_cleared_selection) {
+			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
+			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+		}
 	}
 }
 

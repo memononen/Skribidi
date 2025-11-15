@@ -1107,34 +1107,6 @@ void skb_rich_text_clear_all_attributes(skb_rich_text_t* rich_text, skb_text_ran
 	skb__iterate_paragraphs(rich_text, text_range, skb__iter_clear_all_attributes, NULL);
 }
 
-static bool skb__iter_get_attribute_count(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
-{
-	skb__paragraph_attribute_context_t* ctx = context;
-	const skb_text_paragraph_t* text_paragraph = &rich_text->paragraphs[paragraph_idx];
-	const skb_attribute_span_t* attribute_spans = skb_text_get_attribute_spans(&text_paragraph->text);
-	const int32_t attribute_spans_count = skb_text_get_attribute_spans_count(&text_paragraph->text);
-
-	for (int32_t si = 0; si < attribute_spans_count; si++) {
-		const skb_attribute_span_t* attribute_span = &attribute_spans[si];
-		if (attribute_span->attribute.kind == ctx->attribute.kind && memcmp(&attribute_span->attribute, &ctx->attribute, sizeof(skb_attribute_t)) == 0) {
-			const int32_t start = skb_maxi(text_range.start.offset, attribute_span->text_range.start);
-			const int32_t end = skb_mini(text_range.end.offset, attribute_span->text_range.end);
-			ctx->count += skb_maxi(0, end - start);
-		}
-	}
-
-	return true;
-}
-
-int32_t skb_rich_text_get_attribute_count(const skb_rich_text_t* rich_text, skb_text_range_t text_range, skb_attribute_t attribute)
-{
-	assert(rich_text);
-	skb__paragraph_attribute_context_t ctx = {.attribute = attribute, .count = 0};
-	skb__iterate_paragraphs((skb_rich_text_t*)rich_text, text_range, skb__iter_get_attribute_count, &ctx);
-	return ctx.count;
-}
-
-
 static bool skb__iter_has_attribute(skb_rich_text_t* rich_text, int32_t paragraph_idx, skb_text_range_t text_range, void* context)
 {
 	skb__paragraph_attribute_context_t* ctx = context;
