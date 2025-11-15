@@ -78,7 +78,7 @@ typedef enum {
  * @param reason reason why the text changed, see skb_editor_text_change_reason_t.
  * @param context context pointer that was passed to skb_editor_set_on_text_change_callback().
  */
-typedef void skb_editor_on_change_func_t(skb_editor_t* editor, skb_editor_text_change_reason_t reason, void* context);
+typedef void skb_editor_on_text_change_func_t(skb_editor_t* editor, skb_editor_text_change_reason_t reason, void* context);
 
 /** Enum describing text change reason. */
 typedef enum {
@@ -213,7 +213,7 @@ void skb_editor_destroy(skb_editor_t* editor);
  * @param on_change_func pointer to the on change callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
+void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context);
 
 /**
  * Sets change callback function.
@@ -221,7 +221,7 @@ void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_
  * @param on_change_func pointer to the on change callback function
  * @param context context pointer that is passed to the callback function each time it is called.
  */
-void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context);
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context);
 
 /**
  * Sets input filter function.

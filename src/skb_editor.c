@@ -57,10 +57,10 @@ typedef struct skb_editor_t {
 	int32_t attributes_count;
 	int32_t attributes_cap;
 
-	skb_editor_on_change_func_t* on_text_change_callback;
+	skb_editor_on_text_change_func_t* on_text_change_callback;
 	void* on_text_change_context;
 
-	skb_editor_on_change_func_t* on_selection_change_callback;
+	skb_editor_on_selection_change_func_t* on_selection_change_callback;
 	void* on_selection_change_context;
 
 	skb_editor_input_filter_func_t* input_filter_callback;
@@ -463,14 +463,14 @@ void skb_editor_destroy(skb_editor_t* editor)
 	skb_free(editor);
 }
 
-void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
+void skb_editor_set_on_text_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context)
 {
 	assert(editor);
 	editor->on_text_change_callback = on_change_func;
 	editor->on_text_change_context = context;
 }
 
-void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_change_func_t* on_change_func, void* context)
+void skb_editor_set_on_selection_change_callback(skb_editor_t* editor, skb_editor_on_text_change_func_t* on_change_func, void* context)
 {
 	assert(editor);
 	editor->on_selection_change_callback = on_change_func;
