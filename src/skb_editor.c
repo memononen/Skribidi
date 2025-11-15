@@ -1569,7 +1569,7 @@ void skb_editor_process_mouse_click(skb_editor_t* editor, float x, float y, uint
 			editor->drag_mode = SKB_DRAG_LINE;
 		}
 		skb__pick_active_attributes(editor);
-		if (editor->drag_mode = SKB_DRAG_CHAR)
+		if (editor->drag_mode == SKB_DRAG_CHAR)
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
 		else
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
