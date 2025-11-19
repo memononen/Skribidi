@@ -169,7 +169,7 @@ typedef struct skb_attribute_line_height_t {
 
 /**
  * Inline padding attribute. Adds inline padding a content run.
- * If consecuetive runs with same content type and id have same padding, the padding will not be applied between the runs.
+ * If consecutive runs with same content type and id have same padding, the padding will not be applied between the runs.
  */
 typedef struct skb_attribute_inline_padding_t {
 	// Attribute kind tag, must be first.
@@ -460,6 +460,17 @@ typedef struct skb_attribute_reference_t {
 	skb_attribute_set_handle_t handle;
 } skb_attribute_reference_t;
 
+/**
+ * Caret padding attribute. Adds space around caret to make upcoming content visible while navigating.
+*/
+typedef struct skb_attribute_caret_padding_t {
+	// Attribute kind tag, must be first.
+	uint32_t kind;
+	/** Space around caret horizontally. */
+	float horizontal;
+	/** Space around caret vertically. */
+	float vertical;
+} skb_attribute_caret_padding_t;
 
 /** Enum describing tags for each of the attributes. */
 typedef enum {
@@ -525,6 +536,8 @@ typedef enum {
 	SKB_ATTRIBUTE_GROUP_TAG = SKB_TAG('g','r','u','p'),
 	/** Tag for skb_attribute_reference_t */
 	SKB_ATTRIBUTE_REFERENCE = SKB_TAG('a','r','e','f'),
+	/** Tag for skb_attribute_reference_t */
+	SKB_ATTRIBUTE_CARET_PADDING = SKB_TAG('c','a','p','a'),
 } skb_attribute_type_t;
 
 /**
@@ -564,6 +577,7 @@ typedef union skb_attribute_t {
 	skb_attribute_object_align_t object_align;
 	skb_attribute_group_tag_t group_tag;
 	skb_attribute_reference_t reference;
+	skb_attribute_caret_padding_t caret_padding;
 } skb_attribute_t;
 
 // Forward declaration
@@ -697,6 +711,9 @@ skb_attribute_t skb_attribute_make_reference(skb_attribute_set_handle_t set_hand
 
 /** @returns new reference attribute. See skb_attribute_reference_t */
 skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
+
+/** @returns new caret padding attribute. See skb_attribute_caret_padding_t */
+skb_attribute_t skb_attribute_make_caret_padding(float horizontal, float vertical);
 
 /**
  * Returns text direction attribute or default value if not found.
@@ -943,6 +960,16 @@ skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes,
  * @return first found attribute or default value.
  */
 skb_attribute_baseline_shift_t skb_attributes_get_baseline_shift(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
+/**
+ * Returns caret padding or default value if not found.
+ * The default value is 0.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @return first found attribute or default value.
+ */
+skb_attribute_caret_padding_t skb_attributes_get_caret_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
+
 
 /**
  * Returns first group tag attribute or default value if not found.

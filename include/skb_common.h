@@ -67,6 +67,8 @@ typedef enum {
 	SKB_OVERFLOW_CLIP,
 	/** Overflowing text is clipped and ellipsis is placed at the end of clipped text. */
 	SKB_OVERFLOW_ELLIPSIS,
+	/** Overflowing text should be scrolled. Scrolling is handled externalle, behaves like SKB_OVERFLOW_NONE during layout. */
+	SKB_OVERFLOW_SCROLL,
 } skb_text_overflow_t;
 
 /** Enum describing which font metrics is used to describe the line height. Used for aligning. */

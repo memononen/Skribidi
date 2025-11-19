@@ -218,7 +218,7 @@ int main(int argc, char** args)
 	}
 
 	// Init first example
-	set_example(9);
+	set_example(11);
 
 	while (!g_done) {
 		main_loop(0);
@@ -277,12 +277,24 @@ static void main_loop(void* arg)
 
 	debug_render_text(g_render_context, 25+title_width+25+15, 20.f, 15, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "%d/%d", g_example_idx+1, g_examples_count);
 
+	static int32_t c = 0;
+	static int32_t n = 0;
+
+	debug_render_text(g_render_context, 25, 50.f, 15, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "%d  %d", c, n);
+
 	render_end_frame(g_render_context);
 
 	glEnable(GL_DEPTH_TEST);
 	glfwSwapBuffers(g_window);
 
-	glfwWaitEventsTimeout(1.0);
+	n++;
+	if (c > 0) {
+		glfwPollEvents();
+		c--;
+	} else {
+		glfwWaitEventsTimeout(1.0);
+		c = 2;
+	}
 }
 
 

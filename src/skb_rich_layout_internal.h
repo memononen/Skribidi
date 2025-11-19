@@ -12,7 +12,7 @@
 typedef struct skb_layout_paragraph_t {
 	skb_layout_t layout;				// Layout for the paragraph, may contain multiple lines.
 	int32_t global_text_offset;
-	float offset_y;						// Y offset of the layout.
+	skb_vec2_t offset;					// Offset of the layout.
 	uint32_t version;					// Version of the paragraph, if different from rich text paragraph, needs update.
 	int32_t list_marker_counter;
 	uint8_t group_flags;

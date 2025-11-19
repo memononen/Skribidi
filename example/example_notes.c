@@ -72,6 +72,9 @@ typedef struct notes_context_t {
 static void update_ime_rect(notes_context_t* ctx)
 {
 	skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, SKB_CURRENT_SELECTION_END);
+	skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
+	caret_info.x += view_offset.x;
+	caret_info.y += view_offset.y;
 
 	skb_rect2_t caret_rect = {
 		.x = caret_info.x - caret_info.descender * caret_info.slope,
@@ -324,8 +327,10 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t layout_attributes[] = {
 		skb_attribute_make_text_wrap(SKB_WRAP_WORD_CHAR),
+		skb_attribute_make_text_overflow(SKB_OVERFLOW_SCROLL),
 		skb_attribute_make_tab_stop_increment(16.f * 2.f),
 		skb_attribute_make_indent_increment(32.f, 0.f),
+		skb_attribute_make_caret_padding(25, 25),
 	};
 
 	skb_attribute_set_t body = skb_attribute_set_make_reference_by_name(ctx->attribute_collection, "BODY");
@@ -338,7 +343,8 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 	skb_editor_params_t edit_params = {
 		.font_collection = ctx->font_collection,
 		.attribute_collection = ctx->attribute_collection,
-		.editor_width = 600.f,
+		.editor_width = 300.f, //SKB_AUTO_SIZE,
+		.editor_height = 400.f, //SKB_AUTO_SIZE,
 		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 		.paragraph_attributes = body,
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
@@ -986,6 +992,8 @@ void notes_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int butt
 					ime_cancel();
 					ctx->drag_text = true;
 					skb_vec2_t pos = transform_mouse_pos(ctx, mouse_x, mouse_y);
+					skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
+					pos = skb_vec2_sub(pos, view_offset);
 					skb_editor_process_mouse_click(ctx->editor, pos.x, pos.y, mouse_mods, glfwGetTime());
 				}
 			}
@@ -1016,6 +1024,8 @@ void notes_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 
 	if (ctx->drag_text) {
 		skb_vec2_t pos = transform_mouse_pos(ctx, mouse_x, mouse_y);
+		skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
+		pos = skb_vec2_sub(pos, view_offset);
 		skb_editor_process_mouse_drag(ctx->editor, pos.x, pos.y);
 		update_ime_rect(ctx);
 	} else {
@@ -1047,6 +1057,11 @@ static void draw_selection_rect(skb_rect2_t rect, void* context)
 }
 
 
+static skb_vec2_t ui_get_mouse_pos(notes_context_t* ctx)
+{
+	return render_inv_transform_point(ctx->rc, (skb_vec2_t){ctx->ui.mouse_pos.x, ctx->ui.mouse_pos.y});
+}
+
 static void ui_frame_begin(ui_context_t* ui)
 {
 	ui->id_gen = 1;
@@ -1073,8 +1088,8 @@ static bool ui_button_logic(ui_context_t* ui, int32_t id, bool over)
 	if (over)
 		ui->next_hover = id;
 
-	// process down
 	if (ui->active == 0) {
+		// process down
 		if (ui->hover == id && ui->mouse_pressed) {
 			ui->active = id;
 			ui->went_active = id;
@@ -1097,12 +1112,8 @@ static bool ui_button_logic(ui_context_t* ui, int32_t id, bool over)
 static bool ui_button(notes_context_t* ctx, skb_rect2_t rect, const char* text, bool selected)
 {
 	int32_t id = ui_make_id(&ctx->ui);
-	bool over = skb_rect2_pt_inside(rect, ctx->ui.mouse_pos);
+	bool over = skb_rect2_pt_inside(rect, ui_get_mouse_pos(ctx));
 	bool res = ui_button_logic(&ctx->ui, id, over);
-
-	if (res) {
-		skb_debug_log("click!!\n");
-	}
 
 	skb_color_t bg_col = skb_rgba(255,255,255,128);
 	skb_color_t text_col = skb_rgba(0,0,0,220);
@@ -1113,15 +1124,103 @@ static bool ui_button(notes_context_t* ctx, skb_rect2_t rect, const char* text, 
 	if (ctx->ui.active == id) {
 		bg_col.a = 255;
 		text_col.a = 255;
-	}
-	if (ctx->ui.hover == id)
+	} else if (ctx->ui.hover == id) {
 		bg_col.a = 192;
+	}
 
 	debug_render_filled_rect(ctx->rc, rect.x, rect.y, rect.width, rect.height, bg_col);
 	debug_render_text(ctx->rc, rect.x + rect.width * 0.5f+1,rect.y + rect.height*0.5f + 6.f, 17, RENDER_ALIGN_CENTER, text_col, text);
 
 	return res;
 }
+typedef enum {
+	UI_SCROLLBAR_HORIZONTAL,
+	UI_SCROLLBAR_VERTICAL,
+} ui_scrollbar_dir_t;
+
+static skb_rect2_t ui__make_handle_rect(skb_rect2_t rect, ui_scrollbar_dir_t dir, float content_ratio, float offset_ratio)
+{
+	if (dir == UI_SCROLLBAR_VERTICAL) {
+		return (skb_rect2_t) {
+			.x = rect.x,
+			.y = rect.y + offset_ratio * rect.height,
+			.width = rect.width,
+			.height = content_ratio * rect.height,
+		};
+	}
+	return (skb_rect2_t) {
+		.x = rect.x + offset_ratio * rect.width,
+		.y = rect.y,
+		.width = content_ratio * rect.width,
+		.height = rect.height,
+	};
+}
+
+static bool ui_scrollbar(notes_context_t* ctx, skb_rect2_t rect, ui_scrollbar_dir_t dir, float view_size, float content_size, float* content_offset)
+{
+	static skb_vec2_t start_mouse_pos = {0};
+	static float start_offset = 0.f;
+	static int32_t drag_id = 0;
+
+	float content_ratio = content_size > 0.f ? skb_clampf(view_size / content_size, 0.f, 1.f) : 0.f;
+	float offset_ratio = content_size > 0.f ? skb_clampf(*content_offset / content_size, 0.f, 1.f - content_ratio) : 0.f;
+
+	skb_rect2_t handle_rect = ui__make_handle_rect(rect, dir, content_ratio, offset_ratio);
+
+	const skb_vec2_t mouse_pos = ui_get_mouse_pos(ctx);
+
+	int32_t bg_id = ui_make_id(&ctx->ui);
+	bool bg_over = skb_rect2_pt_inside(rect, mouse_pos);
+	bool bg_res = ui_button_logic(&ctx->ui, bg_id, bg_over);
+
+	int32_t handle_id = ui_make_id(&ctx->ui);
+	bool handle_over = skb_rect2_pt_inside(handle_rect, mouse_pos);
+	bool handle_res = ui_button_logic(&ctx->ui, handle_id, handle_over);
+
+	skb_color_t bg_col = skb_rgba(0,0,0,32);
+	skb_color_t handle_col = skb_rgba(0,0,0,64);
+/*	if (ctx->ui.active == bg_id)
+		bg_col.a = 255;
+	if (ctx->ui.hover == bg_id)
+		bg_col.a = 192;*/
+
+	if (ctx->ui.active == handle_id)
+		handle_col.a = 128;
+	else if (ctx->ui.hover == handle_id)
+		handle_col.a = 96;
+
+	bool changed = false;
+	if (ctx->ui.went_active == handle_id) {
+		// Start drag
+		start_mouse_pos = mouse_pos;
+		start_offset = *content_offset;
+		drag_id = handle_id;
+	}
+	if (drag_id == handle_id) {
+		// Drag
+		const float delta = dir == UI_SCROLLBAR_VERTICAL ? (mouse_pos.y - start_mouse_pos.y) / rect.height : (mouse_pos.x - start_mouse_pos.x) / rect.width;
+		const float max_offset = skb_maxf(0.f, content_size - view_size);
+		const float offset = skb_clampf(start_offset + delta * content_size, 0.f, max_offset);
+
+		if (skb_absf(*content_offset - offset) > 1e-6f) {
+			*content_offset = offset;
+			// Update handle, so that we get immediate feedback.
+			offset_ratio = content_size > 0.f ? skb_clampf(*content_offset / content_size, 0.f, 1.f - content_ratio) : 0.f;
+			handle_rect = ui__make_handle_rect(rect, dir, content_ratio, offset_ratio);
+			changed = true;
+		}
+	}
+	if (drag_id == handle_id && ctx->ui.active != handle_id) {
+		// End drag
+		drag_id = 0;
+	}
+
+	debug_render_stroked_rect(ctx->rc, rect.x, rect.y, rect.width, rect.height, bg_col, 1.f);
+	debug_render_filled_rect(ctx->rc, handle_rect.x + 2, handle_rect.y + 2, handle_rect.width - 4, handle_rect.height - 4, handle_col);
+
+	return changed;
+}
+
 
 void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 {
@@ -1146,29 +1245,60 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_color_t caret_color = skb_rgba(255,128,128,255);
 
 		const skb_editor_params_t* editor_params = skb_editor_get_params(ctx->editor);
+		const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(editor_params->layout_attributes, editor_params->attribute_collection);
 
-		skb_rect2_t editor_bounds = {
-			.x = 0.f,
-			.y = 0.f,
-			.width = editor_params->editor_width,
-			.height = 0.f,
-		};
-		const int32_t paragraph_count = skb_editor_get_paragraph_count(ctx->editor);
-		if (paragraph_count > 0) {
-			const float offset_y = skb_editor_get_paragraph_offset_y(ctx->editor, paragraph_count - 1);
-			const float advance_y = skb_editor_get_paragraph_advance_y(ctx->editor, paragraph_count - 1);
-			editor_bounds.height = offset_y + advance_y;
+		skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
+		skb_rect2_t editor_content_bounds = skb_editor_get_layout_bounds(ctx->editor);
+		const skb_rect2_t editor_view_bounds = skb_editor_get_view_bounds(ctx->editor);
+
+		if (ctx->show_run_details) {
+			debug_render_stroked_rect(ctx->rc, view_offset.x + editor_content_bounds.x, view_offset.y + editor_content_bounds.y, editor_content_bounds.width, editor_content_bounds.height, skb_rgba(255,100,128,128), 1.f);
 		}
 
-		debug_render_stroked_rect(ctx->rc, editor_bounds.x - 5, editor_bounds.y - 5, editor_bounds.width + 10, editor_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
+		debug_render_stroked_rect(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 5, editor_view_bounds.width + 10, editor_view_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
+
+		// Scrollbar
+		if (text_overflow == SKB_OVERFLOW_SCROLL) {
+
+			if (editor_content_bounds.height > editor_view_bounds.height) {
+				const skb_rect2_t vert_scrollbar_rect = {
+					.x = editor_view_bounds.x + editor_view_bounds.width + 5,
+					.y = editor_view_bounds.y - 5,
+					.width = 15,
+					.height = editor_view_bounds.height+10,
+				};
+				float offset_vert = -view_offset.y;
+				if (ui_scrollbar(ctx, vert_scrollbar_rect, UI_SCROLLBAR_VERTICAL, editor_view_bounds.height, editor_content_bounds.height, &offset_vert)) {
+					skb_debug_log("y changed %f -> %f\n", view_offset.y, -offset_vert);
+					view_offset.y = -offset_vert;
+					skb_editor_set_view_offset(ctx->editor, view_offset);
+				}
+			}
+
+			if (editor_content_bounds.width > editor_view_bounds.width) {
+				const skb_rect2_t horiz_scrollbar_rect = {
+					.x = editor_view_bounds.x - 5,
+					.y = editor_view_bounds.y + editor_view_bounds.height + 5,
+					.width = editor_view_bounds.width + 10,
+					.height = 15,
+				};
+				float offset_horiz = -view_offset.x;
+				if (ui_scrollbar(ctx, horiz_scrollbar_rect, UI_SCROLLBAR_HORIZONTAL, editor_view_bounds.width, editor_content_bounds.width, &offset_horiz)) {
+					skb_debug_log("x changed %f -> %f\n", view_offset.x, -offset_horiz);
+					view_offset.x = -offset_horiz;
+					skb_editor_set_view_offset(ctx->editor, view_offset);
+				}
+			}
+		}
+
 
 		skb_text_range_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 
 		if (ctx->show_caret_details) {
 			const char* affinity_str[] = { "-", "TR", "LD", "SOL", "EOL" };
 			// Selection text
-			float x = editor_bounds.x;
-			float y = editor_bounds.y - 25;
+			float x = editor_view_bounds.x;
+			float y = editor_view_bounds.y - 25;
 			debug_render_text(ctx->rc, x, y, 10, RENDER_ALIGN_START, skb_rgba(0,0,0,128),
 				"Selection   Start=%d/%s   End=%d/%s",
 				edit_selection.start.offset, affinity_str[edit_selection.start.affinity],
@@ -1176,51 +1306,57 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
-			draw_selection_context_t sel_ctx = { .x = 0, .y = 0, .color = sel_color, .renderer = ctx->rc };
+			draw_selection_context_t sel_ctx = { .x = view_offset.x, .y = view_offset.y, .color = sel_color, .renderer = ctx->rc };
 			skb_editor_iterate_text_range_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
 		}
 
-		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
-			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
-			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
-			render_draw_layout(ctx->rc, NULL, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
+		// Draw the layout
+		const skb_rich_layout_t* edit_rich_layout = skb_editor_get_rich_layout(ctx->editor);
+		render_draw_rich_layout(ctx->rc, NULL, view_offset.x, view_offset.y, edit_rich_layout, SKB_RASTERIZE_ALPHA_SDF);
 
-			// Tick at paragraph start
-			if (ctx->show_caret_details) {
-				float x = editor_bounds.x + editor_bounds.width + 5;
-				float y = edit_layout_y;
-				debug_render_line(ctx->rc, x, y, x + 15, y, skb_rgba(0,0,0,128), 1.f);
+		// Debug draw
+		if (ctx->show_caret_details ||ctx->show_run_details) {
+			for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
+				const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
+				const skb_vec2_t edit_layout_offset = skb_editor_get_paragraph_offset(ctx->editor, pi);
 
-				const int32_t text_count = skb_editor_get_paragraph_text_count(ctx->editor, pi);
-				const int32_t content_count = skb_editor_get_paragraph_text_content_count(ctx->editor, pi);
+				// Tick at paragraph start
+				if (ctx->show_caret_details) {
+					float x = view_offset.x + edit_layout_offset.x + editor_view_bounds.x + editor_view_bounds.width + 5;
+					float y = view_offset.y + edit_layout_offset.y;
+					debug_render_line(ctx->rc, x, y, x + 15, y, skb_rgba(0,0,0,128), 1.f);
 
-				debug_render_text(ctx->rc, x + 5, y + 15, 10, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "[%d] @%d %d %c",
-					pi, skb_editor_get_paragraph_global_text_offset(ctx->editor, pi),text_count, text_count != content_count ? 'N' : ' ');
+					const int32_t text_count = skb_editor_get_paragraph_text_count(ctx->editor, pi);
+					const int32_t content_count = skb_editor_get_paragraph_text_content_count(ctx->editor, pi);
 
-				// Draw spans, attribute types and payload
-				const skb_text_t* text = skb_editor_get_paragraph_text(ctx->editor, pi);
-				const skb_attribute_span_t* spans = skb_text_get_attribute_spans(text);
-				const int32_t spans_count = skb_text_get_attribute_spans_count(text);
-				for (int32_t si = 0; si < spans_count; si++) {
-					const skb_attribute_span_t* span = &spans[si];
-					x = debug_render_text(ctx->rc, x + 5, y + 30, 10, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "%c%c%c%c:[%d-%d) ",
-						SKB_UNTAG(span->attribute.kind), span->text_range.start, span->text_range.end);
-					if (span->payload) {
-						uint32_t payload_type = skb_data_blob_get_type(span->payload);
-						x = debug_render_text(ctx->rc, x, y + 30, 10, RENDER_ALIGN_START, skb_rgba(128,0,0,128), "<%c%c%c%c>",
-							SKB_UNTAG(span->attribute.kind), span->text_range.start, span->text_range.end, SKB_UNTAG(payload_type));
-						if (payload_type == SKB_DATA_BLOB_UTF8)
-							x = debug_render_text(ctx->rc, x, y + 30, 10, RENDER_ALIGN_START, skb_rgba(128,0,0,192), "\"%s\"",
-								skb_data_blob_get_utf8(span->payload, NULL));
+					debug_render_text(ctx->rc, x + 5, y + 15, 10, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "[%d] @%d %d %c",
+						pi, skb_editor_get_paragraph_global_text_offset(ctx->editor, pi),text_count, text_count != content_count ? 'N' : ' ');
+
+					// Draw spans, attribute types and payload
+					const skb_text_t* text = skb_editor_get_paragraph_text(ctx->editor, pi);
+					const skb_attribute_span_t* spans = skb_text_get_attribute_spans(text);
+					const int32_t spans_count = skb_text_get_attribute_spans_count(text);
+					for (int32_t si = 0; si < spans_count; si++) {
+						const skb_attribute_span_t* span = &spans[si];
+						x = debug_render_text(ctx->rc, x + 5, y + 30, 10, RENDER_ALIGN_START, skb_rgba(0,0,0,192), "%c%c%c%c:[%d-%d) ",
+							SKB_UNTAG(span->attribute.kind), span->text_range.start, span->text_range.end);
+						if (span->payload) {
+							uint32_t payload_type = skb_data_blob_get_type(span->payload);
+							x = debug_render_text(ctx->rc, x, y + 30, 10, RENDER_ALIGN_START, skb_rgba(128,0,0,128), "<%c%c%c%c>",
+								SKB_UNTAG(span->attribute.kind), span->text_range.start, span->text_range.end, SKB_UNTAG(payload_type));
+							if (payload_type == SKB_DATA_BLOB_UTF8)
+								x = debug_render_text(ctx->rc, x, y + 30, 10, RENDER_ALIGN_START, skb_rgba(128,0,0,192), "\"%s\"",
+									skb_data_blob_get_utf8(span->payload, NULL));
+						}
 					}
 				}
-			}
 
-			if (ctx->show_run_details) {
-				debug_render_layout(ctx->rc, 0.f, edit_layout_y, edit_layout);
-				debug_render_layout_lines(ctx->rc, 0.f, edit_layout_y, edit_layout);
-				debug_render_layout_runs(ctx->rc, 0.f, edit_layout_y, edit_layout);
-				//debug_render_layout_glyphs(ctx->rc, 0.f, edit_layout_y, edit_layout);
+				if (ctx->show_run_details) {
+					debug_render_layout(ctx->rc, view_offset.x + edit_layout_offset.x, view_offset.y + edit_layout_offset.y, edit_layout);
+					debug_render_layout_lines(ctx->rc, view_offset.x + edit_layout_offset.x, view_offset.y + edit_layout_offset.y, edit_layout);
+					debug_render_layout_runs(ctx->rc, view_offset.x + edit_layout_offset.x, view_offset.y + edit_layout_offset.y, edit_layout);
+					//debug_render_layout_glyphs(ctx->rc, 0.f, edit_layout_y, edit_layout);
+				}
 			}
 		}
 
@@ -1229,6 +1365,9 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			// Visual caret
 			skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, SKB_CURRENT_SELECTION_END);
+
+			caret_info.x += view_offset.x;
+			caret_info.y += view_offset.y;
 
 			float caret_line_width = 2.f;
 

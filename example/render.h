@@ -12,6 +12,7 @@ typedef struct render_context_t render_context_t;
 typedef struct skb_image_atlas_t skb_image_atlas_t;
 typedef struct skb_rasterizer_t skb_rasterizer_t;
 typedef struct skb_layout_t skb_layout_t;
+typedef struct skb_rich_layout_t skb_rich_layout_t;
 typedef struct skb_editor_t skb_editor_t;
 
 /** Vertex used by render_draw_tris. */
@@ -86,16 +87,22 @@ void render_push_transform(render_context_t* rc, float offset_x, float offset_y,
 void render_pop_transform(render_context_t* rc);
 
 /** @returns scale of the current trasnform. */
-float render_get_transform_scale(render_context_t* rc);
+float render_get_transform_scale(const render_context_t* rc);
 
 /** @returns offset of the current trasnform. */
-skb_vec2_t render_get_transform_offset(render_context_t* rc);
+skb_vec2_t render_get_transform_offset(const render_context_t* rc);
 
 /** @returns rectangle transformed by the current transform. */
-skb_rect2_t render_transform_rect(render_context_t* rc, const skb_rect2_t rect);
+skb_rect2_t render_transform_rect(const render_context_t* rc, skb_rect2_t rect);
 
 /** @returns rectangle transformed by the inverse of the current transform. */
-skb_rect2_t render_inv_transform_rect(render_context_t* rc, const skb_rect2_t rect);
+skb_rect2_t render_inv_transform_rect(const render_context_t* rc, skb_rect2_t rect);
+
+/** @returns point transformed by the current transform. */
+skb_vec2_t render_transform_point(const render_context_t* rc, skb_vec2_t pt);
+
+/** @returns point transformed by the inverse of the current transform. */
+skb_vec2_t render_inv_transform_point(const render_context_t* rc, skb_vec2_t pt);
 
 /**
  * Creates new texture and returns handle to it.
@@ -196,12 +203,20 @@ void render_draw_decoration(render_context_t* rc,
                             skb_decoration_style_t style, skb_decoration_position_t position, float length, float pattern_offset, float thickness,
                             skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode);
 
+/** Struct describing state for specific content id. Can be used to change the paint of specific content. */
+typedef struct render_content_state_t {
+	/** Content ID to match. */
+	intptr_t content_id;
+	/** State of the content. */
+	uint32_t state;
+} render_content_state_t;
+
 /**
  * Draws text layout
  * @param rc render context
  * @param view_bounds view bounds to cull the items against.
- * @param offset_x asd
- * @param offset_y asd
+ * @param offset_x x offset to render the layout at.
+ * @param offset_y y offset to render the layout at.
  * @param layout layout to draw
  * @param alpha_mode whether to render as SDF or alpha mask.
  */
@@ -209,14 +224,50 @@ void render_draw_layout(
 	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
 	const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode);
 
-typedef struct render_content_state_t {
-	intptr_t content_id;
-	uint32_t state;
-} render_content_state_t;
-
+/**
+ * Draws text layout with specific content states.
+ * Content states allow to pick alternative paint for the specified content runs, which can be used for i.e. UI visual feedback.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param offset_x x offset to render the layout at.
+ * @param offset_y y offset to render the layout at.
+ * @param layout layout to draw
+ * @param alpha_mode whether to render as SDF or alpha mask.
+ * @param content_states pointer to arrau of content states
+ * @param content_states_count number of items in the content state array.
+ */
 void render_draw_layout_with_state(
 	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
 	const skb_layout_t* layout, skb_rasterize_alpha_mode_t alpha_mode, const render_content_state_t* content_states, int32_t content_states_count);
+
+/**
+ * Draws rich layout.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param offset_x x offset to render the layout at.
+ * @param offset_y y offset to render the layout at.
+ * @param rich_layout pointer to rich layout to draw.
+ * @param alpha_mode whether to render as SDF or alpha mask.
+ */
+void render_draw_rich_layout(
+	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+	const skb_rich_layout_t* rich_layout, skb_rasterize_alpha_mode_t alpha_mode);
+
+/**
+ * Draws rich layout with specific content states.
+ * Content states allow to pick alternative paint for the specified content runs, which can be used for i.e. UI visual feedback.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param offset_x x offset to render the layout at.
+ * @param offset_y y offset to render the layout at.
+ * @param rich_layout pointer to rich layout to draw.
+ * @param alpha_mode whether to render as SDF or alpha mask.
+ * @param content_states pointer to arrau of content states
+ * @param content_states_count number of items in the content state array.
+ */
+void render_draw_rich_layout_with_state(
+	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+	const skb_rich_layout_t* rich_layout, skb_rasterize_alpha_mode_t alpha_mode, const render_content_state_t* content_states, int32_t content_states_count);
 
 
 #endif // RENDERER_H

@@ -91,6 +91,8 @@ typedef struct skb_editor_t {
 	uint8_t drag_moved;
 	uint8_t drag_mode;
 
+	skb_vec2_t view_offset;
+
 	// IME
 	skb_text_t composition_text;
 	int32_t composition_text_offset;				// Global text offset where the composition is displayed.
@@ -147,6 +149,55 @@ static void skb__update_selection_from_change(skb_editor_t* editor, skb_rich_tex
 	}
 }
 
+static void skb__editor_clamp_view_offset(skb_editor_t* editor)
+{
+	skb_rect2_t view_bounds = skb_editor_get_view_bounds(editor);
+	const skb_rect2_t content_bounds = skb_rich_layout_get_bounds(&editor->rich_layout);
+	const float view_offset_max_x = skb_maxf(0.f, content_bounds.width - view_bounds.width);
+	const float view_offset_max_y = skb_maxf(0.f, content_bounds.height - view_bounds.height);
+	editor->view_offset.x = skb_clampf(editor->view_offset.x, -view_offset_max_x, 0.f);
+	editor->view_offset.y = skb_clampf(editor->view_offset.y, -view_offset_max_y, 0.f);
+}
+
+static void skb__ensure_caret_visible(skb_editor_t* editor)
+{
+	skb_rect2_t view_bounds = skb_editor_get_view_bounds(editor);
+	const skb_caret_info_t caret_info = skb_editor_get_caret_info_at(editor, SKB_CURRENT_SELECTION_END);
+	const skb_rect2_t content_bounds = skb_rich_layout_get_bounds(&editor->rich_layout);
+	const float view_offset_max_x = skb_maxf(0.f, content_bounds.width - view_bounds.width);
+	const float view_offset_max_y = skb_maxf(0.f, content_bounds.height - view_bounds.height);
+
+	const skb_attribute_caret_padding_t caret_padding = skb_attributes_get_caret_padding(editor->params.layout_attributes, editor->params.attribute_collection);
+	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(editor->params.layout_attributes, editor->params.attribute_collection);
+
+	if (text_overflow == SKB_OVERFLOW_SCROLL) {
+		const float caret_min_x = caret_info.x - caret_padding.horizontal;
+		const float caret_max_x = caret_info.x + caret_padding.horizontal;
+		const float caret_min_y = caret_info.y + caret_info.ascender - caret_padding.vertical;
+		const float caret_max_y = caret_info.y + caret_info.descender + caret_padding.vertical;
+
+		const float view_min_x = -editor->view_offset.x;
+		const float view_max_x = -editor->view_offset.x + view_bounds.width;
+		const float view_min_y = -editor->view_offset.y;
+		const float view_max_y = -editor->view_offset.y + view_bounds.height;
+
+		if (caret_min_x < view_min_x)
+			editor->view_offset.x = -caret_min_x;
+		else if (caret_max_x > view_max_x)
+			editor->view_offset.x = -(caret_max_x - view_bounds.width);
+		editor->view_offset.x = skb_clampf(editor->view_offset.x, -view_offset_max_x, 0.f);
+
+		if (caret_min_y < view_min_y)
+			editor->view_offset.y = -caret_min_y;
+		else if (caret_max_y > view_max_y)
+			editor->view_offset.y = -(caret_max_y - view_bounds.height);
+		editor->view_offset.y = skb_clampf(editor->view_offset.y, -view_offset_max_y, 0.f);
+	} else {
+		editor->view_offset.x = 0.f;
+		editor->view_offset.y = 0.f;
+	}
+}
+
 static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_rich_text_change_t change)
 {
 	assert(editor);
@@ -158,8 +209,9 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	layout_params.font_collection = editor->params.font_collection;
 	layout_params.icon_collection = editor->params.icon_collection;
 	layout_params.layout_width = editor->params.editor_width;
+	layout_params.layout_height = editor->params.editor_height;
 	layout_params.layout_attributes = editor->params.layout_attributes;
-	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
+	layout_params.flags |= SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS | SKB_LAYOUT_PARAMS_IGNORE_OVERFLOW;
 
 	skb_rich_layout_set_from_rich_text(&editor->rich_layout, temp_alloc, &layout_params, &editor->rich_text, editor->composition_text_offset, &editor->composition_text);
 
@@ -168,6 +220,9 @@ static void skb__update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
 	skb_paragraph_position_t selection_end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->selection.end, SKB_AFFINITY_IGNORE);
 	editor->selection.start.offset = selection_start_pos.global_text_offset;
 	editor->selection.end.offset = selection_end_pos.global_text_offset;
+
+	// Make sure the view offset is in bounds.
+	skb__editor_clamp_view_offset(editor);
 }
 
 static const skb_layout_t* skb__get_layout(const skb_editor_t* editor, int32_t paragraph_idx)
@@ -497,6 +552,8 @@ void skb_editor_reset(skb_editor_t* editor, const skb_editor_params_t* params)
 	skb_rich_text_reset(&editor->rich_text);
 	skb_rich_layout_reset(&editor->rich_layout);
 
+	editor->view_offset = (skb_vec2_t){ 0 };
+
 	editor->active_attributes_count = 0;
 	editor->preferred_x = -1.f;
 	editor->undo_stack_head = -1;
@@ -673,6 +730,39 @@ void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_rang
 // Layout getters
 //
 
+skb_vec2_t skb_editor_get_view_offset(const skb_editor_t* editor)
+{
+	assert(editor);
+	return editor->view_offset;
+}
+
+void skb_editor_set_view_offset(skb_editor_t* editor, skb_vec2_t view_offset)
+{
+	assert(editor);
+
+	editor->view_offset = view_offset;
+	skb__editor_clamp_view_offset(editor);
+}
+
+skb_rect2_t skb_editor_get_layout_bounds(const skb_editor_t* editor)
+{
+	assert(editor);
+	return skb_rich_layout_get_bounds(&editor->rich_layout);
+}
+
+skb_rect2_t skb_editor_get_view_bounds(const skb_editor_t* editor)
+{
+	const bool has_width_constraint = editor->params.editor_width >= 0.f;
+	const bool has_height_constraint = editor->params.editor_height >= 0.f;
+	const skb_rect2_t content_bounds = skb_rich_layout_get_bounds(&editor->rich_layout); // Use edit bounds, which contains line end white space too.
+	return (skb_rect2_t) {
+		.x = 0.f,
+		.y = 0.f,
+		.width = has_width_constraint ? editor->params.editor_width : content_bounds.width,
+		.height = has_height_constraint ? editor->params.editor_height : content_bounds.height,
+	};
+}
+
 const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor)
 {
 	assert(editor);
@@ -693,11 +783,11 @@ const skb_layout_t* skb_editor_get_paragraph_layout(const skb_editor_t* editor, 
 	return skb__get_layout(editor, paragraph_idx);
 }
 
-float skb_editor_get_paragraph_offset_y(const skb_editor_t* editor, int32_t paragraph_idx)
+skb_vec2_t skb_editor_get_paragraph_offset(const skb_editor_t* editor, int32_t paragraph_idx)
 {
 	assert(editor);
 	assert(skb__are_paragraphs_in_sync(editor));
-	return skb_rich_layout_get_layout_offset_y(&editor->rich_layout, paragraph_idx);
+	return skb_rich_layout_get_layout_offset(&editor->rich_layout, paragraph_idx);
 }
 
 float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t paragraph_idx)
@@ -1907,6 +1997,7 @@ void skb_editor_undo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 		skb__pick_active_attributes(editor);
 		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_UNDO);
 		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_UNDO);
+		skb__ensure_caret_visible(editor);
 	}
 }
 
@@ -1942,6 +2033,7 @@ void skb_editor_redo(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
 		skb__pick_active_attributes(editor);
 		skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_UNDO);
 		skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_UNDO);
+		skb__ensure_caret_visible(editor);
 	}
 }
 
@@ -2175,6 +2267,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
+				skb__ensure_caret_visible(editor);
 			} else {
 				// MacOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
@@ -2191,6 +2284,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+				skb__ensure_caret_visible(editor);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
@@ -2201,6 +2295,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					editor->selection.end = skb_editor_move_to_next_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
+				skb__ensure_caret_visible(editor);
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
@@ -2215,6 +2310,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+				skb__ensure_caret_visible(editor);
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2232,6 +2328,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
+				skb__ensure_caret_visible(editor);
 			} else {
 				// macOS mode without shift
 				if (mods & SKB_MOD_COMMAND) {
@@ -2248,6 +2345,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+				skb__ensure_caret_visible(editor);
 			}
 		} else {
 			if (mods & SKB_MOD_SHIFT) {
@@ -2258,6 +2356,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 					editor->selection.end = skb_editor_move_to_prev_char(editor, editor->selection.end, SKB_MOVE_WITH_SELECTION);
 				// Do not move g_selection_start_caret, to allow the selection to grow.
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
+				skb__ensure_caret_visible(editor);
 			} else {
 				// Default mode without shift
 				if (mods & SKB_MOD_CONTROL) {
@@ -2271,6 +2370,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 				editor->selection.start = editor->selection.end;
 				skb__pick_active_attributes(editor);
 				skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_MOVE);
+				skb__ensure_caret_visible(editor);
 			}
 		}
 		editor->preferred_x = -1.f; // reset preferred.
@@ -2285,6 +2385,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		} else {
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
+		skb__ensure_caret_visible(editor);
 		editor->preferred_x = -1.f; // reset preferred.
 	}
 
@@ -2297,6 +2398,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		} else {
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
+		skb__ensure_caret_visible(editor);
 		editor->preferred_x = -1.f; // reset preferred.
 	}
 
@@ -2331,6 +2433,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		} else {
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
+		skb__ensure_caret_visible(editor);
 	}
 	if (key == SKB_KEY_DOWN) {
 		if (editor->params.editor_behavior == SKB_BEHAVIOR_MACOS) {
@@ -2363,6 +2466,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 		} else {
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_GROW);
 		}
+		skb__ensure_caret_visible(editor);
 	}
 
 	if (key == SKB_KEY_BACKSPACE) {
@@ -2372,6 +2476,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+			skb__ensure_caret_visible(editor);
 		} else {
 			skb_text_range_t remove_range = {
 				.start = skb__get_backspace_start_offset(editor, editor->selection.end),
@@ -2386,6 +2491,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+			skb__ensure_caret_visible(editor);
 		}
 	}
 
@@ -2396,6 +2502,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+			skb__ensure_caret_visible(editor);
 		} else {
 			skb_text_range_t remove_range = {
 				.start = editor->selection.end,
@@ -2410,6 +2517,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+			skb__ensure_caret_visible(editor);
 		}
 	}
 
@@ -2435,6 +2543,7 @@ void skb_editor_process_key_pressed(skb_editor_t* editor, skb_temp_alloc_t* temp
 			skb__pick_active_attributes(editor);
 			skb__emit_on_text_change(editor, SKB_EDITOR_TEXT_EDIT);
 			skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+			skb__ensure_caret_visible(editor);
 		}
 	}
 }
@@ -2508,6 +2617,7 @@ static void skb__insert_rich_text(
 	skb__pick_active_attributes(editor);
 	skb__emit_on_text_change(editor, external ? SKB_EDITOR_TEXT_EXTERNAL : SKB_EDITOR_TEXT_EDIT);
 	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_EDIT);
+	skb__ensure_caret_visible(editor);
 }
 
 
@@ -2938,13 +3048,13 @@ skb_caret_info_t skb_editor_get_caret_info_at(const skb_editor_t* editor, skb_te
 {
 	assert(editor);
 
-	const bool use_current_selection = skb_text_position_is_current_selection_end(text_pos);
+	const bool is_current_selection_end = skb_text_position_is_current_selection_end(text_pos);
 
 	text_pos = skb__resolve_text_position(editor, text_pos);
 
 	skb_caret_info_t caret = skb_rich_layout_get_caret_info_at(&editor->rich_layout, text_pos);
 
-	if (use_current_selection && editor->is_preview_caret_valid) {
+	if (is_current_selection_end && editor->is_preview_caret_valid) {
 		// Override slot from active attributes.
 		caret.slope = editor->preview_caret_slope;
 		caret.ascender = editor->preview_caret_ascender;

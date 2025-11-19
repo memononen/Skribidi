@@ -180,6 +180,11 @@ void* inputfilter_create(GLFWwindow* window, render_context_t* rc)
 
 	ctx->hand_cursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
 
+	const skb_attribute_t layout_attributes[] = {
+		skb_attribute_make_text_overflow(SKB_OVERFLOW_SCROLL),
+		skb_attribute_make_vertical_align(SKB_ALIGN_CENTER),
+	};
+
 	const skb_attribute_t text_attributes[] = {
 		skb_attribute_make_font_size(64.f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(64,64,64,255)),
@@ -192,8 +197,11 @@ void* inputfilter_create(GLFWwindow* window, render_context_t* rc)
 
 	skb_editor_params_t edit_params = {
 		.font_collection = ctx->font_collection,
+		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 		.paragraph_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(text_attributes),
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
+		.editor_width = 200.f,
+		.editor_height = 80.f,
 	};
 
 	ctx->editor = skb_editor_create(&edit_params);
@@ -439,36 +447,27 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		skb_color_t sel_color = skb_rgba(255,192,192,255);
 		skb_color_t caret_color = skb_rgba(255,128,128,255);
 
-		skb_rect2_t editor_bounds = skb_rect2_make_undefined();
-		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
-			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
-			skb_rect2_t layout_bounds = skb_layout_get_bounds(edit_layout);
-			layout_bounds.y += skb_editor_get_paragraph_offset_y(ctx->editor, pi);
-			editor_bounds = skb_rect2_union(editor_bounds, layout_bounds);
-		}
-		editor_bounds.width = skb_maxf(editor_bounds.width, skb_editor_get_params(ctx->editor)->editor_width);
+		skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
+		const skb_rect2_t editor_view_bounds = skb_editor_get_view_bounds(ctx->editor);
 
-		debug_render_stroked_rect(ctx->rc, editor_bounds.x - 5, editor_bounds.y - 5, editor_bounds.width + 10, editor_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
-		debug_render_text(ctx->rc, editor_bounds.x - 5, editor_bounds.y - 20, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "Numeric Input");
-
+		debug_render_stroked_rect(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 5, editor_view_bounds.width + 10, editor_view_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
+		debug_render_text(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 20, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "Numeric Input");
 
 		skb_text_range_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
-			draw_selection_context_t sel_ctx = { .x = 0, .y = 0, .color = sel_color, .renderer = ctx->rc };
+			draw_selection_context_t sel_ctx = { .x = view_offset.x, .y = view_offset.y, .color = sel_color, .renderer = ctx->rc };
 			skb_editor_iterate_text_range_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
 		}
 
-		for (int32_t pi = 0; pi < skb_editor_get_paragraph_count(ctx->editor); pi++) {
-			const skb_layout_t* edit_layout = skb_editor_get_paragraph_layout(ctx->editor, pi);
-			const float edit_layout_y = skb_editor_get_paragraph_offset_y(ctx->editor, pi);
-			render_draw_layout(ctx->rc, NULL, 0.f, edit_layout_y, edit_layout, SKB_RASTERIZE_ALPHA_SDF);
-		}
+		render_draw_rich_layout(ctx->rc, NULL, view_offset.x, view_offset.y, skb_editor_get_rich_layout(ctx->editor), SKB_RASTERIZE_ALPHA_SDF);
 
 		// Caret is generally drawn only when there is no selection.
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) == 0) {
 
 			// Visual caret
 			skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, edit_selection.end);
+			caret_info.x += view_offset.x;
+			caret_info.y += view_offset.y;
 
 			float caret_line_width = 2.f;
 

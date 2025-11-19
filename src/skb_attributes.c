@@ -456,6 +456,18 @@ skb_attribute_t skb_attribute_make_reference_by_name(const skb_attribute_collect
 	return attribute;
 }
 
+skb_attribute_t skb_attribute_make_caret_padding(float horizontal, float vertical)
+{
+	skb_attribute_t attribute;
+	SKB_ZERO_STRUCT(&attribute); // Makes sure that the padding gets zeroed too.
+	attribute.caret_padding = (skb_attribute_caret_padding_t) {
+		.kind = SKB_ATTRIBUTE_CARET_PADDING,
+		.horizontal = horizontal,
+		.vertical = vertical,
+	};
+	return attribute;
+}
+
 int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap)
 {
 	int32_t count = 0;
@@ -720,6 +732,14 @@ skb_attribute_baseline_shift_t skb_attributes_get_baseline_shift(skb_attribute_s
 	return attr ? attr->baseline_shift : default_baseline_shift;
 }
 
+skb_attribute_caret_padding_t skb_attributes_get_caret_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
+{
+	static const skb_attribute_caret_padding_t default_caret_padding = { 0 };
+
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_CARET_PADDING);
+	return attr ? attr->caret_padding : default_caret_padding;
+
+}
 
 uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {

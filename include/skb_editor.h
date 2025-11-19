@@ -141,8 +141,10 @@ typedef struct skb_editor_params_t {
 	skb_icon_collection_t* icon_collection;
 	/** Pointer to the attribute collection to use. */
 	skb_attribute_collection_t* attribute_collection;
-	/** Layout box width. Used for alignment, wrapping, and overflow (will be passed to layout width) */
+	/** Editor box width. Used for alignment, wrapping, and overflow (will be passed to layout width). Set to SKB_AUTO_SIZE, if the width should be unbounded. */
 	float editor_width;
+	/** Editor box height. Used for alignment, wrapping, and overflow (will be passed to layout height). Set to SKB_AUTO_SIZE, if the height should be unbounded. */
+	float editor_height;
 	/** Attributes to apply for the layout. Text attributes, and attributes from attributed text are added on top. */
 	skb_attribute_set_t layout_attributes;
 	/** Attributes to apply for all the text. */
@@ -344,10 +346,31 @@ void skb_editor_get_rich_text_in_range(const skb_editor_t* editor, skb_text_rang
 //
 
 /**
- * Gets the rich layout of the edited text.
+ * Returns the view offset of the editor.
+ * When the layout text overflow attributes is set to SKB_OVERFLOW_SCROLL,
+ * the caret movement will change the view offset to keep the caret visible.
+ * Note: the view offset is always negative.
  * @param editor editor to query
- * @return const pointer to the rich layout of edited text.
+ * @return view offset.
  */
+skb_vec2_t skb_editor_get_view_offset(const skb_editor_t* editor);
+
+/**
+ * Sets the view offset of the editor.
+ * The view offset is clamped to always keep the content visible.
+ * Note: the view offset is always negative.
+ * @param editor editor to change
+ * @param view_offset new view offset
+ */
+void skb_editor_set_view_offset(skb_editor_t* editor, skb_vec2_t view_offset);
+
+/** @return view bounds of the editor. */
+skb_rect2_t skb_editor_get_view_bounds(const skb_editor_t* editor);
+
+/** @return the bounding box of the editor content layout. */
+skb_rect2_t skb_editor_get_layout_bounds(const skb_editor_t* editor);
+
+/** @return const pointer to the rich layout of edited text. */
 const skb_rich_layout_t* skb_editor_get_rich_layout(const skb_editor_t* editor);
 
 /** @return number of paragraphs in the editor. */
@@ -357,7 +380,7 @@ int32_t skb_editor_get_paragraph_count(const skb_editor_t* editor);
 const skb_layout_t* skb_editor_get_paragraph_layout(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return y-offset of the specified paragraph. */
-float skb_editor_get_paragraph_offset_y(const skb_editor_t* editor, int32_t paragraph_idx);
+skb_vec2_t skb_editor_get_paragraph_offset(const skb_editor_t* editor, int32_t paragraph_idx);
 
 /** @return y-advance (advance to the start of next paragraph) of the specified paragraph. */
 float skb_editor_get_paragraph_advance_y(const skb_editor_t* editor, int32_t paragraph_idx);

@@ -1740,22 +1740,24 @@ static bool skb__finalize_line(skb_layout_t* layout, skb_layout_line_t* line, bo
 		line->padding_right += whitespace_width;
 	}
 
-	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
-	if (text_overflow != SKB_OVERFLOW_NONE) {
-		if ((layout_size->height + line_height) > max_height) {
-			// The line will overflow the max height for the layout, trim this and any following lines.
+	if ((layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_OVERFLOW) == 0) {
+		const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
+		if (text_overflow != SKB_OVERFLOW_NONE && text_overflow != SKB_OVERFLOW_SCROLL) {
+			if ((layout_size->height + line_height) > max_height) {
+				// The line will overflow the max height for the layout, trim this and any following lines.
 
-			// Remove the current line.
-			if (layout->lines_count > 0) {
-				assert(layout->layout_runs_count == line->layout_run_range.end);
-				layout->layout_runs_count = line->layout_run_range.start;
-				layout->lines_count--;
+				// Remove the current line.
+				if (layout->lines_count > 0) {
+					assert(layout->layout_runs_count == line->layout_run_range.end);
+					layout->layout_runs_count = line->layout_run_range.start;
+					layout->lines_count--;
+				}
+
+				// Report max height reached, we'll add ellipsis later.
+				layout->flags |= SKB_LAYOUT_IS_TRUNCATED;
+
+				return true;
 			}
-
-			// Report max height reached, we'll add ellipsis later.
-			layout->flags |= SKB_LAYOUT_IS_TRUNCATED;
-
-			return true;
 		}
 	}
 
@@ -1956,6 +1958,8 @@ static void skb__build_decorations_for_line(skb_layout_t* layout, int32_t line_i
 void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t* layout)
 {
 	const bool ignore_must_breaks = layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS;
+	const bool has_width_constraint = layout->params.layout_width >= 0.f;
+	const bool has_height_constraint = layout->params.layout_height >= 0.f;
 
 	layout->bounds = (skb_rect2_t){0};
 	layout->padding = (skb_padding2_t){0};
@@ -1964,12 +1968,12 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 	layout->layout_runs_count = 0;
 
-	skb__calculated_layout_size_t layout_size = {0};
+	skb__calculated_layout_size_t calculated_size = {0};
 
 	skb_layout_line_t* cur_line = skb__add_line(layout);
 
 	const bool layout_is_rtl = skb_is_rtl(layout->resolved_direction);
-	const skb_text_wrap_t text_wrap = skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection);
+	const skb_text_wrap_t text_wrap = has_width_constraint ? skb_attributes_get_text_wrap(layout->params.layout_attributes, layout->params.attribute_collection) : SKB_WRAP_NONE;
 
 	// Handle horizontal padding and indent
 	const skb_attribute_paragraph_padding_t paragraph_padding = skb_attributes_get_paragraph_padding(layout->params.layout_attributes, layout->params.attribute_collection);
@@ -1991,10 +1995,11 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
  	skb_layout_run_t* cur_layout_run = NULL;
 	skb__shaping_run_cluster_iter_t it = skb__shaping_run_cluster_iter_make(layout);
 
-	const float horizontal_padding_start = skb_minf(paragraph_padding.start + (float)indent_level * indent_increment.level_increment + list_marker_indent, layout->params.layout_width);
-	const float horizontal_padding_end = skb_minf(paragraph_padding.end, layout->params.layout_width - horizontal_padding_start);
+	const float horizontal_padding_max = has_width_constraint ? layout->params.layout_width : FLT_MAX;
+	const float horizontal_padding_start = skb_minf(paragraph_padding.start + (float)indent_level * indent_increment.level_increment + list_marker_indent, horizontal_padding_max);
+	const float horizontal_padding_end = skb_minf(paragraph_padding.end, horizontal_padding_max - horizontal_padding_start);
 
-	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end));
+	const float inner_layout_width = has_width_constraint ? skb_maxf(0.f, layout->params.layout_width - (horizontal_padding_start + horizontal_padding_end)) : 0.f;
 	const float tab_stop_increment = skb_attributes_get_tab_stop_increment(layout->params.layout_attributes, layout->params.attribute_collection);
 
 	// Init the line break width to the first line width (will be reset to inner_layout_width after first line).
@@ -2072,7 +2077,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If text wrap is set to word & char, allow to break at a character when the whole word does not fit.
 
 			// Start a new line
-			max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
+			max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &calculated_size);
 			cur_line = NULL;
 			if (max_heigh_reached)
 				break;
@@ -2107,7 +2112,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			// If the word does not fit, or tab brought us to the next line, start a new line (unless it's an empty line).
 			const bool width_overflows = (cur_line->bounds.width + run_width) > line_break_width;
 			if (text_wrap != SKB_WRAP_NONE && (width_overflows || tab_overflows)) {
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &calculated_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -2122,7 +2127,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 
 			if (must_break && !ignore_must_breaks) {
 				// Line break character start a new line.
-				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &layout_size);
+				max_heigh_reached = skb__finalize_line(layout, cur_line, false, list_marker, line_break_width, &calculated_size);
 				cur_line = NULL;
 				if (max_heigh_reached)
 					break;
@@ -2137,7 +2142,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 	// Finalize last line
 	if (cur_line)
-		max_heigh_reached = skb__finalize_line(layout, cur_line, true, list_marker, line_break_width, &layout_size);
+		max_heigh_reached = skb__finalize_line(layout, cur_line, true, list_marker, line_break_width, &calculated_size);
 
 	//
 	// Align layout and lines
@@ -2155,11 +2160,19 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust the calculated_height so that first line only accounts for cap height (not all the way to ascender), and last line does not count descender.
 		const float first_line_ascender = layout->lines[0].ascender;
-		const float height_diff = layout_size.first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
-		layout_size.height -= height_diff;
+		const float height_diff = calculated_size.first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
+		calculated_size.height -= height_diff;
 		const float last_line_descender = layout->lines[layout->lines_count-1].descender;
-		layout_size.height -= last_line_descender;
+		calculated_size.height -= last_line_descender;
 	}
+
+	// When text wrapping, the calculated width is always the available width.
+	// This does not affect the visual result, but gives better behavior for the editor.
+	if (text_wrap != SKB_WRAP_NONE) {
+		calculated_size.width = inner_layout_width;
+	}
+
+	const float container_width = has_width_constraint ? inner_layout_width : calculated_size.width;
 
 	// Align layout
 	const float paragraph_padding_left = layout_is_rtl ? horizontal_padding_end : horizontal_padding_start;
@@ -2168,21 +2181,22 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	const float paragraph_padding_bottom = vertical_padding_bottom;
 
 	skb_rect2_t content_bounds = {0};
-	content_bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), layout_size.width, inner_layout_width);
+	content_bounds.x = skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), calculated_size.width, container_width);
 	content_bounds.x += paragraph_padding_left;
 
-	if (layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN)
+	if ((layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN) || !has_height_constraint)
 		content_bounds.y = 0.f;
 	else
-		content_bounds.y = skb_calc_align_offset(vertical_align, layout_size.height, layout->params.layout_height);
+		content_bounds.y = skb_calc_align_offset(vertical_align, calculated_size.height, layout->params.layout_height);
 	content_bounds.y += paragraph_padding_top;
 
-	content_bounds.width = layout_size.width;
-	content_bounds.height = layout_size.height;
-	layout->advance_y = paragraph_padding_top + layout_size.height + paragraph_padding_bottom;
+	content_bounds.width = calculated_size.width;
+	content_bounds.height = calculated_size.height;
+	layout->advance_y = paragraph_padding_top + calculated_size.height + paragraph_padding_bottom;
 
 	layout->bounds.x = content_bounds.x - paragraph_padding_left;
 	layout->bounds.y = content_bounds.y - paragraph_padding_top;
+
 	layout->bounds.width = content_bounds.width + paragraph_padding_left + paragraph_padding_right;
 	layout->bounds.height = content_bounds.height + paragraph_padding_top + paragraph_padding_bottom;
 
@@ -2196,7 +2210,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	if (vertical_trim == SKB_VERTICAL_TRIM_CAP_TO_BASELINE) {
 		// Adjust start position so that the top is aligned to cap height.
 		const float first_line_ascender = layout->lines[0].ascender;
-		const float height_diff = layout_size.first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
+		const float height_diff = calculated_size.first_line_cap_height - first_line_ascender; // Note: cap height and ascender are negative.
 		start_y -= height_diff;
 	}
 
@@ -2208,7 +2222,7 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 		// The line is aligned to content width, which does not include padding (negative indent, trimmed whitespace)
 		// The line bounds include padding, so that it can be always used as line start location (i.e. for caret iterator).
 		const float line_content_width = skb_maxf(0.f, line->bounds.width - line->padding_left - line->padding_right);
-		line->bounds.x = paragraph_padding_left - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, inner_layout_width);
+		line->bounds.x = paragraph_padding_left - line->padding_left + skb_calc_align_offset(skb_get_directional_align(layout_is_rtl, horizontal_align), line_content_width, container_width/*inner_layout_width*/);
 		line->bounds.y = start_y;
 
 		// Update glyph offsets
@@ -2285,30 +2299,31 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 	}
 
 	// Truncate lines
-	const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
-	if (text_overflow != SKB_OVERFLOW_NONE) {
-		float content_min_x = FLT_MAX;
-		float content_max_x = -FLT_MAX;
-		bool was_truncated = false;
+	if ((layout->params.flags & SKB_LAYOUT_PARAMS_IGNORE_OVERFLOW) == 0) {
+		const skb_text_overflow_t text_overflow = skb_attributes_get_text_overflow(layout->params.layout_attributes, layout->params.attribute_collection);
+		if (text_overflow != SKB_OVERFLOW_NONE && text_overflow != SKB_OVERFLOW_SCROLL) {
+			float content_min_x = FLT_MAX;
+			float content_max_x = -FLT_MAX;
+			bool was_truncated = false;
 
-		for (int32_t li = 0; li < layout->lines_count; li++) {
-			skb_layout_line_t* line = &layout->lines[li];
+			for (int32_t li = 0; li < layout->lines_count; li++) {
+				skb_layout_line_t* line = &layout->lines[li];
 
-			const float line_truncate_width = (li == 0) ? skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment) : inner_layout_width;
-			const bool is_last_line_ellipsis = layout->flags & SKB_LAYOUT_IS_TRUNCATED &&  li == (layout->lines_count - 1);
+				const float line_truncate_width = (li == 0) ? skb_maxf(0.f, container_width - indent_increment.first_line_increment) : container_width;
+				const bool is_last_line_ellipsis = layout->flags & SKB_LAYOUT_IS_TRUNCATED &&  li == (layout->lines_count - 1);
 
-			was_truncated |= skb__truncate_line(layout, li, is_last_line_ellipsis, line_truncate_width, text_overflow, paragraph_padding_left, inner_layout_width, horizontal_align);
-			content_min_x = skb_minf(content_min_x, line->bounds.x + line->padding_left);
-			content_max_x = skb_maxf(content_max_x, line->bounds.x + line->bounds.width - line->padding_right);
-		}
+				was_truncated |= skb__truncate_line(layout, li, is_last_line_ellipsis, line_truncate_width, text_overflow, paragraph_padding_left, container_width, horizontal_align);
+				content_min_x = skb_minf(content_min_x, line->bounds.x + line->padding_left);
+				content_max_x = skb_maxf(content_max_x, line->bounds.x + line->bounds.width - line->padding_right);
+			}
 
-		// Update bounds after trunction
-		if (was_truncated && layout->lines_count > 0) {
-			layout->bounds.x = content_min_x - paragraph_padding_left;
-			layout->bounds.width = (content_max_x - content_min_x) + horizontal_padding_start + horizontal_padding_end;
+			// Update bounds after truncation
+			if (was_truncated && layout->lines_count > 0) {
+				layout->bounds.x = content_min_x - paragraph_padding_left;
+				layout->bounds.width = (content_max_x - content_min_x) + horizontal_padding_start + horizontal_padding_end;
+			}
 		}
 	}
-
 
 	//
 	// Calculate culling bounds
@@ -2344,7 +2359,10 @@ bool skb_layout_add_ellipsis_to_last_line(skb_layout_t* layout)
 	const skb_align_t horizontal_align = skb_attributes_get_horizontal_align(layout->params.layout_attributes, layout->params.attribute_collection);
 	const float paragraph_padding_left = layout->padding.left;
 
-	const float inner_layout_width = skb_maxf(0.f, layout->params.layout_width - (layout->padding.left + layout->padding.right));
+	const bool has_width_constraint = layout->params.layout_width >= 0.f;
+	const float layout_width = has_width_constraint ? layout->params.layout_width : layout->bounds.width;
+	const float inner_layout_width = skb_maxf(0.f, layout_width - (layout->padding.left + layout->padding.right));
+
 	const float line_truncate_width = (line_idx == 0) ? skb_maxf(0.f, inner_layout_width - indent_increment.first_line_increment) : inner_layout_width;
 
 	if (skb__truncate_line(layout, line_idx, true, line_truncate_width, SKB_OVERFLOW_ELLIPSIS, paragraph_padding_left, inner_layout_width, horizontal_align)) {
@@ -3734,10 +3752,10 @@ int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_ran
 
 void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
 {
-	skb_layout_iterate_text_range_bounds_with_y_offset(layout, 0.f, text_range, callback, context);
+	skb_layout_iterate_text_range_bounds_with_offset(layout, (skb_vec2_t){0}, text_range, callback, context);
 }
 
-void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layout, float offset_y, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
+void skb_layout_iterate_text_range_bounds_with_offset(const skb_layout_t* layout, skb_vec2_t offset, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
 {
 	assert(layout);
 	assert(callback);
@@ -3831,8 +3849,8 @@ void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layo
 							// Start new rect
 							if (skb_absf(rect_end_x - rect_start_x) > 0.01f) {
 								skb_rect2_t rect = {
-									.x = rect_start_x,
-									.y = offset_y + line->baseline + line->ascender,
+									.x = offset.x + rect_start_x,
+									.y = offset.y + line->baseline + line->ascender,
 									.width = rect_end_x - rect_start_x,
 									.height = -line->ascender + line->descender,
 								};
@@ -3855,8 +3873,8 @@ void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layo
 				if (skb_absf(rect_end_x - rect_start_x) > 0.01f) {
 					// Output rect.
 					skb_rect2_t rect = {
-						.x = rect_start_x,
-						.y = offset_y + line->baseline + line->ascender,
+						.x = offset.x + rect_start_x,
+						.y = offset.y + line->baseline + line->ascender,
 						.width = rect_end_x - rect_start_x,
 						.height = -line->ascender + line->descender,
 					};

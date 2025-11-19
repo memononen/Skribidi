@@ -355,8 +355,8 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 
 	for (int32_t pi = 0; pi < skb_rich_layout_get_paragraphs_count(ctx->rich_layout); pi++) {
 		const skb_layout_t* layout = skb_rich_layout_get_layout(ctx->rich_layout, pi);
-		const float layout_offset_y = skb_rich_layout_get_layout_offset_y(ctx->rich_layout, pi);
-		render_draw_layout(ctx->rc, NULL, 0.f, layout_offset_y, layout, SKB_RASTERIZE_ALPHA_SDF);
+		const skb_vec2_t layout_offset = skb_rich_layout_get_layout_offset(ctx->rich_layout, pi);
+		render_draw_layout(ctx->rc, NULL, layout_offset.x, layout_offset.y, layout, SKB_RASTERIZE_ALPHA_SDF);
 	}
 
 	if (ctx->show_layout_details) {
@@ -372,11 +372,11 @@ void paragraphs_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height
 		// Paragraphs
 		for (int32_t pi = 0; pi < skb_rich_layout_get_paragraphs_count(ctx->rich_layout); pi++) {
 			const skb_layout_t* layout = skb_rich_layout_get_layout(ctx->rich_layout, pi);
-			const float layout_offset_y = skb_rich_layout_get_layout_offset_y(ctx->rich_layout, pi);
+			const skb_vec2_t layout_offset = skb_rich_layout_get_layout_offset(ctx->rich_layout, pi);
 
-			debug_render_layout(ctx->rc, 0.f, layout_offset_y, layout);
-			debug_render_layout_lines(ctx->rc, 0.f, layout_offset_y, layout);
-			debug_render_layout_runs(ctx->rc, 0.f, layout_offset_y, layout);
+			debug_render_layout(ctx->rc, layout_offset.x, layout_offset.y, layout);
+			debug_render_layout_lines(ctx->rc, layout_offset.x, layout_offset.y, layout);
+			debug_render_layout_runs(ctx->rc, layout_offset.x, layout_offset.y, layout);
 		}
 	}
 

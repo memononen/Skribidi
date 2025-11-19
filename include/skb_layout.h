@@ -64,10 +64,12 @@ enum skb_layout_params_flags_t {
 	SKB_LAYOUT_PARAMS_IGNORE_MUST_LINE_BREAKS = 1 << 0,
 	/** Ignores vertical align against the layout box. */
 	SKB_LAYOUT_PARAMS_IGNORE_VERTICAL_ALIGN = 1 << 1,
+	/** Ignores vertical align against the layout box. */
+	SKB_LAYOUT_PARAMS_IGNORE_OVERFLOW = 1 << 2,
 	/** If set, the paragraph before this one has the same group tag. */
-	SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE = 1 << 2,
+	SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE = 1 << 3,
 	/** If set, the paragraph after this one has the same group tag. */
-	SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER = 1 << 3,
+	SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER = 1 << 4,
 };
 
 /** Struct describing parameters that apply to the whole text layout. */
@@ -78,9 +80,9 @@ typedef struct skb_layout_params_t {
 	skb_icon_collection_t* icon_collection;
 	/** Pointer to the attribute collection to use. */
 	skb_attribute_collection_t* attribute_collection;
-	/** Layout box width. Used for alignment, wrapping, and overflow */
+	/** Layout box width. Used for alignment, wrapping, and overflow. Set to SKB_AUTO_SIZE, if the width should be unbounded. */
 	float layout_width;
-	/** Layout box height. Used for alignment, wrapping, and overflow */
+	/** Layout box height. Used for alignment, wrapping, and overflow. Set to SKB_AUTO_SIZE, if the height should be unbounded. */
 	float layout_height;
 	/** Layout parameter flags (see skb_layout_params_flags_t). */
 	uint8_t flags;
@@ -732,7 +734,7 @@ skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout,
  * @param rect content rectangle.
  * @param layout_run_idx layout run index of the content rectangle
  * @param line_idx lined index of the content rectangle
- * @param context context passed to skb_layout_get_content_bounds()
+ * @param context context passed to skb_layout_get_content_run_bounds_by_id()
  */
 typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, int32_t line_idx, void* context);
 
@@ -823,12 +825,12 @@ void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_r
  * Iterates over set of bounding rectangles that represent the text range.
  * Due to bidirectional text the selection in logical order can span across multiple visual rectangles.
  * @param layout layout to use.
- * @param offset_y y-offset added to each rectangle.
+ * @param offset offset added to each rectangle.
  * @param text_range the text range to gets the rects for.
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_iterate_text_range_bounds_with_y_offset(const skb_layout_t* layout, float offset_y, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
+void skb_layout_iterate_text_range_bounds_with_offset(const skb_layout_t* layout, skb_vec2_t offset, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 //
 // Caret iterator
