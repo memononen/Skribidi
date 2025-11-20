@@ -19,7 +19,6 @@
 #include "skb_font_collection.h"
 #include "skb_layout.h"
 #include "skb_rasterizer.h"
-#include "skb_image_atlas.h"
 #include "skb_editor.h"
 #include "skb_rich_text.h"
 
@@ -453,6 +452,8 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		debug_render_stroked_rect(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 5, editor_view_bounds.width + 10, editor_view_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
 		debug_render_text(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 20, 13, RENDER_ALIGN_START, skb_rgba(0,0,0,128), "Numeric Input");
 
+		render_push_scissor(ctx->rc, editor_view_bounds.x, editor_view_bounds.y, editor_view_bounds.width, editor_view_bounds.height);
+
 		skb_text_range_t edit_selection = skb_editor_get_current_selection(ctx->editor);
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
 			draw_selection_context_t sel_ctx = { .x = view_offset.x, .y = view_offset.y, .color = sel_color, .renderer = ctx->rc };
@@ -460,6 +461,8 @@ void inputfilter_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 		}
 
 		render_draw_rich_layout(ctx->rc, NULL, view_offset.x, view_offset.y, skb_editor_get_rich_layout(ctx->editor), SKB_RASTERIZE_ALPHA_SDF);
+
+		render_pop_scissor(ctx->rc);
 
 		// Caret is generally drawn only when there is no selection.
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) == 0) {

@@ -1305,6 +1305,10 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				edit_selection.end.offset, affinity_str[edit_selection.end.affinity]);
 		}
 
+		if (text_overflow == SKB_OVERFLOW_SCROLL) {
+			render_push_scissor(ctx->rc, editor_view_bounds.x, editor_view_bounds.y, editor_view_bounds.width, editor_view_bounds.height);
+		}
+
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
 			draw_selection_context_t sel_ctx = { .x = view_offset.x, .y = view_offset.y, .color = sel_color, .renderer = ctx->rc };
 			skb_editor_iterate_text_range_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
@@ -1313,6 +1317,10 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		// Draw the layout
 		const skb_rich_layout_t* edit_rich_layout = skb_editor_get_rich_layout(ctx->editor);
 		render_draw_rich_layout(ctx->rc, NULL, view_offset.x, view_offset.y, edit_rich_layout, SKB_RASTERIZE_ALPHA_SDF);
+
+		if (text_overflow == SKB_OVERFLOW_SCROLL) {
+			render_pop_scissor(ctx->rc);
+		}
 
 		// Debug draw
 		if (ctx->show_caret_details ||ctx->show_run_details) {

@@ -12,7 +12,7 @@
 #include "skb_rich_layout.h"
 
 
-typedef struct renderer__vertex_t {
+typedef struct render__vertex_t {
 	skb_vec2_t pos;
 	skb_vec2_t uv;
 	skb_vec2_t atlas_pos;
@@ -21,14 +21,15 @@ typedef struct renderer__vertex_t {
 	float scale;
 } render__vertex_t;
 
-typedef struct renderer__batch_t {
+typedef struct render__batch_t {
 	int32_t offset;
 	int32_t count;
 	uint32_t image_id;
 	uint32_t sdf_id;
+	uint32_t scissor_id;
 } render__batch_t;
 
-typedef struct renderer__texture_t {
+typedef struct render__texture_t {
 	uint32_t id;
 	int32_t width;
 	int32_t height;
@@ -37,7 +38,7 @@ typedef struct renderer__texture_t {
 	GLuint tex_id;
 } render__texture_t;
 
-typedef struct renderer__transform_t {
+typedef struct render__transform_t {
 	float dx;
 	float dy;
 	float scale;
@@ -45,6 +46,7 @@ typedef struct renderer__transform_t {
 
 enum {
 	RENDER_TRANSFORM_STACK_SIZE = 10,
+	RENDER_SCISSOR_STACK_SIZE = 10,
 };
 
 typedef struct render_context_t {
@@ -60,6 +62,10 @@ typedef struct render_context_t {
 	int32_t batches_count;
 	int32_t batches_cap;
 
+	skb_rect2_t* scissors;
+	int32_t scissors_count;
+	int32_t scissors_cap;
+
 	render__texture_t* textures;
 	int32_t textures_count;
 	int32_t textures_cap;
@@ -69,6 +75,9 @@ typedef struct render_context_t {
 
 	render__transform_t transform_stack[RENDER_TRANSFORM_STACK_SIZE];
 	int32_t transform_stack_idx;
+
+	uint32_t scissor_stack[RENDER_SCISSOR_STACK_SIZE];
+	int32_t scissor_stack_idx;
 
 	// GL
 	GLuint program;
@@ -105,12 +114,12 @@ static render__texture_t* renderer__find_texture(const render_context_t* r, uint
 	return NULL;
 }
 
-static void renderer__push_triangles(render_context_t* r, const render__vertex_t* verts, int32_t verts_count, uint32_t image_id, uint32_t sdf_id)
+static void renderer__push_triangles(render_context_t* r, const render__vertex_t* verts, int32_t verts_count, uint32_t image_id, uint32_t sdf_id, uint32_t scissor_id)
 {
 	render__batch_t* batch = NULL;
 
 	render__batch_t* prev_batch = r->batches_count > 0 ? &r->batches[r->batches_count-1] : NULL;
-	if (prev_batch && prev_batch->image_id == image_id && prev_batch->sdf_id == sdf_id) {
+	if (prev_batch && prev_batch->image_id == image_id && prev_batch->sdf_id == sdf_id && prev_batch->scissor_id == scissor_id) {
 		batch = prev_batch;
 	} else {
 		SKB_ARRAY_RESERVE(r->batches, r->batches_count + 1);
@@ -119,6 +128,7 @@ static void renderer__push_triangles(render_context_t* r, const render__vertex_t
 		batch->count = 0;
 		batch->image_id = image_id;
 		batch->sdf_id = sdf_id;
+		batch->scissor_id = scissor_id;
 	}
 
 	SKB_ARRAY_RESERVE(r->verts, r->verts_count + verts_count);
@@ -134,8 +144,7 @@ static void renderer__push_triangles(render_context_t* r, const render__vertex_t
 
 render_context_t* render_create(const skb_image_atlas_config_t* config)
 {
-	render_context_t* r = skb_malloc(sizeof(render_context_t));
-	memset(r, 0, sizeof(render_context_t));
+	render_context_t* r = SKB_MALLOC_STRUCT(render_context_t);
 
 	r->temp_alloc = skb_temp_alloc_create(512*1024);
 	assert(r->temp_alloc);
@@ -160,11 +169,16 @@ void render_destroy(render_context_t* rc)
 
 	gl__destroy(rc);
 
+	skb_free(rc->verts);
+	skb_free(rc->batches);
+	skb_free(rc->scissors);
+	skb_free(rc->textures);
+
 	skb_image_atlas_destroy(rc->atlas);
 	skb_rasterizer_destroy(rc->rasterizer);
 	skb_temp_alloc_destroy(rc->temp_alloc);
 
-	memset(rc, 0, sizeof(render_context_t));
+	SKB_ZERO_STRUCT(rc);
 	skb_free(rc);
 }
 
@@ -196,8 +210,56 @@ void render_begin_frame(render_context_t* rc, int32_t view_width, int32_t view_h
 	rc->transform_stack[0].dy = 0.f;
 	rc->transform_stack[0].scale = 1.f;
 
+	rc->scissors_count = 0;
+	SKB_ARRAY_RESERVE(rc->scissors, rc->scissors_count + 1);
+	skb_rect2_t* scissor = &rc->scissors[rc->scissors_count++];
+	scissor->x = 0.f;
+	scissor->y = 0.f;
+	scissor->width = (float)view_width;
+	scissor->height = (float)view_height;
+	rc->scissor_stack_idx = 0;
+	rc->scissor_stack[0] = 0;
+
 	skb_image_atlas_compact(rc->atlas);
 }
+
+void render_push_scissor(render_context_t* rc, float x, float y, float width, float height)
+{
+	assert(rc);
+
+	skb_rect2_t scissor_rect = {
+		.x = x,
+		.y = y,
+		.width = width,
+		.height = height,
+	};
+
+	// Apply current transform to the rect
+	scissor_rect = render_transform_rect(rc, scissor_rect);
+
+	// Clip to current
+	const uint32_t current_scissor_idx = rc->scissor_stack[rc->scissor_stack_idx];
+	const skb_rect2_t current_scissor_rect = rc->scissors[current_scissor_idx];
+	scissor_rect = skb_rect2_intersection(current_scissor_rect, scissor_rect);
+
+	SKB_ARRAY_RESERVE(rc->scissors, rc->scissors_count + 1);
+	rc->scissors[rc->scissors_count++] = scissor_rect;
+
+	uint32_t scissor_idx = (uint32_t)(rc->scissors_count - 1);
+	if (rc->scissor_stack_idx+1 < RENDER_SCISSOR_STACK_SIZE) {
+		rc->scissor_stack_idx++;
+		rc->scissor_stack[rc->scissor_stack_idx] = scissor_idx;
+	}
+
+}
+
+void render_pop_scissor(render_context_t* rc)
+{
+	assert(rc);
+	if (rc->scissor_stack_idx > 0)
+		rc->scissor_stack_idx--;
+}
+
 
 void render_push_transform(render_context_t* rc, float offset_x, float offset_y, float scale)
 {
@@ -325,6 +387,7 @@ void render_draw_debug_tris(render_context_t* rc, const render_vert_t* verts, in
 	assert(rc);
 
 	const render__transform_t xform = rc->transform_stack[rc->transform_stack_idx];
+	const uint32_t scissor_id = rc->scissor_stack[rc->scissor_stack_idx];
 
 	render__vertex_t transformed_verts[16*3];
 	int32_t transformed_verts_count = 0;
@@ -342,13 +405,13 @@ void render_draw_debug_tris(render_context_t* rc, const render_vert_t* verts, in
 		};
 
 		if (transformed_verts_count >= (16*3)) {
-			renderer__push_triangles(rc, transformed_verts, transformed_verts_count, 0, 0);
+			renderer__push_triangles(rc, transformed_verts, transformed_verts_count, 0, 0, scissor_id);
 			transformed_verts_count = 0;
 		}
 	}
 
 	if (transformed_verts_count > 0)
-		renderer__push_triangles(rc, transformed_verts, transformed_verts_count, 0, 0);
+		renderer__push_triangles(rc, transformed_verts, transformed_verts_count, 0, 0, scissor_id);
 }
 
 void render_draw_quad(render_context_t* rc, const skb_quad_t* quad)
@@ -356,6 +419,8 @@ void render_draw_quad(render_context_t* rc, const skb_quad_t* quad)
 	assert(rc);
 
 	const skb_rect2_t geom = render_transform_rect(rc, quad->geom);
+	const uint32_t scissor_id = rc->scissor_stack[rc->scissor_stack_idx];
+
 	const float x0 = geom.x;
 	const float y0 = geom.y;
 	const float x1 = geom.x + geom.width;
@@ -382,9 +447,9 @@ void render_draw_quad(render_context_t* rc, const skb_quad_t* quad)
 	const uint32_t tex_id = (uint32_t)skb_image_atlas_get_texture_user_data(rc->atlas, quad->texture_idx);
 
 	if (quad->flags & SKB_QUAD_IS_SDF)
-		renderer__push_triangles(rc, verts, SKB_COUNTOF(verts), 0, tex_id);
+		renderer__push_triangles(rc, verts, SKB_COUNTOF(verts), 0, tex_id, scissor_id);
 	else
-		renderer__push_triangles(rc, verts, SKB_COUNTOF(verts), tex_id, 0);
+		renderer__push_triangles(rc, verts, SKB_COUNTOF(verts), tex_id, 0, scissor_id);
 }
 
 void render_update_atlas(render_context_t* rc)
@@ -1015,7 +1080,7 @@ static void gl__flush(render_context_t* rc)
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_STENCIL_TEST);
-	glDisable(GL_SCISSOR_TEST);
+	glEnable(GL_SCISSOR_TEST);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -1051,21 +1116,34 @@ static void gl__flush(render_context_t* rc)
 
 	gl__check_error("vbo");
 
+	uint32_t prev_scissor_id = ~1;
+
 	for (int32_t i = 0; i < rc->batches_count; i++) {
 		const render__batch_t* b = &rc->batches[i];
 		const render__texture_t* image_tex = renderer__find_texture(rc, b->image_id);
 		const render__texture_t* sdf_tex = renderer__find_texture(rc, b->sdf_id);
 
+		if (prev_scissor_id != b->scissor_id) {
+			const skb_rect2_t scissor_rect = rc->scissors[b->scissor_id];
+			// GL scissor starts from bottom-left.
+			const int32_t x = (int32_t)scissor_rect.x;
+			const int32_t y = rc->view_height - (int32_t)scissor_rect.y - (int32_t)scissor_rect.height;
+			const int32_t w = (int32_t)scissor_rect.width;
+			const int32_t h = (int32_t)scissor_rect.height;
+			glScissor(x, y, w, h);
+			prev_scissor_id = b->scissor_id;
+		}
+
 		if (image_tex && image_tex->tex_id) {
 			glUniform1i(glGetUniformLocation(rc->program, "u_tex_type"), image_tex->bpp == 4 ? 1: 2);
-			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), image_tex->width, image_tex->height);
+			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), (float)image_tex->width, (float)image_tex->height);
 			glUniform1i(glGetUniformLocation(rc->program, "u_tex"), 0);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, image_tex->tex_id);
 			gl__check_error("texture image");
 		} else if (sdf_tex && sdf_tex->tex_id) {
 			glUniform1i(glGetUniformLocation(rc->program, "u_tex_type"), sdf_tex->bpp == 4 ? 3: 4);
-			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), sdf_tex->width, sdf_tex->height);
+			glUniform2f(glGetUniformLocation(rc->program, "u_tex_size"), (float)sdf_tex->width, (float)sdf_tex->height);
 			glUniform1i(glGetUniformLocation(rc->program, "u_tex"), 0);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, sdf_tex->tex_id);

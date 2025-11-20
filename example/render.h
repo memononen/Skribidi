@@ -105,6 +105,23 @@ skb_vec2_t render_transform_point(const render_context_t* rc, skb_vec2_t pt);
 skb_vec2_t render_inv_transform_point(const render_context_t* rc, skb_vec2_t pt);
 
 /**
+ * Pushes scissor rect.
+ * Note: The rect is transformed by current transform, and clipped by current scissor.
+ * @param rc render context.
+ * @param x x position of the rect
+ * @param y y position of the rect
+ * @param width width of the rect
+ * @param height height of the rect
+ */
+void render_push_scissor(render_context_t* rc, float x, float y, float width, float height);
+
+/**
+ * Pops scissor rect
+ * @param rc render context.
+ */
+void render_pop_scissor(render_context_t* rc);
+
+/**
  * Creates new texture and returns handle to it.
  * @param rc render context.
  * @param img_width texture width
