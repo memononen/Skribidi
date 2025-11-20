@@ -25,6 +25,7 @@
 #include "skb_rich_text.h"
 
 typedef struct ui_context_t {
+	render_context_t* rc;
 	skb_vec2_t mouse_pos;
 	bool mouse_pressed;
 	bool mouse_released;
@@ -1057,13 +1058,9 @@ static void draw_selection_rect(skb_rect2_t rect, void* context)
 }
 
 
-static skb_vec2_t ui_get_mouse_pos(notes_context_t* ctx)
+static void ui_frame_begin(ui_context_t* ui, render_context_t* rc)
 {
-	return render_inv_transform_point(ctx->rc, (skb_vec2_t){ctx->ui.mouse_pos.x, ctx->ui.mouse_pos.y});
-}
-
-static void ui_frame_begin(ui_context_t* ui)
-{
+	ui->rc = rc;
 	ui->id_gen = 1;
 	ui->hover = ui->next_hover;
 	ui->next_hover = 0;
@@ -1072,8 +1069,14 @@ static void ui_frame_begin(ui_context_t* ui)
 
 static void ui_frame_end(ui_context_t* ui)
 {
+	ui->rc = NULL;
 	ui->mouse_pressed = false;
 	ui->mouse_released = false;
+}
+
+static skb_vec2_t ui_get_mouse_pos(const ui_context_t* ui)
+{
+	return render_inv_transform_point(ui->rc, (skb_vec2_t){ui->mouse_pos.x, ui->mouse_pos.y});
 }
 
 static int32_t ui_make_id(ui_context_t* ui)
@@ -1109,11 +1112,11 @@ static bool ui_button_logic(ui_context_t* ui, int32_t id, bool over)
 	return res;
 }
 
-static bool ui_button(notes_context_t* ctx, skb_rect2_t rect, const char* text, bool selected)
+static bool ui_button(ui_context_t* ui, skb_rect2_t rect, const char* text, bool selected)
 {
-	int32_t id = ui_make_id(&ctx->ui);
-	bool over = skb_rect2_pt_inside(rect, ui_get_mouse_pos(ctx));
-	bool res = ui_button_logic(&ctx->ui, id, over);
+	const int32_t id = ui_make_id(ui);
+	const bool over = skb_rect2_pt_inside(rect, ui_get_mouse_pos(ui));
+	const bool res = ui_button_logic(ui, id, over);
 
 	skb_color_t bg_col = skb_rgba(255,255,255,128);
 	skb_color_t text_col = skb_rgba(0,0,0,220);
@@ -1121,15 +1124,15 @@ static bool ui_button(notes_context_t* ctx, skb_rect2_t rect, const char* text, 
 		bg_col = skb_rgba(0,192,220,192);
 		text_col = skb_rgba(255,255,255,220);
 	}
-	if (ctx->ui.active == id) {
+	if (ui->active == id) {
 		bg_col.a = 255;
 		text_col.a = 255;
-	} else if (ctx->ui.hover == id) {
+	} else if (ui->hover == id) {
 		bg_col.a = 192;
 	}
 
-	debug_render_filled_rect(ctx->rc, rect.x, rect.y, rect.width, rect.height, bg_col);
-	debug_render_text(ctx->rc, rect.x + rect.width * 0.5f+1,rect.y + rect.height*0.5f + 6.f, 17, RENDER_ALIGN_CENTER, text_col, text);
+	debug_render_filled_rect(ui->rc, rect.x, rect.y, rect.width, rect.height, bg_col);
+	debug_render_text(ui->rc, rect.x + rect.width * 0.5f+1,rect.y + rect.height*0.5f + 6.f, 17, RENDER_ALIGN_CENTER, text_col, text);
 
 	return res;
 }
@@ -1156,7 +1159,7 @@ static skb_rect2_t ui__make_handle_rect(skb_rect2_t rect, ui_scrollbar_dir_t dir
 	};
 }
 
-static bool ui_scrollbar(notes_context_t* ctx, skb_rect2_t rect, ui_scrollbar_dir_t dir, float view_size, float content_size, float* content_offset)
+static bool ui_scrollbar(ui_context_t* ui, skb_rect2_t rect, ui_scrollbar_dir_t dir, float view_size, float content_size, float* content_offset)
 {
 	static skb_vec2_t start_mouse_pos = {0};
 	static float start_offset = 0.f;
@@ -1167,15 +1170,15 @@ static bool ui_scrollbar(notes_context_t* ctx, skb_rect2_t rect, ui_scrollbar_di
 
 	skb_rect2_t handle_rect = ui__make_handle_rect(rect, dir, content_ratio, offset_ratio);
 
-	const skb_vec2_t mouse_pos = ui_get_mouse_pos(ctx);
+	const skb_vec2_t mouse_pos = ui_get_mouse_pos(ui);
 
-	int32_t bg_id = ui_make_id(&ctx->ui);
+	int32_t bg_id = ui_make_id(ui);
 	bool bg_over = skb_rect2_pt_inside(rect, mouse_pos);
-	bool bg_res = ui_button_logic(&ctx->ui, bg_id, bg_over);
+	bool bg_res = ui_button_logic(ui, bg_id, bg_over);
 
-	int32_t handle_id = ui_make_id(&ctx->ui);
+	int32_t handle_id = ui_make_id(ui);
 	bool handle_over = skb_rect2_pt_inside(handle_rect, mouse_pos);
-	bool handle_res = ui_button_logic(&ctx->ui, handle_id, handle_over);
+	bool handle_res = ui_button_logic(ui, handle_id, handle_over);
 
 	skb_color_t bg_col = skb_rgba(0,0,0,32);
 	skb_color_t handle_col = skb_rgba(0,0,0,64);
@@ -1184,13 +1187,13 @@ static bool ui_scrollbar(notes_context_t* ctx, skb_rect2_t rect, ui_scrollbar_di
 	if (ctx->ui.hover == bg_id)
 		bg_col.a = 192;*/
 
-	if (ctx->ui.active == handle_id)
+	if (ui->active == handle_id)
 		handle_col.a = 128;
-	else if (ctx->ui.hover == handle_id)
+	else if (ui->hover == handle_id)
 		handle_col.a = 96;
 
 	bool changed = false;
-	if (ctx->ui.went_active == handle_id) {
+	if (ui->went_active == handle_id) {
 		// Start drag
 		start_mouse_pos = mouse_pos;
 		start_offset = *content_offset;
@@ -1210,13 +1213,13 @@ static bool ui_scrollbar(notes_context_t* ctx, skb_rect2_t rect, ui_scrollbar_di
 			changed = true;
 		}
 	}
-	if (drag_id == handle_id && ctx->ui.active != handle_id) {
+	if (drag_id == handle_id && ui->active != handle_id) {
 		// End drag
 		drag_id = 0;
 	}
 
-	debug_render_stroked_rect(ctx->rc, rect.x, rect.y, rect.width, rect.height, bg_col, 1.f);
-	debug_render_filled_rect(ctx->rc, handle_rect.x + 2, handle_rect.y + 2, handle_rect.width - 4, handle_rect.height - 4, handle_col);
+	debug_render_stroked_rect(ui->rc, rect.x, rect.y, rect.width, rect.height, bg_col, 1.f);
+	debug_render_filled_rect(ui->rc, handle_rect.x + 2, handle_rect.y + 2, handle_rect.width - 4, handle_rect.height - 4, handle_col);
 
 	return changed;
 }
@@ -1227,7 +1230,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 	notes_context_t* ctx = ctx_ptr;
 	assert(ctx);
 
-	ui_frame_begin(&ctx->ui);
+	ui_frame_begin(&ctx->ui, ctx->rc);
 
 	{
 		skb_temp_alloc_stats_t stats = skb_temp_alloc_stats(ctx->temp_alloc);
@@ -1268,7 +1271,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					.height = editor_view_bounds.height+10,
 				};
 				float offset_vert = -view_offset.y;
-				if (ui_scrollbar(ctx, vert_scrollbar_rect, UI_SCROLLBAR_VERTICAL, editor_view_bounds.height, editor_content_bounds.height, &offset_vert)) {
+				if (ui_scrollbar(&ctx->ui, vert_scrollbar_rect, UI_SCROLLBAR_VERTICAL, editor_view_bounds.height, editor_content_bounds.height, &offset_vert)) {
 					skb_debug_log("y changed %f -> %f\n", view_offset.y, -offset_vert);
 					view_offset.y = -offset_vert;
 					skb_editor_set_view_offset(ctx->editor, view_offset);
@@ -1283,7 +1286,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					.height = 15,
 				};
 				float offset_horiz = -view_offset.x;
-				if (ui_scrollbar(ctx, horiz_scrollbar_rect, UI_SCROLLBAR_HORIZONTAL, editor_view_bounds.width, editor_content_bounds.width, &offset_horiz)) {
+				if (ui_scrollbar(&ctx->ui, horiz_scrollbar_rect, UI_SCROLLBAR_HORIZONTAL, editor_view_bounds.width, editor_content_bounds.width, &offset_horiz)) {
 					skb_debug_log("x changed %f -> %f\n", view_offset.x, -offset_horiz);
 					view_offset.x = -offset_horiz;
 					skb_editor_set_view_offset(ctx->editor, view_offset);
@@ -1434,7 +1437,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 //			skb_attribute_t bold = skb_attribute_make_reference_by_name(ctx->attribute_collection, "b");
 			skb_attribute_t bold = skb_attribute_make_font_weight(SKB_WEIGHT_BOLD);
 			bool bold_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, bold);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "B", bold_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "B", bold_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, bold);
 			}
 			tx += but_size + but_spacing;
@@ -1446,7 +1449,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t italic = skb_attribute_make_font_style(SKB_STYLE_ITALIC);
 			bool italic_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, italic);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "I", italic_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "I", italic_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, italic);
 			}
 			tx += but_size + but_spacing;
@@ -1457,7 +1460,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t underline = skb_attribute_make_reference_by_name(ctx->attribute_collection, "u");
 			bool underline_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, underline);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "U", underline_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "U", underline_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, underline);
 			}
 			tx += but_size + but_spacing;
@@ -1468,7 +1471,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t code = skb_attribute_make_reference_by_name(ctx->attribute_collection, "code");
 			bool code_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, code);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "[]", code_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "[]", code_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, code);
 			}
 			tx += but_size + but_spacing;
@@ -1479,7 +1482,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t strikethrough = skb_attribute_make_reference_by_name(ctx->attribute_collection, "s");
 			bool strikethrough_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, strikethrough);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", strikethrough_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", strikethrough_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, strikethrough);
 			}
 			tx += but_size + but_spacing;
@@ -1490,7 +1493,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup");
 			bool superscript_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, superscript);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "^", superscript_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "^", superscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, superscript);
 			}
 			tx += but_size + but_spacing;
@@ -1501,7 +1504,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub");
 			bool subscript_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, subscript);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "_", subscript_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "_", subscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, subscript);
 			}
 			tx += but_size + but_spacing;
@@ -1513,7 +1516,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 			bool link_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, link);
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "#", link_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "#", link_sel)) {
 				if (!link_sel) {
 					skb_data_blob_t* url = skb_data_blob_create_temp(ctx->temp_alloc);
 					skb_data_blob_set_utf8(url, "http://ihankiva.com", -1);
@@ -1535,7 +1538,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// H1
 			skb_attribute_t h1 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H1");
 			bool h1_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, h1);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H1", h1_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H1", h1_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h1);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1545,7 +1548,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// H2
 			skb_attribute_t h2 = skb_attribute_make_reference_by_name(ctx->attribute_collection, "H2");
 			bool h2_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, h2);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H2", h2_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "H2", h2_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, h2);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1555,7 +1558,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Body
 			skb_attribute_t body = skb_attribute_make_reference_by_name(ctx->attribute_collection, "BODY");
 			bool body_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, body);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "Body", body_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "Body", body_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, body);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1565,7 +1568,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// List
 			skb_attribute_t list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "LI");
 			bool list_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, list);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "LI", list_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "LI", list_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, list);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1575,7 +1578,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Ordered List
 			skb_attribute_t ordered_list = skb_attribute_make_reference_by_name(ctx->attribute_collection, "OL");
 			bool ordered_list_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, ordered_list);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "OL", ordered_list_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "OL", ordered_list_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, ordered_list);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1585,7 +1588,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Quoteblock
 			skb_attribute_t quoteblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "QUOTE");
 			bool quoteblock_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, quoteblock);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "\"\"", quoteblock_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "\"\"", quoteblock_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, quoteblock);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1595,7 +1598,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Codeblock
 			skb_attribute_t codeblock = skb_attribute_make_reference_by_name(ctx->attribute_collection, "CODE");
 			bool codeblock_sel = skb_editor_has_paragraph_attribute(ctx->editor, SKB_CURRENT_SELECTION, codeblock);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "{}", codeblock_sel)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size*2, .height = but_size }, "{}", codeblock_sel)) {
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, codeblock);
 			}
 			tx += but_size*2 + but_spacing;
@@ -1606,7 +1609,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Indent+
 			skb_attribute_t indent_level_delta = skb_attribute_make_indent_level(1);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, ">|", false)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, ">|", false)) {
 				skb_editor_set_paragraph_attribute_delta(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, indent_level_delta);
 			}
 			tx += but_size + but_spacing;
@@ -1615,7 +1618,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Indent-
 			skb_attribute_t indent_level_delta = skb_attribute_make_indent_level(-1);
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "<|", false)) {
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "<|", false)) {
 				skb_editor_set_paragraph_attribute_delta(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, indent_level_delta);
 			}
 			tx += but_size + but_spacing;
@@ -1644,25 +1647,25 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 				is_align_start = true;
 
 			// Align
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", is_rtl ? is_align_end : is_align_start))
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", is_rtl ? is_align_end : is_align_start))
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, is_rtl ? align_end : align_start);
 			tx += but_size + but_spacing;
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "C", is_align_center))
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "C", is_align_center))
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, align_center);
 			tx += but_size + but_spacing;
 
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "E", is_rtl ? is_align_start : is_align_end))
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "E", is_rtl ? is_align_start : is_align_end))
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, is_rtl ? align_start : align_end);
 			tx += but_size + but_spacing;
 
 			tx += spacer;
 
 			// Text direction
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "L>", is_ltr))
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "L>", is_ltr))
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, ltr);
 			tx += but_size + but_spacing;
-			if (ui_button(ctx, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "<R", is_rtl))
+			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "<R", is_rtl))
 				skb_editor_set_paragraph_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, rtl);
 			tx += but_size + but_spacing;
 		}
