@@ -649,19 +649,29 @@ static void render__draw_layout_backgrounds(
 
 			const skb_layout_run_t* start_run = &layout_runs[ri];
 			if (start_run->flags & SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT) {
-				const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, start_run);
-				const uint32_t state = render__get_run_state(start_run->content_id, content_states, content_states_count);
-				skb_attribute_paint_t run_background_paint = skb_attributes_get_paint(SKB_PAINT_TEXT_BACKGROUND, state,  run_attributes, layout_params->attribute_collection);
 
 				// Find consecutive range of runs which share the same style.
 				float x = start_run->bounds.x;
 				float y = start_run->bounds.y;
 				float height = start_run->bounds.height;
 				float width = start_run->bounds.width;
+				ri++;
 
-				const int32_t content_run_idx = start_run->content_run_idx;
-				while (ri < line->layout_run_range.end && layout_runs[ri].content_run_idx == content_run_idx) {
+				const skb_attribute_set_t start_run_attributes = skb_layout_get_layout_run_attributes(layout, start_run);
+				const uint32_t start_state = render__get_run_state(start_run->content_id, content_states, content_states_count);
+				skb_attribute_paint_t start_run_background_paint = skb_attributes_get_paint(SKB_PAINT_TEXT_BACKGROUND, start_state,  start_run_attributes, layout_params->attribute_collection);
+				const intptr_t start_content_id = start_run->content_id;
+
+				while (ri < line->layout_run_range.end && layout_runs[ri].content_id == start_content_id) {
 					const skb_layout_run_t* cur_run = &layout_runs[ri];
+
+					const skb_attribute_set_t cur_run_attributes = skb_layout_get_layout_run_attributes(layout, cur_run);
+					const uint32_t cur_state = render__get_run_state(start_run->content_id, content_states, content_states_count);
+					skb_attribute_paint_t cur_run_background_paint = skb_attributes_get_paint(SKB_PAINT_TEXT_BACKGROUND, cur_state,  cur_run_attributes, layout_params->attribute_collection);
+
+					if (!skb_color_equals(start_run_background_paint.color, cur_run_background_paint.color) || start_run_background_paint.paint_id != cur_run_background_paint.paint_id)
+						break;
+
 					y = skb_minf(y, cur_run->bounds.y);
 					height = skb_maxf(height, cur_run->bounds.height);
 					width = (cur_run->bounds.x - start_run->bounds.x) + cur_run->bounds.width;
@@ -671,13 +681,12 @@ static void render__draw_layout_backgrounds(
 				x += offset_x;
 				y += offset_y;
 
-				if (run_background_paint.paint_tag == SKB_PAINT_TEXT_BACKGROUND && run_background_paint.color.a > 0)
-					render__filled_rect(rc, x,y, width, height, run_background_paint.color);
+				if (start_run_background_paint.paint_tag == SKB_PAINT_TEXT_BACKGROUND && start_run_background_paint.color.a > 0)
+					render__filled_rect(rc, x,y, width, height, start_run_background_paint.color);
 
 			} else {
-				// Skip runs that share the same style.
-				const int32_t content_run_idx = start_run->content_run_idx;
-				while (ri < line->layout_run_range.end && layout_runs[ri].content_run_idx == content_run_idx)
+				// Skip runs that dont have background.
+				while (ri < line->layout_run_range.end && (layout_runs[ri].flags & SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT) == 0)
 					ri++;
 			}
 		}

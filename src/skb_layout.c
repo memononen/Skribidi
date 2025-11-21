@@ -2833,8 +2833,25 @@ static void skb__iter_text_run(const skb_text_t* text, skb_text_range_t range, s
 
 	if (active_spans_count > 0) {
 		skb_attribute_t* attributes = SKB_TEMP_ALLOC(ctx->temp_alloc, skb_attribute_t, active_spans_count);
-		for (int32_t i = 0; i < active_spans_count; i++)
-			attributes[i] = active_spans[i]->attribute;
+
+		// Low priority
+		int32_t index = 0;
+		uint8_t all_priority_mask = 0;
+		for (int32_t i = 0; i < active_spans_count; i++) {
+			const uint8_t priority_mask = active_spans[i]->flags & SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH;
+			all_priority_mask |= priority_mask;
+			if (priority_mask == 0)
+				attributes[index++] = active_spans[i]->attribute;
+		}
+		// High priority
+		if (all_priority_mask & SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH) {
+			for (int32_t i = 0; i < active_spans_count; i++) {
+				if (active_spans[i]->flags & SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH)
+					attributes[index++] = active_spans[i]->attribute;
+			}
+		}
+		assert(index == active_spans_count);
+
 		run_attributes.attributes = attributes;
 		run_attributes.attributes_count = active_spans_count;
 

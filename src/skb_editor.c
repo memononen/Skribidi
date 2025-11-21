@@ -2869,7 +2869,7 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
 	return paragraph_count == match_count;
 }
 
-bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
@@ -2881,11 +2881,8 @@ bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_
 		return skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute);
 
 	if (is_current_selection) {
-		const int32_t active_attributes_count = skb_editor_get_active_attributes_count(editor);
-		const skb_attribute_t* active_attributes = skb_editor_get_active_attributes(editor);
-
-		for (int32_t i = 0; i < active_attributes_count; i++) {
-			if (active_attributes[i].kind == attribute.kind && memcmp(&active_attributes[i], &attribute, sizeof(skb_attribute_t)) == 0)
+		for (int32_t i = 0; i < editor->active_attributes_count; i++) {
+			if (editor->active_attributes[i].kind == attribute.kind && memcmp(&editor->active_attributes[i], &attribute, sizeof(skb_attribute_t)) == 0)
 				return true;
 		}
 	}
@@ -2893,11 +2890,37 @@ bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_
 	return false;
 }
 
-bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
+bool skb_editor_has_text_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)
 {
 	assert(editor);
 	text_range = skb__resolve_text_range(editor, text_range);
 	return skb_rich_text_has_attribute(&editor->rich_text, text_range, attribute);
+}
+
+
+int32_t skb_editor_get_attributes(const skb_editor_t* editor, skb_text_range_t text_range, uint32_t attribute_kind, skb_attribute_t* attributes, int32_t attributes_cap)
+{
+	assert(editor);
+	const bool is_current_selection = skb_text_range_is_current_selection(text_range);
+	text_range = skb__resolve_text_range(editor, text_range);
+
+	const int32_t selection_count = skb_editor_get_text_range_count(editor, text_range);
+
+	if (selection_count > 0)
+		return skb_rich_text_get_attributes(&editor->rich_text, text_range, attribute_kind, attributes, attributes_cap);
+
+	if (is_current_selection) {
+		int32_t attributes_count = 0;
+		for (int32_t i = 0; i < editor->active_attributes_count; i++) {
+			if (editor->active_attributes[i].kind == attribute_kind) {
+				if (attributes_count < attributes_cap)
+					attributes[attributes_count++] = editor->active_attributes[i];
+			}
+		}
+		return attributes_count;
+	}
+
+	return 0;
 }
 
 skb_data_blob_t* skb_editor_get_attribute_payload(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute)

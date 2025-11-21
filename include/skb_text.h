@@ -31,6 +31,8 @@ typedef enum {
 	SKB_ATTRIBUTE_SPAN_END_EXCLUSIVE = (1<<0),
 	/** The start text position of the span is set as layout content id. */
 	SKB_ATTRIBUTE_SPAN_TEXT_POSITION_TO_CONTENT_ID = (1<<1),
+	/** The attribute is put to the top of the attribute set, when converted to layout, so that it's picked first. */
+	SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH = (1<<2),
 } skb_attribute_span_flags_t;
 
 /** Struct describing attribute applied to a span of text. */

@@ -742,25 +742,38 @@ bool skb_editor_has_paragraph_attribute(const skb_editor_t* editor, skb_text_ran
  * If the text range is empty, and equals current selection, the active attributes are tested.
  * Active attributes are picker from the text before the empty selection.
  * This function can be used to check what the current text style is under the caret or selection for most styles.
- * Some content-like styles, like hyperlinks or hilights, should use skb_editor_has_attribute() instead.
- * @param editor editor to query
- * @param text_range text range to check
- * @param attribute attribute to check
- * @return true the whole text range contains the specified style.
- */
-bool skb_editor_has_active_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
-
-/**
- * Checks if the text range has the specified attribute.
- * If the text range is empty, attribute of the text (or at) the text location is returned.
- * This function can be used to check the current status for content-like style, like hyperlinks or hilights.
- * Most text styles, like bold and italic, should use skb_editor_has_active_attribute() instead.
+ * Some content-like styles, like hyperlinks or hilights, should use skb_editor_has_text_attribute() instead.
  * @param editor editor to query
  * @param text_range text range to check
  * @param attribute attribute to check
  * @return true the whole text range contains the specified style.
  */
 bool skb_editor_has_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Checks if the text range has the specified attribute.
+ * If the text range is empty, attribute of the text (or at) the text location is returned.
+ * This function explicityl does not check the active attributes.
+ * It can be used to check the current status for content-like style, like hyperlinks or hilights.
+ * Most text styles, like bold and italic, should use skb_editor_has_attribute() instead.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute attribute to check
+ * @return true the whole text range contains the specified style.
+ */
+bool skb_editor_has_text_attribute(const skb_editor_t* editor, skb_text_range_t text_range, skb_attribute_t attribute);
+
+/**
+ * Returns all unique attributes that cover the specified range.
+ * If the text range is empty, and equals current selection, the matching active attributes are returned.
+ * @param editor editor to query
+ * @param text_range text range to check
+ * @param attribute_kind attribute kind tag.
+ * @param attributes pointer to result array
+ * @param attributes_cap capacity of result array.
+ * @return number of attributes found in range.
+ */
+int32_t skb_editor_get_attributes(const skb_editor_t* editor, skb_text_range_t text_range, uint32_t attribute_kind, skb_attribute_t* attributes, int32_t attributes_cap);
 
 /**
  * Returns payload of specified attribute in given range.
@@ -785,7 +798,7 @@ skb_text_range_t skb_editor_get_attribute_text_range(const skb_editor_t* editor,
 /** @return number of active attributes. Active attributes define what style is applied to the next text that is inserted. */
 int32_t skb_editor_get_active_attributes_count(const skb_editor_t* editor);
 
-/** @return constpointer to active attributes. Active attributes define what style is applied to the next text that is inserted. */
+/** @return const pointer to active attributes. Active attributes define what style is applied to the next text that is inserted. */
 const skb_attribute_t* skb_editor_get_active_attributes(const skb_editor_t* editor);
 
 

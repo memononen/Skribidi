@@ -1136,6 +1136,34 @@ static bool ui_button(ui_context_t* ui, skb_rect2_t rect, const char* text, bool
 
 	return res;
 }
+
+static bool ui_button_color(ui_context_t* ui, skb_rect2_t rect, const char* text, skb_color_t color, bool selected)
+{
+	const int32_t id = ui_make_id(ui);
+	const bool over = skb_rect2_pt_inside(rect, ui_get_mouse_pos(ui));
+	const bool res = ui_button_logic(ui, id, over);
+
+	skb_color_t border_col = skb_rgba(0,0,0,0);
+	skb_color_t text_col = skb_rgba(0,0,0,220);
+	float w = 2.f;
+	if (selected) {
+		border_col = skb_rgba(0,192,220,255);
+		text_col = skb_rgba(0,0,0,220);
+		w = 4.f;
+	} else if (ui->active == id) {
+		border_col.a = 128;
+		text_col.a = 255;
+	} else if (ui->hover == id) {
+		border_col.a = 64;
+	}
+
+	debug_render_filled_rect(ui->rc, rect.x, rect.y, rect.width, rect.height, color);
+	debug_render_stroked_rect(ui->rc, rect.x-1, rect.y-1, rect.width+2, rect.height+2, border_col, w);
+	debug_render_text(ui->rc, rect.x + rect.width * 0.5f+1,rect.y + rect.height*0.5f + 6.f, 17, RENDER_ALIGN_CENTER, text_col, text);
+
+	return res;
+}
+
 typedef enum {
 	UI_SCROLLBAR_HORIZONTAL,
 	UI_SCROLLBAR_VERTICAL,
@@ -1436,7 +1464,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Bold
 //			skb_attribute_t bold = skb_attribute_make_reference_by_name(ctx->attribute_collection, "b");
 			skb_attribute_t bold = skb_attribute_make_font_weight(SKB_WEIGHT_BOLD);
-			bool bold_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, bold);
+			bool bold_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, bold);
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "B", bold_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, bold);
 			}
@@ -1447,7 +1475,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Italic
 //			skb_attribute_t italic = skb_attribute_make_reference_by_name(ctx->attribute_collection, "i");
 			skb_attribute_t italic = skb_attribute_make_font_style(SKB_STYLE_ITALIC);
-			bool italic_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, italic);
+			bool italic_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, italic);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "I", italic_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, italic);
@@ -1458,7 +1486,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Underline
 			skb_attribute_t underline = skb_attribute_make_reference_by_name(ctx->attribute_collection, "u");
-			bool underline_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, underline);
+			bool underline_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, underline);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "U", underline_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, underline);
@@ -1469,7 +1497,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Inline Code
 			skb_attribute_t code = skb_attribute_make_reference_by_name(ctx->attribute_collection, "code");
-			bool code_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, code);
+			bool code_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, code);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "[]", code_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, code);
@@ -1480,7 +1508,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Striketrough
 			skb_attribute_t strikethrough = skb_attribute_make_reference_by_name(ctx->attribute_collection, "s");
-			bool strikethrough_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, strikethrough);
+			bool strikethrough_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, strikethrough);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "S", strikethrough_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, strikethrough);
@@ -1491,7 +1519,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Superscript
 			skb_attribute_t superscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sup");
-			bool superscript_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, superscript);
+			bool superscript_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, superscript);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "^", superscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, superscript);
@@ -1502,7 +1530,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		{
 			// Subscript
 			skb_attribute_t subscript = skb_attribute_make_reference_by_name(ctx->attribute_collection, "sub");
-			bool subscript_sel = skb_editor_has_active_attribute(ctx->editor, SKB_CURRENT_SELECTION, subscript);
+			bool subscript_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, subscript);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "_", subscript_sel)) {
 				skb_editor_toggle_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, subscript);
@@ -1514,7 +1542,7 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Link
 			skb_attribute_t link = skb_attribute_make_reference_by_name(ctx->attribute_collection, "link");
 
-			bool link_sel = skb_editor_has_attribute(ctx->editor, SKB_CURRENT_SELECTION, link);
+			bool link_sel = skb_editor_has_text_attribute(ctx->editor, SKB_CURRENT_SELECTION, link);
 
 			if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "#", link_sel)) {
 				if (!link_sel) {
@@ -1528,6 +1556,112 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 					skb_editor_clear_attribute(ctx->editor, ctx->temp_alloc, link_range, link);
 
 				}
+			}
+			tx += but_size + but_spacing;
+		}
+
+		tx += spacer;
+
+		{
+			// Text size
+			skb_attribute_t size_attributes[16];
+			int32_t size_attributes_count = skb_editor_get_attributes(ctx->editor, SKB_CURRENT_SELECTION, SKB_ATTRIBUTE_FONT_SIZE, size_attributes, SKB_COUNTOF(size_attributes));
+
+			const float sizes[] = { 8.f, 12.f, -1.f, 26.f, 32.f };
+			const char* size_labels[] = { "XS", "S", "*", "L", "XL" };
+			const int32_t sizes_count = SKB_COUNTOF(sizes);
+			assert(SKB_COUNTOF(sizes) == SKB_COUNTOF(size_labels));
+
+			for (int32_t i = 0; i < sizes_count; i++) {
+				bool sel = size_attributes_count == 1 && skb_equalsf(size_attributes[0].font_size.size, sizes[i], 0.001f);
+				if (ui_button(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, size_labels[i], sel)) {
+					skb_attribute_t size = skb_attribute_make_font_size(sizes[i]);
+					if (sizes[i] > 0.f)
+						skb_editor_set_attribute_with_payload(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, size, SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH, NULL);
+					else
+						skb_editor_clear_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, size);
+				}
+				tx += but_size + but_spacing;
+			}
+		}
+
+		tx += spacer;
+
+		{
+			// Text Color
+			skb_attribute_t color_attributes[16];
+			int32_t color_attributes_count = skb_editor_get_attributes(ctx->editor, SKB_CURRENT_SELECTION, SKB_ATTRIBUTE_PAINT, color_attributes, SKB_COUNTOF(color_attributes));
+
+			// Prune only text colors
+			for (int32_t i = 0; i < color_attributes_count; i++) {
+				if (color_attributes[i].paint.paint_tag != SKB_PAINT_TEXT) {
+					color_attributes[i] = color_attributes[color_attributes_count - 1];
+					color_attributes_count--;
+				}
+			}
+
+			const skb_color_t colors[] = {
+				skb_rgba(117,117,117,255),
+				skb_rgba(226,109,45,255),
+				skb_rgba(234,181,69,255),
+				skb_rgba(123,174,111,255),
+				skb_rgba(90,159,222,255),
+				skb_rgba(85,110,176,255),
+				skb_rgba(153,76,142,255),
+			};
+			const int32_t colors_count = SKB_COUNTOF(colors);
+
+			for (int32_t i = 0; i < colors_count; i++) {
+				bool sel = color_attributes_count == 1 && skb_color_equals(color_attributes[0].paint.color, colors[i]);
+				if (ui_button_color(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "T", colors[i], sel)) {
+					skb_attribute_t color = skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, colors[i]);
+					skb_editor_set_attribute_with_payload(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, color, SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH, NULL);
+				}
+				tx += but_size + but_spacing;
+			}
+
+			if (ui_button_color(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "*", skb_rgba(0,0,0,32), false)) {
+				skb_attribute_t color = skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,0));
+				skb_editor_clear_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, color);
+			}
+			tx += but_size + but_spacing;
+		}
+
+		tx += spacer;
+
+		{
+			// Bg Color
+			skb_attribute_t color_attributes[16];
+			int32_t color_attributes_count = skb_editor_get_attributes(ctx->editor, SKB_CURRENT_SELECTION, SKB_ATTRIBUTE_PAINT, color_attributes, SKB_COUNTOF(color_attributes));
+
+			// Prune only text colors
+			for (int32_t i = 0; i < color_attributes_count; i++) {
+				if (color_attributes[i].paint.paint_tag != SKB_PAINT_TEXT_BACKGROUND) {
+					color_attributes[i] = color_attributes[color_attributes_count - 1];
+					color_attributes_count--;
+				}
+			}
+
+			const skb_color_t colors[] = {
+				skb_rgba(244,140,126,192),
+				skb_rgba(237,226,103,192),
+				skb_rgba(174,225,124,192),
+				skb_rgba(148,199,245,192),
+			};
+			const int32_t colors_count = SKB_COUNTOF(colors);
+
+			for (int32_t i = 0; i < colors_count; i++) {
+				bool sel = color_attributes_count == 1 && skb_color_equals(color_attributes[0].paint.color, colors[i]);
+				if (ui_button_color(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "Bg", colors[i], sel)) {
+					skb_attribute_t color = skb_attribute_make_paint_color(SKB_PAINT_TEXT_BACKGROUND, SKB_PAINT_STATE_DEFAULT, colors[i]);
+					skb_editor_set_attribute_with_payload(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, color, SKB_ATTRIBUTE_SPAN_PRIORITY_HIGH, NULL);
+				}
+				tx += but_size + but_spacing;
+			}
+
+			if (ui_button_color(&ctx->ui, (skb_rect2_t){ .x = tx, .y = ty, .width = but_size, .height = but_size }, "*", skb_rgba(0,0,0,32), false)) {
+				skb_attribute_t color = skb_attribute_make_paint_color(SKB_PAINT_TEXT_BACKGROUND, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,0));
+				skb_editor_clear_attribute(ctx->editor, ctx->temp_alloc, SKB_CURRENT_SELECTION, color);
 			}
 			tx += but_size + but_spacing;
 		}

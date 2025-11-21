@@ -497,6 +497,8 @@ bool skb_attributes_match(const skb_attribute_t* a, const skb_attribute_t* b)
 {
 	if (a->kind != b->kind)
 		return false;
+	if (a->kind == SKB_ATTRIBUTE_PAINT)
+		return a->paint.paint_tag == b->paint.paint_tag;
 	if (a->kind == SKB_ATTRIBUTE_REFERENCE)
 		return skb_attribute_set_handle_get_group(a->reference.handle) == skb_attribute_set_handle_get_group(b->reference.handle);
 	return true;
@@ -658,7 +660,7 @@ skb_attribute_paint_t skb_attributes_get_paint(uint32_t paint_tag, uint32_t stat
 	for (int32_t i = 0; i < paints_count; i++) {
 		const skb_attribute_paint_t* paint = &paints[i]->paint;
 		if (paint->paint_tag == paint_tag) {
-			if (paint->state & state)
+			if ((paint->state & state) || (!state && !paint->state))
 				return *paint;
 			if (paint->state == SKB_PAINT_STATE_DEFAULT)
 				fallback = *paint;

@@ -233,9 +233,9 @@ static void skb__span_remove(skb_text_t* text, int32_t idx)
 	text->spans_count--;
 }
 
-static int32_t skb__spans_lower_bound(const skb_text_t* text, int32_t pos)
+static int32_t skb__spans_lower_bound(const skb_text_t* text, int32_t start_idx, int32_t pos)
 {
-	int32_t low = 0;
+	int32_t low = start_idx;
 	int32_t high = text->spans_count;
 	while (low < high) {
 		const int32_t mid = low + (high - low) / 2;
@@ -253,7 +253,7 @@ static int32_t skb__span_insert(skb_text_t* text, skb_range_t text_range, skb_at
 	assert(text_range.start <= text_range.end);
 
 	// Find location to insert at
-	const int32_t idx = skb__spans_lower_bound(text, text_range.start);
+	const int32_t idx = skb__spans_lower_bound(text, 0, text_range.start);
 
 	skb__spans_reserve(text, text->spans_count + 1);
 	text->spans_count++;
@@ -381,8 +381,15 @@ static void skb__attributes_clear(skb_text_t* text, skb_range_t range, skb_attri
 				skb__span_remove(text, i);
 				i--;
 			} else {
-				// Covers start partially, trim.
-				span->text_range.start = range.end;
+				// Covers start partially, trim start, and move to new position.
+				const int32_t new_idx = skb_mini(skb__spans_lower_bound(text, i, range.end), text->spans_count-1);
+				skb_attribute_span_t moved_span = *span;
+				moved_span.text_range.start = range.end;
+				// Move items in between down.
+				for (int32_t j = i; j < new_idx; j++)
+					text->spans[j] = text->spans[j+1];
+				// Place to new position.
+				text->spans[new_idx] = moved_span;
 			}
 		} else {
 			if (range.end >= span->text_range.end) {
