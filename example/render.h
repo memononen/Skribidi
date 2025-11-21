@@ -12,6 +12,7 @@ typedef struct render_context_t render_context_t;
 typedef struct skb_image_atlas_t skb_image_atlas_t;
 typedef struct skb_rasterizer_t skb_rasterizer_t;
 typedef struct skb_layout_t skb_layout_t;
+typedef struct skb_caret_info_t skb_caret_info_t;
 typedef struct skb_rich_layout_t skb_rich_layout_t;
 typedef struct skb_editor_t skb_editor_t;
 
@@ -286,5 +287,32 @@ void render_draw_rich_layout_with_state(
 	render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
 	const skb_rich_layout_t* rich_layout, skb_rasterize_alpha_mode_t alpha_mode, const render_content_state_t* content_states, int32_t content_states_count);
 
+/**
+ * Draws rectangles highlighting the selected text range.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param offset_x x offset to render the selection at.
+ * @param offset_y y offset to render the selection at.
+ * @param rich_layout pointer to rich layout to use to get the selection rectangles.
+ * @param text_range text range to highlight
+ * @param color color of the highlight to draw.
+ */
+void render_draw_text_range_background(
+		render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+		const skb_rich_layout_t* rich_layout, skb_text_range_t text_range, skb_color_t color);
+
+/**
+ * Draws caret.
+ * @param rc render context
+ * @param view_bounds view bounds to cull the items against.
+ * @param offset_x x offset to render the selection at.
+ * @param offset_y y offset to render the selection at.
+ * @param caret_info care to draw
+ * @param caret_width width of the caret stem
+ * @param color color of the caret
+ */
+void render_draw_caret(
+		render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+		const skb_caret_info_t* caret_info, float caret_width, skb_color_t color);
 
 #endif // RENDERER_H

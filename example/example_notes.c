@@ -1044,20 +1044,6 @@ void notes_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float de
 	view_scroll_zoom(&ctx->view, mouse_x, mouse_y, delta_y * zoom_speed);
 }
 
-typedef struct draw_selection_context_t {
-	float x;
-	float y;
-	skb_color_t color;
-	render_context_t* renderer;
-} draw_selection_context_t;
-
-static void draw_selection_rect(skb_rect2_t rect, void* context)
-{
-	draw_selection_context_t* ctx = (draw_selection_context_t*)context;
-	debug_render_filled_rect(ctx->renderer, ctx->x + rect.x, ctx->y + rect.y, rect.width, rect.height, ctx->color);
-}
-
-
 static void ui_frame_begin(ui_context_t* ui, render_context_t* rc)
 {
 	ui->rc = rc;
@@ -1340,10 +1326,8 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			render_push_scissor(ctx->rc, editor_view_bounds.x, editor_view_bounds.y, editor_view_bounds.width, editor_view_bounds.height);
 		}
 
-		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0) {
-			draw_selection_context_t sel_ctx = { .x = view_offset.x, .y = view_offset.y, .color = sel_color, .renderer = ctx->rc };
-			skb_editor_iterate_text_range_bounds(ctx->editor, edit_selection, draw_selection_rect, &sel_ctx);
-		}
+		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) > 0)
+			render_draw_text_range_background(ctx->rc, NULL, view_offset.x, view_offset.y, skb_editor_get_rich_layout(ctx->editor), edit_selection, sel_color);
 
 		// Draw the layout
 		const skb_rich_layout_t* edit_rich_layout = skb_editor_get_rich_layout(ctx->editor);
@@ -1401,33 +1385,8 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 		// Caret is generally drawn only when there is no selection.
 		if (skb_editor_get_text_range_count(ctx->editor, edit_selection) == 0) {
-
-			// Visual caret
-			skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, SKB_CURRENT_SELECTION_END);
-
-			caret_info.x += view_offset.x;
-			caret_info.y += view_offset.y;
-
-			float caret_line_width = 2.f;
-
-			float caret_slope = caret_info.slope;
-			float caret_top_x = caret_info.x + (caret_info.ascender + caret_line_width*0.5f) * caret_slope;
-			float caret_top_y = caret_info.y + caret_info.ascender + caret_line_width*0.5f;
-			float caret_bot_x = caret_info.x + (caret_info.descender - caret_line_width*0.5f) * caret_slope;
-			float caret_bot_y = caret_info.y + (caret_info.descender - caret_line_width*0.5f);
-
-			debug_render_line(ctx->rc, caret_top_x, caret_top_y, caret_bot_x, caret_bot_y, caret_color, caret_line_width);
-
-			float as = skb_absf(caret_bot_y - caret_top_y) / 5.f;
-			float dx = skb_is_rtl(caret_info.direction) ? -as : as;
-			float tri_top_x = caret_info.x + caret_info.ascender * caret_slope;
-			float tri_top_y = caret_info.y + caret_info.ascender;
-			float tri_bot_x = tri_top_x + as * caret_slope;
-			float tri_bot_y = tri_top_y + as;
-			debug_render_tri(ctx->rc, tri_top_x, tri_top_y,
-				tri_top_x + dx, tri_top_y,
-				tri_bot_x, tri_bot_y,
-				caret_color);
+			const skb_caret_info_t caret_info = skb_editor_get_caret_info_at(ctx->editor, SKB_CURRENT_SELECTION_END);
+			render_draw_caret(ctx->rc, NULL, view_offset.x, view_offset.y, &caret_info, 2.f, caret_color);
 		}
 	}
 

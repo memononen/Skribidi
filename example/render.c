@@ -885,6 +885,75 @@ void render_draw_rich_layout_with_state(
 }
 
 
+typedef struct render__selection_draw_context_t {
+	render_context_t* rc;
+	const skb_rect2_t* view_bounds;
+	float offset_x;
+	float offset_y;
+	skb_color_t color;
+} render__selection_draw_context_t;
+
+static void draw_selection_rect(skb_rect2_t rect, void* context)
+{
+	render__selection_draw_context_t* ctx = (render__selection_draw_context_t*)context;
+	render__filled_rect(ctx->rc, ctx->offset_x + rect.x, ctx->offset_y + rect.y, rect.width, rect.height, ctx->color);
+}
+
+void render_draw_text_range_background(
+		render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+		const skb_rich_layout_t* rich_layout, skb_text_range_t text_range, skb_color_t color)
+{
+	render__selection_draw_context_t ctx = {
+		.rc = rc,
+		.view_bounds = view_bounds,
+		.offset_x = offset_x,
+		.offset_y = offset_y,
+		.color = color,
+	};
+
+	skb_rich_layout_get_text_range_bounds(rich_layout, text_range, draw_selection_rect, &ctx);
+}
+
+void render_draw_caret(
+		render_context_t* rc, const skb_rect2_t* view_bounds, float offset_x, float offset_y,
+		const skb_caret_info_t* caret_info, float caret_width, skb_color_t color)
+{
+	float x = caret_info->x + offset_x;
+	float y = caret_info->y + offset_y;
+
+	float as = skb_absf(caret_info->ascender) / 5.f;
+	float hw = caret_width * 0.5f;
+	float top_x = x + caret_info->ascender * caret_info->slope;
+	float top_y = y + caret_info->ascender;
+	float bot_x = x + caret_info->descender * caret_info->slope;
+	float bot_y = y + caret_info->descender;
+	float mid_x = top_x + as * caret_info->slope;
+	float mid_y = top_y + as;
+
+	top_x += skb_is_rtl(caret_info->direction) ? -as : 0.f;
+
+	const render_vert_t verts[] = {
+		// Triangle
+		{ {top_x-hw,top_y}, color },
+		{ {top_x+hw+as,top_y}, color },
+		{ {mid_x+hw,mid_y}, color },
+
+		{ {top_x-hw,top_y}, color },
+		{ {mid_x+hw,mid_y}, color },
+		{ {mid_x-hw,mid_y}, color },
+
+		// Stem
+		{ {mid_x-hw,mid_y}, color },
+		{ {mid_x+hw,mid_y}, color },
+		{ {bot_x+hw,bot_y}, color },
+
+		{ {mid_x-hw,mid_y}, color },
+		{ {bot_x+hw,bot_y}, color },
+		{ {bot_x-hw,bot_y}, color },
+	};
+	render_draw_debug_tris(rc, verts, SKB_COUNTOF(verts));
+}
+
 //
 // OpengGL specific
 //
