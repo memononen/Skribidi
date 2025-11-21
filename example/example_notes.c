@@ -29,6 +29,7 @@ typedef struct ui_context_t {
 	skb_vec2_t mouse_pos;
 	bool mouse_pressed;
 	bool mouse_released;
+	int32_t mouse_mods;
 	int32_t id_gen;
 	int32_t next_hover;
 	int32_t hover;
@@ -54,7 +55,6 @@ typedef struct notes_context_t {
 	bool allow_char;
 	view_t view;
 	bool drag_view;
-	bool drag_text;
 
 	skb_vec2_t mouse_pos;
 	bool mouse_pressed;
@@ -345,7 +345,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		.font_collection = ctx->font_collection,
 		.attribute_collection = ctx->attribute_collection,
 		.editor_width = 300.f, //SKB_AUTO_SIZE,
-		.editor_height = 400.f, //SKB_AUTO_SIZE,
+		.editor_height = 200.f, //SKB_AUTO_SIZE,
 		.layout_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(layout_attributes),
 		.paragraph_attributes = body,
 		.composition_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(composition_attributes),
@@ -975,40 +975,16 @@ void notes_on_mouse_button(void* ctx_ptr, float mouse_x, float mouse_y, int butt
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
-
-		if (ctx->ui.hover || ctx->ui.active) {
-			if (action == GLFW_PRESS) {
-				ime_cancel();
-				ctx->ui.mouse_pressed = true;
-			}
-			if (action == GLFW_RELEASE) {
-				ctx->ui.mouse_released = true;
-			}
-			ctx->ui.mouse_pos.x = mouse_x;
-			ctx->ui.mouse_pos.y = mouse_y;
-		} else {
-			// caret hit testing
-			if (action == GLFW_PRESS) {
-				if (!ctx->drag_text) {
-					ime_cancel();
-					ctx->drag_text = true;
-					skb_vec2_t pos = transform_mouse_pos(ctx, mouse_x, mouse_y);
-					skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
-					pos = skb_vec2_sub(pos, view_offset);
-					skb_editor_process_mouse_click(ctx->editor, pos.x, pos.y, mouse_mods, glfwGetTime());
-				}
-			}
-
-			if (action == GLFW_RELEASE) {
-				if (ctx->drag_text) {
-					ctx->drag_text = false;
-				}
-				ctx->ui.mouse_released = true;
-			}
-
+		ctx->ui.mouse_mods = mouse_mods;
+		if (action == GLFW_PRESS) {
+			ime_cancel();
+			ctx->ui.mouse_pressed = true;
 		}
-
-
+		if (action == GLFW_RELEASE) {
+			ctx->ui.mouse_released = true;
+		}
+		ctx->ui.mouse_pos.x = mouse_x;
+		ctx->ui.mouse_pos.y = mouse_y;
 	}
 
 	update_ime_rect(ctx);}
@@ -1023,16 +999,8 @@ void notes_on_mouse_move(void* ctx_ptr, float mouse_x, float mouse_y)
 		update_ime_rect(ctx);
 	}
 
-	if (ctx->drag_text) {
-		skb_vec2_t pos = transform_mouse_pos(ctx, mouse_x, mouse_y);
-		skb_vec2_t view_offset = skb_editor_get_view_offset(ctx->editor);
-		pos = skb_vec2_sub(pos, view_offset);
-		skb_editor_process_mouse_drag(ctx->editor, pos.x, pos.y);
-		update_ime_rect(ctx);
-	} else {
-		ctx->ui.mouse_pos.x = mouse_x;
-		ctx->ui.mouse_pos.y = mouse_y;
-	}
+	ctx->ui.mouse_pos.x = mouse_x;
+	ctx->ui.mouse_pos.y = mouse_y;
 }
 
 void notes_on_mouse_scroll(void* ctx_ptr, float mouse_x, float mouse_y, float delta_x, float delta_y, int mods)
@@ -1268,11 +1236,55 @@ void notes_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		skb_rect2_t editor_content_bounds = skb_editor_get_layout_bounds(ctx->editor);
 		const skb_rect2_t editor_view_bounds = skb_editor_get_view_bounds(ctx->editor);
 
+		// UI mouse logic for the editor
+		skb_color_t editor_border_color = skb_rgba(0,0,0,128);
+		{
+			static double prev_time = 0.f;
+			skb_vec2_t mouse_pos = ui_get_mouse_pos(&ctx->ui);
+			skb_vec2_t edit_mouse_pos = skb_vec2_sub(mouse_pos, view_offset);
+			const bool over = skb_rect2_pt_inside(editor_view_bounds, mouse_pos);
+			int32_t id = ui_make_id(&ctx->ui);
+			ui_button_logic(&ctx->ui, id, over);
+			if (ctx->ui.hover == id)
+				editor_border_color.a = 192;
+			if (ctx->ui.went_active == id) {
+				// Clicked on editor
+				skb_editor_process_mouse_click(ctx->editor, edit_mouse_pos.x, edit_mouse_pos.y, ctx->ui.mouse_mods, glfwGetTime());
+				prev_time = glfwGetTime();
+			} else if (ctx->ui.active == id) {
+				if (text_overflow == SKB_OVERFLOW_SCROLL) {
+					// Scroll if mouse dragged beyond the bounds.
+					const double time = (float)glfwGetTime();
+					const float delta_time = (float)(time - prev_time);
+					prev_time = time;
+
+					const float top_y = editor_view_bounds.y;
+					const float bot_y = editor_view_bounds.y + editor_view_bounds.height;
+					float dy = 0.f;
+					if (mouse_pos.y < top_y)
+						dy = top_y - mouse_pos.y;
+					else if (mouse_pos.y > bot_y)
+						dy = bot_y - mouse_pos.y;
+					if (skb_absf(dy) > 0.f) {
+						const skb_vec2_t new_view_offset = {
+							.x = view_offset.x,
+							.y = view_offset.y + dy * 8.f * delta_time,
+						};
+						skb_editor_set_view_offset(ctx->editor, new_view_offset);
+					}
+				}
+
+				// Dragging editor
+				skb_editor_process_mouse_drag(ctx->editor, edit_mouse_pos.x, edit_mouse_pos.y);
+				update_ime_rect(ctx);
+			}
+		}
+
 		if (ctx->show_run_details) {
 			debug_render_stroked_rect(ctx->rc, view_offset.x + editor_content_bounds.x, view_offset.y + editor_content_bounds.y, editor_content_bounds.width, editor_content_bounds.height, skb_rgba(255,100,128,128), 1.f);
 		}
 
-		debug_render_stroked_rect(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 5, editor_view_bounds.width + 10, editor_view_bounds.height + 10, skb_rgba(0,0,0,128), 1.f);
+		debug_render_stroked_rect(ctx->rc, editor_view_bounds.x - 5, editor_view_bounds.y - 5, editor_view_bounds.width + 10, editor_view_bounds.height + 10, editor_border_color, 1.f);
 
 		// Scrollbar
 		if (text_overflow == SKB_OVERFLOW_SCROLL) {
