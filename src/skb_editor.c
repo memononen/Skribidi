@@ -298,6 +298,7 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 
 		// Get relevant attributes to select a font.
 		const float font_size = skb_attributes_get_font_size(active_attributes, editor->params.attribute_collection);
+		const skb_attribute_font_size_scaling_t font_size_scaling = skb_attributes_get_font_size_scaling(active_attributes, editor->params.attribute_collection);
 		const uint8_t font_family = skb_attributes_get_font_family(active_attributes, editor->params.attribute_collection);
 		const skb_weight_t font_weight = skb_attributes_get_font_weight(active_attributes, editor->params.attribute_collection);
 		const skb_style_t font_style = skb_attributes_get_font_style(active_attributes, editor->params.attribute_collection);
@@ -314,9 +315,19 @@ static void skb__update_preview_caret(skb_editor_t* editor)
 		if (fonts_count > 0) {
 			const skb_font_metrics_t font_metrics = skb_font_get_metrics(layout->params.font_collection, font_handles[0]);
 			const skb_caret_metrics_t caret_metrics = skb_font_get_caret_metrics(editor->params.font_collection, font_handles[0]);
+
+			float scaled_font_size = font_size;
+			if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_NORMAL) {
+				scaled_font_size *= skb_absf(font_size_scaling.scale);
+			} else if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_SUBSCRIPT) {
+				scaled_font_size *= font_metrics.subscript_scale;
+			} else if (font_size_scaling.type == SKB_FONT_SIZE_SCALING_SUPERSCRIPT) {
+				scaled_font_size *= font_metrics.superscript_scale;
+			}
+
 			editor->preview_caret_slope = caret_metrics.slope;
-			editor->preview_caret_ascender = font_metrics.ascender * font_size;
-			editor->preview_caret_descender = font_metrics.descender * font_size;
+			editor->preview_caret_ascender = font_metrics.ascender * scaled_font_size;
+			editor->preview_caret_descender = font_metrics.descender * scaled_font_size;
 			editor->is_preview_caret_valid = true;
 		}
 	}
