@@ -16,7 +16,7 @@
 #include "skb_layout.h"
 
 
-skb_paragraph_position_t skb_rich_layout_get_paragraph_position_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)
+static skb_paragraph_position_t skb__rich_layout_get_paragraph_position_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)
 {
 	assert(rich_layout);
 
@@ -57,20 +57,6 @@ skb_paragraph_position_t skb_rich_layout_get_paragraph_position_from_text_positi
 	return result;
 }
 
-int32_t skb_rich_layout_get_offset_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos)
-{
-	skb_paragraph_position_t pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, text_pos, SKB_AFFINITY_USE);
-	return pos.global_text_offset;
-}
-
-skb_range_t skb_rich_layout_get_range_from_text_range(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range)
-{
-	skb_paragraph_position_t start_pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.start, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.end, SKB_AFFINITY_USE);
-	if (start_pos.global_text_offset > end_pos.global_text_offset)
-		return (skb_range_t) { .start = end_pos.global_text_offset, .end = start_pos.global_text_offset };
-	return (skb_range_t) { .start = start_pos.global_text_offset, .end = end_pos.global_text_offset };
-}
 
 
 static void skb__layout_paragraph_init(skb_layout_paragraph_t* layout_paragraph)
@@ -146,33 +132,33 @@ const skb_layout_paragraph_t* skb_rich_layout_get_paragraph(const skb_rich_layou
 	return &rich_layout->paragraphs[index];
 }
 
-const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t index)
+const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx)
 {
 	assert(rich_layout);
-	assert(index >= 0 && index < rich_layout->paragraphs_count);
-	return &rich_layout->paragraphs[index].layout;
+	assert(paragraph_idx >= 0 && paragraph_idx < rich_layout->paragraphs_count);
+	return &rich_layout->paragraphs[paragraph_idx].layout;
 }
 
-skb_vec2_t skb_rich_layout_get_layout_offset(const skb_rich_layout_t* rich_layout, int32_t index)
+skb_vec2_t skb_rich_layout_get_layout_offset(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx)
 {
 	assert(rich_layout);
-	assert(index >= 0 && index < rich_layout->paragraphs_count);
-	return rich_layout->paragraphs[index].offset;
+	assert(paragraph_idx >= 0 && paragraph_idx < rich_layout->paragraphs_count);
+	return rich_layout->paragraphs[paragraph_idx].offset;
 }
 
-float skb_rich_layout_get_layout_advance_y(const skb_rich_layout_t* rich_layout, int32_t index)
+float skb_rich_layout_get_layout_advance_y(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx)
 {
 	assert(rich_layout);
-	assert(index >= 0 && index < rich_layout->paragraphs_count);
-	const skb_layout_t* layout = &rich_layout->paragraphs[index].layout;
+	assert(paragraph_idx >= 0 && paragraph_idx < rich_layout->paragraphs_count);
+	const skb_layout_t* layout = &rich_layout->paragraphs[paragraph_idx].layout;
 	return layout ? skb_layout_get_advance_y(layout) : 0.f;
 }
 
-skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t index)
+skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx)
 {
 	assert(rich_layout);
-	assert(index >= 0 && index < rich_layout->paragraphs_count);
-	const skb_layout_t* layout = &rich_layout->paragraphs[index].layout;
+	assert(paragraph_idx >= 0 && paragraph_idx < rich_layout->paragraphs_count);
+	const skb_layout_t* layout = &rich_layout->paragraphs[paragraph_idx].layout;
 	return layout ? skb_layout_get_resolved_direction(layout) : SKB_DIRECTION_LTR;
 }
 
@@ -191,7 +177,7 @@ skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout)
 void skb_rich_layout_set_from_rich_text(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
-	int32_t ime_text_offset, skb_text_t* ime_text)
+	int32_t composition_text_offset, const skb_text_t* composition_text)
 {
 	// Make sure the paragraph counts are in sync. skb_rich_layout_update_with_change() can adjust the array so that
 	// paragraphs that are changed in the middle will shift, so that existing paragraphs can be reused.
@@ -231,8 +217,8 @@ void skb_rich_layout_set_from_rich_text(
 
 	skb_layout_params_t layout_params = rich_layout->params;
 
-	if (!ime_text || skb_text_get_utf32_count(ime_text) == 0)
-		ime_text_offset = SKB_INVALID_INDEX;
+	if (!composition_text || skb_text_get_utf32_count(composition_text) == 0)
+		composition_text_offset = SKB_INVALID_INDEX;
 
 	float min_x = FLT_MAX;
 	float max_x = -FLT_MAX;
@@ -299,7 +285,7 @@ void skb_rich_layout_set_from_rich_text(
 		const int32_t paragraph_text_count = skb_text_get_utf32_count(paragraph_text);
 		const uint32_t paragraph_id = skb_rich_text_get_paragraph_version(rich_text, i);
 		const int32_t global_text_offset = skb_rich_text_get_paragraph_text_offset(rich_text, i);
-		const int32_t local_ime_text_offset = ime_text_offset - global_text_offset;
+		const int32_t local_ime_text_offset = composition_text_offset - global_text_offset;
 
 		layout_paragraph->global_text_offset = global_text_offset;
 
@@ -314,7 +300,7 @@ void skb_rich_layout_set_from_rich_text(
 				skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = 0, .end.offset = local_ime_text_offset });
 
 				// Composition
-				skb_text_append(combined_text, ime_text);
+				skb_text_append(combined_text, composition_text);
 
 				// After
 				skb_text_append_range(combined_text, paragraph_text, (skb_text_range_t){ .start.offset = local_ime_text_offset, .end.offset = paragraph_text_count });
@@ -460,18 +446,18 @@ void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_
 		skb__layout_paragraph_init(&rich_layout->paragraphs[i]);
 }
 
-skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich_layout, skb_text_position_t pos)
+skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos)
 {
 	assert(rich_layout);
 	if (rich_layout->paragraphs_count == 0)
 		return (skb_caret_info_t) {0};
 
-	skb_paragraph_position_t paragraph_pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, pos, SKB_AFFINITY_IGNORE);
+	skb_paragraph_position_t paragraph_pos = skb__rich_layout_get_paragraph_position_from_text_position(rich_layout, text_pos, SKB_AFFINITY_IGNORE);
 	const skb_layout_paragraph_t* paragraph = &rich_layout->paragraphs[paragraph_pos.paragraph_idx];
 
-	pos.offset = paragraph_pos.text_offset;
+	text_pos.offset = paragraph_pos.text_offset;
 
-	skb_caret_info_t caret = skb_layout_get_caret_info_at(&paragraph->layout, pos);
+	skb_caret_info_t caret = skb_layout_get_caret_info_at(&paragraph->layout, text_pos);
 	caret.x += paragraph->offset.x;
 	caret.y += paragraph->offset.y;
 
@@ -482,8 +468,8 @@ void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout,
 {
 	assert(rich_layout);
 
-	skb_paragraph_position_t start_pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.start, SKB_AFFINITY_USE);
-	skb_paragraph_position_t end_pos = skb_rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.end, SKB_AFFINITY_USE);
+	skb_paragraph_position_t start_pos = skb__rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.start, SKB_AFFINITY_USE);
+	skb_paragraph_position_t end_pos = skb__rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.end, SKB_AFFINITY_USE);
 	if (start_pos.global_text_offset > end_pos.global_text_offset) {
 		skb_paragraph_position_t tmp = start_pos;
 		start_pos = end_pos;

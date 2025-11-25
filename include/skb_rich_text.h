@@ -17,13 +17,18 @@ extern "C" {
 /**
  * @defgroup rich_text Rich Text
  *
- * Rich text contains multiple paragraphs of text. Each paragraph can have its own paragraph attributes, and each paragraph's text is represented as attributed text (see skb_text_t).
+ * Rich text contains multiple paragraphs of styled text.
+ *
+ * Each paragraph can be assigned it's own set of attributes that affect things like text alignment.
+ * The text for each paragraph is represented as attributed text (see skb_text_t), where attributes can be assigned to ranges of text (like text weight or color).
  *
  * The rich text has API to add text us utf-8, but internally the text is represented as utf-32.
  *
  * Since rich text is represented as flat list of paragreaphs, it does not support some rich text styles which require hierarchical data.
  * Some common layouts, bullet or ordered lists are achieved by group tag attributes (skb_attribute_group_tag_t). If consecutive paragraphs have same
  * group tag, some styles will treat the group of paragraphs as one. This is applied for example for ordered list numbering, or allowing to set space before and after the group.
+ *
+ * You can create a rich layout from rich text for rendering and measuring (see skb_rich_layout_t).
  *
  * @{
  */

@@ -742,14 +742,14 @@ typedef enum {
 skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x);
 
 /**
- * Returns text position under the hit location.
+ * Returns caret text position under the hit location.
  * First or last line is tested if the hit location is outside the vertical bounds.
  * Start or end of the line is returned if the hit location is outside the horizontal bounds.
  * @param layout layout to use.
  * @param type type of interaction
  * @param hit_x hit X location
  * @param hit_y hit Y location
- * @return text position under the specified hit location.
+ * @return caret text position under the specified hit location.
  */
 skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement_type_t type, float hit_x, float hit_y);
 
@@ -819,19 +819,19 @@ void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_
 
 
 /**
- * Returns visual caret location of the text position at specified line.
+ * Returns caret info at the text position in specified line.
  * @param layout layout to use
  * @param line_idx index of the line where the text position is.
  * @param pos text position to use.
- * @return visual caret location.
+ * @return caret info at text position.
  */
 skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos);
 
 /**
- * Returns visual caret location of the text position.
+ * Returns caret info at the text position.
  * @param layout layout to use
  * @param pos text position to use.
- * @return visual caret location.
+ * @return caret info at text position.
  */
 skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos);
 
