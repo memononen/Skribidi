@@ -107,7 +107,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_double_attributes[] = {
@@ -115,7 +115,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DOUBLE, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_dotted_attributes[] = {
@@ -123,7 +123,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DOTTED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_dashed_attributes[] = {
@@ -131,7 +131,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t deco_wavy_attributes[] = {
@@ -139,7 +139,7 @@ void* decorations_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_WAVY, 2.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 
@@ -281,14 +281,14 @@ void decorations_on_update(void* ctx_ptr, int32_t view_width, int32_t view_heigh
 			{
 				skb_quad_t quad = skb_image_atlas_get_decoration_quad(
 					atlas, ax, ay, ctx->view.scale,
-					SKB_DECORATION_UNDERLINE, style, pattern_length, pattern_offset, pattern_thickness,
+					SKB_DECORATION_LINE_UNDER, style, pattern_length, pattern_offset, pattern_thickness,
 					skb_rgba(0,0,0,128), SKB_RASTERIZE_ALPHA_SDF);
 				debug_render_stroked_rect(ctx->rc, quad.geom.x, quad.geom.y, quad.geom.width, quad.geom.height, skb_rgba(0,0,0,128), -1.f);
 			}
 
-			render_draw_decoration(ctx->rc,
+			render_draw_decoration_line(ctx->rc,
 				ax, ay,
-				style, SKB_DECORATION_UNDERLINE, pattern_length, pattern_offset, pattern_thickness,
+				style, SKB_DECORATION_LINE_UNDER, pattern_length, pattern_offset, pattern_thickness,
 				skb_rgba(0,0,0, 128), SKB_RASTERIZE_ALPHA_SDF);
 		}
 	}

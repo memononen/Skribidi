@@ -15,6 +15,8 @@ typedef struct skb_layout_t skb_layout_t;
 typedef struct skb_caret_info_t skb_caret_info_t;
 typedef struct skb_rich_layout_t skb_rich_layout_t;
 typedef struct skb_editor_t skb_editor_t;
+typedef union skb_decoration_t skb_decoration_t;
+typedef struct skb_attribute_paint_t skb_attribute_paint_t;
 
 /** Vertex used by render_draw_tris. */
 typedef struct render_vert_t {
@@ -204,7 +206,7 @@ void render_draw_icon(render_context_t* rc,
                       skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode);
 
 /**
- * Draws a text decoration
+ * Draws a line decoration
  * @param rc render context
  * @param offset_x x offset to render the glyph at.
  * @param offset_y y offset to render the glyph at.
@@ -216,10 +218,23 @@ void render_draw_icon(render_context_t* rc,
  * @param color color of the decoration
  * @param alpha_mode whether to render the pattern as SDF or alpha mask.
  */
-void render_draw_decoration(render_context_t* rc,
+void render_draw_decoration_line(render_context_t* rc,
                             float offset_x, float offset_y,
                             skb_decoration_style_t style, skb_decoration_position_t position, float length, float pattern_offset, float thickness,
                             skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode);
+
+/**
+ * Draws a decoration.
+ * @param rc render context
+ * @param offset_x x offset to render the glyph at.
+ * @param offset_y y offset to render the glyph at.
+ * @param decoration pointer to the decoration to draw.
+ * @param color color of the decoration
+ * @param alpha_mode whether to render the pattern as SDF or alpha mask.
+ */
+void render_draw_decoration(render_context_t* rc,
+                            float offset_x, float offset_y,
+                            const skb_decoration_t* decoration, skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode);
 
 /** Struct describing state for specific content id. Can be used to change the paint of specific content. */
 typedef struct render_content_state_t {

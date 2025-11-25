@@ -118,7 +118,7 @@ void* baseattribs_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t underline_attributes[] = {
 		skb_attribute_make_paint_color(SKB_PAINT_DECORATION_UNDERLINE, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,160,92,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 3.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_SOLID, 3.f, 0.f, SKB_PAINT_DECORATION_UNDERLINE),
 	};
 
 	const skb_attribute_t italic_attributes[] = {

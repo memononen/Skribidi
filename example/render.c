@@ -530,7 +530,7 @@ void render_draw_icon(render_context_t* rc,
 	render_draw_quad(rc, &quad);
 }
 
-void render_draw_decoration(render_context_t* rc,
+void render_draw_decoration_line(render_context_t* rc,
 	float offset_x, float offset_y,
 	skb_decoration_style_t style, skb_decoration_position_t position, float length, float pattern_offset, float thickness,
 	skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode)
@@ -546,6 +546,7 @@ void render_draw_decoration(render_context_t* rc,
 	render_draw_quad(rc, &quad);
 }
 
+
 static void render__filled_rect(render_context_t* rc, float x, float y, float w, float h, skb_color_t col)
 {
 	const render_vert_t verts[] = {
@@ -559,9 +560,17 @@ static void render__filled_rect(render_context_t* rc, float x, float y, float w,
 	render_draw_debug_tris(rc, verts, SKB_COUNTOF(verts));
 }
 
-static int32_t render__get_indent_level(int32_t level, int32_t max_levels)
+void render_draw_decoration(render_context_t* rc,
+	float offset_x, float offset_y,
+	const skb_decoration_t* decoration, skb_color_t color, skb_rasterize_alpha_mode_t alpha_mode)
 {
-	return skb_maxi(0, (level < 0) ? (max_levels + 1 + level) : level);
+	if (decoration->type == SKB_DECORATION_LINE) {
+		render_draw_decoration_line(rc, offset_x + decoration->line.x, offset_y + decoration->line.y,
+			decoration->line.style, decoration->line.position, decoration->line.length, decoration->line.pattern_offset, decoration->line.thickness,
+			color, alpha_mode);
+	} else if (decoration->type == SKB_DECORATION_RECT) {
+		render__filled_rect(rc, offset_x + decoration->rect.x, offset_y + decoration->rect.y, decoration->rect.width, decoration->rect.height, color);
+	}
 }
 
 static inline uint32_t render__get_run_state(intptr_t content_id, const render_content_state_t* content_states, int32_t content_states_count)
@@ -585,111 +594,21 @@ static void render__draw_layout_backgrounds(
 
 	// Draw layout
 	const skb_layout_params_t* layout_params = skb_layout_get_params(layout);
-	const skb_layout_line_t* layout_lines = skb_layout_get_lines(layout);
-	const int32_t layout_lines_count = skb_layout_get_lines_count(layout);
-	const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
 	const skb_rect2_t layout_bounds = skb_layout_get_bounds(layout);
-	const float layout_advance_y = skb_layout_get_advance_y(layout);
-	const bool layout_is_rtl = skb_is_rtl(skb_layout_get_resolved_direction(layout));
-
-	const skb_vec2_t offset = { .x = offset_x, .y = offset_y };
 
 	// Draw paragraph backgrounds
 	if (draw_paragraph_background) {
-		skb_attribute_paint_t background_paint = skb_attributes_get_paint(SKB_PAINT_PARAGRAPH_BACKGROUND, SKB_PAINT_STATE_DEFAULT, layout_params->layout_attributes, layout_params->attribute_collection);
-		if (background_paint.paint_tag == SKB_PAINT_PARAGRAPH_BACKGROUND && background_paint.color.a > 0) {
-			float top_y = layout_bounds.y;
-			float bottom_y = top_y + layout_bounds.height;
-			if (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_BEFORE)
-				top_y = 0.f;
-			if (layout_params->flags & SKB_LAYOUT_PARAMS_SAME_GROUP_AFTER)
-				bottom_y = layout_advance_y;
-			render__filled_rect(rc, offset_x + layout_bounds.x, offset_y + top_y, layout_bounds.width, bottom_y - top_y, background_paint.color);
-		}
+		const skb_attribute_paint_t background_paint = skb_attributes_get_paint(SKB_PAINT_PARAGRAPH_BACKGROUND, SKB_PAINT_STATE_DEFAULT, layout_params->layout_attributes, layout_params->attribute_collection);
+		if (background_paint.paint_tag == SKB_PAINT_PARAGRAPH_BACKGROUND && background_paint.color.a > 0)
+			render__filled_rect(rc, offset_x + layout_bounds.x, offset_y + layout_bounds.y, layout_bounds.width, layout_bounds.height, background_paint.color);
 	}
 
 	// Indent decoration
-	skb_attribute_indent_decoration_t indent_decoration = skb_attributes_get_indent_decoration(layout_params->layout_attributes, layout_params->attribute_collection);
-	if (indent_decoration.width > 0.f) {
-		skb_attribute_paint_t bar_paint = skb_attributes_get_paint(SKB_PAINT_INDENT_DECORATION, SKB_PAINT_STATE_DEFAULT, layout_params->layout_attributes, layout_params->attribute_collection);
-		if (bar_paint.paint_tag == SKB_PAINT_INDENT_DECORATION && bar_paint.color.a > 0) {
-			const skb_attribute_paragraph_padding_t paragraph_padding = skb_attributes_get_paragraph_padding(layout_params->layout_attributes, layout_params->attribute_collection);
-			const skb_attribute_indent_increment_t indent_increment = skb_attributes_get_indent_increment(layout_params->layout_attributes, layout_params->attribute_collection);
-			const int32_t indent_level = skb_attributes_get_indent_level(layout_params->layout_attributes, layout_params->attribute_collection);
-
-			float x = offset_x;
-			float delta_x = 0.f;
-			if (layout_is_rtl) {
-				x = offset_x + layout_params->layout_width - paragraph_padding.start + indent_decoration.offset_x;
-				delta_x = -indent_increment.level_increment;
-			} else {
-				x = offset_x + paragraph_padding.start - indent_decoration.offset_x - indent_decoration.width;
-				delta_x = indent_increment.level_increment;
-			}
-
-			const float top_y = offset_y + layout_bounds.y;
-			const float bottom_y = top_y + layout_bounds.height;
-
-			const int32_t min_level = render__get_indent_level(indent_decoration.min_level, indent_level);
-			const int32_t max_level = skb_mini(indent_level, render__get_indent_level(indent_decoration.max_level, indent_level));
-			for (int32_t i = min_level; i <= max_level; i++)
-				render__filled_rect(rc, x + (float)i * delta_x, top_y, indent_decoration.width, bottom_y - top_y, bar_paint.color);
-		}
-	}
-
-	for (int32_t li = 0; li < layout_lines_count; li++) {
-		const skb_layout_line_t* line = &layout_lines[li];
-
-		if (view_bounds && !arb_rect2_overlap(*view_bounds, skb_rect2_translate(line->culling_bounds, offset)))
-			continue;
-
-		// Draw text backgrounds
-		int32_t ri = line->layout_run_range.start;
-		while (ri < line->layout_run_range.end) {
-
-			const skb_layout_run_t* start_run = &layout_runs[ri];
-			if (start_run->flags & SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT) {
-
-				// Find consecutive range of runs which share the same style.
-				float x = start_run->bounds.x;
-				float y = start_run->bounds.y;
-				float height = start_run->bounds.height;
-				float width = start_run->bounds.width;
-				ri++;
-
-				const skb_attribute_set_t start_run_attributes = skb_layout_get_layout_run_attributes(layout, start_run);
-				const uint32_t start_state = render__get_run_state(start_run->content_id, content_states, content_states_count);
-				skb_attribute_paint_t start_run_background_paint = skb_attributes_get_paint(SKB_PAINT_TEXT_BACKGROUND, start_state,  start_run_attributes, layout_params->attribute_collection);
-				const intptr_t start_content_id = start_run->content_id;
-
-				while (ri < line->layout_run_range.end && layout_runs[ri].content_id == start_content_id) {
-					const skb_layout_run_t* cur_run = &layout_runs[ri];
-
-					const skb_attribute_set_t cur_run_attributes = skb_layout_get_layout_run_attributes(layout, cur_run);
-					const uint32_t cur_state = render__get_run_state(start_run->content_id, content_states, content_states_count);
-					skb_attribute_paint_t cur_run_background_paint = skb_attributes_get_paint(SKB_PAINT_TEXT_BACKGROUND, cur_state,  cur_run_attributes, layout_params->attribute_collection);
-
-					if (!skb_color_equals(start_run_background_paint.color, cur_run_background_paint.color) || start_run_background_paint.paint_id != cur_run_background_paint.paint_id)
-						break;
-
-					y = skb_minf(y, cur_run->bounds.y);
-					height = skb_maxf(height, cur_run->bounds.height);
-					width = (cur_run->bounds.x - start_run->bounds.x) + cur_run->bounds.width;
-					ri++;
-				}
-
-				x += offset_x;
-				y += offset_y;
-
-				if (start_run_background_paint.paint_tag == SKB_PAINT_TEXT_BACKGROUND && start_run_background_paint.color.a > 0)
-					render__filled_rect(rc, x,y, width, height, start_run_background_paint.color);
-
-			} else {
-				// Skip runs that dont have background.
-				while (ri < line->layout_run_range.end && (layout_runs[ri].flags & SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT) == 0)
-					ri++;
-			}
-		}
+	const skb_attribute_paint_t bar_paint = skb_attributes_get_paint(SKB_PAINT_INDENT_DECORATION, SKB_PAINT_STATE_DEFAULT, layout_params->layout_attributes, layout_params->attribute_collection);
+	if (bar_paint.paint_tag == SKB_PAINT_INDENT_DECORATION) {
+		const skb_layout_indent_decoration_info_t indent_info = skb_layout_get_indent_decoration_info(layout);
+		for (int32_t i = 0; i < indent_info.levels; i++)
+			render__filled_rect(rc, offset_x + indent_info.x + (float)i * indent_info.level_increment, offset_y + indent_info.y, indent_info.width, indent_info.height, bar_paint.color);
 	}
 }
 
@@ -727,16 +646,13 @@ void render__draw_layout_with_state(
 		// Draw underlines
 		for (int32_t i = line->decorations_range.start; i < line->decorations_range.end; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-				const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
-				const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+			if (decoration->layer == SKB_DECORATION_UNDER) {
+				const skb_layout_run_t* run = &layout_runs[decoration->line.layout_run_idx];
 				const uint32_t state = render__get_run_state(run->content_id, content_states, content_states_count);
-				skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, state, run_attributes, layout_params->attribute_collection);
-				if (paint.color.a > 0) {
-					render_draw_decoration(rc, offset_x + decoration->offset_x,  offset_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						paint.color, alpha_mode);
-				}
+				const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+				const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->line.paint_tag, state, run_attributes, layout_params->attribute_collection);
+				if (paint.paint_tag == decoration->line.paint_tag)
+					render_draw_decoration(rc, offset_x, offset_y, decoration, paint.color, SKB_RASTERIZE_ALPHA_SDF);
 			}
 		}
 
@@ -778,16 +694,13 @@ void render__draw_layout_with_state(
 		// Draw through lines.
 		for (int32_t i = line->decorations_range.start; i < line->decorations_range.end; i++) {
 			const skb_decoration_t* decoration = &decorations[i];
-			if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-				const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
-				const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+			if (decoration->layer == SKB_DECORATION_OVER) {
+				const skb_layout_run_t* run = &layout_runs[decoration->line.layout_run_idx];
 				const uint32_t state = render__get_run_state(run->content_id, content_states, content_states_count);
-				skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, state, run_attributes, layout_params->attribute_collection);
-				if (paint.color.a > 0) {
-					render_draw_decoration(rc, offset_x + decoration->offset_x,  offset_y + decoration->offset_y,
-						decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-						paint.color, alpha_mode);
-				}
+				const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(layout, run);
+				const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->line.paint_tag, state, run_attributes, layout_params->attribute_collection);
+				if (paint.paint_tag == decoration->line.paint_tag)
+					render_draw_decoration(rc, offset_x, offset_y, decoration, paint.color, SKB_RASTERIZE_ALPHA_SDF);
 			}
 		}
 	}

@@ -880,6 +880,17 @@ skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t a
 skb_attribute_paint_t skb_attributes_get_paint(uint32_t paint_tag, uint32_t state, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection);
 
 /**
+ * Returns all the paints based on tag.
+ * @param paint_tag paint tag to match.
+ * @param attributes attribute set where to look for the attributes from.
+ * @param collection attribute collection which is used to lookup attribute references.
+ * @param results array where to store the results.
+ * @param results_cap capacity of the results array.
+ * @return number of results stored in the results array.
+ */
+int32_t skb_attributes_get_paints_by_tag(uint32_t paint_tag, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, const skb_attribute_paint_t** results, int32_t results_cap);
+
+/**
  * Returns first indent decoration attribute or default value if not found.
  * The default value is no decoration.
  * @param attributes attribute set where to look for the attributes from.
@@ -982,14 +993,14 @@ uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attr
 
 /**
  * Collects attributes of specified type in results array from specified attribute set.
+ * @param kind the kind of attribute to query (see skb_attribute_type_t)
  * @param attributes attribute set to query.
  * @param collection attribute collection which is used to lookup attribute references.
- * @param kind the kind of attribute to query (see skb_attribute_type_t)
  * @param results array where to store the results.
  * @param results_cap capacity of the results array.
  * @return number of results stored in the results array.
  */
-int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap);
+int32_t skb_attributes_get_by_kind(uint32_t kind, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, const skb_attribute_t** results, int32_t results_cap);
 
 /**
  * Returns true if the attributes match. Reference attributes are matched by group.

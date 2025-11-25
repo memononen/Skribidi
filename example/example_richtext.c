@@ -129,7 +129,7 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(PAINT_DECORATION_0, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,128)),
-		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, PAINT_DECORATION_0),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_THROUGH, SKB_DECORATION_STYLE_SOLID, 2.f, 0.f, PAINT_DECORATION_0),
 	};
 
 	const skb_attribute_t deco2_attributes[] = {
@@ -137,7 +137,7 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_line_height(SKB_LINE_HEIGHT_METRICS_RELATIVE, 1.3f),
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, ink_color),
 		skb_attribute_make_paint_color(PAINT_DECORATION_0, SKB_PAINT_STATE_DEFAULT, skb_rgba(255,64,0,128)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_0),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_0),
 	};
 
 	const skb_attribute_t deco3_attributes[] = {
@@ -148,10 +148,10 @@ void* richtext_create(GLFWwindow* window, render_context_t* rc)
 		skb_attribute_make_paint_color(PAINT_DECORATION_1, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,255)),
 		skb_attribute_make_paint_color(PAINT_DECORATION_2, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,64,255,255)),
 		skb_attribute_make_paint_color(PAINT_DECORATION_3, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,192,64,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_THROUGHLINE, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, PAINT_DECORATION_0),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_1),
-		skb_attribute_make_decoration(SKB_DECORATION_BOTTOMLINE, SKB_DECORATION_STYLE_DASHED, 0.f, 0.f, PAINT_DECORATION_2),
-		skb_attribute_make_decoration(SKB_DECORATION_OVERLINE, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, PAINT_DECORATION_3),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_THROUGH, SKB_DECORATION_STYLE_DASHED, 2.f, 0.f, PAINT_DECORATION_0),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_SOLID, 0.f, 0.f, PAINT_DECORATION_1),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_BOTTOM, SKB_DECORATION_STYLE_DASHED, 0.f, 0.f, PAINT_DECORATION_2),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_OVER, SKB_DECORATION_STYLE_WAVY, 0.f, 0.f, PAINT_DECORATION_3),
 	};
 
 	const skb_attribute_t italic_attributes[] = {

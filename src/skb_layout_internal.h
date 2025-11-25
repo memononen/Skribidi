@@ -28,6 +28,7 @@ typedef struct skb__shaping_run_t {
 	uint8_t direction;
 	uint8_t bidi_level;
 	bool is_emoji;
+	bool has_baseline_shift;
 	float font_size;					// Cached font size for the run.
 	skb_font_handle_t font_handle;
 	float padding_start;

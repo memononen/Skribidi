@@ -41,7 +41,7 @@ typedef struct hyperlink_context_t {
 	bool mouse_pressed;
 	intptr_t hover_item;
 
-	bool show_glyph_bounds;
+	bool show_run_details;
 	float atlas_scale;
 
 	GLFWcursor* hand_cursor;
@@ -148,7 +148,7 @@ void hyperlink_on_key(void* ctx_ptr, GLFWwindow* window, int key, int action, in
 
 	if (action == GLFW_PRESS) {
 		if (key == GLFW_KEY_F9) {
-			ctx->show_glyph_bounds = !ctx->show_glyph_bounds;
+			ctx->show_run_details = !ctx->show_run_details;
 		}
 		if (key == GLFW_KEY_F10) {
 			ctx->atlas_scale += 0.25f;
@@ -290,7 +290,7 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,0,0,0)),
 			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_HOVER, link_color),
 			skb_attribute_make_paint_color(SKB_PAINT_DECORATION_LINK, SKB_PAINT_STATE_ACTIVE, active_link_color),
-			skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, SKB_PAINT_DECORATION_LINK),
+			skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DOTTED, 3.f, 2.f, SKB_PAINT_DECORATION_LINK),
 		};
 
 		const skb_attribute_t icon_attributes[] = {
@@ -334,6 +334,14 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 		}
 
 		render_draw_layout_with_state(ctx->rc, NULL, 0, 0, layout, SKB_RASTERIZE_ALPHA_SDF, &content_state, 1);
+
+		// Debug draw
+		if (ctx->show_run_details) {
+			debug_render_layout(ctx->rc, 0, 0, layout);
+			debug_render_layout_lines(ctx->rc, 0, 0, layout);
+			debug_render_layout_runs(ctx->rc, 0, 0, layout);
+			//debug_render_layout_glyphs(ctx->rc, 0.f, edit_layout_y, edit_layout);
+		}
 	}
 
 	render_pop_transform(ctx->rc);
@@ -344,6 +352,6 @@ void hyperlink_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 
 	// Draw info
 	debug_render_text(ctx->rc, (float)view_width - 20.f, (float)view_height - 15.f, 13, RENDER_ALIGN_END, skb_rgba(0,0,0,255),
-		"F9: Glyph details %s   F10: Atlas %.1f%%",
-		ctx->show_glyph_bounds ? "ON" : "OFF", ctx->atlas_scale * 100.f);
+		"F9: Run details %s   F10: Atlas %.1f%%",
+		ctx->show_run_details ? "ON" : "OFF", ctx->atlas_scale * 100.f);
 }

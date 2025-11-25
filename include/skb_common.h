@@ -145,24 +145,16 @@ typedef enum {
 	SKB_DECORATION_STYLE_WAVY,
 } skb_decoration_style_t;
 
-/** Enum describing how the decoration color is specified. */
-typedef enum {
-	/** Inherit decoration color from text. */
-	SKB_DECORATION_COLOR_FROM_TEXT = 0,
-	/** Use the decoration color from decoration attribute. */
-	SKB_DECORATION_COLOR_SPECIFIC,
-} skb_decoration_color_source_t;
-
 /** Enum describing text decoration position. */
 typedef enum {
 	/** Under the alphabetic baseline. */
-	SKB_DECORATION_UNDERLINE = 0,
+	SKB_DECORATION_LINE_UNDER = 0,
 	/** Under the descender. */
-	SKB_DECORATION_BOTTOMLINE,
+	SKB_DECORATION_LINE_BOTTOM,
 	/** Over the ascender */
-	SKB_DECORATION_OVERLINE,
+	SKB_DECORATION_LINE_OVER,
 	/** Through the text. */
-	SKB_DECORATION_THROUGHLINE,
+	SKB_DECORATION_LINE_THROUGH,
 } skb_decoration_position_t;
 
 /** Enum describing the caret's position in relation a codepoint, in logical text order. */

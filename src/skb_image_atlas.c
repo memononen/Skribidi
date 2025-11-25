@@ -1275,9 +1275,9 @@ skb_quad_t skb_image_atlas_get_decoration_quad(
 
 	// Position affects only placement, so it is not hashed.
 	skb_vec2_t size = skb_rasterizer_get_decoration_pattern_size(style, thickness);
-	if (position == SKB_DECORATION_OVERLINE)
+	if (position == SKB_DECORATION_LINE_OVER)
 		y -= size.y; // Above the position.
-	else if (position == SKB_DECORATION_THROUGHLINE)
+	else if (position == SKB_DECORATION_LINE_THROUGH)
 		y -= size.y * 0.5f; // Center.
 
 	skb__atlas_item_t* item = NULL;

@@ -221,7 +221,7 @@ void* testbed_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t composition_attributes[] = {
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
 	};
 
 	skb_editor_params_t edit_params = {
@@ -558,15 +558,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw underlines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position != SKB_DECORATION_THROUGHLINE) {
-					const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
+				if (decoration->layer == SKB_DECORATION_UNDER) {
+					const skb_layout_run_t* run = &layout_runs[decoration->line.layout_run_idx];
 					const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(edit_layout, run);
-					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
-					if (paint.color.a > 0) {
-						render_draw_decoration(ctx->rc, decoration->offset_x + edit_layout_offset.x, edit_layout_offset.y + decoration->offset_y,
-							decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-							paint.color, SKB_RASTERIZE_ALPHA_SDF);
-					}
+					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->line.paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
+					render_draw_decoration(ctx->rc, edit_layout_offset.x, edit_layout_offset.y, decoration, paint.color, SKB_RASTERIZE_ALPHA_SDF);
 				}
 			}
 
@@ -732,15 +728,11 @@ void testbed_on_update(void* ctx_ptr, int32_t view_width, int32_t view_height)
 			// Draw through lines
 			for (int32_t i = 0; i < decorations_count; i++) {
 				const skb_decoration_t* decoration = &decorations[i];
-				if (decoration->position == SKB_DECORATION_THROUGHLINE) {
-					const skb_layout_run_t* run = &layout_runs[decoration->layout_run_idx];
+				if (decoration->layer == SKB_DECORATION_OVER) {
+					const skb_layout_run_t* run = &layout_runs[decoration->line.layout_run_idx];
 					const skb_attribute_set_t run_attributes = skb_layout_get_layout_run_attributes(edit_layout, run);
-					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
-					if (paint.color.a > 0) {
-						render_draw_decoration(ctx->rc, edit_layout_offset.x + decoration->offset_x, edit_layout_offset.y + decoration->offset_y,
-							decoration->style, decoration->position, decoration->length, decoration->pattern_offset, decoration->thickness,
-							paint.color, SKB_RASTERIZE_ALPHA_SDF);
-					}
+					const skb_attribute_paint_t paint = skb_attributes_get_paint(decoration->line.paint_tag, SKB_PAINT_STATE_DEFAULT, run_attributes, layout_params->attribute_collection);
+					render_draw_decoration(ctx->rc, edit_layout_offset.x, edit_layout_offset.y, decoration, paint.color, SKB_RASTERIZE_ALPHA_SDF);
 				}
 			}
 

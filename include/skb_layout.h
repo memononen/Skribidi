@@ -281,8 +281,8 @@ typedef enum {
 	SKB_LAYOUT_RUN_IS_LIST_MARKER		= 1 << 2,
 	/** Flag indicating that the run is created for list ellipsis. */
 	SKB_LAYOUT_RUN_IS_ELLIPSIS			= 1 << 3,
-	/** Flag indicating the that the run has background paint */
-	SKB_LAYOUT_RUN_HAS_BACKGROUND_PAINT	= 1 << 4,
+	/** Flag indicating the that the run has baseline shift applied (e.g. superscript) */
+	SKB_LAYOUT_RUN_HAS_BASELINE_SHIFT	= 1 << 4,
 } skb_layout_run_flags_t;
 
 /**
@@ -362,26 +362,81 @@ typedef struct skb_glyph_t {
 	uint16_t gid;
 } skb_glyph_t;
 
-/** Struct describing text decoration  */
-typedef struct skb_decoration_t {
-	/** Index of the layout run the decoration is related to. */
-	int32_t layout_run_idx;
-	/** X offset of the decoration (including layout origin). */
-	float offset_x;
-	/** Y offset of the decoration (including layout origin). */
-	float offset_y;
-	/** Length of the decoration. */
-	float length;
-	/** Offset of the start of the pattern. */
-	float pattern_offset;
-	/** Thickness of the decoration. */
-	float thickness;
+
+/** Enum describing decoration type. */
+typedef enum {
+	/** Decoration line. */
+	SKB_DECORATION_LINE = 0,
+	/** Decoration rectangle. */
+	SKB_DECORATION_RECT,
+} skb_decoration_type_t;
+
+/** Enum describing decoration layer. */
+typedef enum {
+	/** The decoration should be drawn under the text. */
+	SKB_DECORATION_UNDER = 0,
+	/** The decoration should be drawn over the text. */
+	SKB_DECORATION_OVER,
+} skb_decoration_layer_t;
+
+/** Struct describing decoration line. */
+typedef struct skb_decoration_line_t {
+	/** Decoration type, see skb_decoration_type_t */
+	uint8_t type;
+	/** Decoration layer, see skb_decoration_layer_t */
+	uint8_t layer;
 	/** Position of the decoration line relative to the text. See skb_decoration_position_t. */
 	uint8_t position;
 	/** Style of the decoration line. See skb_decoration_style_t. */
 	uint8_t style;
 	/** Name tag of the paint, use skb_attributes_get_paint() with run attributes to get the color. */
 	uint32_t paint_tag;
+	/** Index of the layout run the decoration is related to. */
+	int32_t layout_run_idx;
+	/** X position of the decoration. */
+	float x;
+	/** Y position of the decoration. */
+	float y;
+	/** Length of the decoration. */
+	float length;
+	/** Offset of the start of the pattern. */
+	float pattern_offset;
+	/** Thickness of the decoration. */
+	float thickness;
+} skb_decoration_line_t;
+
+/** Struct describing decoration rectangle. */
+typedef struct skb_decoration_rect_t {
+	/** Decoration type, see skb_decoration_type_t */
+	uint8_t type;
+	/** Decoration layer, see skb_decoration_layer_t */
+	uint8_t layer;
+	/** Name tag of the paint, use skb_attributes_get_paint() with run attributes to get the color. */
+	uint32_t paint_tag;
+	/** Index of the layout run the decoration is related to. */
+	int32_t layout_run_idx;
+	/** X position of the decoration. */
+	float x;
+	/** Y position of the decoration. */
+	float y;
+	/** Width of the decoration */
+	float width;
+	/** Height of the decoration */
+	float height;
+} skb_decoration_rect_t;
+
+/** Taggetd union describing decorations.  */
+typedef union skb_decoration_t {
+	struct {
+		/** Decoration type, see skb_decoration_type_t */
+		uint8_t type;
+		/** Decoration layer, see skb_decoration_layer_t */
+		uint8_t layer;
+	};
+	/** Decoration line, used when type == SKB_DECORATION_LINE */
+	skb_decoration_line_t line;
+	/** Decoration rect, used when type == SKB_DECORATION_RECT */
+	skb_decoration_rect_t rect;
 } skb_decoration_t;
 
 /** Struct describing properties if a single codepoint. */
@@ -831,6 +886,29 @@ void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_r
  * @param context context passed to the callback.
  */
 void skb_layout_iterate_text_range_bounds_with_offset(const skb_layout_t* layout, skb_vec2_t offset, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
+
+/** Struct describing how to draw indent decoration bars */
+typedef struct skb_layout_indent_decoration_info_t {
+	/** X position of the decoration at level 0. */
+	float x;
+	/** Y position of the decoration */
+	float y;
+	/** Width of an a bar */
+	float height;
+	/** Width of a bar */
+	float width;
+	/** Number of bars to draw, 0 if no bars to draw. */
+	int32_t levels;
+	/** Increment to the next bar to draw. */
+	float level_increment;
+} skb_layout_indent_decoration_info_t;
+
+/**
+ * Returns info describing how to draw indent decorations.
+ * @param layout layout to use.
+ * @return indent decoration info.
+ */
+skb_layout_indent_decoration_info_t skb_layout_get_indent_decoration_info(const skb_layout_t* layout);
 
 //
 // Caret iterator

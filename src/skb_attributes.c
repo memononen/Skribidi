@@ -468,7 +468,7 @@ skb_attribute_t skb_attribute_make_caret_padding(float horizontal, float vertica
 	return attribute;
 }
 
-int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind, const skb_attribute_t** results, int32_t results_cap)
+int32_t skb_attributes_get_by_kind(uint32_t kind, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, const skb_attribute_t** results, int32_t results_cap)
 {
 	int32_t count = 0;
 	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
@@ -478,17 +478,17 @@ int32_t skb_attributes_get_by_kind(skb_attribute_set_t attributes, const skb_att
 		}
 		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_REFERENCE) {
 			skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.attributes[i].reference.handle);
-			count += skb_attributes_get_by_kind(ref_attributes, collection, kind, results + count, results_cap - count);
+			count += skb_attributes_get_by_kind(kind, ref_attributes, collection, results + count, results_cap - count);
 		}
 	}
 
 	if (attributes.set_handle) {
 		skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.set_handle);
-		count += skb_attributes_get_by_kind(ref_attributes, collection, kind, results + count, results_cap - count);
+		count += skb_attributes_get_by_kind(kind, ref_attributes, collection, results + count, results_cap - count);
 	}
 
 	if (attributes.parent_set)
-		count += skb_attributes_get_by_kind(*attributes.parent_set, collection, kind, results + count, results_cap - count);
+		count += skb_attributes_get_by_kind(kind, *attributes.parent_set, collection, results + count, results_cap - count);
 
 	return count;
 }
@@ -505,27 +505,27 @@ bool skb_attributes_match(const skb_attribute_t* a, const skb_attribute_t* b)
 
 }
 
-static const skb_attribute_t* skb__get_attribute_by_kind(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, uint32_t kind)
+static const skb_attribute_t* skb__get_attribute_by_kind(uint32_t kind, const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
 		if (attributes.attributes[i].kind == kind)
 			return &attributes.attributes[i];
 		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_REFERENCE) {
 			skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.attributes[i].reference.handle);
-			const skb_attribute_t* attr = skb__get_attribute_by_kind(ref_attributes, collection, kind);
+			const skb_attribute_t* attr = skb__get_attribute_by_kind(kind, ref_attributes, collection);
 			if (attr)
 				return attr;
 		}
 	}
 
 	if (attributes.parent_set) {
-		const skb_attribute_t* attr = skb__get_attribute_by_kind(*attributes.parent_set, collection, kind);
+		const skb_attribute_t* attr = skb__get_attribute_by_kind(kind, *attributes.parent_set, collection);
 		if (attr)
 			return attr;
 	}
 	if (attributes.set_handle) {
 		skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.set_handle);
-		return skb__get_attribute_by_kind(ref_attributes, collection, kind);
+		return skb__get_attribute_by_kind(kind, ref_attributes, collection);
 	}
 
 	return NULL;
@@ -533,25 +533,25 @@ static const skb_attribute_t* skb__get_attribute_by_kind(const skb_attribute_set
 
 skb_text_direction_t skb_attributes_get_text_base_direction(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_BASE_DIRECTION);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_TEXT_BASE_DIRECTION, attributes, collection);
 	return attr ? attr->text_base_direction.direction : SKB_DIRECTION_AUTO;
 }
 
 const char* skb_attributes_get_lang(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LANG);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_LANG, attributes, collection);
 	return attr ? attr->lang.lang : NULL;
 }
 
 uint8_t skb_attributes_get_font_family(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_FAMILY);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_FAMILY, attributes, collection);
 	return attr ? attr->font_family.family : SKB_FONT_FAMILY_DEFAULT;
 }
 
 float skb_attributes_get_font_size(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_SIZE);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_SIZE, attributes, collection);
 	return attr ? attr->font_size.size : 16.f;
 }
 
@@ -560,37 +560,37 @@ skb_attribute_font_size_scaling_t skb_attributes_get_font_size_scaling(const skb
 	static const skb_attribute_font_size_scaling_t default_font_size_scaling = {
 		.type = SKB_FONT_SIZE_SCALING_NONE,
 	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_SIZE_SCALING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_SIZE_SCALING, attributes, collection);
 	return attr ? attr->font_size_scaling : default_font_size_scaling;
 }
 
 skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_WEIGHT);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_SIZE_SCALING, attributes, collection);
 	return attr ? attr->font_weight.weight : SKB_WEIGHT_NORMAL;
 }
 
 skb_style_t skb_attributes_get_font_style(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_STYLE);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_STYLE, attributes, collection);
 	return attr ? attr->font_style.style : SKB_STYLE_NORMAL;
 }
 
 skb_stretch_t skb_attributes_get_font_stretch(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_FONT_STRETCH);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_STRETCH, attributes, collection);
 	return attr ? attr->font_stretch.stretch : SKB_STRETCH_NORMAL;
 }
 
 float skb_attributes_get_letter_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LETTER_SPACING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_LETTER_SPACING, attributes, collection);
 	return attr ? attr->letter_spacing.spacing : 0.f;
 }
 
 float skb_attributes_get_word_spacing(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_WORD_SPACING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_WORD_SPACING, attributes, collection);
 	return attr ? attr->word_spacing.spacing : 0.f;
 }
 
@@ -599,33 +599,33 @@ skb_attribute_line_height_t skb_attributes_get_line_height(const skb_attribute_s
 	static const skb_attribute_line_height_t default_line_height = {
 		.type = SKB_LINE_HEIGHT_NORMAL,
 	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LINE_HEIGHT);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_LINE_HEIGHT, attributes, collection);
 	return attr ? attr->line_height : default_line_height;
 }
 
 skb_attribute_inline_padding_t skb_attributes_get_inline_padding(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_inline_padding_t default_inline_padding = { 0 };
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INLINE_PADDING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_INLINE_PADDING, attributes, collection);
 	return attr ? attr->inline_padding : default_inline_padding;
 }
 
 float skb_attributes_get_tab_stop_increment(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TAB_STOP_INCREMENT);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_TAB_STOP_INCREMENT, attributes, collection);
 	return attr ? attr->tab_stop_increment.increment : 0.f;
 }
 
 skb_attribute_paragraph_padding_t skb_attributes_get_paragraph_padding(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_paragraph_padding_t default_vertical_padding = { 0 };
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_PARAGRAPH_PADDING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_PARAGRAPH_PADDING, attributes, collection);
 	return attr ? attr->paragraph_padding : default_vertical_padding;
 }
 
 int32_t skb_attributes_get_indent_level(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_LEVEL);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_INDENT_LEVEL, attributes, collection);
 	return attr ? attr->indent_level.level : 0;
 }
 
@@ -635,14 +635,14 @@ skb_attribute_indent_increment_t skb_attributes_get_indent_increment(skb_attribu
 		.first_line_increment = 0.f,
 		.level_increment = 0.f,
 	};
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_INCREMENT);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_INDENT_INCREMENT, attributes, collection);
 	return attr ? attr->indent_increment : default_indent_increment;
 }
 
 skb_attribute_list_marker_t skb_attributes_get_list_marker(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_list_marker_t default_list_marker = { 0 };
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_LIST_MARKER);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_LIST_MARKER, attributes, collection);
 	return attr ? attr->list_marker : default_list_marker;
 }
 
@@ -652,29 +652,52 @@ skb_attribute_paint_t skb_attributes_get_paint(uint32_t paint_tag, uint32_t stat
 		.color = {0, 0, 0, 255 },
 	};
 
-	const skb_attribute_t* paints[16];
-	int32_t paints_count = skb_attributes_get_by_kind(attributes, collection, SKB_ATTRIBUTE_PAINT, paints, SKB_COUNTOF(paints));
+	const skb_attribute_paint_t* paints[16];
+	int32_t paints_count = skb_attributes_get_paints_by_tag(paint_tag, attributes, collection, paints, SKB_COUNTOF(paints));
 
 	skb_attribute_paint_t fallback = default_paint;
 
 	for (int32_t i = 0; i < paints_count; i++) {
-		const skb_attribute_paint_t* paint = &paints[i]->paint;
-		if (paint->paint_tag == paint_tag) {
-			if ((paint->state & state) || (!state && !paint->state))
-				return *paint;
-			if (paint->state == SKB_PAINT_STATE_DEFAULT)
-				fallback = *paint;
-		}
+		const skb_attribute_paint_t* paint = paints[i];
+		if ((paint->state & state) || (!state && !paint->state))
+			return *paint;
+		if (paint->state == SKB_PAINT_STATE_DEFAULT)
+			fallback = *paint;
 	}
 
 	return fallback;
+}
+
+int32_t skb_attributes_get_paints_by_tag(uint32_t paint_tag, skb_attribute_set_t attributes, const skb_attribute_collection_t* collection, const skb_attribute_paint_t** results, int32_t results_cap)
+{
+	int32_t count = 0;
+	for (int32_t i = attributes.attributes_count-1; i >= 0; i--) {
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_PAINT && attributes.attributes[i].paint.paint_tag == paint_tag) {
+			if (count < results_cap)
+				results[count++] = &attributes.attributes[i].paint;
+		}
+		if (attributes.attributes[i].kind == SKB_ATTRIBUTE_REFERENCE) {
+			skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.attributes[i].reference.handle);
+			count += skb_attributes_get_paints_by_tag(paint_tag, ref_attributes, collection, results + count, results_cap - count);
+		}
+	}
+
+	if (attributes.set_handle) {
+		skb_attribute_set_t ref_attributes = skb_attribute_collection_get_set(collection, attributes.set_handle);
+		count += skb_attributes_get_paints_by_tag(paint_tag, ref_attributes, collection, results + count, results_cap - count);
+	}
+
+	if (attributes.parent_set)
+		count += skb_attributes_get_paints_by_tag(paint_tag, *attributes.parent_set, collection, results + count, results_cap - count);
+
+	return count;
 }
 
 skb_attribute_indent_decoration_t skb_attributes_get_indent_decoration(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
 	static const skb_attribute_indent_decoration_t default_indent_decoration = { 0 };
 
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_INDENT_DECORATION);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_INDENT_DECORATION, attributes, collection);
 	return attr ? attr->indent_decoration : default_indent_decoration;
 }
 
@@ -686,43 +709,43 @@ skb_attribute_object_align_t skb_attributes_get_object_align(const skb_attribute
 		.baseline_ratio = 0.5f,
 	};
 
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_OBJECT_ALIGN);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_OBJECT_ALIGN, attributes, collection);
 	return attr ? attr->object_align : default_object_align;
 }
 
 skb_text_wrap_t skb_attributes_get_text_wrap(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_WRAP);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_TEXT_WRAP, attributes, collection);
 	return attr ? attr->text_wrap.text_wrap : SKB_WRAP_NONE;
 }
 
 skb_text_overflow_t skb_attributes_get_text_overflow(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_TEXT_OVERFLOW);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_TEXT_OVERFLOW, attributes, collection);
 	return attr ? attr->text_overflow.text_overflow : SKB_OVERFLOW_NONE;
 }
 
 skb_vertical_trim_t skb_attributes_get_vertical_trim(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_TRIM);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_VERTICAL_TRIM, attributes, collection);
 	return attr ? attr->vertical_trim.vertical_trim : SKB_VERTICAL_TRIM_DEFAULT;
 }
 
 skb_align_t skb_attributes_get_horizontal_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_HORIZONTAL_ALIGN);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_HORIZONTAL_ALIGN, attributes, collection);
 	return attr ? attr->horizontal_align.align : SKB_ALIGN_START;
 }
 
 skb_align_t skb_attributes_get_vertical_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_VERTICAL_ALIGN);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_VERTICAL_ALIGN, attributes, collection);
 	return attr ? attr->vertical_align.align : SKB_ALIGN_START;
 }
 
 skb_baseline_t skb_attributes_get_baseline_align(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BASELINE_ALIGN);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_BASELINE_ALIGN, attributes, collection);
 	return attr ? attr->baseline_align.baseline : SKB_BASELINE_ALPHABETIC;
 }
 
@@ -730,7 +753,7 @@ skb_attribute_baseline_shift_t skb_attributes_get_baseline_shift(skb_attribute_s
 {
 	static const skb_attribute_baseline_shift_t default_baseline_shift = { 0 };
 
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_BASELINE_SHIFT);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_BASELINE_SHIFT, attributes, collection);
 	return attr ? attr->baseline_shift : default_baseline_shift;
 }
 
@@ -738,14 +761,14 @@ skb_attribute_caret_padding_t skb_attributes_get_caret_padding(skb_attribute_set
 {
 	static const skb_attribute_caret_padding_t default_caret_padding = { 0 };
 
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_CARET_PADDING);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_CARET_PADDING, attributes, collection);
 	return attr ? attr->caret_padding : default_caret_padding;
 
 }
 
 uint32_t skb_attributes_get_group(skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(attributes, collection, SKB_ATTRIBUTE_GROUP_TAG);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_GROUP_TAG, attributes, collection);
 	return attr ? attr->group_tag.group_tag : 0;
 }
 

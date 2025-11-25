@@ -191,7 +191,7 @@ void* inputfilter_create(GLFWwindow* window, render_context_t* rc)
 
 	const skb_attribute_t composition_attributes[] = {
 		skb_attribute_make_paint_color(SKB_PAINT_TEXT, SKB_PAINT_STATE_DEFAULT, skb_rgba(0,128,192,255)),
-		skb_attribute_make_decoration(SKB_DECORATION_UNDERLINE, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
+		skb_attribute_make_decoration(SKB_DECORATION_LINE_UNDER, SKB_DECORATION_STYLE_DOTTED, 0.f, 1.f, SKB_PAINT_TEXT),
 	};
 
 	skb_editor_params_t edit_params = {
