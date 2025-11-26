@@ -593,7 +593,7 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 			// End, pass mods to process key
 			skb_editor_rule_make_process_key_pass_mod(GLFW_KEY_END, SKB_KEY_END),
 			// Delete
-			skb_editor_rule_make_process_key(GLFW_KEY_DELETE 0, SKB_KEY_DELETE),
+			skb_editor_rule_make_process_key(GLFW_KEY_DELETE, 0, SKB_KEY_DELETE),
 		};
 		skb_editor_rule_set_append(ctx->editor_rule_set, caret_rules, SKB_COUNTOF(caret_rules));
 
