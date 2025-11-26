@@ -102,6 +102,7 @@ set(SKRIBIDI_SOURCE_FILES
 	skb_common.c
 	skb_common_internal.h
 	skb_editor.c
+	skb_editor_rules.c
 	skb_font_collection.c
 	skb_font_collection_internal.h
 	skb_icon_collection.c
@@ -125,6 +126,7 @@ set(SKRIBIDI_API_FILES
 	../include/skb_canvas.h
 	../include/skb_common.h
 	../include/skb_editor.h
+	../include/skb_editor_rules.h
 	../include/skb_font_collection.h
 	../include/skb_icon_collection.h
 	../include/skb_image_atlas.h

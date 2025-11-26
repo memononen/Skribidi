@@ -188,8 +188,9 @@ typedef enum {
 	SKB_MOD_NONE = 0,
 	SKB_MOD_SHIFT = 0x01,
 	SKB_MOD_CONTROL = 0x02,
-	SKB_MOD_OPTION = 0x04,
-	SKB_MOD_COMMAND = 0x08,
+	SKB_MOD_ALT = 0x04,
+	SKB_MOD_OPTION = 0x08,
+	SKB_MOD_COMMAND = 0x10,
 } skb_editor_key_mod_t;
 
 //
