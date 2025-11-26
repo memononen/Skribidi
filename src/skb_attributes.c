@@ -566,7 +566,7 @@ skb_attribute_font_size_scaling_t skb_attributes_get_font_size_scaling(const skb
 
 skb_weight_t skb_attributes_get_font_weight(const skb_attribute_set_t attributes, const skb_attribute_collection_t* collection)
 {
-	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_SIZE_SCALING, attributes, collection);
+	const skb_attribute_t* attr = skb__get_attribute_by_kind(SKB_ATTRIBUTE_FONT_WEIGHT, attributes, collection);
 	return attr ? attr->font_weight.weight : SKB_WEIGHT_NORMAL;
 }
 
