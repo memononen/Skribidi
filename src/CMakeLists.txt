@@ -161,7 +161,7 @@ set_target_properties(skribidi PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
-if(NOT MSVC)
+if(NOT WIN32)
 	target_link_libraries(skribidi PUBLIC m)
 endif()
 
