@@ -24,8 +24,8 @@ Text rendering is hard, text editing is hard too, font selection is hard, text a
 Everything text related is hard, and messy, and full of nuances.
 
 If you wanted to have bidirection text display and input for you project, there are not many options.
-There are a lot of great projects that cover parts of the text stack, but there's still huge amount
-of work left piece things together. A lot of the wisdom is scattered all over old browser bugs,
+There are a lot of great projects that cover parts of the text stack, but there's still a huge amount
+of work left to piece things together. A lot of the wisdom is scattered all over old browser bugs,
 blogs that might not exists anymore, or bits of code scattered all over the world.
 
 Many text stacks are part of larger projects, like browsers or game engines,
@@ -34,7 +34,7 @@ or have licenses that are not permissive, or require huge dependecies.
 Skribidi tries to solve the text stack for UIs without dragging in large dependencies.
 Text layout, text input, and font rasterization, with features that you'd expect to build an UI.
 
-Skribidi leans heavity on [Harfbuzz](https://github.com/harfbuzz/harfbuzz) for text shaping and accessing font data,
+Skribidi leans heavily on [Harfbuzz](https://github.com/harfbuzz/harfbuzz) for text shaping and accessing font data,
 [SheenBidi](https://github.com/Tehreer/SheenBidi) for bidirectional segmentation,
 [libunibreak](https://github.com/adah1972/libunibreak) for grapheme and linebreak detection,
 and [budouxc](https://github.com/memononen/budouxc) for East Asian word boundary detection.
