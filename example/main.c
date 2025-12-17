@@ -15,6 +15,10 @@
 
 #include "skb_common.h"
 
+#if defined( _MSC_VER )
+#include <crtdbg.h>
+#endif
+
 GLFWwindow* g_window = NULL;
 int g_done = 0;
 int g_last_key_mods = 0;
@@ -166,6 +170,12 @@ static void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yof
 
 int main(int argc, char** args)
 {
+#if defined( _MSC_VER )
+	// Enable memory-leak reports
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+//	_CrtSetBreakAlloc(5166);
+#endif
+
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit())
 		return -1;

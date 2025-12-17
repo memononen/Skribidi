@@ -540,6 +540,8 @@ bool skb_hash_table_add(skb_hash_table_t* ht, uint64_t hash, int32_t value)
 		ht->items_count++;
 	}
 
+	assert(ht->buckets);
+
 	// Init item and copy value.
 	skb_hashtable_item_t* item = &ht->items[item_index];
 	memset(item, 0, sizeof(skb_hashtable_item_t));
@@ -693,7 +695,7 @@ void skb_data_blob_set_utf8(skb_data_blob_t* data_blob, const char* utf8, int32_
 	if (utf8 && utf8_count < 0)
 		utf8_count = (int32_t)strlen(utf8);
 
-	if (utf8_count > 0) {
+	if (utf8 && utf8_count > 0) {
 		data_blob->data_size = utf8_count + 1;
 		data_blob->data = data_blob->temp_alloc ? skb_temp_alloc_alloc(data_blob->temp_alloc, data_blob->data_size) : skb_malloc(data_blob->data_size);
 		memcpy(data_blob->data, utf8, data_blob->data_size);
@@ -713,7 +715,7 @@ void skb_data_blob_set_utf32(skb_data_blob_t* data_blob, const uint32_t* utf32, 
 	if (utf32 && utf32_count < 0)
 		utf32_count = (int32_t)skb_utf32_strlen(utf32);
 
-	if (utf32_count > 0) {
+	if (utf32 && utf32_count > 0) {
 		data_blob->data_size = (utf32_count + 1) * sizeof(uint32_t);
 		data_blob->data = data_blob->temp_alloc ? skb_temp_alloc_alloc(data_blob->temp_alloc, data_blob->data_size) : skb_malloc(data_blob->data_size);
 		memcpy(data_blob->data, utf32, data_blob->data_size);

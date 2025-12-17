@@ -747,6 +747,7 @@ static skb_rich_text_change_t skb__rich_text_replace(
 			.affinity = SKB_AFFINITY_TRAILING
 		};
 	} else {
+		assert(last_text_paragraph);
 		// We prefer to use leading edge of last grapheme so that the caret stays in context when typing at the direction change of a bidi text.
 		change.edit_end_position = (skb_text_position_t){
 			.offset = last_text_paragraph->global_text_offset + last_paragraph_offset,

@@ -177,6 +177,9 @@ static void skb__icon_destroy(skb_icon_collection_t* icon_collection, skb_icon_t
 	const uint32_t generation = icon->generation;
 
 	skb_free(icon->name);
+
+	for (int32_t i = 0; i < icon->gradients_count; i++)
+		skb_free(icon->gradients[i].stops);
 	skb_free(icon->gradients);
 	skb__icon_shape_destroy(&icon->root);
 	memset(icon, 0, sizeof(skb_icon_t));
@@ -269,7 +272,7 @@ static void skb__picosvg_push_shape(skb__picosvg_parser_t* svg)
 {
 	skb_icon_shape_t* parent_shape = svg->current_shape[svg->current_shape_idx];
 	skb_icon_shape_t* shape = skb_icon_shape_add_child(parent_shape);
-	if (svg->current_shape_idx < 32) {
+	if ((svg->current_shape_idx + 1) < 32) {
 		svg->current_shape_idx++;
 		svg->current_shape[svg->current_shape_idx] = shape;
 	}
@@ -1337,6 +1340,7 @@ void skb_icon_collection_destroy(skb_icon_collection_t* icon_collection)
 	if (!icon_collection) return;
 	for (int32_t i = 0; i < icon_collection->icons_count; i++)
 		skb__icon_destroy(icon_collection, &icon_collection->icons[i]);
+	skb_free(icon_collection->icons);
 	skb_hash_table_destroy(icon_collection->icons_lookup);
 	skb_free(icon_collection);
 }

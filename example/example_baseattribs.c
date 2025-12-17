@@ -214,6 +214,8 @@ void baseattribs_destroy(void* ctx_ptr)
 	assert(ctx);
 
 	skb_layout_destroy(ctx->layout);
+	skb_layout_destroy(ctx->layout_text);
+	skb_layout_destroy(ctx->layout_ref);
 	skb_font_collection_destroy(ctx->font_collection);
 	skb_attribute_collection_destroy(ctx->attribute_collection);
 	skb_temp_alloc_destroy(ctx->temp_alloc);

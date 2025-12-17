@@ -3160,6 +3160,7 @@ void skb_layout_destroy(skb_layout_t* layout)
 	skb_free(layout->decorations);
 	skb_free(layout->text);
 	skb_free(layout->text_props);
+	skb_free(layout->lines);
 
 	bool should_free_instance = layout->should_free_instance;
 	SKB_ZERO_STRUCT(layout);

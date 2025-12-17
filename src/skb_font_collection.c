@@ -124,6 +124,7 @@ static void skb__font_destroy(skb_font_collection_t* font_collection, skb_font_t
 	skb_free(font->name);
 	skb_free(font->scripts);
 	skb_free(font->baseline_sets);
+	skb_free(font->glyph_bounds);
 	hb_set_destroy(font->unicodes);
 	hb_font_destroy(font->hb_font);
 	memset(font, 0, sizeof(skb_font_t));

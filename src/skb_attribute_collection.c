@@ -32,15 +32,6 @@ typedef struct skb_attribute_collection_t {
 
 } skb_attribute_collection_t;
 
-
-static void skb__style_destroy(skb__attribute_set_t* style)
-{
-	assert(style);
-	skb_free(style->name);
-	skb_free(style->group_name);
-	skb_free(style->attributes);
-}
-
 skb_attribute_collection_t* skb_attribute_collection_create(void)
 {
 	static uint32_t id = 0;
@@ -56,14 +47,20 @@ skb_attribute_collection_t* skb_attribute_collection_create(void)
 	return result;
 }
 
-void skb_attribute_collection_destroy(skb_attribute_collection_t* attribute_collection)
+	void skb_attribute_collection_destroy(skb_attribute_collection_t* attribute_collection)
 {
 	if (!attribute_collection) return;
 
-	for (int32_t i = 0; i < attribute_collection->attribute_sets_count; i++)
-		skb__style_destroy(&attribute_collection->attribute_sets[i]);
+	for (int32_t i = 0; i < attribute_collection->attribute_sets_count; i++) {
+		skb__attribute_set_t* set = &attribute_collection->attribute_sets[i];
+		skb_free(set->name);
+		skb_free(set->group_name);
+		skb_free(set->attributes);
+	}
 	skb_free(attribute_collection->attribute_sets);
+
 	skb_hash_table_destroy(attribute_collection->attribute_name_lookup);
+	skb_hash_table_destroy(attribute_collection->attribute_group_lookup);
 	skb_free(attribute_collection);
 }
 

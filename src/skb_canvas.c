@@ -558,7 +558,7 @@ void skb_canvas_pop_transform(skb_canvas_t* c)
 
 void skb_canvas_push_mask(skb_canvas_t* c)
 {
-	SKB_ARRAY_RESERVE(c->masks, c->masks_count+1);
+	SKB_TEMP_RESERVE(c->alloc, c->masks, c->masks_count+1);
 
 	skb_mask_t* cur_mask = c->masks_count > 0 ? &c->masks[c->masks_count-1] : NULL;
 	skb_mask_t* mask = &c->masks[c->masks_count++];
@@ -598,7 +598,7 @@ void skb_canvas_pop_mask(skb_canvas_t* c)
 
 void skb_canvas_push_layer(skb_canvas_t* c)
 {
-	SKB_ARRAY_RESERVE(c->layers, c->layers_count+1);
+	SKB_TEMP_RESERVE(c->alloc, c->layers, c->layers_count+1);
 	skb_image_layer_t* layer = &c->layers[c->layers_count++];
 
 	if (!layer->buffer) {
@@ -897,7 +897,7 @@ skb_canvas_t* skb_canvas_create(skb_temp_alloc_t* alloc, skb_image_t* target)
 
 	// Push target layer or mask
 	if (target->bpp == 4) {
-		SKB_ARRAY_RESERVE(c->layers, c->layers_count+1);
+		SKB_TEMP_RESERVE(c->alloc, c->layers, c->layers_count+1);
 		skb_image_layer_t* layer = &c->layers[c->layers_count++];
 
 		layer->buffer = (skb_color_t*)target->buffer;
@@ -914,7 +914,7 @@ skb_canvas_t* skb_canvas_create(skb_temp_alloc_t* alloc, skb_image_t* target)
 
 	} else {
 		// Render to just mask.
-		SKB_ARRAY_RESERVE(c->masks, c->masks_count+1);
+		SKB_TEMP_RESERVE(c->alloc, c->masks, c->masks_count+1);
 		skb_mask_t* mask = &c->masks[c->masks_count++];
 		mask->buffer = target->buffer;
 		mask->stride = target->stride_bytes;
