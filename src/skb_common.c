@@ -1041,12 +1041,13 @@ int32_t skb_utf8_to_utf32(const char* utf8, int32_t utf8_len, uint32_t* utf32, i
 	int32_t cp_count = 0;
 	uint32_t state = 0;
 	int32_t idx = 0;
+	uint32_t cp = 0;
 	while (idx < utf8_len) {
-		uint32_t cp;
 		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT) {
 			if (utf32 && cp_count < utf32_cap)
 				utf32[cp_count] = cp;
 			cp_count++;
+			cp = 0;
 		}
 		idx++;
 	}
@@ -1058,15 +1059,16 @@ int32_t skb_utf8_to_utf32_count(const char* utf8, int32_t utf8_len)
 	int32_t cp_count = 0;
 	uint32_t state = 0;
 	int32_t idx = 0;
+	uint32_t cp = 0;
 	while (idx < utf8_len) {
-		uint32_t cp;
-		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT)
+		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT) {
 			cp_count++;
+			cp = 0;
+		}
 		idx++;
 	}
 	return cp_count;
 }
-
 
 int32_t skb_utf8_codepoint_offset(const char* utf8, int32_t utf8_len, int32_t codepoint_offset)
 {
@@ -1074,13 +1076,14 @@ int32_t skb_utf8_codepoint_offset(const char* utf8, int32_t utf8_len, int32_t co
 	uint32_t state = 0;
 	int32_t start_idx = 0;
 	int32_t idx = 0;
+	uint32_t cp = 0;
 	while (idx < utf8_len) {
-		uint32_t cp;
 		if (skb_decutf8_(&state, &cp, utf8[idx]) == SKB_UTF8_ACCEPT) {
 			if (cp_count == codepoint_offset)
 				return start_idx;
 			start_idx = idx + 1;
 			cp_count++;
+			cp = 0;
 		}
 		idx++;
 	}
