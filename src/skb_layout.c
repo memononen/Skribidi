@@ -986,7 +986,7 @@ static bool skb__shaping_run_cluster_iter_less(skb__shaping_run_cluster_iter_t* 
 	if (a->shaping_run_idx < b->shaping_run_idx)
 		return true;
 	if (a->shaping_run_idx == b->shaping_run_idx)
-		return a->cluster_end_idx < b->cluster_end_idx;
+		return a->cluster_end_idx <= b->cluster_end_idx;
 	return false;
 }
 
