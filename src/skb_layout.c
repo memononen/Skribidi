@@ -796,13 +796,23 @@ static void skb__calc_run_range_end_points(const skb_layout_t* layout, const skb
 }
 
 // Prunes line end in visual order based on direction.
-static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, float max_width)
+typedef struct skb__pruned_run_info_t {
+	skb_font_handle_t font_handle;
+	float font_size;
+	skb_range_t attributes_range;
+} skb__pruned_run_info_t;
+
+static skb__pruned_run_info_t skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, float max_width)
 {
 	const bool remove_from_start = skb_is_rtl(layout->resolved_direction);
 	bool is_line_end_whitespace = true;
+	skb__pruned_run_info_t last_pruned_run_info = {0};
 
 	while (line->layout_run_range.start < line->layout_run_range.end) {
 		skb_layout_run_t* layout_run = remove_from_start ? &layout->layout_runs[line->layout_run_range.start] : &layout->layout_runs[line->layout_run_range.end - 1];
+		// Do not remove list markers to keep wrapped line alignment consistent.
+		if (layout_run->flags & SKB_LAYOUT_RUN_IS_LIST_MARKER)
+			break;
 		if (layout_run->cluster_range.start != layout_run->cluster_range.end) {
 			// Clusters are in logical order, need to reverse if run is RTL, since we're removing in visual order.
 			const bool run_remove_from_start = (remove_from_start ^ skb_is_rtl(layout_run->direction));
@@ -827,8 +837,8 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 					line->bounds.x += advance_x;
 					layout_run->bounds.x += advance_x;
 				}
-				line->bounds.width -= advance_x;
-				layout_run->bounds.width -= advance_x;
+				line->bounds.width = skb_maxf(0.f, line->bounds.width - advance_x);
+				layout_run->bounds.width = skb_maxf(0.f, layout_run->bounds.width - advance_x);
 
 				if (is_line_end_whitespace) {
 					// Eat white space as long as it's at the start of the line.
@@ -855,12 +865,11 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 		}
 		// Remove run if empty
 		if (layout_run->cluster_range.start == layout_run->cluster_range.end) {
-
-			// Remove padding when when removing the run.
-			const float padding = layout->padding.left + layout->padding.right;
-			if (remove_from_start)
-				line->bounds.x += padding;
-			line->bounds.width -= padding;
+			if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
+				last_pruned_run_info.font_handle = layout_run->font_handle;
+				last_pruned_run_info.font_size = layout_run->font_size;
+				last_pruned_run_info.attributes_range = layout_run->attributes_range;
+			}
 
 			if (remove_from_start) {
 				// Removing from end, shift down.
@@ -871,6 +880,8 @@ static void skb__prune_line_end(skb_layout_t* layout, skb_layout_line_t* line, f
 			line->layout_run_range.end--;
 		}
 	}
+
+	return last_pruned_run_info;
 }
 
 static int32_t skb__get_text_run_before(const skb_layout_t* layout, int32_t cur_layout_run_idx)
@@ -961,9 +972,9 @@ static void skb__update_glyph_range(const skb_layout_t* layout, skb_layout_run_t
 
 // Iterator to iterate over clusters of shaping runs.
 typedef struct skb__shaping_run_cluster_iter_t {
-	int32_t cluster_idx;
-	int32_t cluster_end_idx;
-	int32_t shaping_run_idx;
+	int32_t cluster_idx;		// Current cluster index
+	int32_t cluster_end_idx;	// One past the last cluster in range.
+	int32_t shaping_run_idx;	// Shaping run index
 } skb__shaping_run_cluster_iter_t;
 
 static skb__shaping_run_cluster_iter_t skb__shaping_run_cluster_iter_make(const skb_layout_t* layout)
@@ -986,7 +997,7 @@ static bool skb__shaping_run_cluster_iter_less(skb__shaping_run_cluster_iter_t* 
 	if (a->shaping_run_idx < b->shaping_run_idx)
 		return true;
 	if (a->shaping_run_idx == b->shaping_run_idx)
-		return a->cluster_end_idx < b->cluster_end_idx;
+		return a->cluster_idx < b->cluster_idx;
 	return false;
 }
 
@@ -1377,57 +1388,51 @@ static bool skb__truncate_line(skb_layout_t* layout, int32_t line_idx, bool is_l
 	skb_range_t orig_layout_run_range = line->layout_run_range;
 
 	// Prune characters to fit the line (this is common with clip and ellipsis).
-	skb__prune_line_end(layout, line, line_truncate_width);
+	skb__pruned_run_info_t pruned_run_info = skb__prune_line_end(layout, line, line_truncate_width);
 
 	if (text_overflow == SKB_OVERFLOW_ELLIPSIS) {
 
-		// Find a text run to use as reference for the ellipsis text.
-		int32_t ref_layout_run_idx = SKB_INVALID_INDEX;
-		if (layout_is_rtl) {
-			// We're truncating front, search from front.
-			for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
-				const skb_layout_run_t* run = &layout->layout_runs[ri];
-				if (run->type == SKB_CONTENT_RUN_UTF8 || run->type == SKB_CONTENT_RUN_UTF32) {
-					ref_layout_run_idx = ri;
-					break;
+		// Find a text style for the ellipsis text, if not given by truncation.
+		if (!pruned_run_info.font_handle) {
+			if (layout_is_rtl) {
+				// We're truncating front, search from front.
+				for (int32_t ri = line->layout_run_range.start; ri < line->layout_run_range.end; ri++) {
+					const skb_layout_run_t* layout_run = &layout->layout_runs[ri];
+					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
+						pruned_run_info.font_handle = layout_run->font_handle;
+						pruned_run_info.font_size = layout_run->font_size;
+						pruned_run_info.attributes_range = layout_run->attributes_range;
+						break;
+					}
 				}
-			}
-		} else {
-			// We're truncating back, search from back.
-			for (int32_t ri = line->layout_run_range.end - 1; ri >= line->layout_run_range.start; ri--) {
-				const skb_layout_run_t* run = &layout->layout_runs[ri];
-				if (run->type == SKB_CONTENT_RUN_UTF8 || run->type == SKB_CONTENT_RUN_UTF32) {
-					ref_layout_run_idx = ri;
-					break;
+			} else {
+				// We're truncating back, search from back.
+				for (int32_t ri = line->layout_run_range.end - 1; ri >= line->layout_run_range.start; ri--) {
+					const skb_layout_run_t* layout_run = &layout->layout_runs[ri];
+					if (layout_run->type == SKB_CONTENT_RUN_UTF8 || layout_run->type == SKB_CONTENT_RUN_UTF32) {
+						pruned_run_info.font_handle = layout_run->font_handle;
+						pruned_run_info.font_size = layout_run->font_size;
+						pruned_run_info.attributes_range = layout_run->attributes_range;
+						break;
+					}
 				}
 			}
 		}
 
-		const uint8_t direction = layout->resolved_direction;
-		skb_font_handle_t font_handle = 0;
-		float font_size = 0.f;
-		skb_range_t attributes_range = (skb_range_t){0};
-
-		if (ref_layout_run_idx != SKB_INVALID_INDEX) {
-			// If we found a text run on the line, use that.
-			skb_layout_run_t* ref_layout_run2 = &layout->layout_runs[ref_layout_run_idx];
-			font_handle = ref_layout_run2->font_handle;
-			font_size = ref_layout_run2->font_size;
-			attributes_range = ref_layout_run2->attributes_range;
-		} else {
+		if (!pruned_run_info.font_handle) {
 			// Could not find text run on the line, use the defaults from layout instead.
 			const uint8_t font_family = skb_attributes_get_font_family(layout->params.layout_attributes, layout->params.attribute_collection);
-			font_handle = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
-			font_size = skb_attributes_get_font_size(layout->params.layout_attributes, layout->params.attribute_collection);
-			attributes_range = (skb_range_t){0}; // Inherit from layout
+			pruned_run_info.font_handle = skb_font_collection_get_default_font(layout->params.font_collection, font_family);
+			pruned_run_info.font_size = skb_attributes_get_font_size(layout->params.layout_attributes, layout->params.attribute_collection);
+			pruned_run_info.attributes_range = (skb_range_t){0}; // Inherit from layout
 		}
 
-		if (font_handle) {
-			const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, font_handle);
+		if (pruned_run_info.font_handle) {
+			const skb_font_t* font = skb_font_collection_get_font(layout->params.font_collection, pruned_run_info.font_handle);
 			assert(font);
 			const uint8_t script = SBScriptLATN;
 			const skb_baseline_t baseline_align = skb_attributes_get_baseline_align(layout->params.layout_attributes, layout->params.attribute_collection);
-			const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, font_handle, layout->resolved_direction, script, font_size);
+			const skb_baseline_set_t baseline_set = skb_font_get_baseline_set(layout->params.font_collection, pruned_run_info.font_handle, layout->resolved_direction, script, pruned_run_info.font_size);
 
 			const float baseline = -baseline_set.baselines[baseline_align];
 			const float ref_baseline = baseline_set.alphabetic - baseline_set.baselines[baseline_align];
@@ -1440,7 +1445,7 @@ static bool skb__truncate_line(skb_layout_t* layout, int32_t line_idx, bool is_l
 			else if (hb_font_get_glyph(font->hb_font, 0x2e /*period*/, 0, &ellipsis_gid))
 				ellipsis_glyph_count = 3;
 
-			const float scale = font_size * font->upem_scale;
+			const float scale = pruned_run_info.font_size * font->upem_scale;
 			const float ellipsis_x_advance = (float)hb_font_get_glyph_h_advance(font->hb_font, ellipsis_gid) * scale;
 			const float ellipsis_width = ellipsis_x_advance * (float)ellipsis_glyph_count;
 			float offset_x = 0.f;
@@ -1479,18 +1484,18 @@ static bool skb__truncate_line(skb_layout_t* layout, int32_t line_idx, bool is_l
 			ellipsis_run->direction = layout->resolved_direction;
 			ellipsis_run->script = script;
 			ellipsis_run->bidi_level = 0;
-			ellipsis_run->font_size = font_size;
-			ellipsis_run->font_handle = font_handle;
+			ellipsis_run->font_size = pruned_run_info.font_size;
+			ellipsis_run->font_handle = pruned_run_info.font_handle;
 			ellipsis_run->content_run_idx = 0;
 			ellipsis_run->content_id = 0;
-			ellipsis_run->attributes_range = attributes_range;
+			ellipsis_run->attributes_range = pruned_run_info.attributes_range;
 			ellipsis_run->glyph_range.start = layout->glyphs_count;
 			ellipsis_run->glyph_range.end = layout->glyphs_count + ellipsis_glyph_count;
 			ellipsis_run->cluster_range.start = layout->clusters_count;
 			ellipsis_run->cluster_range.end = layout->clusters_count + 1;
 
-			const float run_ascender = font->metrics.ascender * font_size - baseline;
-			const float run_descender = font->metrics.descender * font_size - baseline;
+			const float run_ascender = font->metrics.ascender * pruned_run_info.font_size - baseline;
+			const float run_descender = font->metrics.descender * pruned_run_info.font_size - baseline;
 			ellipsis_run->bounds.y = line->baseline + run_ascender;
 			ellipsis_run->bounds.height = -run_ascender + run_descender;
 
@@ -2238,7 +2243,8 @@ void skb__layout_lines(skb__layout_build_context_t* build_context, skb_layout_t*
 			}
 			// Consume at least one cluster so that we don't get stuck.
 			if (skb__shaping_run_cluster_iter_equals(&start_it, &end_it)) {
-				run_width = skb__get_cluster_width(layout, end_it.shaping_run_idx, end_it.cluster_idx);
+				run_width = skb__get_cluster_width(layout, start_it.shaping_run_idx, start_it.cluster_idx);
+				end_it = start_it;
 				skb__shaping_run_cluster_iter_next(&end_it, layout);
 			}
 
