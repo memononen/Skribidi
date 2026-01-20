@@ -71,6 +71,24 @@ typedef struct skb_color_stop_t {
 } skb_color_stop_t;
 
 /**
+ * Defines the supported blend modes when compositing layers
+ * Enum values match the CompositeMode values defined in
+ * https://learn.microsoft.com/en-us/typography/opentype/spec/colr#format-32-paintcomposite
+ */
+typedef enum {
+	SKB_BLEND_CLEAR = 0,
+	SKB_BLEND_SRC = 1,
+	SKB_BLEND_DEST = 2,
+	SKB_BLEND_SRC_OVER = 3,
+	SKB_BLEND_DEST_OVER = 4,
+	SKB_BLEND_SRC_IN = 5,
+	SKB_BLEND_DEST_IN = 6,
+	SKB_BLEND_SRC_OUT = 7,
+	SKB_BLEND_DEST_OUT = 8,
+	SKB_BLEND_SOFT_LIGHT = 20,
+} skb_blend_mode_t;
+
+/**
  * Creates new canvas to draw to.
  * The canvas is expected to be disposable. You create canvas, draw some shapes, and dispose it.
  * The canvas will hold on to the temp allocator until skb_canvas_destroy() is called.
@@ -164,8 +182,9 @@ void skb_canvas_push_layer(skb_canvas_t* c);
 /**
  * Removes the image layer from the top of the layer stack and blends it over the previous image.
  * @param c canvas to draw to
+ * @param mode the blend mode to use for compositing
  */
-void skb_canvas_pop_layer(skb_canvas_t* c);
+void skb_canvas_pop_layer(skb_canvas_t* c, skb_blend_mode_t mode);
 
 /**
  * Rasterizes the vector shape defined earlier into the top of the mask stack.

@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 // The rasterizer is based on the old stb_truetype rasterizer.
 #define SKB_SUBSAMPLES		5
@@ -618,27 +619,105 @@ void skb_canvas_push_layer(skb_canvas_t* c)
 	}
 }
 
-static void skb__blend_over(const skb_image_layer_t* src, skb_image_layer_t* dst, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height)
-{
-	const int32_t src_stride = src->stride;
-	const int32_t dst_stride = dst->stride;
-	const int32_t blend_w = width;
-
-	for (int32_t y = offset_y; y < (offset_y + height); y++) {
-		const skb_color_t* x_src = src->buffer + offset_x + (y * src_stride);
-		skb_color_t* x_dst = dst->buffer + offset_x + (y * dst_stride);
-		for (int32_t x = 0; x < blend_w; x++) {
-			if (x_src->a == 255)
-				*x_dst = *x_src;
-			else if (x_src->a > 0)
-				*x_dst = skb_color_blend(*x_dst, *x_src);
-			x_src++;
-			x_dst++;
-		}
-	}
+#define DEFINE_BLEND_FUNC(blend_func_name, blend_operation) \
+static void blend_func_name(const skb_image_layer_t* src_img, skb_image_layer_t* dst_img, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height) \
+{ \
+	const int32_t src_stride = src_img->stride; \
+	const int32_t dst_stride = dst_img->stride; \
+	const skb_color_t* src = src_img->buffer + offset_x + (offset_y * src_stride); \
+	const skb_color_t* src_end = src + (height * src_stride); \
+	skb_color_t* dst = dst_img->buffer + offset_x + (offset_y * dst_stride); \
+	while(src < src_end) { \
+		const skb_color_t* row_end = src + width; \
+		while(src < row_end) { \
+			blend_operation \
+			src++; \
+			dst++; \
+		} \
+		src += src_stride - width; \
+		dst += dst_stride - width; \
+	} \
 }
 
-void skb_canvas_pop_layer(skb_canvas_t* c)
+DEFINE_BLEND_FUNC(skb__blend_clear, \
+	/* doesn't read src, could be special-cased with simpler loop + memset */ \
+	*dst = skb_rgba(0, 0, 0, 0); \
+)
+DEFINE_BLEND_FUNC(skb__blend_src, \
+	/* could be special-cased with simpler loop + memcpy */ \
+	*dst = *src; \
+)
+DEFINE_BLEND_FUNC(skb__blend_src_over, \
+	if (src->a == 255) { \
+		*dst = *src; \
+	} else if (src->a > 0) { \
+		*dst = skb_color_blend(*dst, *src); \
+	} \
+)
+DEFINE_BLEND_FUNC(skb__blend_dest_over, \
+	if (dst->a == 0) { \
+		*dst = *src; \
+	} else if (dst->a < 255) { \
+		*dst = skb_color_blend(*src, *dst); \
+	} \
+)
+DEFINE_BLEND_FUNC(skb__blend_src_in, \
+	*dst = skb_color_mul_alpha(*src, dst->a); \
+)
+DEFINE_BLEND_FUNC(skb__blend_dest_in, \
+	*dst = skb_color_mul_alpha(*dst, src->a); \
+)
+DEFINE_BLEND_FUNC(skb__blend_src_out, \
+	*dst = skb_color_mul_alpha(*src, 255 - dst->a); \
+)
+DEFINE_BLEND_FUNC(skb__blend_dest_out, \
+	*dst = skb_color_mul_alpha(*dst, 255 - src->a); \
+)
+static inline float skb__soft_light_single_channel(float s, float d) {
+	if (s <= 0.5f) {
+		return d - (1.0f - 2.0f * s) * d * (1.0f - d);
+	} else if (d <= 0.25f) {
+		return d + (2.0f * s - 1.0f) * d * ((16.0f * d - 12.0f) * d + 3.0f);
+	} else {
+		return d + (2.0f * s - 1.0f) * (sqrtf(d) - d);
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_soft_light, \
+	/* This extremely non-optimal implementation was the best I could do... it needs */ \
+	/* someone clever to optimize it using the integer pre-multiplied values directly */ \
+	if (src->a == 0) { \
+		/* Leave dst as-is */ \
+	} else if (dst->a == 0) { \
+		*dst = *src; \
+	} else { \
+		/* Convert to float 0-1 and unpremultiply */ \
+		float s_a = src->a / 255.0f; \
+		float d_a = dst->a / 255.0f; \
+		float s_r = (src->r / 255.0f) / s_a; \
+		float s_g = (src->g / 255.0f) / s_a; \
+		float s_b = (src->b / 255.0f) / s_a; \
+		float d_r = (dst->r / 255.0f) / d_a; \
+		float d_g = (dst->g / 255.0f) / d_a; \
+		float d_b = (dst->b / 255.0f) / d_a; \
+		/* Soft light per channel */ \
+		float sl_r = skb__soft_light_single_channel(s_r, d_r); \
+		float sl_g = skb__soft_light_single_channel(s_g, d_g); \
+		float sl_b = skb__soft_light_single_channel(s_b, d_b); \
+		float sl_a = s_a + d_a - s_a * d_a; \
+		/* Composite with alpha */ \
+		sl_r = (1 - d_a) * s_r * s_a + (1 - s_a) * d_r * d_a + s_a * d_a * sl_r; \
+		sl_g = (1 - d_a) * s_g * s_a + (1 - s_a) * d_g * d_a + s_a * d_a * sl_g; \
+		sl_b = (1 - d_a) * s_b * s_a + (1 - s_a) * d_b * d_a + s_a * d_a * sl_b; \
+		/* Re-premultiply */ \
+		*dst = skb_rgba( \
+			(uint8_t)(sl_r * 255.0f + 0.5f), \
+			(uint8_t)(sl_g * 255.0f + 0.5f), \
+			(uint8_t)(sl_b * 255.0f + 0.5f), \
+			(uint8_t)(sl_a * 255.0f + 0.5f)); \
+	} \
+)
+
+void skb_canvas_pop_layer(skb_canvas_t* c, skb_blend_mode_t mode)
 {
 	if (c->layers_count <= 1) return; // First item is the final layer, do not remove.
 	c->layers_count--;
@@ -648,7 +727,47 @@ void skb_canvas_pop_layer(skb_canvas_t* c)
 	skb_image_layer_t* fg_layer = &c->layers[c->layers_count];
 	skb_mask_t* mask = &c->masks[c->masks_count-1];
 
-	skb__blend_over(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+	switch (mode) {
+	case SKB_BLEND_CLEAR:
+		skb__blend_clear(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_SRC:
+		skb__blend_src(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_DEST:
+		// Do nothing - leave dest as-is
+		break;
+	case SKB_BLEND_SRC_OVER:
+		skb__blend_src_over(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_DEST_OVER:
+		skb__blend_dest_over(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_SRC_IN:
+		skb__blend_src_in(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_DEST_IN:
+		skb__blend_dest_in(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_SRC_OUT:
+		skb__blend_src_out(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_DEST_OUT:
+		skb__blend_dest_out(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	case SKB_BLEND_SOFT_LIGHT:
+		skb__blend_soft_light(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		break;
+	default:
+		if (mode < 0 || mode > 27) { // COLRv1: If an unrecognized value is encountered, COMPOSITE_CLEAR must be used.
+			skb_debug_log("Unrecognized value encountered for blend mode: %d; using CLEAR\n", mode);		
+			skb__blend_clear(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		} else {
+			skb_debug_log("Unsupported blend mode: %d; using SRC_OVER fallback\n", mode);		
+			skb__blend_src_over(fg_layer, bg_layer, mask->region.x, mask->region.y, mask->region.width, mask->region.height);
+		}
+		break;
+	}
 
 	skb_canvas_pop_mask(c);
 }
