@@ -619,7 +619,7 @@ void skb_canvas_push_layer(skb_canvas_t* c)
 	}
 }
 
-#define DEFINE_BLEND_FUNC(blend_func_name, blend_operation) \
+#define DEFINE_BLEND_FUNC(blend_func_name, blend_row_func) \
 static void blend_func_name(const skb_image_layer_t* src_img, skb_image_layer_t* dst_img, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height) \
 { \
 	const int32_t src_stride = src_img->stride; \
@@ -628,51 +628,98 @@ static void blend_func_name(const skb_image_layer_t* src_img, skb_image_layer_t*
 	const skb_color_t* src_end = src + (height * src_stride); \
 	skb_color_t* dst = dst_img->buffer + offset_x + (offset_y * dst_stride); \
 	while(src < src_end) { \
-		const skb_color_t* row_end = src + width; \
-		while(src < row_end) { \
-			blend_operation \
-			src++; \
-			dst++; \
-		} \
-		src += src_stride - width; \
-		dst += dst_stride - width; \
+		blend_row_func(src, dst, width); \
+		src += src_stride; \
+		dst += dst_stride; \
 	} \
 }
 
-DEFINE_BLEND_FUNC(skb__blend_clear, \
-	/* doesn't read src, could be special-cased with simpler loop + memset */ \
-	*dst = skb_rgba(0, 0, 0, 0); \
-)
-DEFINE_BLEND_FUNC(skb__blend_src, \
-	/* could be special-cased with simpler loop + memcpy */ \
-	*dst = *src; \
-)
-DEFINE_BLEND_FUNC(skb__blend_src_over, \
-	if (src->a == 255) { \
-		*dst = *src; \
-	} else if (src->a > 0) { \
-		*dst = skb_color_blend(*dst, *src); \
-	} \
-)
-DEFINE_BLEND_FUNC(skb__blend_dest_over, \
-	if (dst->a == 0) { \
-		*dst = *src; \
-	} else if (dst->a < 255) { \
-		*dst = skb_color_blend(*src, *dst); \
-	} \
-)
-DEFINE_BLEND_FUNC(skb__blend_src_in, \
-	*dst = skb_color_mul_alpha(*src, dst->a); \
-)
-DEFINE_BLEND_FUNC(skb__blend_dest_in, \
-	*dst = skb_color_mul_alpha(*dst, src->a); \
-)
-DEFINE_BLEND_FUNC(skb__blend_src_out, \
-	*dst = skb_color_mul_alpha(*src, 255 - dst->a); \
-)
-DEFINE_BLEND_FUNC(skb__blend_dest_out, \
-	*dst = skb_color_mul_alpha(*dst, 255 - src->a); \
-)
+static inline void skb__blend_row_clear(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	memset(dst, 0, width * sizeof(skb_color_t));
+}
+DEFINE_BLEND_FUNC(skb__blend_clear, skb__blend_row_clear)
+
+static inline void skb__blend_row_src(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	memcpy(dst, src, width * sizeof(skb_color_t));
+}
+DEFINE_BLEND_FUNC(skb__blend_src, skb__blend_row_src)
+
+static inline void skb__blend_row_src_over(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		if (src->a == 255) {
+			*dst = *src;
+		} else if (src->a > 0) {
+			*dst = skb_color_blend(*dst, *src);
+		}
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_src_over, skb__blend_row_src_over)
+
+static inline void skb__blend_row_dest_over(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		if (dst->a == 0) {
+			*dst = *src;
+		} else if (dst->a < 255) {
+			*dst = skb_color_blend(*src, *dst);
+		}
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_dest_over, skb__blend_row_dest_over)
+
+static inline void skb__blend_row_src_in(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		*dst = skb_color_mul_alpha(*src, dst->a);
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_src_in, skb__blend_row_src_in)
+
+static inline void skb__blend_row_dest_in(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		*dst = skb_color_mul_alpha(*dst, src->a);
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_dest_in, skb__blend_row_dest_in)
+
+static inline void skb__blend_row_src_out(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		*dst = skb_color_mul_alpha(*src, 255 - dst->a);
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_src_out, skb__blend_row_src_out)
+
+static inline void skb__blend_row_dest_out(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		*dst = skb_color_mul_alpha(*dst, 255 - src->a);
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_dest_out, skb__blend_row_dest_out)
+
 static inline float skb__soft_light_single_channel(float s, float d) {
 	if (s <= 0.5f) {
 		return d - (1.0f - 2.0f * s) * d * (1.0f - d);
@@ -682,40 +729,46 @@ static inline float skb__soft_light_single_channel(float s, float d) {
 		return d + (2.0f * s - 1.0f) * (sqrtf(d) - d);
 	}
 }
-DEFINE_BLEND_FUNC(skb__blend_soft_light, \
-	/* This extremely non-optimal implementation was the best I could do... it needs */ \
-	/* someone clever to optimize it using the integer pre-multiplied values directly */ \
-	if (src->a == 0) { \
-		/* Leave dst as-is */ \
-	} else if (dst->a == 0) { \
-		*dst = *src; \
-	} else { \
-		/* Convert to float 0-1 and unpremultiply */ \
-		float s_a = src->a / 255.0f; \
-		float d_a = dst->a / 255.0f; \
-		float s_r = (src->r / 255.0f) / s_a; \
-		float s_g = (src->g / 255.0f) / s_a; \
-		float s_b = (src->b / 255.0f) / s_a; \
-		float d_r = (dst->r / 255.0f) / d_a; \
-		float d_g = (dst->g / 255.0f) / d_a; \
-		float d_b = (dst->b / 255.0f) / d_a; \
-		/* Soft light per channel */ \
-		float sl_r = skb__soft_light_single_channel(s_r, d_r); \
-		float sl_g = skb__soft_light_single_channel(s_g, d_g); \
-		float sl_b = skb__soft_light_single_channel(s_b, d_b); \
-		float sl_a = s_a + d_a - s_a * d_a; \
-		/* Composite with alpha */ \
-		sl_r = (1 - d_a) * s_r * s_a + (1 - s_a) * d_r * d_a + s_a * d_a * sl_r; \
-		sl_g = (1 - d_a) * s_g * s_a + (1 - s_a) * d_g * d_a + s_a * d_a * sl_g; \
-		sl_b = (1 - d_a) * s_b * s_a + (1 - s_a) * d_b * d_a + s_a * d_a * sl_b; \
-		/* Re-premultiply */ \
-		*dst = skb_rgba( \
-			(uint8_t)(sl_r * 255.0f + 0.5f), \
-			(uint8_t)(sl_g * 255.0f + 0.5f), \
-			(uint8_t)(sl_b * 255.0f + 0.5f), \
-			(uint8_t)(sl_a * 255.0f + 0.5f)); \
-	} \
-)
+static inline void skb__blend_row_soft_light(const skb_color_t* src, skb_color_t* dst, int32_t width)
+{
+	const skb_color_t* row_end = src + width;
+	while(src < row_end) {
+		// TODO: optimize
+		if (src->a == 0) {
+			// Leave dst as-is
+		} else if (dst->a == 0) {
+			*dst = *src;
+		} else {
+			// Convert to float 0-1 and unpremultiply
+			float s_a = src->a / 255.0f;
+			float d_a = dst->a / 255.0f;
+			float s_r = (src->r / 255.0f) / s_a;
+			float s_g = (src->g / 255.0f) / s_a;
+			float s_b = (src->b / 255.0f) / s_a;
+			float d_r = (dst->r / 255.0f) / d_a;
+			float d_g = (dst->g / 255.0f) / d_a;
+			float d_b = (dst->b / 255.0f) / d_a;
+			// Soft light per channel
+			float sl_r = skb__soft_light_single_channel(s_r, d_r);
+			float sl_g = skb__soft_light_single_channel(s_g, d_g);
+			float sl_b = skb__soft_light_single_channel(s_b, d_b);
+			float sl_a = s_a + d_a - s_a * d_a;
+			// Composite with alpha
+			sl_r = (1 - d_a) * s_r * s_a + (1 - s_a) * d_r * d_a + s_a * d_a * sl_r;
+			sl_g = (1 - d_a) * s_g * s_a + (1 - s_a) * d_g * d_a + s_a * d_a * sl_g;
+			sl_b = (1 - d_a) * s_b * s_a + (1 - s_a) * d_b * d_a + s_a * d_a * sl_b;
+			// Re-premultiply
+			*dst = skb_rgba(
+				(uint8_t)(sl_r * 255.0f + 0.5f),
+				(uint8_t)(sl_g * 255.0f + 0.5f),
+				(uint8_t)(sl_b * 255.0f + 0.5f),
+				(uint8_t)(sl_a * 255.0f + 0.5f));
+		}
+		src++;
+		dst++;
+	}
+}
+DEFINE_BLEND_FUNC(skb__blend_soft_light, skb__blend_row_soft_light)
 
 void skb_canvas_pop_layer(skb_canvas_t* c, skb_blend_mode_t mode)
 {
