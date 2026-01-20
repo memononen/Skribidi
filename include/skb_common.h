@@ -516,10 +516,10 @@ static inline skb_color_t skb_color_average(skb_color_t a, skb_color_t b)
 	return *(const skb_color_t*)&r;
 }
 
-/** @return linearly interpolate color between a and b. */
-static inline skb_color_t skb_color_lerp(skb_color_t a, skb_color_t b, uint8_t t)
+/** @return blends color a over n with mask. */
+static inline skb_color_t skb_color_blend_with_mask(skb_color_t a, skb_color_t b, uint8_t mask)
 {
-	b = skb_color_mul_alpha(b, t);
+	b = skb_color_mul_alpha(b, mask);
 	if (b.a == 255)
 		return b;
 	if (b.a == 0)
@@ -532,7 +532,9 @@ static inline skb_color_t skb_color_lerp(skb_color_t a, skb_color_t b, uint8_t t
 static inline skb_color_t skb_color_lerpf(skb_color_t a, skb_color_t b, float t)
 {
 	const int32_t ti = (int32_t)(t * 255.0f);
-	return skb_color_lerp(a, b, (uint8_t)ti);
+	a = skb_color_mul_alpha(a, 255 - ti);
+	b = skb_color_mul_alpha(b, ti);
+	return skb_color_add(a, b);
 }
 
 /** @return dst blended over src (premultiplied colors). */

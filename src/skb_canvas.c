@@ -726,7 +726,7 @@ void skb_canvas_fill_solid_color(skb_canvas_t* c, skb_color_t color)
 
 		for (int32_t x = 0; x < fill_w; x++) {
 			if (*x_mask > 0)
-				*x_layer = skb_color_lerp(*x_layer, color, *x_mask);
+				*x_layer = skb_color_blend_with_mask(*x_layer, color, *x_mask);
 			x_mask++;
 			x_layer++;
 		}
@@ -790,7 +790,7 @@ void skb_canvas_fill_linear_gradient(skb_canvas_t* c, skb_vec2_t p0, skb_vec2_t 
 				const int32_t ti = skb__apply_spread((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE)), spread);
 				const skb_color_t col = cache.colors[ti];
 				// Blend
-				*x_layer = skb_color_lerp(*x_layer, col, *x_mask);
+				*x_layer = skb_color_blend_with_mask(*x_layer, col, *x_mask);
 			}
 			x_mask++;
 			x_layer++;
@@ -859,7 +859,7 @@ void skb_canvas_fill_radial_gradient(skb_canvas_t* c, skb_vec2_t p0, float r0, s
 				const int32_t ti = skb__apply_spread((int32_t)(t * (SKB_GRADIENT_CACHE_SIZE)), spread);
 				const skb_color_t col = cache.colors[ti];
 				// Blend
-				*x_layer = skb_color_lerp(*x_layer, col, *x_mask);
+				*x_layer = skb_color_blend_with_mask(*x_layer, col, *x_mask);
 			}
 			x_mask++;
 			x_layer++;
