@@ -532,8 +532,8 @@ static inline skb_color_t skb_color_blend_with_mask(skb_color_t a, skb_color_t b
 static inline skb_color_t skb_color_lerpf(skb_color_t a, skb_color_t b, float t)
 {
 	const int32_t ti = (int32_t)(t * 255.0f);
-	a = skb_color_mul_alpha(a, 255 - ti);
-	b = skb_color_mul_alpha(b, ti);
+	a = skb_color_mul_alpha(a, (uint8_t)(255 - ti));
+	b = skb_color_mul_alpha(b, (uint8_t)ti);
 	return skb_color_add(a, b);
 }
 
