@@ -142,9 +142,7 @@ static inline int32_t skb_round_to_int(float x)
 
 static inline float skb_ceilf(float x)
 {
-	x -= 0.000001f; // To break the even-odd rounding
-	const int32_t ix = (int32_t)x;
-	return x < 0.f ? (float)ix : (float)(ix+1);
+	return ceilf(x);
 }
 
 static inline float skb_floorf(float x)
