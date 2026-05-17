@@ -3406,29 +3406,11 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 {
 	assert(layout);
 
-	int32_t line_idx = SKB_INVALID_INDEX;
-	for (int32_t i = 0; i < layout->lines_count; i++) {
-		const skb_layout_line_t* line = &layout->lines[i];
-		if (pos.offset >= line->text_range.start && pos.offset < line->text_range.end) {
+	int32_t line_idx = 0; // Default to first line, this should happen if pos.offset is before first line text_range.start.
+	for (int32_t i = layout->lines_count - 1; i >= 0; i--) {
+		if (pos.offset >= layout->lines[i].text_range.start) {
 			line_idx = i;
 			break;
-		}
-	}
-	if (line_idx == SKB_INVALID_INDEX) {
-		if (pos.offset < layout->lines[0].text_range.start) {
-			line_idx = 0;
-		} else if (pos.offset >= layout->lines[layout->lines_count-1].text_range.end) {
-			line_idx = layout->lines_count-1;
-		} else {
-			// Position in a gap between consecutive lines (e.g., on a hard
-			// line-break char that ends one line but isn't included in the
-			// next). Treat it as belonging to the prior line.
-			for (int32_t i = 0; i < layout->lines_count - 1; i++) {
-				if (pos.offset >= layout->lines[i].text_range.end && pos.offset < layout->lines[i+1].text_range.start) {
-					line_idx = i;
-					break;
-				}
-			}
 		}
 	}
 
