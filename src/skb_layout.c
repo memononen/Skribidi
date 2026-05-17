@@ -3415,10 +3415,21 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 		}
 	}
 	if (line_idx == SKB_INVALID_INDEX) {
-		if (pos.offset < layout->lines[0].text_range.start)
+		if (pos.offset < layout->lines[0].text_range.start) {
 			line_idx = 0;
-		else if (pos.offset >= layout->lines[layout->lines_count-1].text_range.end)
+		} else if (pos.offset >= layout->lines[layout->lines_count-1].text_range.end) {
 			line_idx = layout->lines_count-1;
+		} else {
+			// Position in a gap between consecutive lines (e.g., on a hard
+			// line-break char that ends one line but isn't included in the
+			// next). Treat it as belonging to the prior line.
+			for (int32_t i = 0; i < layout->lines_count - 1; i++) {
+				if (pos.offset >= layout->lines[i].text_range.end && pos.offset < layout->lines[i+1].text_range.start) {
+					line_idx = i;
+					break;
+				}
+			}
+		}
 	}
 
 	return line_idx;
