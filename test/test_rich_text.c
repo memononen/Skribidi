@@ -94,9 +94,9 @@ static int test_rich_text_append(void)
 	return 0;
 }
 
-// Regression: two positions can share global_text_offset while residing in
-// different paragraphs. Ordering must use (paragraph_idx, text_offset), not
-// global_text_offset alone, or start.paragraph_idx > end.paragraph_idx.
+// Verifies that skb_rich_text_get_paragraph_range_from_text_range returns a
+// range with start.paragraph_idx <= end.paragraph_idx even when the two
+// endpoints tie on global_text_offset across a paragraph boundary.
 static int test_paragraph_range_ordering(void)
 {
 	skb_temp_alloc_t* temp_alloc = skb_temp_alloc_create(1024);
