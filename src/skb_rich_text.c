@@ -1331,8 +1331,18 @@ skb_paragraph_range_t skb_rich_text_get_paragraph_range_from_text_range(const sk
 	skb_paragraph_position_t start_pos = skb_rich_text_get_paragraph_position_from_text_position(rich_text, text_range.start, affinity_usage);
 	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(rich_text, text_range.end, affinity_usage);
 
+	// Compare by (paragraph_idx, text_offset): two positions can tie on
+	// global_text_offset but live in different paragraphs, and downstream
+	// consumers require start.paragraph_idx <= end.paragraph_idx.
+	bool start_first;
+	if (start_pos.paragraph_idx != end_pos.paragraph_idx) {
+		start_first = start_pos.paragraph_idx < end_pos.paragraph_idx;
+	} else {
+		start_first = start_pos.text_offset <= end_pos.text_offset;
+	}
+
 	skb_paragraph_range_t result = {0};
-	if (start_pos.global_text_offset <= end_pos.global_text_offset) {
+	if (start_first) {
 		result.start = start_pos;
 		result.end = end_pos;
 	} else {
