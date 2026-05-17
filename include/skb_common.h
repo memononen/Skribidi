@@ -224,7 +224,7 @@ typedef struct skb_paragraph_position_t {
 	 * paragraphs can share the same global_text_offset (e.g. the end of one
 	 * paragraph and the start of the next). Use this only to map a
 	 * skb_paragraph_position_t to a flat offset, not to test ordering between
-	 * positions; for ordering use skb_paragraph_position_less_than(). */
+	 * positions; for ordering use skb_paragraph_position_less_or_equal(). */
 	int32_t global_text_offset;
 } skb_paragraph_position_t;
 
@@ -236,14 +236,14 @@ typedef struct skb_paragraph_range_t {
 	skb_paragraph_position_t end;
 } skb_paragraph_range_t;
 
-/** Returns true if a comes strictly before b in document order. Compares by
+/** Returns true if a comes at or before b in document order. Compares by
  * (paragraph_idx, text_offset); do not compare global_text_offset directly, as
  * it can tie across paragraph boundaries. */
-static inline bool skb_paragraph_position_less_than(skb_paragraph_position_t a, skb_paragraph_position_t b)
+static inline bool skb_paragraph_position_less_or_equal(skb_paragraph_position_t a, skb_paragraph_position_t b)
 {
 	if (a.paragraph_idx != b.paragraph_idx)
 		return a.paragraph_idx < b.paragraph_idx;
-	return a.text_offset < b.text_offset;
+	return a.text_offset <= b.text_offset;
 }
 
 /**

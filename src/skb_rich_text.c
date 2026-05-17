@@ -1332,12 +1332,12 @@ skb_paragraph_range_t skb_rich_text_get_paragraph_range_from_text_range(const sk
 	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(rich_text, text_range.end, affinity_usage);
 
 	skb_paragraph_range_t result = {0};
-	if (skb_paragraph_position_less_than(end_pos, start_pos)) {
-		result.start = end_pos;
-		result.end = start_pos;
-	} else {
+	if (skb_paragraph_position_less_or_equal(start_pos, end_pos)) {
 		result.start = start_pos;
 		result.end = end_pos;
+	} else {
+		result.start = end_pos;
+		result.end = start_pos;
 	}
 	return result;
 }
