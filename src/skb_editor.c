@@ -1083,9 +1083,9 @@ skb_text_position_t skb_editor_get_selection_ordered_start(const skb_editor_t* e
 	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.end, SKB_AFFINITY_USE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset > end_pos.global_text_offset ? text_range.start : text_range.end;
+		return skb_paragraph_position_less_or_equal(start_pos, end_pos) ? text_range.end : text_range.start;
 
-	return start_pos.global_text_offset <= end_pos.global_text_offset ? text_range.start : text_range.end;
+	return skb_paragraph_position_less_or_equal(start_pos, end_pos) ? text_range.start : text_range.end;
 }
 
 // TODO: should we expose this?
@@ -1099,9 +1099,9 @@ skb_text_position_t skb_editor_get_selection_ordered_end(const skb_editor_t* edi
 	skb_paragraph_position_t end_pos = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, text_range.end, SKB_AFFINITY_USE);
 
 	if (skb_is_rtl(skb__get_layout_resolved_direction(editor, end_pos.paragraph_idx)))
-		return start_pos.global_text_offset <= end_pos.global_text_offset ? text_range.start : text_range.end;
+		return skb_paragraph_position_less_or_equal(start_pos, end_pos) ? text_range.start : text_range.end;
 
-	return start_pos.global_text_offset > end_pos.global_text_offset ? text_range.start : text_range.end;
+	return skb_paragraph_position_less_or_equal(start_pos, end_pos) ? text_range.end : text_range.start;
 }
 
 static bool skb__is_at_first_line(const skb_editor_t* editor, skb_paragraph_position_t paragraph_pos)
@@ -1722,11 +1722,11 @@ void skb_editor_process_mouse_drag(skb_editor_t* editor, float x, float y)
 		const skb_paragraph_position_t initial_start = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->drag_initial_selection.start, SKB_AFFINITY_USE);
 		const skb_paragraph_position_t initial_end = skb_rich_text_get_paragraph_position_from_text_position(&editor->rich_text, editor->drag_initial_selection.end, SKB_AFFINITY_USE);
 
-		if (sel_start.global_text_offset < initial_start.global_text_offset) {
+		if (!skb_paragraph_position_less_or_equal(initial_start, sel_start)) {
 			// The selection got expanded before the initial selection range start.
 			editor->selection.start = sel_start_pos;
 			editor->selection.end = editor->drag_initial_selection.end;
-		} else if (sel_end.global_text_offset > initial_end.global_text_offset) {
+		} else if (!skb_paragraph_position_less_or_equal(sel_end, initial_end)) {
 			// The selection got expanded past the initial selection range end.
 			editor->selection.start = editor->drag_initial_selection.start;
 			editor->selection.end = sel_end_pos;

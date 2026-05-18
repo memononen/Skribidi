@@ -470,7 +470,7 @@ void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout,
 
 	skb_paragraph_position_t start_pos = skb__rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.start, SKB_AFFINITY_USE);
 	skb_paragraph_position_t end_pos = skb__rich_layout_get_paragraph_position_from_text_position(rich_layout, text_range.end, SKB_AFFINITY_USE);
-	if (start_pos.global_text_offset > end_pos.global_text_offset) {
+	if (!skb_paragraph_position_less_or_equal(start_pos, end_pos)) {
 		skb_paragraph_position_t tmp = start_pos;
 		start_pos = end_pos;
 		end_pos = tmp;
