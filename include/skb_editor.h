@@ -271,6 +271,18 @@ void skb_editor_set_text_utf32(skb_editor_t* editor, skb_temp_alloc_t* temp_allo
  */
 void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, skb_rich_text_t* rich_text);
 
+/**
+ * Updates the layout of the edited text.
+ * The layout is kept up to date automatically when the text is changed through the editor, but it
+ * does not track changes made to the resources it was shaped against. Call this function to pick
+ * up such external changes, e.g. after adding a font to the editor's font collection. Paragraphs
+ * whose layout is already up to date are not re-shaped, so the call is cheap when nothing changed.
+ * The text, selection, composition, and undo state are not affected.
+ * @param editor editor to update.
+ * @param temp_alloc temp allocator used while layouting the text.
+ */
+void skb_editor_update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc);
+
 
 //
 // Text getters

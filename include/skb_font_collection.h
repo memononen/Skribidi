@@ -383,6 +383,16 @@ skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_colle
 uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection);
 
 /**
+ * Returns the revision of the font collection. The revision is bumped every time a font is
+ * added or removed. Together with the collection id it identifies the exact set of fonts a
+ * layout was shaped against, and is included in skb_layout_params_hash_append() so that
+ * layouts become stale when the collection changes.
+ * @param font_collection font collection to use.
+ * @return revision of the font collection.
+ */
+uint32_t skb_font_collection_get_revision(const skb_font_collection_t* font_collection);
+
+/**
  * Returns the bounding rect of the specified glyph.
  * @param font_collection font collection to use.
  * @param font_handle font to use.

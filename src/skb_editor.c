@@ -629,6 +629,13 @@ void skb_editor_set_rich_text(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc
 	skb__emit_on_selection_change(editor, SKB_EDITOR_SELECTION_RESET);
 }
 
+void skb_editor_update_layout(skb_editor_t* editor, skb_temp_alloc_t* temp_alloc)
+{
+	assert(editor);
+
+	skb__update_layout(editor, temp_alloc, (skb_rich_text_change_t){0});
+}
+
 //
 // Text getters
 //
