@@ -319,6 +319,8 @@ static skb_font_t* skb__font_create(skb_font_collection_t* font_collection, hb_f
 		}
 	}
 
+	font_collection->revision++;
+
 	return font;
 }
 
@@ -481,6 +483,8 @@ bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb
 		return false;
 
 	skb__font_destroy(font_collection, font);
+
+	font_collection->revision++;
 
 	return true;
 }
@@ -806,6 +810,12 @@ uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection
 {
 	assert(font_collection);
 	return font_collection->id;
+}
+
+uint32_t skb_font_collection_get_revision(const skb_font_collection_t* font_collection)
+{
+	assert(font_collection);
+	return font_collection->revision;
 }
 
 skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, uint32_t glyph_id, float font_size)

@@ -100,6 +100,7 @@ skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float
 uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t* params)
 {
 	hash = skb_hash64_append_uint32(hash, params->font_collection ? skb_font_collection_get_id(params->font_collection) : 0);
+	hash = skb_hash64_append_uint32(hash, params->font_collection ? skb_font_collection_get_revision(params->font_collection) : 0);
 	hash = skb_hash64_append_uint32(hash, params->icon_collection ? skb_icon_collection_get_id(params->icon_collection) : 0);
 	hash = skb_hash64_append_uint32(hash, params->attribute_collection ? skb_attribute_collection_get_id(params->attribute_collection) : 0);
 	hash = skb_hash64_append_float(hash, params->layout_width);
