@@ -182,6 +182,14 @@ if (MSVC)
 	target_sources(skribidi PRIVATE skribidi.natvis)
 endif()
 
+if (SKRIBIDI_BUILD_SHARED_LIBRARY)
+	target_compile_definitions(skribidi PRIVATE SKB_BUILD_DLL)
+
+	if (WIN32)
+		target_compile_definitions(skribidi INTERFACE SKB_DLL)
+	endif()
+endif()
+
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${SKRIBIDI_SOURCE_FILES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${SKRIBIDI_API_FILES})
 

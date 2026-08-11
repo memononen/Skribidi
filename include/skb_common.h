@@ -24,20 +24,14 @@ extern "C" {
 	#define SKB_LITERAL(type) (type)
 #endif
 
-#if defined(SKB_BUILD)
-	#if defined(_WIN32)
-		#define SKB_API __declspec(dllexport)
-	#elif defined(__GNUC__)
-		#define SKB_API __attribute__((visibility("default")))
-	#else
-		#define SKB_API
-	#endif
+#if defined(_WIN32) && defined(SKB_BUILD_DLL)
+	#define SKB_API __declspec(dllexport)
+#elif defined(_WIN32) && defined(SKB_DLL)
+	#define SKB_API __declspec(dllimport)
+#elif defined(__GNUC__) && defined(SKB_BUILD_DLL)
+	#define SKB_API __attribute__((visibility("default")))
 #else
-	#if defined(_WIN32)
-		#define SKB_API __declspec(dllimport)
-	#else
-		#define SKB_API
-	#endif
+	#define SKB_API
 #endif
 
 /**

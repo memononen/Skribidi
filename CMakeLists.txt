@@ -12,6 +12,12 @@ project(skribidi
 set(SKRIBIDI_LIBRARY_TYPE "${SKRIBIDI_LIBRARY_TYPE}" CACHE STRING
     "Library type override for Skribidi (SHARED, STATIC, OBJECT, or empty to follow BUILD_SHARED_LIBS)")
 
+if (SKRIBIDI_LIBRARY_TYPE)
+    string(COMPARE EQUAL "${SKRIBIDI_LIBRARY_TYPE}" "SHARED" SKRIBIDI_BUILD_SHARED_LIBRARY)
+else()
+    set(SKRIBIDI_BUILD_SHARED_LIBRARY ${BUILD_SHARED_LIBS})
+endif()
+
 option(ENABLE_ASAN "Enable Address Sanitizer flags" OFF)
 
 if(ENABLE_ASAN)
