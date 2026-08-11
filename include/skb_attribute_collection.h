@@ -31,21 +31,21 @@ static inline int32_t skb_attribute_set_handle_get_group(skb_attribute_set_handl
  * Create new attribute collection.
  * @return create attribute collection.
  */
-skb_attribute_collection_t* skb_attribute_collection_create(void);
+SKB_API skb_attribute_collection_t* skb_attribute_collection_create(void);
 
 /**
  * Destroy attribute collection.
  * @param attribute_collection attribute collection to destroy.
  */
-void skb_attribute_collection_destroy(skb_attribute_collection_t* attribute_collection);
+SKB_API void skb_attribute_collection_destroy(skb_attribute_collection_t* attribute_collection);
 
-uint32_t skb_attribute_collection_get_id(const skb_attribute_collection_t* attribute_collection);
+SKB_API uint32_t skb_attribute_collection_get_id(const skb_attribute_collection_t* attribute_collection);
 
-skb_attribute_set_handle_t skb_attribute_collection_add_set(skb_attribute_collection_t* attribute_collection, const char* name, skb_attribute_set_t attributes);
-skb_attribute_set_handle_t skb_attribute_collection_add_set_with_group(skb_attribute_collection_t* attribute_collection, const char* name, const char* group_name, skb_attribute_set_t attributes);
-skb_attribute_set_handle_t skb_attribute_collection_find_set_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
-skb_attribute_set_t skb_attribute_collection_get_set(const skb_attribute_collection_t* attribute_collection, skb_attribute_set_handle_t handle);
-skb_attribute_set_t skb_attribute_collection_get_set_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
+SKB_API skb_attribute_set_handle_t skb_attribute_collection_add_set(skb_attribute_collection_t* attribute_collection, const char* name, skb_attribute_set_t attributes);
+SKB_API skb_attribute_set_handle_t skb_attribute_collection_add_set_with_group(skb_attribute_collection_t* attribute_collection, const char* name, const char* group_name, skb_attribute_set_t attributes);
+SKB_API skb_attribute_set_handle_t skb_attribute_collection_find_set_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
+SKB_API skb_attribute_set_t skb_attribute_collection_get_set(const skb_attribute_collection_t* attribute_collection, skb_attribute_set_handle_t handle);
+SKB_API skb_attribute_set_t skb_attribute_collection_get_set_by_name(const skb_attribute_collection_t* attribute_collection, const char* name);
 
 /** @} */
 

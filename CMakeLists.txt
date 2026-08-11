@@ -9,6 +9,9 @@ project(skribidi
 	LANGUAGES C CXX
 )
 
+set(SKRIBIDI_LIBRARY_TYPE "${SKRIBIDI_LIBRARY_TYPE}" CACHE STRING
+    "Library type override for Skribidi (SHARED, STATIC, OBJECT, or empty to follow BUILD_SHARED_LIBS)")
+
 option(ENABLE_ASAN "Enable Address Sanitizer flags" OFF)
 
 if(ENABLE_ASAN)
@@ -56,6 +59,8 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(src)
 

@@ -170,7 +170,7 @@ typedef struct skb_content_run_t {
  * @param content_id id representing the run, id of 0 is treated as invalid, in which case the run cannot be queried.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
+SKB_API skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes utf-32 content run.
@@ -184,7 +184,7 @@ skb_content_run_t skb_content_run_make_utf8(const char* text, int32_t text_count
  * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
+SKB_API skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes inline object content run.
@@ -203,7 +203,7 @@ skb_content_run_t skb_content_run_make_utf32(const uint32_t* text, int32_t text_
  * @return initialized content run.
  * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  */
-skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
+SKB_API skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
 
 /**
  * Makes inline icon content run.
@@ -224,7 +224,7 @@ skb_content_run_t skb_content_run_make_object(intptr_t data, float width, float 
  * @param content_id id representing the run, id of 0 is treated as empty, in which case the run is ignored by content queries.
  * @return initialized content run.
  */
-skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
+SKB_API skb_content_run_t skb_content_run_make_icon(skb_icon_handle_t icon_handle, float width, float height, skb_attribute_set_t attributes, intptr_t content_id);
 
 /** Enum describing flags for skb_layout_line_t. */
 typedef enum {
@@ -456,14 +456,14 @@ typedef struct skb_layout_t skb_layout_t;
  * @param params pointer to the parameters to hash.
  * @return combined hash.
  */
-uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t* params);
+SKB_API uint64_t skb_layout_params_hash_append(uint64_t hash, const skb_layout_params_t* params);
 
 /**
  * Creates empty layout with specified parameters.
  * @param params parameters to use for the layout.
  * @return newly create empty layout.
  */
-skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
+SKB_API skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
 
 /**
  * Creates new layout from the provided parameters, text and text attributes.
@@ -474,7 +474,7 @@ skb_layout_t* skb_layout_create(const skb_layout_params_t* params);
  * @param attributes attributes to apply for the text.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_utf8(
+SKB_API skb_layout_t* skb_layout_create_utf8(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -487,7 +487,7 @@ skb_layout_t* skb_layout_create_utf8(
  * @param attributes attributes to apply for the text.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_utf32(
+SKB_API skb_layout_t* skb_layout_create_utf32(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -500,7 +500,7 @@ skb_layout_t* skb_layout_create_utf32(
  * @param runs_count number of runs.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_from_runs(
+SKB_API skb_layout_t* skb_layout_create_from_runs(
 	skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const skb_content_run_t* runs, int32_t runs_count);
 
@@ -511,7 +511,7 @@ skb_layout_t* skb_layout_create_from_runs(
  * @param text pointer to the text to copy the text and attributes from.
  * @return newly create layout.
  */
-skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text, skb_attribute_set_t attributes);
+SKB_API skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params, const skb_text_t* text, skb_attribute_set_t attributes);
 
 /**
  * Sets the layout from the provided parameters, text and text attributes.
@@ -523,7 +523,7 @@ skb_layout_t* skb_layout_create_from_text(skb_temp_alloc_t* temp_alloc, const sk
  * @param attributes attributes to apply for the text.
  * @return newly create layout.
  */
-void skb_layout_set_utf8(
+SKB_API void skb_layout_set_utf8(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const char* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -537,7 +537,7 @@ void skb_layout_set_utf8(
  * @param attributes attributes to apply for the text.
  * @return newly create layout.
  */
-void skb_layout_set_utf32(
+SKB_API void skb_layout_set_utf32(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -550,7 +550,7 @@ void skb_layout_set_utf32(
  * @param runs utf-8 text runs to combine into continuous text.
  * @param runs_count number of runs.
  */
-void skb_layout_set_from_runs(
+SKB_API void skb_layout_set_from_runs(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const skb_content_run_t* runs, int32_t runs_count);
 
@@ -562,7 +562,7 @@ void skb_layout_set_from_runs(
  * @param params paramters to use for the layout.
  * @param text pointer to the text to copy the text and attributes from.
  */
-void skb_layout_set_from_text(
+SKB_API void skb_layout_set_from_text(
 	skb_layout_t* layout, skb_temp_alloc_t* temp_alloc, const skb_layout_params_t* params,
 	const skb_text_t* text, skb_attribute_set_t attributes);
 
@@ -570,67 +570,67 @@ void skb_layout_set_from_text(
  * Empties the specified layout. Keeps the existing allocations.
  * @param layout layout to reset.
  */
-void skb_layout_reset(skb_layout_t* layout);
+SKB_API void skb_layout_reset(skb_layout_t* layout);
 
 /**
  * Destroys specified layout.
  * @param layout layout to destroy.
  */
-void skb_layout_destroy(skb_layout_t* layout);
+SKB_API void skb_layout_destroy(skb_layout_t* layout);
 
 /**
  * Returns parameters that were used to create th elayout.
  * @param layout layout to use
  * @return const pointer to the parameters.
  */
-const skb_layout_params_t* skb_layout_get_params(const skb_layout_t* layout);
+SKB_API const skb_layout_params_t* skb_layout_get_params(const skb_layout_t* layout);
 
 /** @return number of codepoints in the layout text. */
-int32_t skb_layout_get_text_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_text_count(const skb_layout_t* layout);
 /** @return const pointer to the codepoints of the text. See skb_layout_get_text_count() to get text length. */
-const uint32_t* skb_layout_get_text(const skb_layout_t* layout);
+SKB_API const uint32_t* skb_layout_get_text(const skb_layout_t* layout);
 /** @return const pointer to the codepoint properties of the text. See skb_layout_get_text_count() to get text length. */
-const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* layout);
+SKB_API const skb_text_property_t* skb_layout_get_text_properties(const skb_layout_t* layout);
 
 /** @return number of layout runs in the layout. */
-int32_t skb_layout_get_layout_runs_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_layout_runs_count(const skb_layout_t* layout);
 /** @return const pointer to the layout runs. See skb_layout_get_layout_runs_count() to get number of glyph runs. */
-const skb_layout_run_t* skb_layout_get_layout_runs(const skb_layout_t* layout);
+SKB_API const skb_layout_run_t* skb_layout_get_layout_runs(const skb_layout_t* layout);
 
 /** @return number of glyphs in the layout. */
-int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_glyphs_count(const skb_layout_t* layout);
 /** @return const pointer to the glyphs. See skb_layout_get_glyphs_count() to get number of glyphs. */
-const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout);
+SKB_API const skb_glyph_t* skb_layout_get_glyphs(const skb_layout_t* layout);
 
 /** @return number of clusters in the layout. */
-int32_t skb_layout_get_clusters_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_clusters_count(const skb_layout_t* layout);
 /** @return const pointer to the clusters. See skb_layout_get_clusters_count() to get number of clusters. */
-const skb_cluster_t* skb_layout_get_clusters(const skb_layout_t* layout);
+SKB_API const skb_cluster_t* skb_layout_get_clusters(const skb_layout_t* layout);
 
 /** @return number of decorations in the layout. */
-int32_t skb_layout_get_decorations_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_decorations_count(const skb_layout_t* layout);
 /** @return const pointer to the lines. See skb_layout_get_decorations_count() to get number of decorations. */
-const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout);
+SKB_API const skb_decoration_t* skb_layout_get_decorations(const skb_layout_t* layout);
 
 /** @return number of lines in the layout. */
-int32_t skb_layout_get_lines_count(const skb_layout_t* layout);
+SKB_API int32_t skb_layout_get_lines_count(const skb_layout_t* layout);
 /** @return const pointer to the lines. See skb_layout_get_lines_count() to get number of lines. */
-const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
+SKB_API const skb_layout_line_t* skb_layout_get_lines(const skb_layout_t* layout);
 
 /** @returns attribute set for specified layout run*/
-skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run);
+SKB_API skb_attribute_set_t skb_layout_get_layout_run_attributes(const skb_layout_t* layout, const skb_layout_run_t* run);
 
 /** @returns content bounds (without padding) for specified layout run*/
-skb_rect2_t skb_layout_get_layout_run_content_bounds(const skb_layout_t* layout, const skb_layout_run_t* run);
+SKB_API skb_rect2_t skb_layout_get_layout_run_content_bounds(const skb_layout_t* layout, const skb_layout_run_t* run);
 
 /** @return bounds of the layout including padding. */
-skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
+SKB_API skb_rect2_t skb_layout_get_bounds(const skb_layout_t* layout);
 
 /** @return bounds of the layout content (without padding). */
-skb_rect2_t skb_layout_get_content_bounds(const skb_layout_t* layout);
+SKB_API skb_rect2_t skb_layout_get_content_bounds(const skb_layout_t* layout);
 
 /** @return padding applied to the layout. */
-skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout);
+SKB_API skb_padding2_t skb_layout_get_padding(const skb_layout_t* layout);
 
 /** Enum describing flags for skb_layout_t. */
 typedef enum {
@@ -638,17 +638,17 @@ typedef enum {
 	SKB_LAYOUT_IS_TRUNCATED	= 1 << 0,
 } skb_layout_flags_t;
 
-uint32_t skb_layout_get_flags(const skb_layout_t* layout);
+SKB_API uint32_t skb_layout_get_flags(const skb_layout_t* layout);
 
 /**
  * Returns how much to advance the y position when layouts are stacked.
  * @param layout layout to query
  * @return y advance
  */
-float skb_layout_get_advance_y(const skb_layout_t* layout);
+SKB_API float skb_layout_get_advance_y(const skb_layout_t* layout);
 
 /** @return text direction of the layout, if the direction was auto, the direction inferred from the text. */
-skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout);
+SKB_API skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layout);
 
 /**
  * Get the start of the next grapheme in the layout based on text offset.
@@ -656,7 +656,7 @@ skb_text_direction_t skb_layout_get_resolved_direction(const skb_layout_t* layou
  * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the next grapheme.
  */
-int32_t skb_layout_get_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
+SKB_API int32_t skb_layout_get_next_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the previous grapheme in the layout based on text offset.
@@ -664,7 +664,7 @@ int32_t skb_layout_get_next_grapheme_offset(const skb_layout_t* layout, int32_t 
  * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the previous grapheme.
  */
-int32_t skb_layout_get_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
+SKB_API int32_t skb_layout_get_prev_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 /**
  * Get the start of the current grapheme in the layout based on text offset.
@@ -672,7 +672,7 @@ int32_t skb_layout_get_prev_grapheme_offset(const skb_layout_t* layout, int32_t 
  * @param text_offset offset (codepoints) in the text where to start looking.
  * @return offset (codepoints) to the start of the current grapheme.
  */
-int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
+SKB_API int32_t skb_layout_align_grapheme_offset(const skb_layout_t* layout, int32_t text_offset);
 
 //
 // Text Selection
@@ -703,7 +703,7 @@ typedef struct skb_caret_info_t {
  * @param pos position within the text.
  * @return zero based line number.
  */
-int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
  * Returns the text offset (codepoint) from specific text position, taking affinity into account.
@@ -711,7 +711,7 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
  * @param pos position within the text.
  * @return text offset.
  */
-int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb_text_position_t pos);
 
 /**
  * Returns text direction at the specified text postition.
@@ -719,7 +719,7 @@ int32_t skb_layout_get_offset_from_text_position(const skb_layout_t* layout, skb
  * @param pos position within the text.
  * @return text direction at the specified text postition.
  */
-skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_text_direction_t skb_layout_get_text_direction_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 
 /** Enum describing intended movement. Caret movement and selection cursor movement have diffent behavior at the end of hte line. */
@@ -739,7 +739,7 @@ typedef enum {
  * @param hit_x hit X location.
  * @return text position under the specified hit location.
  */
-skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x);
+SKB_API skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_movement_type_t type, int32_t line_idx, float hit_x);
 
 /**
  * Returns caret text position under the hit location.
@@ -751,7 +751,7 @@ skb_text_position_t skb_layout_hit_test_at_line(const skb_layout_t* layout, skb_
  * @param hit_y hit Y location
  * @return caret text position under the specified hit location.
  */
-skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement_type_t type, float hit_x, float hit_y);
+SKB_API skb_text_position_t skb_layout_hit_test(const skb_layout_t* layout, skb_movement_type_t type, float hit_x, float hit_y);
 
 
 /** Struct identifying run of content. */
@@ -772,7 +772,7 @@ typedef struct skb_layout_content_hit_t {
  * @param hit_x hit X location
  * @return struct representing the content under the hit location.
  */
-skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t* layout, int32_t line_idx, float hit_x);
+SKB_API skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t* layout, int32_t line_idx, float hit_x);
 
 /**
  * Returns data identifying the content under the hit location.
@@ -782,7 +782,7 @@ skb_layout_content_hit_t skb_layout_hit_test_content_at_line(const skb_layout_t*
  * @param hit_y hit Y location
  * @return struct representing the content under the hit location.
  */
-skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout, float hit_x, float hit_y);
+SKB_API skb_layout_content_hit_t skb_layout_hit_test_content(const skb_layout_t* layout, float hit_x, float hit_y);
 
 /**
  * Signature of content bounds getter callback.
@@ -804,7 +804,7 @@ typedef void skb_content_rect_func_t(skb_rect2_t rect, int32_t layout_run_idx, i
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
+SKB_API void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* layout, int32_t line_idx, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
 
 /**
  * Return set of rectangles that represent the specified content run in the layout.
@@ -815,7 +815,7 @@ void skb_layout_get_content_run_bounds_bounds_at_line_by_id(const skb_layout_t* 
  * @param callback callback to call on each rectangle.
  * @param context context passed to the callback.
  */
-void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
+SKB_API void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_t content_id, skb_content_rect_func_t* callback, void* context);
 
 
 /**
@@ -825,7 +825,7 @@ void skb_layout_get_content_run_bounds_by_id(const skb_layout_t* layout, intptr_
  * @param pos text position to use.
  * @return caret info at text position.
  */
-skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos);
+SKB_API skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos);
 
 /**
  * Returns caret info at the text position.
@@ -833,31 +833,31 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
  * @param pos text position to use.
  * @return caret info at text position.
  */
-skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of nearest start of the line, starting from specified text position. */
-skb_text_position_t skb_layout_get_line_start_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_text_position_t skb_layout_get_line_start_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of nearest end of the line, starting from specified text position. */
-skb_text_position_t skb_layout_get_line_end_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_text_position_t skb_layout_get_line_end_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of nearest start of a word, starting from specified text position. */
-skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of nearest end of a word, starting from specified text position. */
-skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_text_position_t pos);
+SKB_API skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_text_position_t pos);
 
 /** @return text position of selection start, which is first in text order. */
-skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* layout, skb_text_range_t text_range);
+SKB_API skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return text position of selection end, which is last in text order. */
-skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* layout, skb_text_range_t text_range);
+SKB_API skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return ordered range of text (codepoints) representing the selection. End exclusive. */
-skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layout, skb_text_range_t text_range);
+SKB_API skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /** @return number of codepoints in the selection. */
-int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_range_t text_range);
+SKB_API int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_range_t text_range);
 
 /**
  * Signature of text range bounds getter callback.
@@ -874,7 +874,7 @@ typedef void skb_text_range_bounds_func_t(skb_rect2_t rect, void* context);
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
+SKB_API void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 /**
  * Iterates over set of bounding rectangles that represent the text range.
@@ -885,7 +885,7 @@ void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_r
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_layout_iterate_text_range_bounds_with_offset(const skb_layout_t* layout, skb_vec2_t offset, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
+SKB_API void skb_layout_iterate_text_range_bounds_with_offset(const skb_layout_t* layout, skb_vec2_t offset, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 /** Struct describing how to draw indent decoration bars */
 typedef struct skb_layout_indent_decoration_info_t {
@@ -908,7 +908,7 @@ typedef struct skb_layout_indent_decoration_info_t {
  * @param layout layout to use.
  * @return indent decoration info.
  */
-skb_layout_indent_decoration_info_t skb_layout_get_indent_decoration_info(const skb_layout_t* layout);
+SKB_API skb_layout_indent_decoration_info_t skb_layout_get_indent_decoration_info(const skb_layout_t* layout);
 
 //
 // Caret iterator
@@ -964,7 +964,7 @@ typedef struct skb_caret_iterator_t {
  * @param line_idx index of the line to iterate.
  * @return initialized caret iterator.
  */
-skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t line_idx);
+SKB_API skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t line_idx);
 
 /**
  * Advances to the next caret location.
@@ -976,21 +976,21 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
  * @param right iterator result on right grapheme.
  * @return true as long as the output values are valid.
  */
-bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, float* mid_point, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
+SKB_API bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, float* mid_point, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right);
 
 /**
  * Returns four-letter ISO 15924 script tag of the specified script.
  * @param script scrip to covert.
  * @return four letter tag.
  */
-uint32_t skb_script_to_iso15924_tag(uint8_t script);
+SKB_API uint32_t skb_script_to_iso15924_tag(uint8_t script);
 
 /**
  * Returns script from four-letter ISO 15924 script tag.
  * @param script_tag ISO 15924 script tag scrip to covert.
  * @return script.
  */
-uint8_t skb_script_from_iso15924_tag(uint32_t script_tag);
+SKB_API uint8_t skb_script_from_iso15924_tag(uint32_t script_tag);
 
 /** @} */
 

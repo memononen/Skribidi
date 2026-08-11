@@ -139,7 +139,7 @@ set(SKRIBIDI_API_FILES
 )
 
 
-add_library(skribidi ${SKRIBIDI_SOURCE_FILES} ${SKRIBIDI_API_FILES})
+add_library(skribidi ${SKRIBIDI_LIBRARY_TYPE} ${SKRIBIDI_SOURCE_FILES} ${SKRIBIDI_API_FILES})
 
 target_include_directories(skribidi
   PUBLIC
@@ -150,12 +150,19 @@ target_include_directories(skribidi
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+target_compile_definitions(skribidi
+  PRIVATE
+  	SKB_BUILD
+)
+
 set(CMAKE_DEBUG_POSTFIX "d")
 
 set_target_properties(skribidi PROPERTIES
 	C_STANDARD 17
     C_STANDARD_REQUIRED YES
     C_EXTENSIONS YES
+	C_VISIBILITY_PRESET hidden
+	VISIBILITY_INLINES_HIDDEN YES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
