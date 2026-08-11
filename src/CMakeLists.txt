@@ -150,11 +150,6 @@ target_include_directories(skribidi
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_definitions(skribidi
-  PRIVATE
-  	SKB_BUILD
-)
-
 set(CMAKE_DEBUG_POSTFIX "d")
 
 set_target_properties(skribidi PROPERTIES
