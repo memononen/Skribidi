@@ -123,6 +123,46 @@ static int test_add_font_from_data(void)
 	return 0;
 }
 
+static int test_revision(void)
+{
+	skb_font_collection_t* font_collection = skb_font_collection_create();
+	ENSURE(font_collection != NULL);
+
+	const uint32_t initial_revision = skb_font_collection_get_revision(font_collection);
+
+	const skb_layout_params_t layout_params = {
+		.font_collection = font_collection,
+	};
+	const uint64_t initial_params_hash = skb_layout_params_hash_append(skb_hash64_empty(), &layout_params);
+
+	// Adding a font should bump the revision, and with it the layout params hash.
+	skb_font_handle_t font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
+	ENSURE(font_handle);
+	const uint32_t revision_after_add = skb_font_collection_get_revision(font_collection);
+	ENSURE(revision_after_add != initial_revision);
+	ENSURE(skb_layout_params_hash_append(skb_hash64_empty(), &layout_params) != initial_params_hash);
+
+	// A failed add should leave the revision unchanged.
+	skb_font_handle_t failed_handle = skb_font_collection_add_font_from_data(font_collection, "Missing", NULL, 0, NULL, NULL, SKB_FONT_FAMILY_DEFAULT, NULL);
+	ENSURE(failed_handle == 0);
+	ENSURE(skb_font_collection_get_revision(font_collection) == revision_after_add);
+
+	// Removing a font should bump the revision.
+	bool removed = skb_font_collection_remove_font(font_collection, font_handle);
+	ENSURE(removed);
+	const uint32_t revision_after_remove = skb_font_collection_get_revision(font_collection);
+	ENSURE(revision_after_remove != revision_after_add);
+
+	// A failed remove (stale handle) should leave the revision unchanged.
+	bool removed_again = skb_font_collection_remove_font(font_collection, font_handle);
+	ENSURE(!removed_again);
+	ENSURE(skb_font_collection_get_revision(font_collection) == revision_after_remove);
+
+	skb_font_collection_destroy(font_collection);
+
+	return 0;
+}
+
 static int test_add_font_failures(void)
 {
 	skb_font_collection_t* font_collection = skb_font_collection_create();
@@ -163,6 +203,7 @@ int font_collection_tests(void)
 	RUN_SUBTEST(test_init);
 	RUN_SUBTEST(test_add_remove);
 	RUN_SUBTEST(test_add_font_from_data);
+	RUN_SUBTEST(test_revision);
 	RUN_SUBTEST(test_add_font_failures);
 	return 0;
 }

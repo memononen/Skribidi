@@ -382,6 +382,79 @@ static int test_option_word_navigation_macos(void)
 	return 0;
 }
 
+static bool has_layout_run_with_font(const skb_editor_t* editor, skb_font_handle_t font_handle)
+{
+	for (int32_t i = 0; i < skb_editor_get_paragraph_count(editor); i++) {
+		const skb_layout_t* layout = skb_editor_get_paragraph_layout(editor, i);
+		const skb_layout_run_t* layout_runs = skb_layout_get_layout_runs(layout);
+		const int32_t layout_runs_count = skb_layout_get_layout_runs_count(layout);
+		for (int32_t j = 0; j < layout_runs_count; j++) {
+			if (layout_runs[j].font_handle == font_handle)
+				return true;
+		}
+	}
+	return false;
+}
+
+static int test_update_layout_after_font_added(void)
+{
+	skb_temp_alloc_t* temp_alloc = skb_temp_alloc_create(1024);
+	ENSURE(temp_alloc != NULL);
+
+	skb_font_collection_t* font_collection = skb_font_collection_create();
+	ENSURE(font_collection != NULL);
+	skb_font_handle_t latin_font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSans-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
+	ENSURE(latin_font_handle);
+
+	skb_attribute_t attributes[] = {
+		skb_attribute_make_font_size(15.f),
+	};
+
+	skb_editor_params_t params = {
+	 	.font_collection = font_collection,
+		.caret_mode = SKB_CARET_MODE_SKRIBIDI,
+		.paragraph_attributes = SKB_ATTRIBUTE_SET_FROM_STATIC_ARRAY(attributes),
+	};
+
+	skb_editor_t* editor = skb_editor_create(&params);
+	ENSURE(editor != NULL);
+
+	// Latin and Arabic text, shaped while only the Latin font is in the collection.
+	const char* test_text = "abc مرحبا";
+	skb_editor_set_text_utf8(editor, temp_alloc, test_text, (int32_t)strlen(test_text));
+	ENSURE(has_layout_run_with_font(editor, latin_font_handle));
+
+	// Adding a font does not touch the existing layout; it is stale until updated.
+	skb_font_handle_t arabic_font_handle = skb_font_collection_add_font(font_collection, "data/IBMPlexSansArabic-Regular.ttf", SKB_FONT_FAMILY_DEFAULT, NULL);
+	ENSURE(arabic_font_handle);
+	ENSURE(!has_layout_run_with_font(editor, arabic_font_handle));
+
+	// Updating the layout should pick up the new font for the Arabic run.
+	skb_text_range_t selection_before = skb_editor_get_current_selection(editor);
+	skb_editor_update_layout(editor, temp_alloc);
+	ENSURE(has_layout_run_with_font(editor, arabic_font_handle));
+	ENSURE(has_layout_run_with_font(editor, latin_font_handle));
+
+	// The text and selection should be unaffected.
+	char text_buffer[64];
+	const int32_t text_len = skb_editor_get_text_utf8(editor, text_buffer, sizeof(text_buffer));
+	ENSURE(text_len == (int32_t)strlen(test_text));
+	ENSURE(memcmp(text_buffer, test_text, text_len) == 0);
+	skb_text_range_t selection_after = skb_editor_get_current_selection(editor);
+	ENSURE(selection_before.start.offset == selection_after.start.offset);
+	ENSURE(selection_before.end.offset == selection_after.end.offset);
+
+	// Updating again with no changes should keep the layout intact.
+	skb_editor_update_layout(editor, temp_alloc);
+	ENSURE(has_layout_run_with_font(editor, arabic_font_handle));
+
+	skb_editor_destroy(editor);
+	skb_font_collection_destroy(font_collection);
+	skb_temp_alloc_destroy(temp_alloc);
+
+	return 0;
+}
+
 int editor_tests(void)
 {
 	RUN_SUBTEST(test_init);
@@ -389,5 +462,6 @@ int editor_tests(void)
 	RUN_SUBTEST(test_command_document_navigation_macos);
 	RUN_SUBTEST(test_shift_command_text_selection_macos);
 	RUN_SUBTEST(test_option_word_navigation_macos);
+	RUN_SUBTEST(test_update_layout_after_font_added);
 	return 0;
 }

@@ -14,6 +14,7 @@ typedef struct hb_set_t hb_set_t;
 
 typedef struct skb_font_collection_t {
 	uint32_t id;				// ID of the font collection.
+	uint32_t revision;			// Bumped every time a font is added or removed.
 
 	skb_font_t* fonts;			// Array of fonts in the collection.
 	int32_t fonts_count;		// Number of fonts in the collection.
