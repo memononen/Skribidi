@@ -156,26 +156,26 @@ typedef struct skb_image_atlas_config_t {
  * @param config configuration to use for the new image atlas.
  * @return pointer to the created image atlas.
  */
-skb_image_atlas_t* skb_image_atlas_create(const skb_image_atlas_config_t* config);
+SKB_API skb_image_atlas_t* skb_image_atlas_create(const skb_image_atlas_config_t* config);
 
 /**
  * Destroys a image atlas created with skb_image_atlas_create().
  * @param atlas pointer to the atlas to destroy.
  */
-void skb_image_atlas_destroy(skb_image_atlas_t* atlas);
+SKB_API void skb_image_atlas_destroy(skb_image_atlas_t* atlas);
 
 /**
  * Returns default values for image atlas config. Useful if you only want to change some specific values.
  * @return image atlas config default values.
  */
-skb_image_atlas_config_t skb_image_atlas_get_default_config(void);
+SKB_API skb_image_atlas_config_t skb_image_atlas_get_default_config(void);
 
 /**
  * Returns the config used to create the image atlas.
  * @param atlas atlas to use.
  * @return config for the specified image atlas.
  */
-skb_image_atlas_config_t skb_image_atlas_get_config(skb_image_atlas_t* atlas);
+SKB_API skb_image_atlas_config_t skb_image_atlas_get_config(skb_image_atlas_t* atlas);
 
 /**
  * Sets the texture creation callback of the image atlas.
@@ -183,10 +183,10 @@ skb_image_atlas_config_t skb_image_atlas_get_config(skb_image_atlas_t* atlas);
  * @param create_texture_callback pointer to the callback function.
  * @param context pointer passed to the callback function each time it is called.
  */
-void skb_image_atlas_set_create_texture_callback(skb_image_atlas_t* atlas, skb_create_texture_func_t* create_texture_callback, void* context);
+SKB_API void skb_image_atlas_set_create_texture_callback(skb_image_atlas_t* atlas, skb_create_texture_func_t* create_texture_callback, void* context);
 
 /** @return number of textures in the atlas. */
-int32_t skb_image_atlas_get_texture_count(skb_image_atlas_t* atlas);
+SKB_API int32_t skb_image_atlas_get_texture_count(skb_image_atlas_t* atlas);
 
 /**
  * Returns texture at specified index. See skb_image_atlas_get_texture_count() to get number of textures.
@@ -194,7 +194,7 @@ int32_t skb_image_atlas_get_texture_count(skb_image_atlas_t* atlas);
  * @param texture_idx index of the texture to get.
  * @return pointer to the spcified image.
  */
-const skb_image_t* skb_image_atlas_get_texture(skb_image_atlas_t* atlas, int32_t texture_idx);
+SKB_API const skb_image_t* skb_image_atlas_get_texture(skb_image_atlas_t* atlas, int32_t texture_idx);
 
 /**
  * Returns the bounding rect of the modified portion of the specified texture. See skb_image_atlas_get_textures_count() to get number of textures.
@@ -202,7 +202,7 @@ const skb_image_t* skb_image_atlas_get_texture(skb_image_atlas_t* atlas, int32_t
  * @param texture_idx index of the image to query.
  * @return bounding rect of the modified portion of the image.
  */
-skb_rect2i_t skb_image_atlas_get_texture_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
+SKB_API skb_rect2i_t skb_image_atlas_get_texture_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
 
 /**
  * Returns the bounding rect of the modified portion of the specified texture, and resets the bounding rectangle.
@@ -211,7 +211,7 @@ skb_rect2i_t skb_image_atlas_get_texture_dirty_bounds(skb_image_atlas_t* atlas, 
  * @param texture_idx index of the image to query.
  * @return bounding rect of the modified portion of the texture.
  */
-skb_rect2i_t skb_image_atlas_get_and_reset_texture_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
+SKB_API skb_rect2i_t skb_image_atlas_get_and_reset_texture_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
 
 /**
  * Sets user data for a specified texture.
@@ -220,7 +220,7 @@ skb_rect2i_t skb_image_atlas_get_and_reset_texture_dirty_bounds(skb_image_atlas_
  * @param texture_idx index of the image.
  * @param user_data user date to store.
  */
-void skb_image_atlas_set_texture_user_data(skb_image_atlas_t* atlas, int32_t texture_idx, uintptr_t user_data);
+SKB_API void skb_image_atlas_set_texture_user_data(skb_image_atlas_t* atlas, int32_t texture_idx, uintptr_t user_data);
 
 /**
  * Gets user data set for specified image.
@@ -229,7 +229,7 @@ void skb_image_atlas_set_texture_user_data(skb_image_atlas_t* atlas, int32_t tex
  * @param texture_idx index of the texture.
  * @return user data.
  */
-uintptr_t skb_image_atlas_get_texture_user_data(skb_image_atlas_t* image_atlas, int32_t texture_idx);
+SKB_API uintptr_t skb_image_atlas_get_texture_user_data(skb_image_atlas_t* image_atlas, int32_t texture_idx);
 
 /**
  * Signature of rectangle iterator functions.
@@ -248,7 +248,7 @@ typedef void skb_debug_rect_iterator_func_t(int32_t x, int32_t y, int32_t width,
  * @param callback callback that is called for each free space rectangle in the atlas.
  * @param context contest pointer passed to the callback.
  */
-void skb_image_atlas_debug_iterate_free_rects(skb_image_atlas_t* atlas, int32_t texture_idx, skb_debug_rect_iterator_func_t* callback, void* context);
+SKB_API void skb_image_atlas_debug_iterate_free_rects(skb_image_atlas_t* atlas, int32_t texture_idx, skb_debug_rect_iterator_func_t* callback, void* context);
 
 /**
  * Iterates over all the used rectangles in a specific image. Used for debugging.
@@ -257,7 +257,7 @@ void skb_image_atlas_debug_iterate_free_rects(skb_image_atlas_t* atlas, int32_t 
  * @param callback callback that is called for each used rectangle in the atlas.
  * @param context contest pointer passed to the callback.
  */
-void skb_image_atlas_debug_iterate_used_rects(skb_image_atlas_t* atlas, int32_t texture_idx, skb_debug_rect_iterator_func_t* callback, void* context);
+SKB_API void skb_image_atlas_debug_iterate_used_rects(skb_image_atlas_t* atlas, int32_t texture_idx, skb_debug_rect_iterator_func_t* callback, void* context);
 
 /**
  * Returns previous non-empty dirty bounds of the specified texture. Can be used to visualize the last update region.
@@ -265,7 +265,7 @@ void skb_image_atlas_debug_iterate_used_rects(skb_image_atlas_t* atlas, int32_t 
  * @param texture_idx index of the texture.
  * @return previous dirty rectangle.
  */
-skb_rect2i_t skb_image_atlas_debug_get_texture_prev_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
+SKB_API skb_rect2i_t skb_image_atlas_debug_get_texture_prev_dirty_bounds(skb_image_atlas_t* atlas, int32_t texture_idx);
 
 
 /**
@@ -289,7 +289,7 @@ skb_rect2i_t skb_image_atlas_debug_get_texture_prev_dirty_bounds(skb_image_atlas
  * @param alpha_mode whether to render the glyph as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
-skb_quad_t skb_image_atlas_get_glyph_quad(
+SKB_API skb_quad_t skb_image_atlas_get_glyph_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
 	skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size,
 	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
@@ -315,7 +315,7 @@ skb_quad_t skb_image_atlas_get_glyph_quad(
  * @param alpha_mode whether to render the icon as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
-skb_quad_t skb_image_atlas_get_icon_quad(
+SKB_API skb_quad_t skb_image_atlas_get_icon_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
 	const skb_icon_collection_t* icon_collection, skb_icon_handle_t icon_handle, float width, float height,
 	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
@@ -342,7 +342,7 @@ skb_quad_t skb_image_atlas_get_icon_quad(
  * @param alpha_mode whether to render the pattern as SDF or alpha mask.
  * @return quad representing the geometry to render, and portion of an image to use.
  */
-skb_quad_t skb_image_atlas_get_decoration_quad(
+SKB_API skb_quad_t skb_image_atlas_get_decoration_quad(
 	skb_image_atlas_t* atlas, float x, float y, float pixel_scale,
 	skb_decoration_position_t position, skb_decoration_style_t style, float length, float pattern_offset, float thickness,
 	skb_color_t tint_color, skb_rasterize_alpha_mode_t alpha_mode);
@@ -354,7 +354,7 @@ skb_quad_t skb_image_atlas_get_decoration_quad(
  * @param atlas atlas to use.
  * @return true if any items were removed.
  */
-bool skb_image_atlas_compact(skb_image_atlas_t* atlas);
+SKB_API bool skb_image_atlas_compact(skb_image_atlas_t* atlas);
 
 /**
  * Rasterizes glyphs and icons that have been requested.
@@ -368,7 +368,7 @@ bool skb_image_atlas_compact(skb_image_atlas_t* atlas);
  * @param rasterizer renderer to use during rasterization.
  * @return true if any images were changed.
  */
-bool skb_image_atlas_rasterize_missing_items(skb_image_atlas_t* atlas, skb_temp_alloc_t* temp_alloc, skb_rasterizer_t* rasterizer);
+SKB_API bool skb_image_atlas_rasterize_missing_items(skb_image_atlas_t* atlas, skb_temp_alloc_t* temp_alloc, skb_rasterizer_t* rasterizer);
 
 /** @} */
 

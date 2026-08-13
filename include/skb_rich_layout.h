@@ -29,41 +29,41 @@ typedef struct skb_rich_layout_t skb_rich_layout_t;
  * Creates a new empty rich layout.
  * @return
  */
-skb_rich_layout_t* skb_rich_layout_create(void);
+SKB_API skb_rich_layout_t* skb_rich_layout_create(void);
 
 /**
  * Destroys and frees existing rich layout.
  * @param rich_layout rich layout to destroy
  */
-void skb_rich_layout_destroy(skb_rich_layout_t* rich_layout);
+SKB_API void skb_rich_layout_destroy(skb_rich_layout_t* rich_layout);
 
 /**
  * Reset the rich layout to empty, keeping the allocated buffes.
  * @param rich_layout rich layout to reset
  */
-void skb_rich_layout_reset(skb_rich_layout_t* rich_layout);
+SKB_API void skb_rich_layout_reset(skb_rich_layout_t* rich_layout);
 
 
 /** @returns numner of paragraphs in the rich layout */
-int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* rich_layout);
+SKB_API int32_t skb_rich_layout_get_paragraphs_count(const skb_rich_layout_t* rich_layout);
 
 /** @returns const pointer to the layout for specified paragraph. */
-const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
+SKB_API const skb_layout_t* skb_rich_layout_get_layout(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
 
 /** @returns rendering offset of the layout of specified paragraph */
-skb_vec2_t skb_rich_layout_get_layout_offset(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
+SKB_API skb_vec2_t skb_rich_layout_get_layout_offset(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
 
 /** @retruns the Y advance to next paragraphs of specified paragraph. */
-float skb_rich_layout_get_layout_advance_y(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
+SKB_API float skb_rich_layout_get_layout_advance_y(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
 
 /** @returns the text direction of specified paragraph */
-skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
+SKB_API skb_text_direction_t skb_rich_layout_get_direction(const skb_rich_layout_t* rich_layout, int32_t paragraph_idx);
 
 /** @returns layout parameters of rich layout. */
-const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout);
+SKB_API const skb_layout_params_t* skb_rich_layout_get_params(const skb_rich_layout_t* rich_layout);
 
 /** @returns the bounds of the whole rich layout. */
-skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout);
+SKB_API skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout);
 
 /**
  * Updates the rich layout to from rich text.
@@ -82,7 +82,7 @@ skb_rect2_t skb_rich_layout_get_bounds(const skb_rich_layout_t* rich_layout);
  * @param composition_text_offset offset of the composition (IME) text, 0 if not used.
  * @param composition_text the composition text to insert at composition_text_offset, NULL if not used.
  */
-void skb_rich_layout_set_from_rich_text(
+SKB_API void skb_rich_layout_set_from_rich_text(
 	skb_rich_layout_t* rich_layout, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_rich_text_t* rich_text,
 	int32_t composition_text_offset, const skb_text_t* composition_text);
@@ -94,7 +94,7 @@ void skb_rich_layout_set_from_rich_text(
  * @param rich_layout rich layout to update.
  * @param change change to apply.
  */
-void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_change_t change);
+SKB_API void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_change_t change);
 
 /**
  * Returns caret info at the text position.
@@ -102,7 +102,7 @@ void skb_rich_layout_apply_change(skb_rich_layout_t* rich_layout, skb_rich_text_
  * @param text_pos text postion to query
  * @return caret info at text position.
  */
-skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
+SKB_API skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos);
 
 /**
  * Iterates over set of bounding rectangles that represent the text range.
@@ -112,7 +112,7 @@ skb_caret_info_t skb_rich_layout_get_caret_info_at(const skb_rich_layout_t* rich
  * @param callback callback to call on each rectangle
  * @param context context passed to the callback.
  */
-void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
+SKB_API void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context);
 
 /**
  * Returns caret text position under the hit location.
@@ -124,7 +124,7 @@ void skb_rich_layout_get_text_range_bounds(const skb_rich_layout_t* rich_layout,
  * @param hit_y hit Y location
  * @return caret text position under the specified hit location.
  */
-skb_text_position_t skb_rich_layout_hit_test(const skb_rich_layout_t* rich_layout, skb_movement_type_t type, float hit_x, float hit_y);
+SKB_API skb_text_position_t skb_rich_layout_hit_test(const skb_rich_layout_t* rich_layout, skb_movement_type_t type, float hit_x, float hit_y);
 
 
 /** @} */

@@ -48,17 +48,28 @@ Skribidi just got started. There are bugs and the API is very likely to change.
 - Ensure CMake is in the user `PATH`
 - `mkdir build`
 - `cd build`
-- `cmake ..`
-- Build
+- Generate the build files:
+    - `cmake ..`
+- Compile:
 	- *Windows*: Open and build `build/skribidi.sln`
 	- *Linux*: use `cmake --build . -j$(nproc)`
 	- *macOS*: use `cmake --build . -j$(sysctl -n hw.ncpu)`
 
 When running the example or test, the working directory should be the build binary directory (`/build/bin`). On Windows, the example data direction is copied there and on Linux or macOS there's a symlink for the data directory.
 
+When generating the build files, you can provide options to using the `-D` flag (for example `cmake .. -D SKRIBIDI_UNIT_TESTS=OFF`). Skribidi provides a number of options:
+
+- **`BUILD_SHARED_LIBS`** determines whether Skribidi and it's dependencies are built as a static library or as a shared library. This is disabled by default, producing a static library.
+
+- **`SKRIBIDI_LIBRARY_TYPE`** is the library type to build only Skribidi as and doesn't effect Skribidi's dependencies. It must be a valid CMake library type. Set it to `STATIC` to build as a static library, `SHARED` to build as a shared library, or `OBJECT` to build as a CMake object library.
+
+- **`SKRIBIDI_EXAMPLE`** determines whether the examples are built along with the library. Disabled by default when Skribidi is build as a subproject of a larger CMake project.
+
+- **`SKRIBIDI_UNIT_TESTS`** determines whether the unit tests are build along with the library. Disabled by default when Skribidi is build as a subproject of a larger CMake project.
+
 ## Dependencies
 The project uses CMake, but you dont need to. If you handle dependecies yourself you can just add the
-`include` and `src` to your project and you're good to go. The CMake is used to fetch the right deps
+`include` and `src` to your project and you're good to go. If you are using Skdribidi as a shared library, you must define `SKB_DLL`, otherwise it must not be defined. The CMake is used to fetch the right deps
 and to build the examples and tests, making development simpler.
 
 - [Harfbuzz](https://github.com/harfbuzz/harfbuzz) - 11.0.0

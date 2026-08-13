@@ -260,14 +260,14 @@ typedef bool skb_font_fallback_func_t(skb_font_collection_t* font_collection, co
  * Creates a new font collection.
  * @return created font collection.
  */
-skb_font_collection_t* skb_font_collection_create(void);
+SKB_API skb_font_collection_t* skb_font_collection_create(void);
 
 /**
  * Destroys font collection.
  * Note: layouts store pointers to the font collection. The font collection should be destroyed only after all layouts are destroyed.
  * @param font_collection font collection to destroy.
  */
-void skb_font_collection_destroy(skb_font_collection_t* font_collection);
+SKB_API void skb_font_collection_destroy(skb_font_collection_t* font_collection);
 
 /**
  * Sets callback function that is called when we cannot match font. The callback allows the user to either collect missing fonts, or to load them.
@@ -275,7 +275,7 @@ void skb_font_collection_destroy(skb_font_collection_t* font_collection);
  * @param fallback_func function to call when font selection fails.
  * @param context Pointer passed to the callback function.
  */
-void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context);
+SKB_API void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collection, skb_font_fallback_func_t* fallback_func, void* context);
 
 /**
  * Adds OTF or TTF font to the collection from memory.
@@ -291,7 +291,7 @@ void skb_font_collection_set_on_font_fallback(skb_font_collection_t* font_collec
  * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_font_from_data(
+SKB_API skb_font_handle_t skb_font_collection_add_font_from_data(
 	skb_font_collection_t* font_collection, const char* name,
 	const void* font_data, size_t font_data_length, void* context, skb_destroy_func_t* destroy_func,
 	uint8_t font_family, const skb_font_create_params_t* params);
@@ -305,7 +305,7 @@ skb_font_handle_t skb_font_collection_add_font_from_data(
  * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_font(
+SKB_API skb_font_handle_t skb_font_collection_add_font(
 	skb_font_collection_t* font_collection, const char* file_name,
 	uint8_t font_family, const skb_font_create_params_t* params);
 #endif
@@ -319,7 +319,7 @@ skb_font_handle_t skb_font_collection_add_font(
  * @param params (optional) pointer to font creation params, or NULL if not used.
  * @return pointer to the added font, on NULL if failed to load the font.
  */
-skb_font_handle_t skb_font_collection_add_hb_font(
+SKB_API skb_font_handle_t skb_font_collection_add_hb_font(
 	skb_font_collection_t* font_collection, const char* name,
 	hb_font_t* hb_font, uint8_t font_family, const skb_font_create_params_t* params);
 
@@ -329,7 +329,7 @@ skb_font_handle_t skb_font_collection_add_hb_font(
  * @param font_handle handle to the font to remove.
  * @return true if the remove succeeded.
  */
-bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
+SKB_API bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /**
  * Returns fonts matching specific font properties.
@@ -347,7 +347,7 @@ bool skb_font_collection_remove_font(skb_font_collection_t* font_collection, skb
  * @param results_cap results array capacity.
  * @return number of fonts matching the parameters.
  */
-int32_t skb_font_collection_match_fonts(
+SKB_API int32_t skb_font_collection_match_fonts(
 	skb_font_collection_t* font_collection,
 	const char* lang, uint8_t script, uint8_t font_family,
 	skb_weight_t weight, skb_style_t style, skb_stretch_t stretch,
@@ -360,7 +360,7 @@ int32_t skb_font_collection_match_fonts(
  * @param codepoint codepoint to query
  * @return true of the font exists and given codepoint is supported by the font, else false.
  */
-bool skb_font_collection_font_has_codepoint(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t codepoint);
+SKB_API bool skb_font_collection_font_has_codepoint(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t codepoint);
 
 /**
  * Returns default font for specified font family.
@@ -369,7 +369,7 @@ bool skb_font_collection_font_has_codepoint(const skb_font_collection_t* font_co
  * @param font_family font family to query.
  * @return handle to the default font.
  */
-skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* font_collection, uint8_t font_family);
+SKB_API skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* font_collection, uint8_t font_family);
 
 /**
  * Returns font from the collection. The font pointer should not be stored for longer duration. Use skb_font_handle_t instead.
@@ -377,10 +377,10 @@ skb_font_handle_t skb_font_collection_get_default_font(skb_font_collection_t* fo
  * @param font_handle handle to the font to get from the collection.
  * @return pointer to the specified font, or NULL if not found.
  */
-skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
+SKB_API skb_font_t* skb_font_collection_get_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /** @returns the id of the font collection, each font collection has unique index. */
-uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection);
+SKB_API uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection);
 
 /**
  * Returns the bounding rect of the specified glyph.
@@ -390,7 +390,7 @@ uint32_t skb_font_collection_get_id(const skb_font_collection_t* font_collection
  * @param font_size size of the font.
  * @return rectangle descriging the bounding rect of the glyph.
  */
-skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size);
+SKB_API skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, uint32_t glyph_id, float font_size);
 
 /**
  * Returns fotn metrics.
@@ -398,7 +398,7 @@ skb_rect2_t skb_font_get_glyph_bounds(const skb_font_collection_t* font_collecti
  * @param font_handle font to use.
  * @return font metrics.
  */
-skb_font_metrics_t skb_font_get_metrics(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
+SKB_API skb_font_metrics_t skb_font_get_metrics(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /**
  * Returns font caret metrics
@@ -406,7 +406,7 @@ skb_font_metrics_t skb_font_get_metrics(const skb_font_collection_t* font_collec
  * @param font_handle font to use.
  * @return caret metrics.
  */
-skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
+SKB_API skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /**
  * Returns Harfbuzz representation of the font.
@@ -414,7 +414,7 @@ skb_caret_metrics_t skb_font_get_caret_metrics(const skb_font_collection_t* font
  * @param font_handle font to use.
  * @return pointer to the Harfbuzz representation.
  */
-hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
+SKB_API hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle);
 
 /**
  * Returns specific baseline of the specified font.
@@ -426,7 +426,7 @@ hb_font_t* skb_font_get_hb_font(const skb_font_collection_t* font_collection, sk
  * @param font_size size of the font in use.
  * @return vertical location of the baseline.
  */
-float skb_font_get_baseline(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size);
+SKB_API float skb_font_get_baseline(const skb_font_collection_t* font_collection, skb_font_handle_t font_handle, skb_baseline_t baseline, skb_text_direction_t direction, uint8_t script, float font_size);
 
 /**
  * Returns the baseline set of the specified font and font_size.
@@ -437,7 +437,7 @@ float skb_font_get_baseline(const skb_font_collection_t* font_collection, skb_fo
  * @param font_size size of the font in use.
  * @return
  */
-skb_baseline_set_t skb_font_get_baseline_set(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_text_direction_t direction, uint8_t script, float font_size);
+SKB_API skb_baseline_set_t skb_font_get_baseline_set(const skb_font_collection_t* font_collection, const skb_font_handle_t font_handle, skb_text_direction_t direction, uint8_t script, float font_size);
 
 /** @} */
 

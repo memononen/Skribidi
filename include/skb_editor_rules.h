@@ -94,13 +94,13 @@ typedef struct skb_editor_rule_t {
  * Creates new empty editor rule set. Use skb_editor_rule_set_destroy() to destroy.
  * @return pointer to the newly created rule set.
  */
-skb_editor_rule_set_t* skb_editor_rule_set_create(void);
+SKB_API skb_editor_rule_set_t* skb_editor_rule_set_create(void);
 
 /**
  * Cleans up and frees an editor rule set.
  * @param rule_set ruleset to destroy.
  */
-void skb_editor_rule_set_destroy(skb_editor_rule_set_t* rule_set);
+SKB_API void skb_editor_rule_set_destroy(skb_editor_rule_set_t* rule_set);
 
 /**
  * Appends editor rules to the rule set.
@@ -108,7 +108,7 @@ void skb_editor_rule_set_destroy(skb_editor_rule_set_t* rule_set);
  * @param rules pointer to array of rules to append.
  * @param rules_count number of rules in the rules array.
  */
-void skb_editor_rule_set_append(skb_editor_rule_set_t* rule_set, const skb_editor_rule_t* rules, int32_t rules_count);
+SKB_API void skb_editor_rule_set_append(skb_editor_rule_set_t* rule_set, const skb_editor_rule_t* rules, int32_t rules_count);
 
 /**
  * Processed the rules in the rule set.
@@ -121,7 +121,7 @@ void skb_editor_rule_set_append(skb_editor_rule_set_t* rule_set, const skb_edito
  * @param context user context pointer passed to the apply callbacks.
  * @return true of a rule was succesfully processed.
  */
-bool skb_editor_rule_set_process(const skb_editor_rule_set_t* rule_set, skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, int32_t key, uint32_t key_mods, void* context);
+SKB_API bool skb_editor_rule_set_process(const skb_editor_rule_set_t* rule_set, skb_editor_t* editor, skb_temp_alloc_t* temp_alloc, int32_t key, uint32_t key_mods, void* context);
 
 
 /**
@@ -131,7 +131,7 @@ bool skb_editor_rule_set_process(const skb_editor_rule_set_t* rule_set, skb_edit
  * @param codepoint codepoint to insert.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_insert_codepoint(int32_t key, uint32_t key_mods, uint32_t codepoint);
+SKB_API skb_editor_rule_t skb_editor_rule_make_insert_codepoint(int32_t key, uint32_t key_mods, uint32_t codepoint);
 
 /**
  * Makes rule to process specific key on key press with modifiers
@@ -140,7 +140,7 @@ skb_editor_rule_t skb_editor_rule_make_insert_codepoint(int32_t key, uint32_t ke
  * @param edit_key editor key to process (see skb_editor_key_t).
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_process_key(int32_t key, uint32_t key_mods, int32_t edit_key);
+SKB_API skb_editor_rule_t skb_editor_rule_make_process_key(int32_t key, uint32_t key_mods, int32_t edit_key);
 
 /**
  * Makes rule to process specific key on keypress.
@@ -149,7 +149,7 @@ skb_editor_rule_t skb_editor_rule_make_process_key(int32_t key, uint32_t key_mod
  * @param edit_key editor key to process (see skb_editor_key_t).
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_process_key_pass_mod(int32_t key, int32_t edit_key);
+SKB_API skb_editor_rule_t skb_editor_rule_make_process_key_pass_mod(int32_t key, int32_t edit_key);
 
 /**
  * Makes rule that matches specific prefix at paragraph start, and if match is found the prefix is removed and paragraph style is changed.
@@ -161,7 +161,7 @@ skb_editor_rule_t skb_editor_rule_make_process_key_pass_mod(int32_t key, int32_t
  * @param applied_attribute_name paragraph style to apply.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_convert_start_prefix_to_paragraph_style(int32_t key, uint32_t key_mods, const char* prefix_utf8, const char* on_attribute_name, const char* applied_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_convert_start_prefix_to_paragraph_style(int32_t key, uint32_t key_mods, const char* prefix_utf8, const char* on_attribute_name, const char* applied_attribute_name);
 
 /**
  * Makes rule to change the indent level of all selected paragraphs.
@@ -171,7 +171,7 @@ skb_editor_rule_t skb_editor_rule_make_convert_start_prefix_to_paragraph_style(i
  * @param delta indent delta to apply for the paragraphs
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_change_indent(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
+SKB_API skb_editor_rule_t skb_editor_rule_make_change_indent(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
 
 /**
  * Makes rule to change the indent level when the caret is at the start of a paragraph.
@@ -181,7 +181,7 @@ skb_editor_rule_t skb_editor_rule_make_change_indent(int32_t key, uint32_t key_m
  * @param delta indent delta to apply for the paragraphs
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_change_indent_at_paragraph_start(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
+SKB_API skb_editor_rule_t skb_editor_rule_make_change_indent_at_paragraph_start(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
 
 /**
  * Makes rule to remove one indent level when the caret is at the start of a paragraph.
@@ -192,7 +192,7 @@ skb_editor_rule_t skb_editor_rule_make_change_indent_at_paragraph_start(int32_t 
  * @param applied_attribute_name paragraph style to apply if the indent level is 0.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_remove_indent_at_paragraph_start(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_remove_indent_at_paragraph_start(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
 
 /**
  * Makes rule to add a new paragraph when key is pressed on an empty paragraph.
@@ -203,7 +203,7 @@ skb_editor_rule_t skb_editor_rule_make_remove_indent_at_paragraph_start(int32_t 
  * @param applied_attribute_name paragraph style to apply to the next new paragraph.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_change_style_on_empty_paragraph(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_change_style_on_empty_paragraph(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
 
 /**
  * Makes rule to add a new paragraph when key is pressed at the end of a paragraph.
@@ -214,7 +214,7 @@ skb_editor_rule_t skb_editor_rule_make_change_style_on_empty_paragraph(int32_t k
  * @param applied_attribute_name paragraph style to apply to the next new paragraph.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_change_style_at_paragraph_end(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_change_style_at_paragraph_end(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
 
 /**
  * Makes rule to use tabs to indent the selected paragraphs.
@@ -225,7 +225,7 @@ skb_editor_rule_t skb_editor_rule_make_change_style_at_paragraph_end(int32_t key
  * @param delta indent delta.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_code_change_indent(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
+SKB_API skb_editor_rule_t skb_editor_rule_make_code_change_indent(int32_t key, uint32_t key_mods, const char* on_attribute_name, int32_t delta);
 
 /**
  * Makes rule to add a new paragraph when key is pressed on an empty paragraph.
@@ -237,7 +237,7 @@ skb_editor_rule_t skb_editor_rule_make_code_change_indent(int32_t key, uint32_t 
  * @param applied_attribute_name paragraph style to apply to the next new paragraph.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_code_change_style_on_empty_paragraph(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_code_change_style_on_empty_paragraph(int32_t key, uint32_t key_mods, const char* on_attribute_name, const char* applied_attribute_name);
 
 /**
  * Makes rule to add a new paragraph and match the tabs and the start of the new paragraph with current paragraph.
@@ -246,7 +246,7 @@ skb_editor_rule_t skb_editor_rule_make_code_change_style_on_empty_paragraph(int3
  * @param on_attribute_name expected attribute on the paragraph under the caret.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_code_match_tabs(int32_t key, uint32_t key_mods, const char* on_attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_code_match_tabs(int32_t key, uint32_t key_mods, const char* on_attribute_name);
 
 /**
  * Makes rule to set paragraph attribute.
@@ -255,7 +255,7 @@ skb_editor_rule_t skb_editor_rule_make_code_match_tabs(int32_t key, uint32_t key
  * @param attribute_name paragraph style to apply.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_set_paragraph_attribute(int32_t key, uint32_t key_mods, const char* attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_set_paragraph_attribute(int32_t key, uint32_t key_mods, const char* attribute_name);
 
 /**
  * Makes tule to toggle text attributes.
@@ -264,7 +264,7 @@ skb_editor_rule_t skb_editor_rule_make_set_paragraph_attribute(int32_t key, uint
  * @param attribute_name text attribute to toggle.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_toggle_attribute(int32_t key, uint32_t key_mods, const char* attribute_name);
+SKB_API skb_editor_rule_t skb_editor_rule_make_toggle_attribute(int32_t key, uint32_t key_mods, const char* attribute_name);
 
 /** Enum describing options for skb_editor_rule_make_undo_redo. */
 typedef enum {
@@ -281,7 +281,7 @@ typedef enum {
  * @param type undo or redo, see skb_editor_rule_undo_redo_type_t.
  * @return initialized rule.
  */
-skb_editor_rule_t skb_editor_rule_make_undo_redo(int32_t key, uint32_t key_mods, skb_editor_rule_undo_redo_type_t type);
+SKB_API skb_editor_rule_t skb_editor_rule_make_undo_redo(int32_t key, uint32_t key_mods, skb_editor_rule_undo_redo_type_t type);
 
 /** Enum describing options for skb_editor_rule_make_select. */
 typedef enum {
@@ -298,7 +298,7 @@ typedef enum {
  * @param type none or all, see skb_editor_rule_select_type_t.
  * @return
  */
-skb_editor_rule_t skb_editor_rule_make_select(int32_t key, uint32_t key_mods, skb_editor_rule_select_type_t type);
+SKB_API skb_editor_rule_t skb_editor_rule_make_select(int32_t key, uint32_t key_mods, skb_editor_rule_select_type_t type);
 
 /** @} */
 
