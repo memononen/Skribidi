@@ -60,6 +60,8 @@ enum skb_quad_flags_t {
 	SKB_QUAD_IS_COLOR = 1 << 0,
 	/** The quad uses SDF. */
 	SKB_QUAD_IS_SDF   = 1 << 1,
+	/** The quad is empty (i.e. white space). */
+	SKB_QUAD_IS_EMPTY   = 1 << 2,
 };
 
 /** Quad representing textured rectangle to render. */

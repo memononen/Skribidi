@@ -1086,21 +1086,36 @@ skb_quad_t skb_image_atlas_get_glyph_quad(
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
 
 	skb_quad_t quad = {0};
-	quad.texture.x = (float)(item->texture_offset_x + inset);
-	quad.texture.y = (float)(item->texture_offset_y + inset);
-	quad.texture.width = (float)(item->width - inset*2);
-	quad.texture.height = (float)(item->height - inset*2);
+
+	if (item->width == 0 || item->height == 0) {
+		quad.texture.x = (float)item->texture_offset_x;
+		quad.texture.y = (float)item->texture_offset_y;
+		quad.texture.width = 0.f;
+		quad.texture.height = 0.f;
+
+		quad.geom.x = x + (float)item->geom_offset_x * render_scale;
+		quad.geom.y = y + (float)item->geom_offset_y * render_scale;
+		quad.geom.width = 0.f;
+		quad.geom.height = 0.f;
+
+		SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_EMPTY, true);
+	} else {
+		quad.texture.x = (float)(item->texture_offset_x + inset);
+		quad.texture.y = (float)(item->texture_offset_y + inset);
+		quad.texture.width = (float)(item->width - inset*2);
+		quad.texture.height = (float)(item->height - inset*2);
+
+		quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
+		quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
+		quad.geom.width = (float)(item->width - inset*2) * render_scale;
+		quad.geom.height = (float)(item->height - inset*2) * render_scale;
+	}
 
 	// Map the whole texture region to geom.
 	quad.pattern.x = 0.f;
 	quad.pattern.y = 0.f;
 	quad.pattern.width = 1.f;
 	quad.pattern.height = 1.f;
-
-	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
-	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
-	quad.geom.width = (float)(item->width - inset*2) * render_scale;
-	quad.geom.height = (float)(item->height - inset*2) * render_scale;
 
 	quad.scale = render_scale * pixel_scale;
 	quad.texture_idx = item->texture_idx;
@@ -1223,21 +1238,36 @@ skb_quad_t skb_image_atlas_get_icon_quad(
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
 
 	skb_quad_t quad = {0};
-	quad.texture.x = (float)(item->texture_offset_x + inset);
-	quad.texture.y = (float)(item->texture_offset_y + inset);
-	quad.texture.width = (float)(item->width - inset*2);
-	quad.texture.height = (float)(item->height - inset*2);
+
+	if (item->width == 0 || item->height == 0) {
+		quad.texture.x = (float)item->texture_offset_x;
+		quad.texture.y = (float)item->texture_offset_y;
+		quad.texture.width = 0.f;
+		quad.texture.height = 0.f;
+
+		quad.geom.x = x + (float)item->geom_offset_x * render_scale_x;
+		quad.geom.y = y + (float)item->geom_offset_y * render_scale_y;
+		quad.geom.width = 0.f;
+		quad.geom.height = 0.f;
+
+		SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_EMPTY, true);
+	} else {
+		quad.texture.x = (float)(item->texture_offset_x + inset);
+		quad.texture.y = (float)(item->texture_offset_y + inset);
+		quad.texture.width = (float)(item->width - inset*2);
+		quad.texture.height = (float)(item->height - inset*2);
+
+		quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale_x;
+		quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale_y;
+		quad.geom.width = (float)(item->width - inset*2) * render_scale_x;
+		quad.geom.height = (float)(item->height - inset*2) * render_scale_y;
+	}
 
 	// Map the whole texture region to geom.
 	quad.pattern.x = 0.f;
 	quad.pattern.y = 0.f;
 	quad.pattern.width = 1.f;
 	quad.pattern.height = 1.f;
-
-	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale_x;
-	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale_y;
-	quad.geom.width = (float)(item->width - inset*2) * render_scale_x;
-	quad.geom.height = (float)(item->height - inset*2) * render_scale_y;
 
 	quad.scale = skb_maxf(render_scale_x, render_scale_y) * pixel_scale;
 	quad.texture_idx = item->texture_idx;
@@ -1345,24 +1375,44 @@ skb_quad_t skb_image_atlas_get_decoration_quad(
 
 	static const int32_t inset = 1; // Inset the rectangle by one texel, so that interpolation will not try to use data outside the atlas rect.
 
-	const float pattern_width = (float)(item->width - inset*2) * render_scale;
 
 	// Note: x is missing inset intentionally since the quad is tiling.
 	skb_quad_t quad = {0};
-	quad.texture.x = (float)(item->texture_offset_x + inset);
-	quad.texture.y = (float)(item->texture_offset_y + inset);
-	quad.texture.width = (float)(item->width - inset*2);
-	quad.texture.height = (float)(item->height - inset*2);
-	quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
-	quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
-	quad.geom.width = length;
-	quad.geom.height = (float)(item->height - inset*2) * render_scale;
+	if (item->width == 0 || item->height == 0) {
+		quad.texture.x = (float)item->texture_offset_x;
+		quad.texture.y = (float)item->texture_offset_y;
+		quad.texture.width = 0;
+		quad.texture.height = 0;
+		quad.geom.x = x + (float)item->geom_offset_x * render_scale;
+		quad.geom.y = y + (float)item->geom_offset_y * render_scale;
+		quad.geom.width = 0.f;
+		quad.geom.height = 0.f;
 
-	// Calculate mapping between the image and geom
-	quad.pattern.x = -pattern_offset / pattern_width;
-	quad.pattern.y = 0.f;
-	quad.pattern.width = length / pattern_width;
-	quad.pattern.height = 1.f;
+		// Calculate mapping between the image and geom
+		quad.pattern.x = 0.f;
+		quad.pattern.y = 0.f;
+		quad.pattern.width = 1.f;
+		quad.pattern.height = 1.f;
+
+		SKB_SET_FLAG(quad.flags, SKB_QUAD_IS_EMPTY, true);
+	} else {
+		const float pattern_width = (float)(item->width - inset*2) * render_scale;
+
+		quad.texture.x = (float)(item->texture_offset_x + inset);
+		quad.texture.y = (float)(item->texture_offset_y + inset);
+		quad.texture.width = (float)(item->width - inset*2);
+		quad.texture.height = (float)(item->height - inset*2);
+		quad.geom.x = x + (float)(item->geom_offset_x + inset) * render_scale;
+		quad.geom.y = y + (float)(item->geom_offset_y + inset) * render_scale;
+		quad.geom.width = length;
+		quad.geom.height = (float)(item->height - inset*2) * render_scale;
+
+		// Calculate mapping between the image and geom
+		quad.pattern.x = -pattern_offset / pattern_width;
+		quad.pattern.y = 0.f;
+		quad.pattern.width = length / pattern_width;
+		quad.pattern.height = 1.f;
+	}
 
 	quad.scale = render_scale * pixel_scale;
 	quad.texture_idx = item->texture_idx;
@@ -1372,7 +1422,6 @@ skb_quad_t skb_image_atlas_get_decoration_quad(
 
 	return quad;
 }
-
 
 
 void skb__image_clear(skb_image_t* image, int32_t offset_x, int32_t offset_y, int32_t width, int32_t height)

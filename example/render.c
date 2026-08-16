@@ -418,6 +418,9 @@ void render_draw_quad(render_context_t* rc, const skb_quad_t* quad)
 {
 	assert(rc);
 
+	if (quad->flags & SKB_QUAD_IS_EMPTY)
+		return;
+
 	const skb_rect2_t geom = render_transform_rect(rc, quad->geom);
 	const uint32_t scissor_id = rc->scissor_stack[rc->scissor_stack_idx];
 
