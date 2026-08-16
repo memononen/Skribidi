@@ -123,11 +123,30 @@ static int test_paragraph_range_ordering(void)
 	return 0;
 }
 
+static int test_empty_pos(void)
+{
+	skb_temp_alloc_t* temp_alloc = skb_temp_alloc_create(1024);
+	ENSURE(temp_alloc != NULL);
+
+	skb_rich_text_t* rich_text = skb_rich_text_create();
+	skb_rich_text_append_utf8(rich_text, temp_alloc, "", -1, (skb_attribute_set_t){0});
+	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 1);
+
+	skb_text_position_t pos = skb_rich_text_get_next_grapheme_pos(rich_text, (skb_text_position_t){0});
+	ENSURE(pos.offset == 0);
+
+	skb_rich_text_destroy(rich_text);
+	skb_temp_alloc_destroy(temp_alloc);
+
+	return 0;
+}
+
 int rich_text_tests(void)
 {
 	RUN_SUBTEST(test_rich_text_create);
 	RUN_SUBTEST(test_rich_text_replace);
 	RUN_SUBTEST(test_rich_text_append);
 	RUN_SUBTEST(test_paragraph_range_ordering);
+	RUN_SUBTEST(test_empty_pos);
 	return 0;
 }

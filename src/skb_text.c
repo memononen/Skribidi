@@ -772,7 +772,7 @@ skb_text_range_t skb_text_find_reverse_utf32(const skb_text_t* text, skb_text_ra
 		value_utf32_count = skb_utf32_strlen(value_utf32);
 
 	uint32_t value_last = value_utf32[value_utf32_count - 1];
-	int32_t text_offset = skb_clampi(search_range.end - 1, 0, text->text_count - 1); // Make sure the offset is in range.
+	int32_t text_offset = skb_clampi(search_range.end - 1, 0, skb_maxi(0, text->text_count - 1)); // Make sure the offset is in range.
 
 	while (text_offset >= search_range.start) {
 		if (text->text[text_offset] == value_last) {

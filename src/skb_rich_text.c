@@ -76,7 +76,7 @@ static skb_paragraph_position_t skb__get_paragraph_position(const skb_rich_text_
 	const int32_t start_text_offset = paragraph->global_text_offset;
 	return (skb_paragraph_position_t){
 		.paragraph_idx = paragraph_idx,
-		.text_offset = skb_clampi(text_offset - start_text_offset, 0, text_count - 1),
+		.text_offset = skb_clampi(text_offset - start_text_offset, 0, skb_maxi(0, text_count - 1)),
 		.global_text_offset = text_offset,
 	};
 }
@@ -1379,7 +1379,7 @@ skb_text_position_t skb_rich_text_get_next_grapheme_pos(const skb_rich_text_t* r
 	const int32_t text_count = skb_text_get_utf32_count(&paragraph->text);
 	if (pos.paragraph_idx == rich_text->paragraphs_count-1 && next_offset >= text_count) {
 		return (skb_text_position_t) {
-			.offset = paragraph->global_text_offset + text_count - 1,
+			.offset = paragraph->global_text_offset + skb_maxi(0, text_count - 1),
 			.affinity = SKB_AFFINITY_EOL,
 		};
 	}
@@ -1441,7 +1441,7 @@ skb_text_position_t skb_rich_text_align_grapheme_pos(const skb_rich_text_t* rich
 	const int32_t text_count = skb_text_get_utf32_count(&paragraph->text);
 	if (pos.paragraph_idx == rich_text->paragraphs_count-1 && cur_offset >= text_count) {
 		return (skb_text_position_t) {
-			.offset = paragraph->global_text_offset + text_count - 1,
+			.offset = paragraph->global_text_offset + skb_maxi(0, text_count - 1),
 			.affinity = SKB_AFFINITY_EOL,
 		};
 	}
