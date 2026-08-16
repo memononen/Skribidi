@@ -482,15 +482,15 @@ void* notes_create(GLFWwindow* window, render_context_t* rc)
 		// These rules handle unindent with backspace, on some styles the backspace can also remove the style when no indent is left.
 		const skb_editor_rule_t backspace_rules[] = {
 			// List unindent -> Body
-			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, 0, "LI", "BODY"),
+			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, SKB_EDITOR_RULE_KEY_MODS_ANY, "LI", "BODY"),
 			// Ordered List unindent -> Body
-			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, 0, "OL", "BODY"),
+			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, SKB_EDITOR_RULE_KEY_MODS_ANY, "OL", "BODY"),
 			// Quote unindent -> Body
-			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, 0, "QUOTE", "BODY"),
+			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, SKB_EDITOR_RULE_KEY_MODS_ANY, "QUOTE", "BODY"),
 			// Body unindent
-			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, 0, "BODY", NULL),
+			skb_editor_rule_make_remove_indent_at_paragraph_start(GLFW_KEY_BACKSPACE, SKB_EDITOR_RULE_KEY_MODS_ANY, "BODY", NULL),
 			// Process backspace
-			skb_editor_rule_make_process_key(GLFW_KEY_BACKSPACE, 0, SKB_KEY_BACKSPACE),
+			skb_editor_rule_make_process_key(GLFW_KEY_BACKSPACE, SKB_EDITOR_RULE_KEY_MODS_ANY, SKB_KEY_BACKSPACE),
 		};
 		skb_editor_rule_set_append(ctx->editor_rule_set, backspace_rules, SKB_COUNTOF(backspace_rules));
 

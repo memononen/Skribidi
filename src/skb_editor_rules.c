@@ -151,7 +151,8 @@ skb_editor_rule_t skb_editor_rule_make_insert_codepoint(int32_t key, uint32_t ke
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = false,
 		.apply = skb__editor_rule_apply_insert_codepoint,
 		.applied_value = (int32_t)codepoint,
@@ -169,7 +170,8 @@ skb_editor_rule_t skb_editor_rule_make_process_key(int32_t key, uint32_t key_mod
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.apply = skb__editor_rule_apply_process_key,
 		.applied_value = edit_key,
 	};
@@ -204,7 +206,8 @@ skb_editor_rule_t skb_editor_rule_make_convert_start_prefix_to_paragraph_style(i
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = true,
 		.prefix_utf8 = prefix_utf8,
 		.prefix_at_paragraph_start = true,
@@ -247,7 +250,8 @@ skb_editor_rule_t skb_editor_rule_make_change_indent(int32_t key, uint32_t key_m
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_indent,
 		.applied_value = delta,
@@ -268,7 +272,8 @@ skb_editor_rule_t skb_editor_rule_make_change_indent_at_paragraph_start(int32_t 
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = true,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_indent_line_start,
@@ -304,7 +309,8 @@ skb_editor_rule_t skb_editor_rule_make_remove_indent_at_paragraph_start(int32_t 
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = true,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.applied_attribute_name = applied_attribute_name,
@@ -328,7 +334,8 @@ skb_editor_rule_t skb_editor_rule_make_change_style_on_empty_paragraph(int32_t k
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = true,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_reset_empty_paragraph,
@@ -353,7 +360,8 @@ skb_editor_rule_t skb_editor_rule_make_change_style_at_paragraph_end(int32_t key
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.empty_selection = true,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_change_style_line_end,
@@ -392,7 +400,8 @@ skb_editor_rule_t skb_editor_rule_make_code_change_indent(int32_t key, uint32_t 
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.has_selection = true,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_indent_code,
@@ -436,7 +445,8 @@ skb_editor_rule_t skb_editor_rule_make_code_change_style_on_empty_paragraph(int3
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_code_new_line,
 		.applied_attribute_name = applied_attribute_name,
@@ -466,7 +476,8 @@ skb_editor_rule_t skb_editor_rule_make_code_match_tabs(int32_t key, uint32_t key
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.on_paragraph_attribute_name = on_attribute_name,
 		.apply = skb__editor_rule_apply_code_match_tabs,
 	};
@@ -483,7 +494,8 @@ skb_editor_rule_t skb_editor_rule_make_set_paragraph_attribute(int32_t key, uint
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.apply = skb__editor_rule_apply_paragraph_attribute,
 		.applied_attribute_name = attribute_name,
 	};
@@ -500,7 +512,8 @@ skb_editor_rule_t skb_editor_rule_make_toggle_attribute(int32_t key, uint32_t ke
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.apply = skb__editor_rule_apply_toggle_attribute,
 		.applied_attribute_name = attribute_name,
 	};
@@ -519,7 +532,8 @@ skb_editor_rule_t skb_editor_rule_make_undo_redo(int32_t key, uint32_t key_mods,
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.apply = skb__editor_rule_apply_undo_redo,
 		.applied_value = (int32_t)type,
 	};
@@ -539,7 +553,8 @@ skb_editor_rule_t skb_editor_rule_make_select(int32_t key, uint32_t key_mods, sk
 {
 	return (skb_editor_rule_t) {
 		.key = key,
-		.key_mods = key_mods,
+		.any_mods = key_mods == SKB_EDITOR_RULE_KEY_MODS_ANY,
+		.key_mods = key_mods != SKB_EDITOR_RULE_KEY_MODS_ANY ? key_mods : 0,
 		.apply = skb__editor_rule_apply_select,
 		.applied_value = (int32_t)type,
 	};

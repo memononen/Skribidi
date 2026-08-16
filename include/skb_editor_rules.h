@@ -70,7 +70,7 @@ typedef struct skb_editor_rule_t {
 	int32_t key;
 	/** Key modifiers, must be 0 or combination of skb_editor_key_mod_t. The mods will be checked exactly. */
 	uint32_t key_mods;
-	/** If true, mods are not checked, the actualy mods will be available via skb_editor_rule_context_t.key_mods.  */
+	/** If true, mods are not checked, the actual mods will be available via skb_editor_rule_context_t.key_mods.  */
 	bool any_mods;
 	/** Expect empty current selection. */
 	bool empty_selection;
@@ -89,6 +89,9 @@ typedef struct skb_editor_rule_t {
 	/** Optional value that can be used by the apply callback. */
 	int32_t applied_value;
 } skb_editor_rule_t;
+
+/** When passed to key_mods, the rule will accept any modifier. */
+#define SKB_EDITOR_RULE_KEY_MODS_ANY (~0)
 
 /**
  * Creates new empty editor rule set. Use skb_editor_rule_set_destroy() to destroy.
