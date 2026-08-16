@@ -3408,19 +3408,12 @@ int32_t skb_layout_get_line_index(const skb_layout_t* layout, skb_text_position_
 {
 	assert(layout);
 
-	int32_t line_idx = SKB_INVALID_INDEX;
-	for (int32_t i = 0; i < layout->lines_count; i++) {
-		const skb_layout_line_t* line = &layout->lines[i];
-		if (pos.offset >= line->text_range.start && pos.offset < line->text_range.end) {
+	int32_t line_idx = 0; // Default to first line, this should happen if pos.offset is before first line text_range.start.
+	for (int32_t i = layout->lines_count - 1; i >= 0; i--) {
+		if (pos.offset >= layout->lines[i].text_range.start) {
 			line_idx = i;
 			break;
 		}
-	}
-	if (line_idx == SKB_INVALID_INDEX) {
-		if (pos.offset < layout->lines[0].text_range.start)
-			line_idx = 0;
-		else if (pos.offset >= layout->lines[layout->lines_count-1].text_range.end)
-			line_idx = layout->lines_count-1;
 	}
 
 	return line_idx;
@@ -3711,7 +3704,10 @@ skb_text_position_t skb__sanitize_offset(const skb_layout_t* layout, const skb_l
 skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, int32_t line_idx, skb_text_position_t pos)
 {
 	assert(layout);
-	assert(layout->lines_count > 0);
+	if (layout->lines_count == 0)
+		return (skb_caret_info_t) { 0 };
+	if (line_idx < 0 || line_idx >= layout->lines_count)
+		return (skb_caret_info_t) { 0 };
 
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 	pos = skb__sanitize_offset(layout, line, pos);
@@ -3773,6 +3769,40 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 		}
 	}
 
+	if (layout_run_idx == SKB_INVALID_INDEX) {
+		// Failed to find a caret position. This can be due to text getting clipped due to overflow attribute.
+		// Find run that is closest in text range.
+		int32_t min_diff = layout->text_count;
+
+		for (int32_t i = line->layout_run_range.start; i < line->layout_run_range.end; i++) {
+			const skb_layout_run_t* run = &layout->layout_runs[i];
+			// Skip markers and ellipsis as they dont have valid text range.
+			if (run->flags & (SKB_LAYOUT_RUN_IS_LIST_MARKER | SKB_LAYOUT_RUN_IS_ELLIPSIS))
+				continue;
+			const skb_range_t text_range = skb__get_layout_run_text_range(layout, i);
+			if (pos.offset < text_range.start) {
+				int32_t diff = text_range.start - pos.offset;
+				if (diff < min_diff) {
+					min_diff = diff;
+					layout_run_idx = i;
+					glyph_idx = run->glyph_range.start;
+					caret_info.x = run->bounds.x;
+					caret_info.direction = run->direction;
+				}
+			}
+			if (pos.offset >= text_range.end) {
+				int32_t diff = pos.offset - text_range.end;
+				if (diff < min_diff) {
+					min_diff = diff;
+					layout_run_idx = i;
+					glyph_idx = run->glyph_range.end - 1;
+					caret_info.x = run->bounds.x + run->bounds.width;
+					caret_info.direction = run->direction;
+				}
+			}
+		}
+	}
+
 	if (layout_run_idx != SKB_INVALID_INDEX && glyph_idx != SKB_INVALID_INDEX) {
 		const skb_layout_run_t* layout_run = &layout->layout_runs[layout_run_idx];
 		const float font_size = layout_run->font_size;
@@ -3795,8 +3825,9 @@ skb_caret_info_t skb_layout_get_caret_info_at_line(const skb_layout_t* layout, i
 
 skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
-	if (!layout->lines)
-		return (skb_caret_info_t) { 0 };
+	assert(layout);
+	if (layout->lines_count == 0)
+		return (skb_caret_info_t){0};
 
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
 
@@ -3806,7 +3837,13 @@ skb_caret_info_t skb_layout_get_caret_info_at(const skb_layout_t* layout, skb_te
 
 skb_text_position_t skb_layout_get_line_start_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+	if (layout->lines_count == 0)
+		return (skb_text_position_t){0};
+
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
+	assert(line_idx >= 0 && line_idx < layout->lines_count);
+
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 	skb_text_position_t result = {
 		.offset = line->text_range.start,
@@ -3817,7 +3854,13 @@ skb_text_position_t skb_layout_get_line_start_at(const skb_layout_t* layout, skb
 
 skb_text_position_t skb_layout_get_line_end_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+	if (layout->lines_count == 0)
+		return (skb_text_position_t){0};
+
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
+	assert(line_idx >= 0 && line_idx < layout->lines_count);
+
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 	skb_text_position_t result = {
 		.offset = line->last_grapheme_offset,
@@ -3828,7 +3871,12 @@ skb_text_position_t skb_layout_get_line_end_at(const skb_layout_t* layout, skb_t
 
 skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+	if (layout->lines_count == 0)
+		return (skb_text_position_t){0};
+
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
+	assert(line_idx >= 0 && line_idx < layout->lines_count);
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 
 	pos = skb__sanitize_offset(layout, line, pos);
@@ -3855,7 +3903,12 @@ skb_text_position_t skb_layout_get_word_start_at(const skb_layout_t* layout, skb
 
 skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_text_position_t pos)
 {
+	assert(layout);
+	if (layout->lines_count == 0)
+		return (skb_text_position_t){0};
+
 	const int32_t line_idx = skb_layout_get_line_index(layout, pos);
+	assert(line_idx >= 0 && line_idx < layout->lines_count);
 	const skb_layout_line_t* line = &layout->lines[line_idx];
 
 	pos = skb__sanitize_offset(layout, line, pos);
@@ -3882,6 +3935,8 @@ skb_text_position_t skb_layout_get_word_end_at(const skb_layout_t* layout, skb_t
 
 skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* layout, skb_text_range_t text_range)
 {
+	assert(layout);
+
 	const int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
 	const int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 
@@ -3893,6 +3948,8 @@ skb_text_position_t skb_layout_get_text_range_ordered_start(const skb_layout_t* 
 
 skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* layout, skb_text_range_t text_range)
 {
+	assert(layout);
+
 	const int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
 	const int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 
@@ -3904,6 +3961,8 @@ skb_text_position_t skb_layout_get_text_range_ordered_end(const skb_layout_t* la
 
 skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layout, skb_text_range_t text_range)
 {
+	assert(layout);
+
 	int32_t start_offset = skb_layout_get_offset_from_text_position(layout, text_range.start);
 	int32_t end_offset = skb_layout_get_offset_from_text_position(layout, text_range.end);
 	return (skb_range_t) {
@@ -3914,12 +3973,16 @@ skb_range_t skb_layout_get_offset_range_from_text_range(const skb_layout_t* layo
 
 int32_t skb_layout_get_text_range_count(const skb_layout_t* layout, skb_text_range_t text_range)
 {
+	assert(layout);
+
 	const skb_range_t range = skb_layout_get_offset_range_from_text_range(layout, text_range);
 	return range.end - range.start;
 }
 
 void skb_layout_iterate_text_range_bounds(const skb_layout_t* layout, skb_text_range_t text_range, skb_text_range_bounds_func_t* callback, void* context)
 {
+	assert(layout);
+
 	skb_layout_iterate_text_range_bounds_with_offset(layout, (skb_vec2_t){0}, text_range, callback, context);
 }
 
@@ -4062,6 +4125,8 @@ static int32_t render__get_indent_level(int32_t level, int32_t max_levels)
 
 skb_layout_indent_decoration_info_t skb_layout_get_indent_decoration_info(const skb_layout_t* layout)
 {
+	assert(layout);
+
 	skb_layout_indent_decoration_info_t info = {0};
 
 	// Indent decoration
@@ -4207,6 +4272,13 @@ skb_caret_iterator_t skb_caret_iterator_make(const skb_layout_t* layout, int32_t
 
 bool skb_caret_iterator_next(skb_caret_iterator_t* iter, float* x, float* advance, float* mid_point, skb_caret_iterator_result_t* left, skb_caret_iterator_result_t* right)
 {
+	assert(iter);
+	assert(left);
+	assert(right);
+	assert(x);
+	assert(advance);
+	assert(mid_point);
+
 	if (iter->end_of_line)
 		return false;
 
