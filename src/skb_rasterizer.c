@@ -761,11 +761,8 @@ static void skb__hb_pop_group (
 
 	skb_canvas_t* c = (skb_canvas_t*)paint_data;
 
-	if (mode != HB_PAINT_COMPOSITE_MODE_SRC_OVER) {
-		skb_debug_log("Unsupported blend mode: %d\n", mode);
-	}
-
-	skb_canvas_pop_layer(c);
+	// Note: Simple mode conversion possible because HB and SKB enum values both exactly match the COLRv1 spec.
+	skb_canvas_pop_layer(c, (skb_blend_mode_t)mode);
 }
 
 #define GRAST_MAX_COLOR_STOPS 64
@@ -1159,7 +1156,7 @@ static void skb__icon_draw_shape(skb_canvas_t* c, const skb_icon_t* icon, const 
 			skb_canvas_fill_solid_color(c, color);
 		}
 
-		skb_canvas_pop_layer(c);
+		skb_canvas_pop_layer(c, SKB_BLEND_SRC_OVER);
 	}
 
 	for (int32_t i = 0; i < shape->children_count; i++)

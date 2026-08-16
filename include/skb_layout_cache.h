@@ -30,13 +30,13 @@ typedef struct skb_layout_cache_t skb_layout_cache_t;
  * Creates a new layout cache.
  * @return newly created cache.
  */
-skb_layout_cache_t* skb_layout_cache_create(void);
+SKB_API skb_layout_cache_t* skb_layout_cache_create(void);
 
 /**
  * Destroy a layout cache.
  * @param cache pointer to layout cache to destroy.
  */
-void skb_layout_cache_destroy(skb_layout_cache_t* cache);
+SKB_API void skb_layout_cache_destroy(skb_layout_cache_t* cache);
 
 /**
  * Layouts specified text, or returns existing layout from cache if one exists.
@@ -48,7 +48,7 @@ void skb_layout_cache_destroy(skb_layout_cache_t* cache);
  * @param attributes attributes to apply to the text.
  * @return const pointer to the requested layout.
  */
-const skb_layout_t* skb_layout_cache_get_utf8(
+SKB_API const skb_layout_t* skb_layout_cache_get_utf8(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const char* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -62,7 +62,7 @@ const skb_layout_t* skb_layout_cache_get_utf8(
  * @param attributes attributes to apply to the text.
  * @return const pointer to the requested layout.
  */
-const skb_layout_t* skb_layout_cache_get_utf32(
+SKB_API const skb_layout_t* skb_layout_cache_get_utf32(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const uint32_t* text, int32_t text_count, skb_attribute_set_t attributes);
 
@@ -75,7 +75,7 @@ const skb_layout_t* skb_layout_cache_get_utf32(
  * @param runs_count number of runs in runs array.
  * @return const pointer to the requested layout.
  */
-const skb_layout_t* skb_layout_cache_get_from_runs(
+SKB_API const skb_layout_t* skb_layout_cache_get_from_runs(
 	skb_layout_cache_t* cache, skb_temp_alloc_t* temp_alloc,
 	const skb_layout_params_t* params, const skb_content_run_t* runs, int32_t runs_count);
 
@@ -85,7 +85,7 @@ const skb_layout_t* skb_layout_cache_get_from_runs(
  * @param cache layout cache to compect
  * @return true if layouts were evicted.
  */
-bool skb_layout_cache_compact(skb_layout_cache_t* cache);
+SKB_API bool skb_layout_cache_compact(skb_layout_cache_t* cache);
 
 /** @} */
 

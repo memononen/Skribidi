@@ -58,7 +58,7 @@ target_include_directories(skribidi_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} 
 target_link_libraries(skribidi_example PUBLIC glfw skribidi harfbuzz)
 
 # IME only works on Windows for now.
-if(MSVC)
+if(WIN32)
     target_link_libraries(skribidi_example PUBLIC imm32.lib comctl32.lib)
 endif()
 

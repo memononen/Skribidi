@@ -742,10 +742,12 @@ static float skb__calc_run_end_whitespace(const skb_layout_t* layout, skb_range_
 		for (int32_t gi = start_run->glyph_range.start; gi < start_run->glyph_range.end; gi++) {
 			const skb_glyph_t* glyph = &layout->glyphs[gi];
 			const skb_cluster_t* cluster= &layout->clusters[glyph->cluster_idx];
-			if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL))
-				whitespace_width += glyph->advance_x;
-			else
-				break;
+			if (cluster->text_count > 0) {
+				if ((layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_WHITESPACE) || (layout->text_props[cluster->text_offset].flags & SKB_TEXT_PROP_CONTROL))
+					whitespace_width += glyph->advance_x;
+				else
+					break;
+			}
 		}
 	} else {
 		// Prune space used by whitespace or control characters.

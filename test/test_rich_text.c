@@ -94,10 +94,40 @@ static int test_rich_text_append(void)
 	return 0;
 }
 
+// Verifies that skb_rich_text_get_paragraph_range_from_text_range returns a
+// range with start.paragraph_idx <= end.paragraph_idx even when the two
+// endpoints tie on global_text_offset across a paragraph boundary.
+static int test_paragraph_range_ordering(void)
+{
+	skb_temp_alloc_t* temp_alloc = skb_temp_alloc_create(1024);
+	ENSURE(temp_alloc != NULL);
+
+	skb_rich_text_t* rich_text = skb_rich_text_create();
+	skb_rich_text_append_utf8(rich_text, temp_alloc, "\n", -1, (skb_attribute_set_t){0});
+	// Produces two paragraphs: ["\n" global=0] and ["" global=1].
+	ENSURE(skb_rich_text_get_paragraphs_count(rich_text) == 2);
+
+	// start resolves to {paragraph_idx=1, text_offset=0, global=1} (last/empty paragraph).
+	// end   resolves to {paragraph_idx=0, text_offset=1, global=1} (end of '\n' in para 0).
+	// Both global offsets are 1, so ordering by global alone inverts start/end.
+	skb_text_range_t range = {
+		.start = { .offset = 1, .affinity = SKB_AFFINITY_NONE },
+		.end   = { .offset = 0, .affinity = SKB_AFFINITY_EOL  },
+	};
+	skb_paragraph_range_t result = skb_rich_text_get_paragraph_range_from_text_range(rich_text, range, SKB_AFFINITY_USE);
+	ENSURE(result.start.paragraph_idx <= result.end.paragraph_idx);
+
+	skb_rich_text_destroy(rich_text);
+	skb_temp_alloc_destroy(temp_alloc);
+
+	return 0;
+}
+
 int rich_text_tests(void)
 {
 	RUN_SUBTEST(test_rich_text_create);
 	RUN_SUBTEST(test_rich_text_replace);
 	RUN_SUBTEST(test_rich_text_append);
+	RUN_SUBTEST(test_paragraph_range_ordering);
 	return 0;
 }
