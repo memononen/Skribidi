@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include "skb_font_collection.h"
+#include "skribidi/skb_font_collection.h"
 
 // harfbuzz forward declarations
 typedef struct hb_font_t hb_font_t;

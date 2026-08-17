@@ -1,20 +1,19 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_image_atlas.h"
-
-#include "skb_common_internal.h"
-#include "skb_font_collection.h"
-#include "skb_font_collection_internal.h"
-#include "skb_icon_collection_internal.h"
-#include "skb_rasterizer.h"
-
 #include <assert.h>
 #include <string.h>
 
 #include "hb.h"
 #include "hb-ot.h"
 
+#include "skribidi/skb_image_atlas.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_rasterizer.h"
+
+#include "skb_common_internal.h"
+#include "skb_font_collection_internal.h"
+#include "skb_icon_collection_internal.h"
 
 enum {
 	SKB_SHELF_PACKER_NULL = 0xffff,

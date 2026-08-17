@@ -14,11 +14,11 @@
 #include "utils.h"
 #include "render.h"
 
-#include "skb_common.h"
-#include "skb_font_collection.h"
-#include "skb_rasterizer.h"
-#include "skb_layout.h"
-#include "skb_image_atlas.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_rasterizer.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_image_atlas.h"
 
 
 typedef struct richtext_context_t {

@@ -4,16 +4,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include "skb_common.h"
-#include "skb_common_internal.h"
-#include "skb_rich_layout.h"
-
 #include <float.h>
 
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_rich_layout.h"
+#include "skribidi/skb_rich_text.h"
+#include "skribidi/skb_layout.h"
+
+#include "skb_common_internal.h"
 #include "skb_rich_layout_internal.h"
-#include "skb_rich_text.h"
-#include "skb_layout.h"
 
 
 static skb_paragraph_position_t skb__rich_layout_get_paragraph_position_from_text_position(const skb_rich_layout_t* rich_layout, skb_text_position_t text_pos, skb_affinity_usage_t affinity_usage)

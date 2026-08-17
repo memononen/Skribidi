@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_canvas.h"
-#include "skb_common.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "skribidi/skb_canvas.h"
+#include "skribidi/skb_common.h"
 
 // The rasterizer is based on the old stb_truetype rasterizer.
 #define SKB_SUBSAMPLES		5

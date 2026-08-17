@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "test_macros.h"
-#include "skb_text.h"
+#include "skribidi/skb_text.h"
 
 static int test_create(void)
 {

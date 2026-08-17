@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_rasterizer.h"
+#include "skribidi/skb_rasterizer.h"
 
 static int test_init(void)
 {

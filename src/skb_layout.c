@@ -3,13 +3,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#include "skb_common.h"
-#include "skb_common_internal.h"
-#include "skb_layout.h"
-#include "skb_layout_internal.h"
-#include "skb_font_collection_internal.h"
-#include "skb_icon_collection.h"
+#include <assert.h>
+#include <float.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "hb.h"
 #include "SheenBidi/SheenBidi.h"
@@ -18,10 +15,14 @@
 #include "wordbreak.h"
 #include "budoux.h"
 
-#include <assert.h>
-#include <float.h>
-#include <stdlib.h>
-#include <string.h>
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_icon_collection.h"
+
+#include "skb_common_internal.h"
+#include "skb_layout_internal.h"
+#include "skb_font_collection_internal.h"
+
 
 #define SB_SCRIPT_COMMON SBScriptZYYY
 #define SB_SCRIPT_INHERITED SBScriptZINH

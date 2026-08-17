@@ -5,8 +5,7 @@
 #define SKB_RICH_LAYOUT_INTERNAL_H
 
 #include <stdint.h>
-
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 #include "skb_layout_internal.h"
 
 typedef struct skb_layout_paragraph_t {

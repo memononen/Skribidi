@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_common.h"
-#include "skb_common_internal.h"
-
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -12,6 +9,11 @@
 #include <string.h>
 
 #include "emoji_data.h"
+
+#include "skb_common_internal.h"
+
+#include "skribidi/skb_common.h"
+
 
 #ifdef _WIN32
 #include <windows.h>

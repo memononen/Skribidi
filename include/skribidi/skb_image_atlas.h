@@ -6,10 +6,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "skb_common.h"
-#include "skb_font_collection.h"
-#include "skb_icon_collection.h"
-#include "skb_rasterizer.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_icon_collection.h"
+#include "skribidi/skb_rasterizer.h"
 
 #ifdef __cplusplus
 extern "C" {

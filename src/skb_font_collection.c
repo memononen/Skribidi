@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_font_collection.h"
-#include "skb_font_collection_internal.h"
-
 #include <assert.h>
 #include <float.h>
 #include <string.h>
@@ -11,7 +8,11 @@
 #include "SheenBidi/SBScript.h"
 #include "hb.h"
 #include "hb-ot.h"
-#include "skb_layout.h"
+
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_layout.h"
+
+#include "skb_font_collection_internal.h"
 
 //
 // Fonts

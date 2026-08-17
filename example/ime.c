@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "ime.h"
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 
 #ifdef _WIN32
 #include <GLFW/glfw3.h>

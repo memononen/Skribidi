@@ -15,15 +15,15 @@
 #include "render.h"
 #include "utils.h"
 
-#include "skb_common.h"
-#include "skb_font_collection.h"
-#include "skb_attribute_collection.h"
-#include "skb_layout.h"
-#include "skb_rasterizer.h"
-#include "skb_image_atlas.h"
-#include "skb_editor.h"
-#include "skb_editor_rules.h"
-#include "skb_rich_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_attribute_collection.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_rasterizer.h"
+#include "skribidi/skb_image_atlas.h"
+#include "skribidi/skb_editor.h"
+#include "skribidi/skb_editor_rules.h"
+#include "skribidi/skb_rich_text.h"
 
 typedef struct ui_context_t {
 	render_context_t* rc;

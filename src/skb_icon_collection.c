@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_icon_collection.h"
-#include "skb_icon_collection_internal.h"
-
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
@@ -12,6 +9,10 @@
 #if !defined(SKB_NO_OPEN)
 #include <stdio.h>
 #endif // !defined(SKB_NO_OPEN)
+
+#include "skribidi/skb_icon_collection.h"
+
+#include "skb_icon_collection_internal.h"
 
 typedef struct skb__picosvg_gradient_name_t {
 	char id[32];

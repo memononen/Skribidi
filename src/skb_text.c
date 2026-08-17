@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-#include "skb_text.h"
-#include "skb_common.h"
-#include "skb_text_internal.h"
-
 #include <assert.h>
 #include <string.h>
 
 #include "graphemebreak.h"
-#include "skb_attribute_collection.h"
+
+#include "skribidi/skb_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_attribute_collection.h"
+
+#include "skb_text_internal.h"
+
 
 skb_text_t* skb_text_create(void)
 {

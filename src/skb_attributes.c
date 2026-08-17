@@ -1,15 +1,15 @@
 ﻿// SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_attributes.h"
-#include "skb_attribute_collection.h"
-#include "skb_common.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "hb.h"
+
+#include "skribidi/skb_attributes.h"
+#include "skribidi/skb_attribute_collection.h"
+#include "skribidi/skb_common.h"
 
 static const char* skb__make_hb_lang(const char* lang)
 {

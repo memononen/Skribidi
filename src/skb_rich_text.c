@@ -5,8 +5,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "skb_common.h"
-#include "skb_rich_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_rich_text.h"
+
 #include "skb_text_internal.h"
 #include "skb_rich_text_internal.h"
 

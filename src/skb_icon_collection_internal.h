@@ -5,8 +5,8 @@
 #define SKB_ICON_COLLECTION_INTERNAL_H
 
 #include <stdint.h>
-#include "skb_canvas.h"
-#include "skb_icon_collection.h"
+#include "skribidi/skb_canvas.h"
+#include "skribidi/skb_icon_collection.h"
 
 typedef enum {
 	SKB_SVG_MOVE_TO,

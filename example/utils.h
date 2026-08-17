@@ -5,9 +5,9 @@
 #define UTILS_H
 
 #include <stdint.h>
-#include "skb_common.h"
-#include "skb_layout.h"
-#include "skb_rasterizer.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_rasterizer.h"
 
 typedef struct view_t {
 	float cx;

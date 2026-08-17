@@ -1,14 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_attribute_collection.h"
-
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "skb_attributes.h"
+#include "skribidi/skb_attribute_collection.h"
+#include "skribidi/skb_attributes.h"
 
 typedef struct skb__attribute_set_t {
 	char* name;

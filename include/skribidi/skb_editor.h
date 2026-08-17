@@ -5,7 +5,7 @@
 #define SKB_EDITOR_H
 
 #include <stdint.h>
-#include "skb_layout.h"
+#include "skribidi/skb_layout.h"
 
 #ifdef __cplusplus
 extern "C" {

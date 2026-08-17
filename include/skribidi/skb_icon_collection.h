@@ -4,8 +4,8 @@
 #ifndef SKB_ICON_COLLECTION_H
 #define SKB_ICON_COLLECTION_H
 
-#include "skb_canvas.h"
-#include "skb_common.h"
+#include "skribidi/skb_canvas.h"
+#include "skribidi/skb_common.h"
 
 #ifdef __cplusplus
 extern "C" {

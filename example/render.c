@@ -5,11 +5,11 @@
 #include <string.h>
 #include <glad/gl.h>
 #include <stdlib.h>
-#include "skb_image_atlas.h"
-#include "skb_rasterizer.h"
-#include "skb_common.h"
-#include "skb_layout.h"
-#include "skb_rich_layout.h"
+#include "skribidi/skb_image_atlas.h"
+#include "skribidi/skb_rasterizer.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_rich_layout.h"
 
 
 typedef struct render__vertex_t {

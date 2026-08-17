@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_layout_cache.h"
-#include "skb_common.h"
-
 #include <string.h>
+
+#include "skribidi/skb_layout_cache.h"
+#include "skribidi/skb_common.h"
+
 
 typedef struct skb__cached_layout_t {
 	skb_layout_t* layout;

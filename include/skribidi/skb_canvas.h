@@ -4,7 +4,7 @@
 #ifndef SKB_CANVAS_H
 #define SKB_CANVAS_H
 
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -14,13 +14,13 @@
 #include "utils.h"
 #include "render.h"
 
-#include "skb_common.h"
-#include "skb_font_collection.h"
-#include "skb_attribute_collection.h"
-#include "skb_rasterizer.h"
-#include "skb_layout.h"
-#include "skb_rich_layout.h"
-#include "skb_rich_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_attribute_collection.h"
+#include "skribidi/skb_rasterizer.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_rich_layout.h"
+#include "skribidi/skb_rich_text.h"
 
 
 typedef struct paragraphs_context_t {

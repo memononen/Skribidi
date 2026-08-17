@@ -1,14 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_editor_rules.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "skb_attribute_collection.h"
-#include "skb_editor.h"
+#include "skribidi/skb_editor_rules.h"
+#include "skribidi/skb_attribute_collection.h"
+#include "skribidi/skb_editor.h"
 
 
 typedef struct skb_editor_rule_set_t {

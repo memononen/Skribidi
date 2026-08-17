@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_layout_cache.h"
+#include "skribidi/skb_layout_cache.h"
 
 static int test_init(void)
 {

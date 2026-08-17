@@ -3,8 +3,8 @@
 
 #include "test_macros.h"
 
-#include "skb_canvas.h"
-#include "skb_common.h"
+#include "skribidi/skb_canvas.h"
+#include "skribidi/skb_common.h"
 
 static int test_init(void)
 {

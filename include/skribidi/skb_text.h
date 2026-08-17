@@ -4,8 +4,8 @@
 #ifndef SKB_TEXT_H
 #define SKB_TEXT_H
 
-#include "skb_common.h"
-#include "skb_attributes.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {

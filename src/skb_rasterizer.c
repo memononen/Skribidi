@@ -1,20 +1,21 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_rasterizer.h"
-
-#include "skb_common.h"
-#include "skb_canvas.h"
-#include "skb_font_collection.h"
-#include "skb_font_collection_internal.h"
-#include "skb_icon_collection.h"
-#include "skb_icon_collection_internal.h"
-
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "hb.h"
+
+#include "skribidi/skb_rasterizer.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_canvas.h"
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_icon_collection.h"
+
+#include "skb_font_collection_internal.h"
+#include "skb_icon_collection_internal.h"
+
 
 typedef struct skb_rasterizer_t {
 	hb_paint_funcs_t* paint_funcs;

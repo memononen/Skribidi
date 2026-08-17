@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_common.h"
-#include "skb_common_internal.h"
 #include "test_macros.h"
+#include "skribidi/skb_common.h"
+#include "skb_common_internal.h"
 
 static int test_add_get(void)
 {

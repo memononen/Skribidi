@@ -13,7 +13,7 @@
 #include "utils.h"
 #include "ime.h"
 
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 
 #if defined( _MSC_VER )
 #include <crtdbg.h>

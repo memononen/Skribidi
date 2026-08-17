@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_image_atlas.h"
+#include "skribidi/skb_image_atlas.h"
 
 static int test_init(void)
 {

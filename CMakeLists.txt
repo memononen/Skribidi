@@ -79,11 +79,6 @@ if(PROJECT_IS_TOP_LEVEL)
 
 	include(GNUInstallDirs)
 
-	install(
-		DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include"
-		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-	)
-
 	if(SKRIBIDI_UNIT_TESTS OR SKRIBIDI_EXAMPLE)
 
 		# Emscripten pthread support for enkiTS

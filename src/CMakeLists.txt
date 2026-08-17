@@ -121,21 +121,21 @@ set(SKRIBIDI_SOURCE_FILES
 )
 
 set(SKRIBIDI_API_FILES
-	../include/skb_attributes.h
-	../include/skb_attribute_collection.h
-	../include/skb_canvas.h
-	../include/skb_common.h
-	../include/skb_editor.h
-	../include/skb_editor_rules.h
-	../include/skb_font_collection.h
-	../include/skb_icon_collection.h
-	../include/skb_image_atlas.h
-	../include/skb_layout.h
-	../include/skb_layout_cache.h
-	../include/skb_rasterizer.h
-	../include/skb_rich_layout.h
-	../include/skb_rich_text.h
-	../include/skb_text.h
+	../include/skribidi/skb_attributes.h
+	../include/skribidi/skb_attribute_collection.h
+	../include/skribidi/skb_canvas.h
+	../include/skribidi/skb_common.h
+	../include/skribidi/skb_editor.h
+	../include/skribidi/skb_editor_rules.h
+	../include/skribidi/skb_font_collection.h
+	../include/skribidi/skb_icon_collection.h
+	../include/skribidi/skb_image_atlas.h
+	../include/skribidi/skb_layout.h
+	../include/skribidi/skb_layout_cache.h
+	../include/skribidi/skb_rasterizer.h
+	../include/skribidi/skb_rich_layout.h
+	../include/skribidi/skb_rich_text.h
+	../include/skribidi/skb_text.h
 )
 
 
@@ -200,6 +200,11 @@ install(
   EXPORT skribidiConfig
   NAMESPACE skribidi::
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/skribidi"
+)
+
+install(
+  FILES ${SKRIBIDI_API_FILES}
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/skribidi
 )
 
 include(CMakePackageConfigHelpers)

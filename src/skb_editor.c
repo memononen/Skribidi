@@ -1,21 +1,20 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_editor.h"
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "hb.h"
 
-#include "skb_layout.h"
-#include "skb_common.h"
-#include "skb_text.h"
+#include "skribidi/skb_editor.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_text.h"
+#include "skribidi/skb_rich_text.h"
+#include "skribidi/skb_rich_layout.h"
+
 #include "skb_text_internal.h"
-#include "skb_rich_text.h"
 #include "skb_rich_text_internal.h"
-#include "skb_rich_layout.h"
 #include "skb_rich_layout_internal.h"
 
 // From skb_layout.c

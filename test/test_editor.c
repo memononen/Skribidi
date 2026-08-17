@@ -3,8 +3,8 @@
 
 #include <string.h>
 #include "test_macros.h"
-#include "skb_editor.h"
-#include "skb_font_collection.h"
+#include "skribidi/skb_editor.h"
+#include "skribidi/skb_font_collection.h"
 
 static int test_init(void)
 {

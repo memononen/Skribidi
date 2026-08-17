@@ -5,10 +5,10 @@
 #define SKB_RICH_LAYOUT_H
 
 #include <stdint.h>
-#include "skb_common.h"
-#include "skb_layout.h"
-#include "skb_text.h"
-#include "skb_rich_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_layout.h"
+#include "skribidi/skb_text.h"
+#include "skribidi/skb_rich_text.h"
 
 #ifdef __cplusplus
 extern "C" {

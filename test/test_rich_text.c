@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Mikko Mononen
 // SPDX-License-Identifier: MIT
 
-#include "skb_rich_text.h"
 #include "test_macros.h"
+#include "skribidi/skb_rich_text.h"
 
 static int test_rich_text_create(void)
 {

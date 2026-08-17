@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_font_collection.h"
-#include "skb_layout.h"
 #include <stdlib.h>
 #include <stdbool.h>
+#include "skribidi/skb_font_collection.h"
+#include "skribidi/skb_layout.h"
 
 static int test_init(void)
 {

@@ -6,9 +6,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "skb_common.h"
-#include "skb_attributes.h"
-#include "skb_text.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_attributes.h"
+#include "skribidi/skb_text.h"
 
 #ifdef __cplusplus
 extern "C" {

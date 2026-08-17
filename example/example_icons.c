@@ -14,8 +14,8 @@
 #include "render.h"
 #include "utils.h"
 
-#include "skb_common.h"
-#include "skb_icon_collection.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_icon_collection.h"
 
 
 typedef struct icons_context_t {

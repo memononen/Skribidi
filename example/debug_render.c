@@ -4,9 +4,9 @@
 #include "debug_render.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include "skb_image_atlas.h"
-#include "skb_common.h"
-#include "skb_layout.h"
+#include "skribidi/skb_image_atlas.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_layout.h"
 
 static skb_vec2_t rot90(skb_vec2_t v)
 {

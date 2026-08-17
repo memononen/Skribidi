@@ -5,8 +5,8 @@
 #define RENDERER_H
 
 #include <stdint.h>
-#include "skb_common.h"
-#include "skb_image_atlas.h"
+#include "skribidi/skb_common.h"
+#include "skribidi/skb_image_atlas.h"
 
 typedef struct render_context_t render_context_t;
 typedef struct skb_image_atlas_t skb_image_atlas_t;

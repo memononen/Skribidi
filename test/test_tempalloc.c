@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 #include "skb_common_internal.h"
 
 static int test_alloc(void)

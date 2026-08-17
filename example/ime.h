@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "skb_common.h"
+#include "skribidi/skb_common.h"
 
 typedef struct GLFWwindow GLFWwindow;
 
